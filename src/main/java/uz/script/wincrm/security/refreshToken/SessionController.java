@@ -28,7 +28,7 @@ public class SessionController {
     private final JwtService jwtService;
 
     @GetMapping("")
-    @PreAuthorize("hasAuthority('SESSION_READ')")
+    @PreAuthorize("hasAuthority('SESSION_VIEW')")
     @Operation(summary = "List sessions", description = "Only users with SESSION_READ permission can use it.")
     @ApiResponse(responseCode = "200",
             content = @Content(
@@ -51,7 +51,7 @@ public class SessionController {
     }
 
     @GetMapping("/summary")
-    @PreAuthorize("hasAuthority('SESSION_READ')")
+    @PreAuthorize("hasAuthority('SESSION_VIEW')")
     @Operation(summary = "Session summary", description = "Only users with SESSION_READ permission can use it.")
     @ApiResponse(responseCode = "200",
             content = @Content(

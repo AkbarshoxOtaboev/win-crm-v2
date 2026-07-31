@@ -60,11 +60,16 @@ public class SaleOrderItemServiceImpl implements SaleOrderItemService {
         log.info("Create sale order item. Goods ID: {}, Warehouse ID: {}, Requested count: {}",
                 dto.getGoodsId(), dto.getWarehouseId(), dto.getCount());
 
-        // ⭐ WAREHOUSE STOCK VALIDATION - MUHIM!
-        validateAndCheckStock(dto.getWarehouseId(), dto.getGoodsId(), dto.getCount());
-
         Goods goods = goodsRepository.findById(dto.getGoodsId())
                 .orElseThrow(() -> new ResourceNotFoundException("Goods not found with id: " + dto.getGoodsId()));
+
+        // ⭐ SERVICE turidagi Goods uchun ombor (Stock) hisob-kitobi yuritilmaydi
+        boolean isService = goods.getType() == Type.SERVICE;
+
+        // ⭐ WAREHOUSE STOCK VALIDATION - MUHIM! (faqat PRODUCT/WINDOW uchun)
+        if (!isService) {
+            validateAndCheckStock(dto.getWarehouseId(), dto.getGoodsId(), dto.getCount());
+        }
 
         Warehouse warehouse = warehouseRepository.findById(dto.getWarehouseId())
                 .orElseThrow(() -> new ResourceNotFoundException("Warehouse not found with id: " + dto.getWarehouseId()));
@@ -85,8 +90,13 @@ public class SaleOrderItemServiceImpl implements SaleOrderItemService {
         entity.setStatus(Status.ACTIVE);
 
         entity = repository.save(entity);
+
         // Ombordan mahsulot sotildi -> Stockdan chiqim qilamiz (Stock + StockHistory OUT avtomatik)
-        stockService.decreaseStock(dto.getGoodsId(), dto.getWarehouseId(), dto.getCount());
+        // SERVICE turidagi Goods uchun bu qadam o'tkazib yuboriladi
+        if (!isService) {
+            stockService.decreaseStock(dto.getGoodsId(), dto.getWarehouseId(), dto.getCount());
+        }
+
         log.info("Sale order item created successfully. ID: {}", entity.getId());
 
         return mapper.toResponse(entity);
@@ -188,9 +198,13 @@ public class SaleOrderItemServiceImpl implements SaleOrderItemService {
         Long goodsId = entity.getGoods().getId();
         Long warehouseId = entity.getWarehouse().getId();
 
+        // ⭐ SERVICE turidagi Goods uchun ombor (Stock) hisob-kitobi yuritilmaydi
+        boolean isService = entity.getGoods().getType() == Type.SERVICE;
+
         // Count o'zgargansa: avval eski miqdorni Stockga qaytaramiz,
         // shundagina Stock haqiqiy (bo'sh) holatni ko'rsatadi va validatsiya to'g'ri ishlaydi
-        if (!oldCount.equals(dto.getCount())) {
+        // SERVICE uchun bu blok butunlay o'tkazib yuboriladi
+        if (!isService && !oldCount.equals(dto.getCount())) {
             log.info("Count changed from {} to {}. Returning old count to stock before validating...",
                     oldCount, dto.getCount());
 
@@ -204,12 +218,14 @@ public class SaleOrderItemServiceImpl implements SaleOrderItemService {
         entity = repository.save(entity);
 
         // Count o'zgargan bo'lsa, yangi miqdorni Stockdan qayta chiqim qilamiz
-        if (!oldCount.equals(dto.getCount())) {
+        // SERVICE uchun bu qadam o'tkazib yuboriladi
+        if (!isService && !oldCount.equals(dto.getCount())) {
             stockService.decreaseStock(goodsId, warehouseId, dto.getCount());
         }
 
         return mapper.toResponse(entity);
     }
+
     @Override
     @Auditable(
             action = AuditAction.DELETE,
@@ -218,7 +234,6 @@ public class SaleOrderItemServiceImpl implements SaleOrderItemService {
 //    @CacheEvict(value = {"saleOrderItems", "saleOrderItem"}, allEntries = true)
     public void delete(Long id) {
         log.info("Delete sale order item with id {}", id);
-
 
         SaleOrderItem entity = repository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Sale order item not found with id: " + id));
@@ -232,6 +247,9 @@ public class SaleOrderItemServiceImpl implements SaleOrderItemService {
      * ⭐ WAREHOUSE STOCK VALIDATION METODI ⭐
      * Bu metod warehouse'dagi mahsulot stokunni tekshiradi
      * Agar warehouse'da 10 bor leki client 12 ta kirgizmonga harakat qilsa - XATOLIK!
+     *
+     * Eslatma: SERVICE turidagi Goods uchun bu metod chaqirilmaydi (create/update
+     * metodlarida isService flag orqali oldindan filtr qilinadi).
      *
      * @throws InsufficientStockException agar stock yetarli bo'lmasa
      */
@@ -312,6 +330,5 @@ public class SaleOrderItemServiceImpl implements SaleOrderItemService {
             );
         }
     }
-
 
 }
