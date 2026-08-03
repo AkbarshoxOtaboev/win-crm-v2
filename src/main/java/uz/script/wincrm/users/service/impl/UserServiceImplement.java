@@ -1,12 +1,8 @@
-package uz.script.wincrm.users;
+package uz.script.wincrm.users.service.impl;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cache.annotation.Caching;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import uz.script.wincrm.audit.AuditAction;
@@ -20,6 +16,12 @@ import uz.script.wincrm.roles.RoleRepository;
 import uz.script.wincrm.roles.RoleResponse;
 import uz.script.wincrm.sale.repository.SaleOrderRepository;
 import uz.script.wincrm.storage.StorageService;
+import uz.script.wincrm.users.*;
+import uz.script.wincrm.users.dto.UserDTO;
+import uz.script.wincrm.users.repository.UserRepository;
+import uz.script.wincrm.users.response.UserResponse;
+import uz.script.wincrm.users.response.UserStatResponse;
+import uz.script.wincrm.users.service.UserService;
 import uz.script.wincrm.utils.Status;
 
 import java.math.BigDecimal;

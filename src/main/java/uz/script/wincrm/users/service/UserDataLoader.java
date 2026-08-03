@@ -1,4 +1,4 @@
-package uz.script.wincrm.users;
+package uz.script.wincrm.users.service;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
@@ -7,6 +7,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import uz.script.wincrm.roles.Role;
 import uz.script.wincrm.roles.RoleRepository;
+import uz.script.wincrm.users.User;
+import uz.script.wincrm.users.repository.UserRepository;
 import uz.script.wincrm.utils.Status;
 
 import java.util.Set;

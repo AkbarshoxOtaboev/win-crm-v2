@@ -31,7 +31,7 @@ import uz.script.wincrm.sale.service.SaleOrderDiscountHistoryRecorder;
 import uz.script.wincrm.sale.service.SaleOrderHistoryService;
 import uz.script.wincrm.sale.service.SaleOrderService;
 import uz.script.wincrm.users.User;
-import uz.script.wincrm.users.UserRepository;
+import uz.script.wincrm.users.repository.UserRepository;
 import uz.script.wincrm.utils.Status;
 import uz.script.wincrm.warehouse.Warehouse;
 import uz.script.wincrm.warehouse.repository.WarehouseRepository;

@@ -25,7 +25,7 @@ import uz.script.wincrm.payment.service.PaymentService;
 import uz.script.wincrm.sale.SaleOrder;
 import uz.script.wincrm.sale.repository.SaleOrderRepository;
 import uz.script.wincrm.users.User;
-import uz.script.wincrm.users.UserRepository;
+import uz.script.wincrm.users.repository.UserRepository;
 import uz.script.wincrm.utils.Status;
 
 import java.math.BigDecimal;

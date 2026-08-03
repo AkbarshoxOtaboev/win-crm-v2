@@ -15,7 +15,7 @@ import uz.script.wincrm.sale.repository.SaleOrderRepository;
 import uz.script.wincrm.sale.response.SaleOrderHistoryResponse;
 import uz.script.wincrm.sale.service.SaleOrderHistoryService;
 import uz.script.wincrm.users.User;
-import uz.script.wincrm.users.UserRepository;
+import uz.script.wincrm.users.repository.UserRepository;
 
 import java.util.List;
 

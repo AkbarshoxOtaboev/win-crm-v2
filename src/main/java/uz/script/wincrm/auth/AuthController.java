@@ -29,7 +29,7 @@ import uz.script.wincrm.security.jwt.JwtService;
 import uz.script.wincrm.security.refreshToken.RefreshToken;
 import uz.script.wincrm.security.refreshToken.SessionService;
 import uz.script.wincrm.users.User;
-import uz.script.wincrm.users.UserRepository;
+import uz.script.wincrm.users.repository.UserRepository;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;

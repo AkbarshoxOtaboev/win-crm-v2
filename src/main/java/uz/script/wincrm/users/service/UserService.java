@@ -1,4 +1,8 @@
-package uz.script.wincrm.users;
+package uz.script.wincrm.users.service;
+
+import uz.script.wincrm.users.dto.UserDTO;
+import uz.script.wincrm.users.response.UserResponse;
+import uz.script.wincrm.users.response.UserStatResponse;
 
 import java.util.List;
 
