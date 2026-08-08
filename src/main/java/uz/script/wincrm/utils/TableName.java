@@ -32,6 +32,8 @@ public interface TableName {
     String PAYMENT_TYPES = "payment_types";
     String PAYMENTS = "payments";
     String PAYMENT_HISTORIES = "payment_histories";
+    String SALARY_CONFIGS = "salary_configs";
+    String SALARY_TRANSACTIONS = "salary_transactions";
     String EXPENSE = "expenses";
     String EXPENSE_CATEGORY = "expense_categories";
     String COMPANY_DETAIL = "company_detail";

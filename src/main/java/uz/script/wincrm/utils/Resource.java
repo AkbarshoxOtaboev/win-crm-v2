@@ -30,5 +30,8 @@ public enum Resource {
     DEBT_NOTIFICATION,
     DASHBOARD,
     BOT_SETTINGS,
-    SESSION
+    SESSION,
+    SALARY_CONFIG,
+    SALARY_TRANSACTION,
+    SALARY_SLIP,
 }

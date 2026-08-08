@@ -22,6 +22,7 @@ import uz.script.wincrm.payment.repository.PaymentRepository;
 import uz.script.wincrm.payment.repository.PaymentTypeRepository;
 import uz.script.wincrm.payment.response.PaymentResponse;
 import uz.script.wincrm.payment.service.PaymentService;
+import uz.script.wincrm.salary.service.SalaryCommissionService;
 import uz.script.wincrm.sale.SaleOrder;
 import uz.script.wincrm.sale.repository.SaleOrderRepository;
 import uz.script.wincrm.users.User;
@@ -45,6 +46,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final ClientRepository clientRepository;
     private final UserRepository userRepository;
     private final ClientBalanceService clientBalanceService;
+    private final SalaryCommissionService salaryCommissionService;
 
     @Override
     @Auditable(
@@ -241,5 +243,8 @@ public class PaymentServiceImpl implements PaymentService {
         saleOrder.setDebtSum(debtSum);
 
         saleOrderRepository.save(saleOrder);
+
+        // >>> QO'SHILADI: komissiyani qayta hisoblash (single source of truth)
+        salaryCommissionService.recalculateCommissionForSaleOrder(saleOrder);
     }
 }

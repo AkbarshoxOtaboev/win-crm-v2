@@ -31,7 +31,7 @@ spring:
       port: 6379
 
 server:
-  port: 8080
+  port: 8081
 
 jwt:
   secret: a9y5iQqQzM+4YVQK8k8Yk7O2lP4W5uV4vW8l4gFhY8Lw7T3z4eJvL5rQkP2M7hGx
