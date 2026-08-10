@@ -22,8 +22,11 @@ spring:
     properties:
       hibernate:
         format_sql: true
+        jdbc:
+          lob:
+            non_contextual_creation: true
     database: postgresql
-    open-in-view: true
+    open-in-view: false
 
   data:
     redis:
@@ -32,13 +35,22 @@ spring:
 
 server:
   port: 8081
+  forward-headers-strategy: framework
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
 
 jwt:
   secret: a9y5iQqQzM+4YVQK8k8Yk7O2lP4W5uV4vW8l4gFhY8Lw7T3z4eJvL5rQkP2M7hGx
   access-expiration-ms: 1800000        # 30 daqiqa
-  refresh-expiration-ms: 604800000    # 7 kun
+  refresh-expiration-ms: 604800000     # 7 kun
+
 file:
   upload-dir: /var/wincrm/uploads
+
 eskiz:
   base-url: https://notify.eskiz.uz/api
   from: ABATSTEKLO
