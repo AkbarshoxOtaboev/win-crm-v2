@@ -26,6 +26,7 @@ public interface TableName {
     String SALE_ORDER_HISTORY = "sale_order_history";
     String SALE_ORDER_DISCOUNT_HISTORY = "sale_order_discount_history";
     String SALE_ORDER_WASTES = "sale_order_wastes";
+    String SALE_ORDER_IMAGES = "sale_order_images";
     String STOCKS = "stocks";
     String STOCK_HISTORIES = "stock_histories";
     String STOCK_TRANSFERS = "stock_transfers";

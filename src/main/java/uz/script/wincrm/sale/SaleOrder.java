@@ -122,4 +122,7 @@ public class SaleOrder extends BaseEntity {
 
     @OneToMany(mappedBy = "saleOrder")
     private List<Payment> payments;
+
+    @OneToMany(mappedBy = "saleOrder")
+    private List<SaleOrderImage> saleOrderImages;
 }
