@@ -63,6 +63,11 @@ public class SaleOrderItemServiceImpl implements SaleOrderItemService {
         Goods goods = goodsRepository.findById(dto.getGoodsId())
                 .orElseThrow(() -> new ResourceNotFoundException("Goods not found with id: " + dto.getGoodsId()));
 
+        // ⭐ WINDOW (Oyna) turi uchun count = width * height (kv.m) qilib hisoblanadi.
+        //    Hisoblangan qiymat dto.count ga yoziladi, shundan keyin stock validatsiya,
+        //    mapper va stock chiqimi shu qiymat bilan avtomatik to'g'ri ishlaydi.
+        dto.setCount(resolveCount(goods, dto.getWidth(), dto.getHeight(), dto.getCount()));
+
         // ⭐ SERVICE turidagi Goods uchun ombor (Stock) hisob-kitobi yuritilmaydi
         boolean isService = goods.getType() == Type.SERVICE;
 
@@ -194,6 +199,16 @@ public class SaleOrderItemServiceImpl implements SaleOrderItemService {
         SaleOrderItem entity = repository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Sale order item not found with id: " + id));
         validateSaleOrderStatus(entity.getSaleOrder());
+
+        // ⭐ WINDOW (Oyna) turi uchun count = width * height dan qayta hisoblanadi.
+        //    Update partial bo'lgani uchun yangi qiymat kelmasa, entity'dagi eski qiymat olinadi.
+        //    Bu blok oldCount tekshiruvidan OLDIN turishi shart, aks holda stock noto'g'ri hisoblanadi.
+        if (entity.getGoods().getType() == Type.WINDOW) {
+            BigDecimal width  = dto.getWidth()  != null ? dto.getWidth()  : entity.getWidth();
+            BigDecimal height = dto.getHeight() != null ? dto.getHeight() : entity.getHeight();
+            dto.setCount(resolveCount(entity.getGoods(), width, height, dto.getCount()));
+        }
+
         BigDecimal oldCount = entity.getCount();
         Long goodsId = entity.getGoods().getId();
         Long warehouseId = entity.getWarehouse().getId();
@@ -241,6 +256,27 @@ public class SaleOrderItemServiceImpl implements SaleOrderItemService {
         validateSaleOrderStatus(entity.getSaleOrder());
         entity.setStatus(Status.DELETED);
         repository.save(entity);
+    }
+
+    /**
+     * ⭐ WINDOW (Oyna) turi uchun count'ni width * height (kv.m) sifatida hisoblaydi.
+     * Boshqa turlar (PRODUCT / SERVICE) uchun DTO'da kelgan count o'zgarishsiz qaytariladi.
+     *
+     * @throws BadRequestException agar WINDOW uchun width/height berilmagan yoki noldan kichik bo'lsa
+     */
+    private BigDecimal resolveCount(Goods goods, BigDecimal width, BigDecimal height, BigDecimal dtoCount) {
+        if (goods.getType() != Type.WINDOW) {
+            return dtoCount;
+        }
+        if (width == null || height == null) {
+            throw new BadRequestException("Oyna (WINDOW) uchun width va height majburiy!");
+        }
+        if (width.compareTo(BigDecimal.ZERO) <= 0 || height.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BadRequestException("width va height noldan katta bo'lishi kerak!");
+        }
+        BigDecimal computed = width.multiply(height);
+        log.info("WINDOW count computed: width={} * height={} = {}", width, height, computed);
+        return computed;
     }
 
     /**
