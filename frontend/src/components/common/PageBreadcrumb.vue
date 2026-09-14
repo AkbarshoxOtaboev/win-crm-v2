@@ -1,6 +1,6 @@
 <template>
-  <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
-    <h2 class="text-xl font-semibold text-gray-800 dark:text-white/90" x-text="pageTitle">
+  <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+    <h2 class="text-xl font-semibold text-gray-800 dark:text-white/90">
       {{ pageTitle }}
     </h2>
     <nav>
@@ -10,7 +10,7 @@
             class="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400"
             to="/"
           >
-            Home
+            {{ t('nav.home') }}
             <svg
               class="stroke-current"
               width="17"
@@ -38,11 +38,8 @@
 </template>
 
 <script setup lang="ts">
-import { defineProps } from 'vue'
+import { useI18n } from 'vue-i18n'
 
-interface BreadcrumbProps {
-  pageTitle: string
-}
-
-defineProps<BreadcrumbProps>()
+defineProps<{ pageTitle: string }>()
+const { t } = useI18n()
 </script>

@@ -33,6 +33,7 @@
     "temporal-polyfill": "^1.0.4",
     "vue": "^3.5.26",
     "vue-flatpickr-component": "^11.0.5",
+    "vue-i18n": "^11.4.10",
     "vue-router": "^4.6.4",
     "vue3-apexcharts": "^1.11.1",
     "vuedraggable": "^4.1.0",

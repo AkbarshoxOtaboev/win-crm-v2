@@ -256,6 +256,16 @@ layer(base);
   @apply bg-success-100 dark:bg-success-500/20;
 }
 
+/* Scoped .th { text-align:left } overrides Tailwind text-right — keep Amallar right-aligned */
+.th.text-right,
+th.text-right {
+  text-align: right !important;
+}
+.td.text-right,
+td.text-right {
+  text-align: right !important;
+}
+
 @utility menu-dropdown-badge-inactive {
   @apply bg-success-50 group-hover:bg-success-100 dark:bg-success-500/15 dark:group-hover:bg-success-500/20;
 }
@@ -1388,6 +1398,16 @@ pre code,
   direction: ltr !important;
   text-align: left !important;
   unicode-bidi: isolate;
+}
+
+/* Scoped .th { text-align:left } overrides Tailwind text-right — keep Amallar right-aligned */
+.th.text-right,
+th.text-right {
+  text-align: right !important;
+}
+.td.text-right,
+td.text-right {
+  text-align: right !important;
 }
 
 

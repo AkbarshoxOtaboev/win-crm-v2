@@ -43,6 +43,7 @@ public class WarehouseOrderMapper {
                 .comment(order.getComment())
                 .arrivalDate(order.getArrivalDate())
                 .totalSum(order.getTotalSum())
+                .orderStatus(order.getOrderStatus())
                 .status(order.getStatus())
                 .createdAt(order.getCreatedAt())
                 .updatedAt(order.getUpdatedAt())

@@ -50,3 +50,39 @@ export function createStockTransfer(payload: StockTransferPayload) {
     body: payload,
   })
 }
+
+export function fetchStocksByWarehouse(warehouseId: number) {
+  return apiRequest<RestApiResponse<Stock[]>>(`/api/stocks/by-warehouse/${warehouseId}`)
+}
+
+export function fetchStocksByGoods(goodsId: number) {
+  return apiRequest<RestApiResponse<Stock[]>>(`/api/stocks/by-goods/${goodsId}`)
+}
+
+export interface StockHistory {
+  id: number
+  goodsId?: number
+  goodsName?: string
+  warehouseId?: number
+  warehouseName?: string
+  count?: number
+  type?: string
+  movementType?: string
+  comment?: string
+  createdAt?: string
+  createdUsername?: string
+}
+
+export function fetchStockHistories() {
+  return apiRequest<RestApiResponse<StockHistory[]>>('/api/stock-histories')
+}
+
+export function fetchStockHistoriesByWarehouse(warehouseId: number) {
+  return apiRequest<RestApiResponse<StockHistory[]>>(
+    `/api/stock-histories/by-warehouse/${warehouseId}`,
+  )
+}
+
+export function fetchStockHistoriesByGoods(goodsId: number) {
+  return apiRequest<RestApiResponse<StockHistory[]>>(`/api/stock-histories/by-goods/${goodsId}`)
+}

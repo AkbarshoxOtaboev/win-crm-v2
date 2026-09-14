@@ -38,4 +38,9 @@ public interface UnitTypeService {
      * Pagination
      */
     Page<UnitTypeResponse> getAll(Pageable pageable);
+
+    /**
+     * Active / Disabled toggle
+     */
+    UnitTypeResponse changeStatus(Long id);
 }

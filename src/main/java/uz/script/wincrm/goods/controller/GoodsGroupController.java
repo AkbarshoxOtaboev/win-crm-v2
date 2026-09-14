@@ -142,4 +142,11 @@ public class GoodsGroupController {
 
         return ResponseEntity.ok(service.getAll(pageable));
     }
+
+    @Operation(summary = "Toggle Goods Group status (ACTIVE / DISABLED)")
+    @PutMapping("/{id}/change-status")
+    @PreAuthorize("hasAuthority('GOODS_GROUP_EDIT')")
+    public ResponseEntity<GoodsGroupResponse> changeStatus(@PathVariable Long id) {
+        return ResponseEntity.ok(service.changeStatus(id));
+    }
 }

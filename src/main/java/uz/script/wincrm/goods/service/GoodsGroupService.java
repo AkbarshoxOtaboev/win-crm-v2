@@ -21,4 +21,6 @@ public interface GoodsGroupService {
 
     Page<GoodsGroupResponse> getAll(Pageable pageable);
 
+    GoodsGroupResponse changeStatus(Long id);
+
 }

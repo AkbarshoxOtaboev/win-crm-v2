@@ -2,7 +2,6 @@ package uz.script.wincrm.suppliers.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
@@ -20,18 +19,12 @@ public class SupplierDTO {
 
 
     @NotBlank(message = "Phone is required")
-    @Pattern(
-            regexp = "^\\+?[0-9]{9,15}$",
-            message = "Phone number is invalid"
-    )
-    @Schema(description = "Phone number", example = "+998901234567")
+    @Size(max = 32, message = "Phone number must not exceed 32 characters")
+    @Schema(description = "Phone number", example = "+998-(97)-221-88-96")
     private String phone;
 
-    @Pattern(
-            regexp = "^$|^\\+?[0-9]{9,15}$",
-            message = "Additional phone number is invalid"
-    )
-    @Schema(description = "Additional phone")
+    @Size(max = 32, message = "Additional phone number must not exceed 32 characters")
+    @Schema(description = "Additional phone", example = "+998-(97)-221-88-96")
     private String additionalPhone;
 
 

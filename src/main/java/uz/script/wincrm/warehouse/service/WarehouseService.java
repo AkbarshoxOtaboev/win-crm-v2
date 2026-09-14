@@ -12,4 +12,5 @@ public interface WarehouseService {
     List<WarehouseResponse> fetchAllWarehouses();
     WarehouseResponse update(Long id, WarehouseDTO dto);
     void delete(Long id);
+    WarehouseResponse changeStatus(Long id);
 }

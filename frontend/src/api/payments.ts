@@ -70,3 +70,28 @@ export function createPaymentType(name: string) {
     body: { name },
   })
 }
+
+export function updatePaymentType(id: number, name: string) {
+  return apiRequest<RestApiResponse<PaymentType>>(`/api/payment-types/update/${id}`, {
+    method: 'PUT',
+    body: { name },
+  })
+}
+
+export function deletePaymentType(id: number) {
+  return apiRequest<RestApiResponse<null>>(`/api/payment-types/delete/${id}`, {
+    method: 'DELETE',
+  })
+}
+
+export function fetchPaymentsByClient(clientId: number, page = 0, size = 50) {
+  return apiRequest<RestApiResponse<PageResponse<Payment>>>(
+    `/api/payments/client/${clientId}?page=${page}&size=${size}`,
+  )
+}
+
+export function fetchPaymentsBySaleOrder(saleOrderId: number, page = 0, size = 50) {
+  return apiRequest<RestApiResponse<PageResponse<Payment>>>(
+    `/api/payments/sale-order/${saleOrderId}?page=${page}&size=${size}`,
+  )
+}

@@ -127,4 +127,19 @@ public class UnitTypeServiceImpl implements UnitTypeService {
                 .map(mapper::toResponse);
     }
 
+    @Override
+    public UnitTypeResponse changeStatus(Long id) {
+        UnitType entity = repository.findById(id)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Unit Type not found with id: " + id));
+
+        if (entity.getStatus() == Status.ACTIVE) {
+            entity.setStatus(Status.DISABLED);
+        } else {
+            entity.setStatus(Status.ACTIVE);
+        }
+
+        return mapper.toResponse(repository.save(entity));
+    }
+
 }

@@ -33,3 +33,9 @@ export function deleteWarehouse(id: number) {
     method: 'DELETE',
   })
 }
+
+export function changeWarehouseStatus(id: number) {
+  return apiRequest<RestApiResponse<Warehouse>>(`/api/warehouses/${id}/change-status`, {
+    method: 'PUT',
+  })
+}

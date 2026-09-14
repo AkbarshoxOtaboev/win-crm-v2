@@ -28,18 +28,18 @@ public class ClientDTO {
     private String inn;
 
     @NotBlank(message = "Phone number is required")
-    @Size(max = 20, message = "Phone number must not exceed 20 characters")
+    @Size(max = 32, message = "Phone number must not exceed 32 characters")
     @Schema(
             description = "Primary phone number",
-            example = "+998901234567",
+            example = "+998-(90)-123-45-67",
             requiredMode = Schema.RequiredMode.REQUIRED
     )
     private String phone;
 
-    @Size(max = 20, message = "Additional phone number must not exceed 20 characters")
+    @Size(max = 32, message = "Additional phone number must not exceed 32 characters")
     @Schema(
             description = "Additional phone number",
-            example = "+998911234567",
+            example = "+998-(91)-123-45-67",
             requiredMode = Schema.RequiredMode.NOT_REQUIRED
     )
     private String additionalPhone;

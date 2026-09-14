@@ -27,10 +27,10 @@ public class Supplier extends BaseEntity {
     @Column(length = 20, unique = true)
     private String inn;
 
-    @Column(nullable = false, length = 20, unique = true)
+    @Column(nullable = false, length = 32, unique = true)
     private String phone;
 
-    @Column(length = 20)
+    @Column(length = 32)
     private String additionalPhone;
 
     @Column(columnDefinition = "TEXT")

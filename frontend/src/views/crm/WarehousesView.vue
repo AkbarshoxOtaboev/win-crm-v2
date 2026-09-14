@@ -3,10 +3,7 @@
     <PageBreadcrumb pageTitle="Omborlar" />
     <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
       <div class="flex flex-col gap-3 border-b border-gray-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-gray-800">
-        <div>
-          <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Omborlar</h3>
-          <p class="text-sm text-gray-500 dark:text-gray-400">Omborlar CRUD</p>
-        </div>
+        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Omborlar</h3>
         <div class="flex gap-2">
           <input v-model="search" type="search" placeholder="Qidiruv..." class="field sm:w-56" />
           <button type="button" class="btn" @click="openCreate">+ Yangi ombor</button>
@@ -20,16 +17,36 @@
               <th class="th">#</th>
               <th class="th">Nomi</th>
               <th class="th">Status</th>
+              <th class="th">Yoqish / o‘chirish</th>
               <th class="th text-right">Amallar</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-if="loading"><td colspan="4" class="empty">Yuklanmoqda...</td></tr>
-            <tr v-else-if="filtered.length === 0"><td colspan="4" class="empty">Ombor yo‘q</td></tr>
+            <tr v-if="loading"><td colspan="5" class="empty">Yuklanmoqda...</td></tr>
+            <tr v-else-if="filtered.length === 0"><td colspan="5" class="empty">Ombor yo‘q</td></tr>
             <tr v-for="w in filtered" :key="w.id" class="border-b border-gray-100 dark:border-gray-800">
               <td class="td">{{ w.id }}</td>
               <td class="td font-medium text-gray-800 dark:text-white/90">{{ w.name }}</td>
-              <td class="td">{{ w.status || 'ACTIVE' }}</td>
+              <td class="td">
+                <span
+                  class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium"
+                  :class="isActiveStatus(w.status) ? 'bg-success-50 text-success-600' : 'bg-gray-100 text-gray-500'"
+                >
+                  {{ isActiveStatus(w.status) ? 'Active' : 'No active' }}
+                </span>
+              </td>
+              <td class="td">
+                <button
+                  type="button"
+                  class="status-toggle"
+                  :class="isActiveStatus(w.status) ? 'on' : 'off'"
+                  :aria-pressed="isActiveStatus(w.status)"
+                  :title="isActiveStatus(w.status) ? 'O‘chirish' : 'Yoqish'"
+                  @click="onStatus(w)"
+                >
+                  <span class="status-knob" />
+                </button>
+              </td>
               <td class="td text-right">
                 <RowActions @edit="openEdit(w)" @delete="onDelete(w)" />
               </td>
@@ -66,6 +83,7 @@ import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import RowActions from '@/components/crm/RowActions.vue'
 import {
+  changeWarehouseStatus,
   createWarehouse,
   deleteWarehouse,
   fetchWarehouses,
@@ -84,10 +102,15 @@ const modalOpen = ref(false)
 const editingId = ref<number | null>(null)
 const name = ref('')
 
+function isActiveStatus(status?: string) {
+  return !status || status === 'ACTIVE'
+}
+
 const filtered = computed(() => {
   const q = search.value.trim().toLowerCase()
-  if (!q) return items.value
-  return items.value.filter((w) => w.name.toLowerCase().includes(q))
+  return [...items.value]
+    .filter((w) => !q || w.name.toLowerCase().includes(q))
+    .sort((a, b) => Number(a.id) - Number(b.id))
 })
 
 async function load() {
@@ -142,6 +165,15 @@ async function onDelete(w: Warehouse) {
   }
 }
 
+async function onStatus(w: Warehouse) {
+  try {
+    await changeWarehouseStatus(w.id)
+    await load()
+  } catch (e) {
+    error.value = e instanceof ApiError ? e.message : 'Statusni o‘zgartirishda xatolik'
+  }
+}
+
 onMounted(load)
 </script>
 
@@ -152,4 +184,31 @@ onMounted(load)
 .field { height: 2.5rem; width: 100%; border-radius: 0.5rem; border: 1px solid #d1d5db; background: transparent; padding: 0 0.75rem; font-size: 0.875rem; }
 .btn { display: inline-flex; height: 2.5rem; align-items: center; justify-content: center; border-radius: 0.5rem; background: #465fff; padding: 0 1rem; font-size: 0.875rem; font-weight: 500; color: #fff; }
 .err { border-radius: 0.5rem; border: 1px solid #fecaca; background: #fef2f2; padding: 0.75rem 1rem; font-size: 0.875rem; color: #dc2626; }
+.status-toggle {
+  position: relative;
+  display: inline-flex;
+  height: 1.5rem;
+  width: 2.75rem;
+  align-items: center;
+  border-radius: 9999px;
+  transition: background 0.15s ease;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+.status-toggle.on { background: #12b76a; }
+.status-toggle.off { background: #d1d5db; }
+.status-knob {
+  position: absolute;
+  left: 0.15rem;
+  height: 1.2rem;
+  width: 1.2rem;
+  border-radius: 9999px;
+  background: #fff;
+  transition: transform 0.15s ease;
+  box-shadow: 0 1px 2px rgba(0,0,0,.15);
+}
+.status-toggle.off .status-knob { transform: translateX(0); }
+.status-toggle.on .status-knob { transform: translateX(1.25rem); }
+:global(.dark) .status-toggle.off { background: #4b5563; }
 </style>

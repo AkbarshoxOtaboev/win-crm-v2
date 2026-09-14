@@ -110,4 +110,19 @@ public class GoodsGroupServiceImpl implements GoodsGroupService {
                 .map(mapper::toResponse);
     }
 
+    @Override
+    public GoodsGroupResponse changeStatus(Long id) {
+        GoodsGroup entity = repository.findById(id)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Goods Group not found with id: " + id));
+
+        if (entity.getStatus() == Status.ACTIVE) {
+            entity.setStatus(Status.DISABLED);
+        } else {
+            entity.setStatus(Status.ACTIVE);
+        }
+
+        return mapper.toResponse(repository.save(entity));
+    }
+
 }

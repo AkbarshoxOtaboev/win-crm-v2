@@ -145,7 +145,7 @@
                       (isExpanded || isHovered || isMobileOpen)
                     "
                   >
-                    <ul class="mt-2 space-y-1 ms-9">
+                    <ul class="mt-2 space-y-1 ms-4">
                       <li v-for="subItem in item.subItems" :key="subItem.name">
                         <router-link
                           :to="subItem.path"
@@ -153,15 +153,22 @@
                             'menu-dropdown-item',
                             {
                               'menu-dropdown-item-active': isActive(
-                                subItem.path
+                                subItem.path,
+                                subItem.exact
                               ),
                               'menu-dropdown-item-inactive': !isActive(
-                                subItem.path
+                                subItem.path,
+                                subItem.exact
                               ),
                             },
                           ]"
                         >
-                          {{ subItem.name }}
+                          <component
+                            :is="subItem.icon"
+                            v-if="subItem.icon"
+                            class="h-4 w-4 shrink-0"
+                          />
+                          <span class="truncate">{{ subItem.name }}</span>
                           <span class="flex items-center gap-1 ms-auto">
                             <span
                               v-if="subItem.new"
@@ -169,10 +176,12 @@
                                 'menu-dropdown-badge',
                                 {
                                   'menu-dropdown-badge-active': isActive(
-                                    subItem.path
+                                    subItem.path,
+                                    subItem.exact
                                   ),
                                   'menu-dropdown-badge-inactive': !isActive(
-                                    subItem.path
+                                    subItem.path,
+                                    subItem.exact
                                   ),
                                 },
                               ]"
@@ -185,10 +194,12 @@
                                 'menu-dropdown-badge',
                                 {
                                   'menu-dropdown-badge-active': isActive(
-                                    subItem.path
+                                    subItem.path,
+                                    subItem.exact
                                   ),
                                   'menu-dropdown-badge-inactive': !isActive(
-                                    subItem.path
+                                    subItem.path,
+                                    subItem.exact
                                   ),
                                 },
                               ]"
@@ -212,27 +223,43 @@
 </template>
 
 <script setup lang="ts">
-import { watch } from 'vue'
+import { computed, watch, type Component } from 'vue'
 import { useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
+import {
+  ArrowLeftRight,
+  BarChart3,
+  Box,
+  ClipboardList,
+  Files,
+  Folder,
+  History,
+  List,
+  Package,
+  Plug,
+  Send,
+  Settings,
+  Shield,
+  ShieldCheck,
+  UserCircle,
+} from 'lucide-vue-next'
 
 import { useSidebar } from '@/composables/useSidebar'
 import {
   BoxIcon,
   ChevronDownIcon,
   DocsIcon,
-  FolderIcon,
-  GridIcon,
+  HomeIcon,
   HorizontalDots,
-  ListIcon,
   PieChartIcon,
   SettingsIcon,
-  TableIcon,
   TaskIcon,
   UserCircleIcon,
   UserGroupIcon,
 } from '@/icons'
 import SidebarWidget from './SidebarWidget.vue'
 
+const { t } = useI18n()
 const route = useRoute()
 
 const { isExpanded, isMobileOpen, isHovered, openSubmenu } = useSidebar()
@@ -240,12 +267,14 @@ const { isExpanded, isMobileOpen, isHovered, openSubmenu } = useSidebar()
 interface SubItem {
   name: string
   path: string
+  icon?: Component
+  exact?: boolean
   pro?: boolean
   new?: boolean
 }
 
 interface MenuItem {
-  icon?: any
+  icon?: Component
   name: string
   path?: string
   subItems?: SubItem[]
@@ -258,97 +287,80 @@ interface MenuGroup {
   items: MenuItem[]
 }
 
-const menuGroups: MenuGroup[] = [
+const menuGroups = computed<MenuGroup[]>(() => [
   {
-    title: 'Asosiy',
+    title: t('nav.main'),
     items: [
+      { icon: HomeIcon, name: t('nav.home'), path: '/' },
+      { icon: UserGroupIcon, name: t('nav.clients'), path: '/clients' },
+      { icon: BoxIcon, name: t('nav.goods'), path: '/goods' },
       {
-        icon: GridIcon,
-        name: 'Dashboard',
-        path: '/',
+        icon: Package,
+        name: t('nav.warehouseMenu'),
+        subItems: [
+          { name: t('nav.inbound'), path: '/warehouse-orders', icon: ClipboardList },
+          { name: t('nav.stock'), path: '/stock', icon: Box, exact: true },
+          { name: t('nav.stockHistory'), path: '/stock/history', icon: History },
+          { name: t('nav.inventory'), path: '/inventory', icon: Files },
+          { name: t('nav.transfers'), path: '/stock/transfers', icon: ArrowLeftRight },
+          { name: t('nav.warehouses'), path: '/warehouses', icon: Package },
+        ],
       },
-      {
-        icon: UserGroupIcon,
-        name: 'Mijozlar',
-        path: '/clients',
-      },
+      { icon: DocsIcon, name: t('nav.sales'), path: '/sales' },
+      { icon: PieChartIcon, name: t('nav.payments'), path: '/payments' },
       {
         icon: BoxIcon,
-        name: 'Mahsulotlar',
-        path: '/goods',
-      },
-      {
-        icon: FolderIcon,
-        name: 'Omborlar',
-        path: '/warehouses',
-      },
-      {
-        icon: TableIcon,
-        name: 'Qoldiq',
-        path: '/stock',
-      },
-      {
-        icon: DocsIcon,
-        name: 'Savdolar',
-        path: '/sales',
-      },
-      {
-        icon: PieChartIcon,
-        name: 'To‘lovlar',
-        path: '/payments',
+        name: t('nav.suppliers'),
+        subItems: [
+          { name: t('nav.suppliersList'), path: '/suppliers', icon: ClipboardList, exact: true },
+          { name: t('nav.suppliersBalance'), path: '/suppliers/balances', icon: PieChartIcon },
+        ],
       },
     ],
   },
   {
-    title: 'Moliya',
+    title: t('nav.finance'),
     items: [
-      {
-        icon: ListIcon,
-        name: 'Yetkazib beruvchilar',
-        path: '/suppliers',
-      },
-      {
-        icon: TaskIcon,
-        name: 'Xarajatlar',
-        path: '/expenses',
-      },
-      {
-        icon: DocsIcon,
-        name: 'Maosh',
-        path: '/salary',
-      },
+      { icon: TaskIcon, name: t('nav.expenses'), path: '/expenses' },
+      { icon: DocsIcon, name: t('nav.salary'), path: '/salary' },
     ],
   },
   {
-    title: 'Tizim',
+    title: t('nav.system'),
     items: [
-      {
-        icon: UserCircleIcon,
-        name: 'Foydalanuvchilar',
-        path: '/users',
-      },
       {
         icon: SettingsIcon,
-        name: 'Sozlamalar',
-        path: '/settings',
+        name: t('nav.settings'),
+        subItems: [
+          { name: t('nav.generalSettings'), path: '/settings', icon: Settings, exact: true },
+          { name: t('nav.users'), path: '/settings/users', icon: UserCircle },
+          { name: t('nav.sessions'), path: '/settings/sessions', icon: Plug },
+          { name: t('nav.roles'), path: '/settings/roles', icon: Shield },
+          { name: t('nav.company'), path: '/settings/company', icon: Files },
+          { name: t('nav.telegram'), path: '/settings/telegram', icon: Plug },
+          { name: t('nav.eskiz'), path: '/settings/eskiz', icon: Send },
+          { name: t('nav.units'), path: '/settings/units', icon: List },
+          { name: t('nav.paymentTypes'), path: '/settings/payment-types', icon: BarChart3 },
+          { name: t('nav.expenseCategories'), path: '/settings/expense-categories', icon: Folder },
+          { name: t('nav.audit'), path: '/settings/audit', icon: ShieldCheck },
+        ],
       },
-      {
-        icon: UserCircleIcon,
-        name: 'Profil',
-        path: '/profile',
-      },
+      { icon: UserCircleIcon, name: t('nav.profile'), path: '/profile' },
     ],
   },
-]
+])
 
-const isActive = (path?: string) => (path ? route.path === path : false)
-
-
+const isActive = (path?: string, exact = false) => {
+  if (!path) return false
+  if (route.path === path) return true
+  if (!exact && path !== '/' && route.path.startsWith(`${path}/`)) return true
+  return false
+}
 
 const setActiveMenuFromRoute = () => {
-  menuGroups.forEach((group, groupIndex) => {
+  menuGroups.value.forEach((group, groupIndex) => {
     group.items.forEach((item, itemIndex) => {
-      if (item.subItems?.some((subItem) => isActive(subItem.path))) {
+      if (item.subItems?.some((subItem) => isActive(subItem.path, subItem.exact))) {
         openSubmenu.value = `${groupIndex}-${itemIndex}`
       }
     })

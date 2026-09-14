@@ -12,6 +12,7 @@ import App from './App.vue'
 import router from './router'
 import VueApexCharts from 'vue3-apexcharts'
 import { initRTL } from './composables/useRTL'
+import i18n from './i18n'
 
 initRTL()
 
@@ -19,6 +20,7 @@ const app = createApp(App)
 
 app.use(createPinia())
 app.use(router)
+app.use(i18n)
 app.use(VueApexCharts)
 
 app.mount('#app')

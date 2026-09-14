@@ -13,10 +13,7 @@
     <!-- Configs -->
     <div v-show="tab === 'configs'" class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
       <div class="flex flex-col gap-3 border-b border-gray-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-gray-800">
-        <div>
-          <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Oylik konfiguratsiyalar</h3>
-          <p class="text-sm text-gray-500 dark:text-gray-400">Fiksa va komissiya</p>
-        </div>
+        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Oylik konfiguratsiyalar</h3>
         <button type="button" class="btn" @click="openConfigCreate">+ Yangi config</button>
       </div>
       <div class="overflow-x-auto">

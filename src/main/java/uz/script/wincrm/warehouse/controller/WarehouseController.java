@@ -141,4 +141,28 @@ public class WarehouseController {
                         .build()
         );
     }
+
+    @PutMapping("/{id}/change-status")
+    @PreAuthorize("hasAuthority('WAREHOUSE_EDIT')")
+    @Operation(
+            summary = "Toggle warehouse status ACTIVE/DISABLED",
+            description = "Only users with WAREHOUSE_EDIT permission can use this endpoint."
+    )
+    @ApiResponse(
+            responseCode = "200",
+            content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = WarehouseResponse.class)
+            )
+    )
+    public ResponseEntity<?> changeStatus(@PathVariable Long id) {
+        WarehouseResponse response = service.changeStatus(id);
+
+        return ResponseEntity.ok(
+                RestApiResponse.<WarehouseResponse>builder()
+                        .message("Warehouse status successfully changed")
+                        .data(response)
+                        .build()
+        );
+    }
 }

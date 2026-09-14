@@ -1,0 +1,119 @@
+import { apiRequest } from './http'
+import type { RestApiResponse } from './types'
+
+export interface WarehouseOrder {
+  id: number
+  supplierId?: number
+  supplierName?: string
+  warehouseId?: number
+  warehouseName?: string
+  comment?: string
+  arrivalDate?: string
+  totalSum?: number
+  paidSum?: number
+  debtSum?: number
+  transferred?: boolean
+  orderStatus?: string
+  status?: string
+}
+
+export interface WarehouseOrderPayload {
+  supplierId: number
+  warehouseId: number
+  arrivalDate: string
+  comment?: string
+}
+
+export interface WarehouseOrderItem {
+  id: number
+  warehouseOrderId?: number
+  warehouseId?: number
+  supplierId?: number
+  goodsId?: number
+  goodsName?: string
+  priceCost?: number
+  priceSelling?: number
+  weight?: number
+  height?: number
+  count?: number
+  arrivalDate?: string
+}
+
+export interface WarehouseOrderItemPayload {
+  warehouseId: number
+  warehouseOrderId: number
+  supplierId: number
+  goodsId: number
+  priceCost: number
+  priceSelling: number
+  count: number
+  arrivalDate: string
+  weight?: number
+  height?: number
+}
+
+export function fetchWarehouseOrders() {
+  return apiRequest<RestApiResponse<WarehouseOrder[]>>('/api/warehouse-orders')
+}
+
+export function fetchWarehouseOrdersBySupplier(supplierId: number) {
+  return apiRequest<RestApiResponse<WarehouseOrder[]>>(
+    `/api/warehouse-orders/by-supplier/${supplierId}`,
+  )
+}
+
+export function fetchWarehouseOrder(id: number) {
+  return apiRequest<RestApiResponse<WarehouseOrder>>(`/api/warehouse-orders/${id}`)
+}
+
+export function createWarehouseOrder(payload: WarehouseOrderPayload) {
+  return apiRequest<RestApiResponse<WarehouseOrder>>('/api/warehouse-orders/create', {
+    method: 'POST',
+    body: payload,
+  })
+}
+
+export function updateWarehouseOrder(id: number, payload: WarehouseOrderPayload) {
+  return apiRequest<RestApiResponse<WarehouseOrder>>(`/api/warehouse-orders/update/${id}`, {
+    method: 'PUT',
+    body: payload,
+  })
+}
+
+export function deleteWarehouseOrder(id: number) {
+  return apiRequest<RestApiResponse<null>>(`/api/warehouse-orders/delete/${id}`, {
+    method: 'DELETE',
+  })
+}
+
+export function transferWarehouseOrder(id: number) {
+  return apiRequest<RestApiResponse<WarehouseOrder>>(`/api/warehouse-orders/${id}/transfer`, {
+    method: 'PATCH',
+  })
+}
+
+export function fetchWarehouseOrderItems(warehouseOrderId: number) {
+  return apiRequest<RestApiResponse<WarehouseOrderItem[]>>(
+    `/api/warehouse-order-items/by-order/${warehouseOrderId}`,
+  )
+}
+
+export function createWarehouseOrderItem(payload: WarehouseOrderItemPayload) {
+  return apiRequest<RestApiResponse<WarehouseOrderItem>>('/api/warehouse-order-items/create', {
+    method: 'POST',
+    body: payload,
+  })
+}
+
+export function updateWarehouseOrderItem(id: number, payload: WarehouseOrderItemPayload) {
+  return apiRequest<RestApiResponse<WarehouseOrderItem>>(
+    `/api/warehouse-order-items/update/${id}`,
+    { method: 'PUT', body: payload },
+  )
+}
+
+export function deleteWarehouseOrderItem(id: number) {
+  return apiRequest<RestApiResponse<null>>(`/api/warehouse-order-items/delete/${id}`, {
+    method: 'DELETE',
+  })
+}

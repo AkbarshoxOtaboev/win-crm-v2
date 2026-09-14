@@ -62,6 +62,47 @@ export function createGoodsGroup(name: string) {
   })
 }
 
+export function updateGoodsGroup(id: number, name: string) {
+  return apiRequest<GoodsGroup>(`/api/goods-groups/${id}`, {
+    method: 'PUT',
+    body: { name },
+  })
+}
+
+export function deleteGoodsGroup(id: number) {
+  return apiRequest<void>(`/api/goods-groups/${id}`, { method: 'DELETE' })
+}
+
+export function changeGoodsGroupStatus(id: number) {
+  return apiRequest<GoodsGroup>(`/api/goods-groups/${id}/change-status`, {
+    method: 'PUT',
+  })
+}
+
 export function fetchUnitTypes() {
   return apiRequest<UnitType[]>('/api/unit-types')
+}
+
+export function createUnitType(name: string) {
+  return apiRequest<UnitType>('/api/unit-types', {
+    method: 'POST',
+    body: { name },
+  })
+}
+
+export function updateUnitType(id: number, name: string) {
+  return apiRequest<UnitType>(`/api/unit-types/${id}`, {
+    method: 'PUT',
+    body: { name },
+  })
+}
+
+export function deleteUnitType(id: number) {
+  return apiRequest<void>(`/api/unit-types/${id}`, { method: 'DELETE' })
+}
+
+export function changeUnitTypeStatus(id: number) {
+  return apiRequest<UnitType>(`/api/unit-types/${id}/change-status`, {
+    method: 'PUT',
+  })
 }

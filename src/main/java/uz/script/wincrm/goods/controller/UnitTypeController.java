@@ -144,4 +144,11 @@ public class UnitTypeController {
         return ResponseEntity.ok(service.getAll(pageable));
     }
 
+    @Operation(summary = "Toggle Unit Type status (ACTIVE / DISABLED)")
+    @PutMapping("/{id}/change-status")
+    @PreAuthorize("hasAuthority('UNIT_TYPE_EDIT')")
+    public ResponseEntity<UnitTypeResponse> changeStatus(@PathVariable Long id) {
+        return ResponseEntity.ok(service.changeStatus(id));
+    }
+
 }

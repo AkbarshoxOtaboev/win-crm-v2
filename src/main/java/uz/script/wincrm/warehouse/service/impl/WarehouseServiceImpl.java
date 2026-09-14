@@ -124,4 +124,25 @@ public class WarehouseServiceImpl implements WarehouseService {
         warehouse.setStatus(Status.DELETED);
         repository.save(warehouse);
     }
+
+    @Override
+    @Auditable(
+            action = AuditAction.UPDATE,
+            entity = "Warehouse"
+    )
+    public WarehouseResponse changeStatus(Long id) {
+        log.info("Change warehouse status id {}", id);
+
+        Warehouse warehouse = repository.findById(id)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Warehouse not found with id: " + id));
+
+        if (warehouse.getStatus() == Status.ACTIVE) {
+            warehouse.setStatus(Status.DISABLED);
+        } else {
+            warehouse.setStatus(Status.ACTIVE);
+        }
+
+        return mapper.toResponse(repository.save(warehouse));
+    }
 }
