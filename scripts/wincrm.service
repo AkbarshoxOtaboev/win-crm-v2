@@ -1,0 +1,15 @@
+[Unit]
+Description=WinCRM (Spring Boot + TailAdmin Vue)
+After=network.target postgresql.service redis.service
+
+[Service]
+Type=simple
+User=wincrm
+WorkingDirectory=/opt/wincrm
+EnvironmentFile=/opt/wincrm/.env
+ExecStart=/usr/bin/java -jar /opt/wincrm/win-crm.jar --spring.profiles.active=prod
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

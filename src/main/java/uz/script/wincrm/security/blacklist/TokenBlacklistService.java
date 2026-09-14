@@ -17,6 +17,12 @@ public class TokenBlacklistService {
     }
 
     public boolean isBlacklisted(String token) {
-        return redisTemplate.hasKey(token);
+        try {
+            Boolean marked = redisTemplate.hasKey(token);
+            return Boolean.TRUE.equals(marked);
+        } catch (Exception e) {
+            // Redis down: do not block authenticated traffic
+            return false;
+        }
     }
 }

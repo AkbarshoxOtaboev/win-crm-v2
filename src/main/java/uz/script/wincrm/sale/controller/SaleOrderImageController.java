@@ -28,7 +28,7 @@ public class SaleOrderImageController {
     )
     @ApiResponse(responseCode = "200", description = "Rasmlar muvaffaqiyatli yuklandi")
     @PostMapping(consumes = "multipart/form-data")
-    @PreAuthorize("hasAuthority('SALE_ORDER_WRITE')")
+    @PreAuthorize("hasAuthority('SALE_ORDER_EDIT')")
     public ResponseEntity<RestApiResponse<List<SaleOrderImageResponse>>> uploadImages(
             @PathVariable Long saleOrderId,
             @RequestParam("files") MultipartFile[] files,
@@ -50,7 +50,7 @@ public class SaleOrderImageController {
             description = "Berilgan buyurtmaga biriktirilgan barcha rasmlarni qaytaradi."
     )
     @GetMapping
-    @PreAuthorize("hasAuthority('SALE_ORDER_READ')")
+    @PreAuthorize("hasAuthority('SALE_ORDER_VIEW')")
     public ResponseEntity<RestApiResponse<List<SaleOrderImageResponse>>> fetchImages(
             @PathVariable Long saleOrderId
     ) {
@@ -69,7 +69,7 @@ public class SaleOrderImageController {
             description = "Bitta rasmni soft-delete qiladi va fizik faylni storagedan o'chiradi."
     )
     @DeleteMapping("/{imageId}")
-    @PreAuthorize("hasAuthority('SALE_ORDER_WRITE')")
+    @PreAuthorize("hasAuthority('SALE_ORDER_EDIT')")
     public ResponseEntity<RestApiResponse<Void>> deleteImage(
             @PathVariable Long saleOrderId,
             @PathVariable Long imageId

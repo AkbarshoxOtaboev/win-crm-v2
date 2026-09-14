@@ -305,13 +305,13 @@ public class SaleOrderController {
     }
 
     @PatchMapping("/{id}/discount")
-    @PreAuthorize("hasAuthority('SALE_ORDER_DISCOUNT')")
+    @PreAuthorize("hasAuthority('SALE_ORDER_EDIT')")
     @Operation(
             summary = "Apply discount to sale order",
             description = "Buyurtmaga chegirma qo'llaydi. Faqat totalSum'ga ta'sir qiladi " +
                     "(totalSum = originalTotalSum - discountAmount). Yakuniy holatdagi " +
                     "(COMPLETED/CANCELLED) buyurtmaga qo'llab bo'lmaydi. " +
-                    "Only users with SALE_ORDER_DISCOUNT permission can use this endpoint."
+                    "Only users with SALE_ORDER_EDIT permission can use this endpoint."
     )
     @ApiResponse(
             responseCode = "200",

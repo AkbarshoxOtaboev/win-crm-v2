@@ -5,11 +5,13 @@ import org.jspecify.annotations.NonNull;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 import uz.script.wincrm.permissions.Permissions;
 import uz.script.wincrm.permissions.PermissionsRepository;
 import uz.script.wincrm.utils.Status;
 
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.Set;
 
 @Component
@@ -21,28 +23,54 @@ public class RoleDataLoader implements CommandLineRunner {
     private final PermissionsRepository permissionsRepository;
 
     @Override
+    @Transactional
     public void run(String @NonNull ... args) {
-        if (repository.count() > 0) {
+        Set<Permissions> allPermissions = new HashSet<>(permissionsRepository.findAll());
+
+        if (repository.count() == 0) {
+            Role superAdmin = Role.builder()
+                    .name("SUPER_ADMIN")
+                    .status(Status.ACTIVE)
+                    .permissions(allPermissions)
+                    .build();
+
+            Role admin = Role.builder()
+                    .name("ADMIN")
+                    .status(Status.ACTIVE)
+                    .permissions(allPermissions)
+                    .build();
+
+            repository.save(superAdmin);
+            repository.save(admin);
+
+            System.out.println("SUPER_ADMIN role created successfully ✅");
             return;
         }
 
-        Set<Permissions> permissions = new HashSet<>(permissionsRepository.findAll());
-        Role superAdmin = Role.builder()
-                .name("SUPER_ADMIN")
-                .status(Status.ACTIVE)
-                .permissions(permissions)
-                .build();
+        // Keep SUPER_ADMIN in sync with newly seeded permissions after enum additions
+        syncAllPermissions("SUPER_ADMIN", allPermissions);
+        syncAllPermissions("ADMIN", allPermissions);
+    }
 
-        Role admin = Role.builder()
-                .name("ADMIN")
-                .status(Status.ACTIVE)
-                .permissions(permissions)
-                .build();
+    private void syncAllPermissions(String roleName, Set<Permissions> allPermissions) {
+        Optional<Role> roleOpt = repository.findByName(roleName);
+        if (roleOpt.isEmpty()) {
+            return;
+        }
 
-        repository.save(superAdmin);
-        repository.save(admin);
+        Role role = roleOpt.get();
+        Set<Permissions> current = role.getPermissions();
+        if (current == null) {
+            role.setPermissions(new HashSet<>(allPermissions));
+            repository.save(role);
+            return;
+        }
 
-        System.out.println("SUPER_ADMIN role created successfully ✅");
-
+        if (current.size() != allPermissions.size() || !current.containsAll(allPermissions)) {
+            current.clear();
+            current.addAll(allPermissions);
+            repository.save(role);
+            System.out.println(roleName + " permissions synced ✅");
+        }
     }
 }

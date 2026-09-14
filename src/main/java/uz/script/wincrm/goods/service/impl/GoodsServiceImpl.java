@@ -54,10 +54,6 @@ public class GoodsServiceImpl implements GoodsService {
                     "Goods with barcode '" + dto.getBarcode() + "' already exists");
         }
 
-        if (dto.getPhoto() == null || dto.getPhoto().isEmpty()) {
-            throw new IllegalArgumentException("Photo is required");
-        }
-
         GoodsGroup goodsGroup = goodsGroupRepository.findById(dto.getGoodsGroupId())
                 .orElseThrow(() ->
                         new ResourceNotFoundException(
@@ -68,9 +64,10 @@ public class GoodsServiceImpl implements GoodsService {
                         new ResourceNotFoundException(
                                 "Unit type not found with id: " + dto.getUnitTypeId()));
 
-
-
-        String photoPath = "/api/files/" + storageService.uploadFile(dto.getPhoto());
+        String photoPath = null;
+        if (dto.getPhoto() != null && !dto.getPhoto().isEmpty()) {
+            photoPath = "/api/files/" + storageService.uploadFile(dto.getPhoto());
+        }
 
         Goods goods = mapper.toEntity(dto, goodsGroup, unitType, photoPath);
 

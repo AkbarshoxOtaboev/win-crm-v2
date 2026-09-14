@@ -4,6 +4,7 @@ import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import uz.script.wincrm.exceptions.InsufficientStockException;
 import uz.script.wincrm.goods.Goods;
 import uz.script.wincrm.goods.repository.GoodsRepository;
 import uz.script.wincrm.stock.Stock;
@@ -30,6 +31,7 @@ public class StockServiceImpl implements StockService {
     private final StockHistoryService stockHistoryService;
 
     @Override
+    @Transactional(readOnly = true)
     public StockResponse findById(Long id) {
         Stock stock = stockRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Stock not found with id: " + id));
@@ -37,6 +39,7 @@ public class StockServiceImpl implements StockService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<StockResponse> fetchAll() {
         return stockRepository.findAll()
                 .stream()
@@ -45,6 +48,7 @@ public class StockServiceImpl implements StockService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<StockResponse> fetchByWarehouseId(Long warehouseId) {
         return stockRepository.findAllByWarehouseId(warehouseId)
                 .stream()
@@ -53,6 +57,7 @@ public class StockServiceImpl implements StockService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<StockResponse> fetchByGoodsId(Long goodsId) {
         return stockRepository.findAllByGoodsId(goodsId)
                 .stream()
@@ -101,7 +106,7 @@ public class StockServiceImpl implements StockService {
                         "Stock not found for goodsId: " + goodsId + " and warehouseId: " + warehouseId));
 
         if (stock.getCount().compareTo(count) < 0) {
-            throw new IllegalArgumentException("Insufficient stock count for goodsId: " + goodsId);
+            throw new InsufficientStockException("Insufficient stock count for goodsId: " + goodsId);
         }
 
         stock.setCount(stock.getCount().subtract(count));

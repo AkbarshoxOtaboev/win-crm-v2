@@ -42,20 +42,19 @@ public class JwtFilter extends OncePerRequestFilter {
         String token = header.substring(7);
 
         try {
-            if (blacklistService.isBlacklisted(token)) {
-                sendUnauthorized(response, "Token has been revoked");
-                return;
-            }
-
-            if (!jwtService.isTokenValid(token)) {
-                sendUnauthorized(response, "Invalid or expired token");
+            if (blacklistService.isBlacklisted(token)
+                    || !jwtService.isTokenValid(token)
+                    || !jwtService.isAccessToken(token)) {
+                SecurityContextHolder.clearContext();
+                chain.doFilter(request, response);
                 return;
             }
 
             Long sid = jwtService.extractSid(token);
 
             if (sessionService.validateAndTouch(sid, resolveIp(request), request.getHeader("User-Agent")).isEmpty()) {
-                sendUnauthorized(response, "Sessiya yopilgan");
+                SecurityContextHolder.clearContext();
+                chain.doFilter(request, response);
                 return;
             }
 
@@ -79,26 +78,12 @@ public class JwtFilter extends OncePerRequestFilter {
 
         } catch (Exception e) {
             SecurityContextHolder.clearContext();
-            throw e; // AuthenticationEntryPoint handle qiladi
+            // Do not abort the chain; permitAll endpoints can still proceed.
+            // Authenticated API calls will get 401 from the entry point.
+            org.slf4j.LoggerFactory.getLogger(JwtFilter.class)
+                    .warn("JWT filter failed for {}: {}", request.getRequestURI(), e.toString());
+            chain.doFilter(request, response);
         }
-    }
-
-    private void sendUnauthorized(
-            HttpServletResponse response,
-            String message
-    ) throws IOException {
-
-        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-        response.setContentType("application/json");
-        response.setCharacterEncoding("UTF-8");
-
-        response.getWriter().write("""
-        {
-            "status":401,
-            "error":"Unauthorized",
-            "message":"%s"
-        }
-        """.formatted(message));
     }
 
     private String resolveIp(HttpServletRequest request) {

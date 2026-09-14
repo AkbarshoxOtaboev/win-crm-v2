@@ -152,7 +152,7 @@ public class AuthController {
     ) {
         String refreshToken = request.getRefreshToken();
 
-        if (!jwtService.isTokenValid(refreshToken)) {
+        if (!jwtService.isTokenValid(refreshToken) || !jwtService.isRefreshToken(refreshToken)) {
             throw new UnauthorizedException("Invalid refresh token");
         }
 
@@ -163,6 +163,10 @@ public class AuthController {
                 resolveIp(httpRequest),
                 httpRequest.getHeader("User-Agent")
         ).orElseThrow(() -> new UnauthorizedException("Sessiya yopilgan yoki muddati tugagan"));
+
+        if (session.getToken() == null || !session.getToken().equals(refreshToken)) {
+            throw new UnauthorizedException("Invalid refresh token");
+        }
 
         String newAccessToken = jwtService.generateAccessToken(session.getUsername(), session.getId());
 

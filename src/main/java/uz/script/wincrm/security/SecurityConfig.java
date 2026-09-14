@@ -1,6 +1,7 @@
 package uz.script.wincrm.security;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -15,11 +16,11 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import uz.script.wincrm.security.jwt.JwtFilter;
 
-
+import java.util.Arrays;
 import java.util.List;
 
 @Configuration
@@ -28,9 +29,11 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtFilter jwtAuthenticationFilter;
-    private final CustomLogoutHandler customLogoutHandler;
     private final CustomAuthenticationEntryPoint authenticationEntryPoint;
     private final CustomAccessDeniedHandler accessDeniedHandler;
+
+    @Value("${app.cors.allowed-origins:http://localhost:5174}")
+    private String allowedOrigins;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -42,8 +45,12 @@ public class SecurityConfig {
 
                 .authorizeHttpRequests(auth -> auth
 
-                        // auth endpoints
-                        .requestMatchers("/api/auth/**").permitAll()
+                        // auth endpoints (logout handled by AuthController)
+                        .requestMatchers(
+                                "/api/auth/login",
+                                "/api/auth/refresh",
+                                "/api/auth/logout"
+                        ).permitAll()
                         // swagger
                         .requestMatchers(
                                 "/swagger-ui/**",
@@ -51,14 +58,35 @@ public class SecurityConfig {
                                 "/v3/api-docs/**"
                         ).permitAll()
 
-                        // static files
+                        // uploads + public
                         .requestMatchers(
                                 "/uploads/**",
                                 "/public/**"
                         ).permitAll()
 
-                        .anyRequest()
-                        .authenticated()
+                        // Vue SPA (TailAdmin) static assets & client routes
+                        .requestMatchers(
+                                "/",
+                                "/index.html",
+                                "/assets/**",
+                                "/images/**",
+                                "/favicon.ico",
+                                "/favicon.png",
+                                "/*.js",
+                                "/*.css",
+                                "/*.ico",
+                                "/*.svg",
+                                "/*.png",
+                                "/*.webp",
+                                "/*.woff",
+                                "/*.woff2"
+                        ).permitAll()
+
+                        // secured API
+                        .requestMatchers("/api/**").authenticated()
+
+                        // remaining SPA history routes (e.g. /calendar, /profile)
+                        .anyRequest().permitAll()
                 )
 
                 .sessionManagement(session ->
@@ -72,14 +100,6 @@ public class SecurityConfig {
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint(authenticationEntryPoint)
                         .accessDeniedHandler(accessDeniedHandler)
-                )
-
-                .logout(logout -> logout
-                        .logoutUrl("/auth/logout")
-                        .addLogoutHandler(customLogoutHandler)
-                        .logoutSuccessHandler((request, response, authentication) -> {
-                            response.setStatus(200);
-                        })
                 );
 
         return http.build();
@@ -102,12 +122,12 @@ public class SecurityConfig {
 
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // frontend URLs
-        configuration.setAllowedOrigins(List.of(
-                "http://localhost:5173",// Vite
-                "http://192.168.1.52:5173",
-                "https://test.urspi.uz"
-        ));
+        List<String> origins = Arrays.stream(allowedOrigins.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toList();
+
+        configuration.setAllowedOrigins(origins);
 
         configuration.setAllowedMethods(List.of(
                 "GET",

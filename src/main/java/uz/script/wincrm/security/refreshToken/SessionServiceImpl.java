@@ -32,9 +32,11 @@ public class SessionServiceImpl implements SessionService {
         // Bitta user uchun bitta faol sessiya siyosati: yangi login eskisini o'chiradi
         repository.deleteByUsername(username);
 
+        // Provisional far-future expiry until finalizeSession sets the real refresh expiry.
+        // Avoids intermittent 401 if the access token is used before finalize completes.
         RefreshToken session = RefreshToken.builder()
                 .username(username)
-                .expiresAt(LocalDateTime.now()) // finalizeSession'da haqiqiy qiymat bilan almashtiriladi
+                .expiresAt(LocalDateTime.now().plusDays(7))
                 .revoked(false)
                 .ipAddress(ipAddress)
                 .userAgent(userAgent)

@@ -4,6 +4,7 @@ import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import uz.script.wincrm.exceptions.InsufficientStockException;
 import uz.script.wincrm.goods.Goods;
 import uz.script.wincrm.goods.repository.GoodsRepository;
 import uz.script.wincrm.stock.StockTransfer;
@@ -50,8 +51,12 @@ public class StockTransferServiceImpl implements StockTransferService {
         // Stock jadvali - yagona ishonch manbai (memory: "Stock as single source of truth")
         BigDecimal available = stockService.getAvailableStock(request.getGoodsId(), request.getFromWarehouseId());
         if (available.compareTo(request.getCount()) < 0) {
-            throw new IllegalArgumentException(
-                    "Manba ombordagi mahsulot yetarli emas. Mavjud: " + available + ", so'ralgan: " + request.getCount());
+            throw new InsufficientStockException(
+                    "Manba ombordagi mahsulot yetarli emas. Mavjud: " + available + ", so'ralgan: " + request.getCount(),
+                    request.getGoodsId(),
+                    request.getFromWarehouseId(),
+                    available,
+                    request.getCount());
         }
 
         // Manba ombordan chiqim -> StockHistory OUT avtomatik yoziladi
@@ -75,6 +80,7 @@ public class StockTransferServiceImpl implements StockTransferService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public StockTransferResponse findById(Long id) {
         StockTransfer transfer = stockTransferRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Stock transfer not found with id: " + id));
@@ -82,6 +88,7 @@ public class StockTransferServiceImpl implements StockTransferService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<StockTransferResponse> fetchAll() {
         return stockTransferRepository.findAll()
                 .stream()
@@ -90,6 +97,7 @@ public class StockTransferServiceImpl implements StockTransferService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<StockTransferResponse> fetchByWarehouseId(Long warehouseId) {
         return stockTransferRepository.findAllByFromWarehouseIdOrToWarehouseId(warehouseId, warehouseId)
                 .stream()

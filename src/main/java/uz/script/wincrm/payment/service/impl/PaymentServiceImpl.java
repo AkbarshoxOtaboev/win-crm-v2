@@ -63,33 +63,33 @@ public class PaymentServiceImpl implements PaymentService {
                 .orElseThrow(() -> new ResourceNotFoundException("Payment type not found with id: " + dto.getPaymentTypeId()));
         User user = userRepository.findById(dto.getUserId())
                 .orElseThrow(()->new ResourceNotFoundException("User not found with id:  "+ dto.getUserId()));
-//        SaleOrder saleOrder = null;
-//        if (dto.getSaleOrderId() != null) {
-//            saleOrder = saleOrderRepository.findById(dto.getSaleOrderId())
-//                    .orElseThrow(() -> new ResourceNotFoundException("Sale order not found with id: " + dto.getSaleOrderId()));
-//
-//            BigDecimal currentPaidSum = saleOrder.getPaidSum() != null ? saleOrder.getPaidSum() : BigDecimal.ZERO;
-//            BigDecimal remainingDebt = saleOrder.getTotalSum().subtract(currentPaidSum);
-//
-//            if (dto.getPaymentAmount().compareTo(remainingDebt) > 0) {
-//                throw new BadRequestException(
-//                        "Payment amount exceeds the remaining debt of the sale order. Remaining debt: " + remainingDebt);
-//            }
-//        }
+        SaleOrder saleOrder = null;
+        if (dto.getSaleOrderId() != null) {
+            saleOrder = saleOrderRepository.findById(dto.getSaleOrderId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Sale order not found with id: " + dto.getSaleOrderId()));
+
+            BigDecimal currentPaidSum = saleOrder.getPaidSum() != null ? saleOrder.getPaidSum() : BigDecimal.ZERO;
+            BigDecimal remainingDebt = saleOrder.getTotalSum().subtract(currentPaidSum);
+
+            if (dto.getPaymentAmount().compareTo(remainingDebt) > 0) {
+                throw new BadRequestException(
+                        "Payment amount exceeds the remaining debt of the sale order. Remaining debt: " + remainingDebt);
+            }
+        }
 
 
         Payment entity = mapper.toEntity(dto);
         entity.setClient(client);
-//        entity.setSaleOrder(saleOrder);
+        entity.setSaleOrder(saleOrder);
         entity.setUser(user);
         entity.setPaymentType(paymentType);
         entity.setStatus(Status.ACTIVE);
 
         entity = repository.save(entity);
 
-//        if (saleOrder != null) {
-//            recalculateSaleOrderSums(saleOrder);
-//        }
+        if (saleOrder != null) {
+            recalculateSaleOrderSums(saleOrder);
+        }
         if (entity.getClient() != null) {
             clientBalanceService.recalculateClientBalance(entity.getClient().getId());
         }

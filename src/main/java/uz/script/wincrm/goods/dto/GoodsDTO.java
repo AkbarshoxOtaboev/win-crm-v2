@@ -73,7 +73,7 @@ public class GoodsDTO {
     private String barcode;
 
     @Schema(
-            description = "Goods photo file. Required on create; optional on update (existing photo is kept if omitted).",
+            description = "Goods photo file. Optional on create and update.",
             type = "string",
             format = "binary"
     )

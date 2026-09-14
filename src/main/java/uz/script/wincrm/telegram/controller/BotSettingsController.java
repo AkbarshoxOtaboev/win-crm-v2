@@ -29,7 +29,7 @@ public class BotSettingsController {
     @PreAuthorize("hasAuthority('BOT_SETTINGS_CREATE')")
     @Operation(
             summary = "Telegram bot tokenini registratsiya qilish / yangilash",
-            description = "Only users with BOT_SETTINGS_MANAGE permission can use this endpoint. " +
+            description = "Only users with BOT_SETTINGS_CREATE permission can use this endpoint. " +
                     "Token BotFather'dan olinadi, bazada shifrlangan holda saqlanadi va bot " +
                     "shu zahoti (ilovani qayta ishga tushirmasdan) Telegram bilan ulanadi."
     )
@@ -57,10 +57,10 @@ public class BotSettingsController {
     }
 
     @PostMapping("/reconnect")
-    @PreAuthorize("hasAuthority('BOT_SETTINGS_MANAGE')")
+    @PreAuthorize("hasAuthority('BOT_SETTINGS_EDIT')")
     @Operation(
             summary = "Botni qo'lda qayta ulash",
-            description = "Only users with BOT_SETTINGS_MANAGE permission can use this endpoint. " +
+            description = "Only users with BOT_SETTINGS_EDIT permission can use this endpoint. " +
                     "Tarmoq uzilishi yoki oldingi ulanish xatoligidan so'ng botni qayta ulash uchun."
     )
     @ApiResponse(responseCode = "200")

@@ -31,3 +31,21 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Frontend (TailAdmin Vue) ###
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+### Env / secrets ###
+.env
+.env.local
+*.env.local
+
+### Uploads / runtime ###
+uploads/
+*.log
+
+### OS ###
+.DS_Store
+Thumbs.db

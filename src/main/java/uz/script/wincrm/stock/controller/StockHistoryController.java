@@ -66,7 +66,7 @@ public class StockHistoryController {
     }
 
     @GetMapping("/by-warehouse/{warehouseId}")
-    @PreAuthorize("hasAuthority('STOCKS_HISTORIES_VIEW')")
+    @PreAuthorize("hasAuthority('STOCK_HISTORIES_VIEW')")
     @Operation(
             summary = "Fetch stock histories by warehouse",
             description = "Only users with STOCK_HISTORY_VIEW permission can use this endpoint."
@@ -88,7 +88,7 @@ public class StockHistoryController {
     }
 
     @GetMapping("/by-goods/{goodsId}")
-    @PreAuthorize("hasAuthority('STOCKS_HISTORIES_VIEW')")
+    @PreAuthorize("hasAuthority('STOCK_HISTORIES_VIEW')")
     @Operation(
             summary = "Fetch stock histories by goods",
             description = "Only users with STOCK_HISTORY_VIEW permission can use this endpoint."
@@ -110,7 +110,7 @@ public class StockHistoryController {
     }
 
     @GetMapping("/by-goods/{goodsId}/warehouse/{warehouseId}")
-    @PreAuthorize("hasAuthority('STOCKS_HISTORIES_VIEW')")
+    @PreAuthorize("hasAuthority('STOCK_HISTORIES_VIEW')")
     @Operation(
             summary = "Fetch stock histories by goods and warehouse",
             description = "Only users with STOCK_HISTORY_VIEW permission can use this endpoint."

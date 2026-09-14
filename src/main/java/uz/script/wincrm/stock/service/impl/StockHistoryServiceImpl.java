@@ -29,6 +29,7 @@ public class StockHistoryServiceImpl implements StockHistoryService {
     private final StockHistoryMapper stockHistoryMapper;
 
     @Override
+    @Transactional(readOnly = true)
     public StockHistoryResponse findById(Long id) {
         StockHistory history = stockHistoryRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Stock history not found with id: " + id));
@@ -36,6 +37,7 @@ public class StockHistoryServiceImpl implements StockHistoryService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<StockHistoryResponse> fetchAll() {
         return stockHistoryRepository.findAll()
                 .stream()
@@ -44,6 +46,7 @@ public class StockHistoryServiceImpl implements StockHistoryService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<StockHistoryResponse> fetchByWarehouseId(Long warehouseId) {
         return stockHistoryRepository.findAllByWarehouseId(warehouseId)
                 .stream()
@@ -52,6 +55,7 @@ public class StockHistoryServiceImpl implements StockHistoryService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<StockHistoryResponse> fetchByGoodsId(Long goodsId) {
         return stockHistoryRepository.findAllByGoodsId(goodsId)
                 .stream()
@@ -60,6 +64,7 @@ public class StockHistoryServiceImpl implements StockHistoryService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<StockHistoryResponse> fetchByGoodsIdAndWarehouseId(Long goodsId, Long warehouseId) {
         return stockHistoryRepository.findAllByGoodsIdAndWarehouseId(goodsId, warehouseId)
                 .stream()
