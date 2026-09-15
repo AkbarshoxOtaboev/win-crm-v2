@@ -54,6 +54,12 @@ public class Goods extends BaseEntity {
 
     private String photo;
 
+    /** Oyna (WINDOW) uchun default eni (santimetr) */
+    private BigDecimal width;
+
+    /** Oyna (WINDOW) uchun default bo‘yi (santimetr) */
+    private BigDecimal height;
+
     @OneToMany(mappedBy = "goods")
     private List<WarehouseOrderItem> warehouseOrderItems;
 

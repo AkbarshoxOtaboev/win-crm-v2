@@ -53,11 +53,12 @@
                   <button
                     v-if="!isTransferred(o)"
                     type="button"
-                    class="ghost"
+                    class="transfer-btn"
                     @click="onTransfer(o)"
                   >
-                    Qoldiqqa
+                    Omborga o‘tkazish
                   </button>
+                  <span v-else class="transferred-badge">Omborga o‘tkazildi</span>
                   <RowActions @edit="openEdit(o)" @delete="onDelete(o)" />
                 </div>
               </td>
@@ -157,6 +158,7 @@ import { fetchSuppliers, type Supplier } from '@/api/suppliers'
 import { fetchGoods, type Goods } from '@/api/goods'
 import { formatApiError } from '@/api/http'
 import { formatDate, money, nowLocal, toApiDate } from '@/utils/format'
+import Swal from 'sweetalert2'
 
 const route = useRoute()
 const router = useRouter()
@@ -310,13 +312,38 @@ async function onDelete(o: WarehouseOrder) {
 }
 
 async function onTransfer(o: WarehouseOrder) {
-  if (!confirm('Kirim qoldiqqa o‘tkazilsinmi?')) return
+  const result = await Swal.fire({
+    title: 'Omborga o‘tkazish',
+    text: `Kirim #${o.id} omborga o‘tkazilsinmi?`,
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'Ha, o‘tkazish',
+    cancelButtonText: 'Bekor qilish',
+    confirmButtonColor: '#465fff',
+    cancelButtonColor: '#98a2b3',
+  })
+  if (!result.isConfirmed) return
+
   try {
     await transferWarehouseOrder(o.id)
     await load()
     if (detail.value?.id === o.id) await openDetail(o)
+    await Swal.fire({
+      title: 'Muvaffaqiyatli',
+      text: 'Kirim omborga o‘tkazildi',
+      icon: 'success',
+      confirmButtonColor: '#465fff',
+      timer: 2000,
+      showConfirmButton: false,
+    })
   } catch (e) {
     error.value = formatApiError(e)
+    await Swal.fire({
+      title: 'Xatolik',
+      text: formatApiError(e),
+      icon: 'error',
+      confirmButtonColor: '#465fff',
+    })
   }
 }
 
@@ -380,6 +407,29 @@ onMounted(load)
 .field { height: 2.5rem; border-radius: 0.5rem; border: 1px solid #d1d5db; background: transparent; padding: 0 0.75rem; font-size: 0.875rem; }
 .btn { display: inline-flex; height: 2.5rem; align-items: center; border-radius: 0.5rem; background: #465fff; padding: 0 1.25rem; font-size: 0.875rem; font-weight: 500; color: #fff; white-space: nowrap; }
 .ghost { height: 2.5rem; display: inline-flex; align-items: center; border-radius: 0.5rem; border: 1px solid #d1d5db; padding: 0 0.75rem; font-size: 0.875rem; white-space: nowrap; }
+.transfer-btn {
+  height: 2.25rem;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 0.5rem;
+  background: #12b76a;
+  padding: 0 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #fff;
+  white-space: nowrap;
+}
+.transferred-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  background: #ecfdf5;
+  padding: 0.25rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #059669;
+  white-space: nowrap;
+}
 .err { border-radius: 0.5rem; border: 1px solid #fecaca; background: #fef2f2; padding: 0.75rem 1rem; font-size: 0.875rem; color: #dc2626; }
 .overlay { position: fixed; inset: 0; z-index: 99999; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.4); padding: 1rem; }
 .modal { width: 100%; max-width: 28rem; border-radius: 1rem; background: #fff; padding: 1.25rem; }

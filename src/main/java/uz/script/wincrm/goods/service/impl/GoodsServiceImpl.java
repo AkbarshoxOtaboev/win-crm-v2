@@ -22,6 +22,7 @@ import uz.script.wincrm.storage.StorageService;
 import uz.script.wincrm.utils.Status;
 
 import java.util.List;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -112,10 +113,11 @@ public class GoodsServiceImpl implements GoodsService {
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Goods not found with id: " + id));
 
-        if (!goods.getBarcode().equals(dto.getBarcode())
-                && existsByBarcode(dto.getBarcode())) {
+        String newBarcode = dto.getBarcode();
+        if (!Objects.equals(goods.getBarcode(), newBarcode)
+                && existsByBarcode(newBarcode)) {
             throw new AlreadyExistsException(
-                    "Goods with barcode '" + dto.getBarcode() + "' already exists");
+                    "Goods with barcode '" + newBarcode + "' already exists");
         }
 
         GoodsGroup goodsGroup = goodsGroupRepository.findById(dto.getGoodsGroupId())

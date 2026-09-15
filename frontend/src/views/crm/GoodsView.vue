@@ -182,6 +182,16 @@
               <input v-model.number="form.priceSelling" type="number" min="0" step="0.01" required class="field" />
             </div>
           </div>
+          <div v-if="form.type === 'WINDOW'" class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="lbl">Eni (sm) *</label>
+              <input v-model.number="form.width" type="number" min="1" step="1" required class="field" placeholder="120" />
+            </div>
+            <div>
+              <label class="lbl">Bo‘yi (sm) *</label>
+              <input v-model.number="form.height" type="number" min="1" step="1" required class="field" placeholder="150" />
+            </div>
+          </div>
           <div>
             <label class="lbl">Barcode</label>
             <input v-model="form.barcode" class="field" />
@@ -269,6 +279,8 @@ const form = reactive({
   priceCost: 0,
   priceSelling: 0,
   barcode: '',
+  width: 0,
+  height: 0,
 })
 
 const filtered = computed(() => {
@@ -320,6 +332,8 @@ function openCreate() {
     priceCost: 0,
     priceSelling: 0,
     barcode: '',
+    width: 0,
+    height: 0,
   })
   photoFile.value = null
   formError.value = null
@@ -336,6 +350,8 @@ function openEdit(g: Goods) {
     priceCost: Number(g.priceCost || 0),
     priceSelling: Number(g.priceSelling || 0),
     barcode: g.barcode || '',
+    width: Number(g.width || 0),
+    height: Number(g.height || 0),
   })
   photoFile.value = null
   formError.value = null
@@ -351,6 +367,10 @@ function buildFormData() {
   fd.append('priceCost', String(form.priceCost))
   fd.append('priceSelling', String(form.priceSelling))
   if (form.barcode.trim()) fd.append('barcode', form.barcode.trim())
+  if (form.type === 'WINDOW') {
+    fd.append('width', String(form.width))
+    fd.append('height', String(form.height))
+  }
   if (photoFile.value) fd.append('photo', photoFile.value)
   return fd
 }
@@ -359,6 +379,10 @@ async function onSubmit() {
   saving.value = true
   formError.value = null
   try {
+    if (form.type === 'WINDOW' && (Number(form.width) <= 0 || Number(form.height) <= 0)) {
+      formError.value = 'WINDOW uchun eni va bo‘yi majburiy'
+      return
+    }
     const fd = buildFormData()
     if (editingId.value) await updateGoods(editingId.value, fd)
     else await createGoods(fd)

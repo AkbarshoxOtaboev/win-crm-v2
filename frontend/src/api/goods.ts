@@ -14,6 +14,8 @@ export interface Goods {
   priceSelling?: number
   barcode?: string
   photo?: string
+  width?: number
+  height?: number
   status?: string
 }
 

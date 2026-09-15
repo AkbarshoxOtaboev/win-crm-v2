@@ -7,8 +7,10 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import uz.script.wincrm.audit.AuditAction;
 import uz.script.wincrm.audit.Auditable;
+import uz.script.wincrm.exceptions.BadRequestException;
 import uz.script.wincrm.exceptions.ResourceNotFoundException;
 import uz.script.wincrm.goods.Goods;
+import uz.script.wincrm.goods.enums.Type;
 import uz.script.wincrm.goods.repository.GoodsRepository;
 import uz.script.wincrm.stock.service.StockService;
 import uz.script.wincrm.suppliers.Supplier;
@@ -28,6 +30,7 @@ import uz.script.wincrm.warehouse.response.WarehouseOrderItemResponse;
 import uz.script.wincrm.warehouse.service.WarehouseOrderItemService;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 
 @Service
@@ -62,6 +65,9 @@ public class WarehouseOrderItemServiceImpl implements WarehouseOrderItemService 
         WarehouseOrder warehouseOrder = findWarehouseOrder(dto.getWarehouseOrderId());
         Supplier supplier = findSupplier(dto.getSupplierId());
         Goods goods = findGoods(dto.getGoodsId());
+
+    // WINDOW: count = (eni_sm * boyi_sm * dona) / 10000 → kv.m
+        dto.setCount(resolveWindowCount(goods, dto.getWeight(), dto.getHeight(), dto.getCount()));
 
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
 
@@ -146,6 +152,8 @@ public class WarehouseOrderItemServiceImpl implements WarehouseOrderItemService 
         WarehouseOrder warehouseOrder = findWarehouseOrder(dto.getWarehouseOrderId());
         Supplier supplier = findSupplier(dto.getSupplierId());
         Goods goods = findGoods(dto.getGoodsId());
+
+        dto.setCount(resolveWindowCount(goods, dto.getWeight(), dto.getHeight(), dto.getCount()));
 
         WarehouseOrder previousOrder = item.getWarehouseOrder();
 
@@ -237,6 +245,37 @@ public class WarehouseOrderItemServiceImpl implements WarehouseOrderItemService 
             log.info("Supplier balance decreased by purchase diff. SupplierId: {}, Diff: {}",
                     supplierId, diff.abs());
         }
+    }
+
+    /**
+     * WINDOW: count (kv.m) = (eni_sm * boyi_sm * dona) / 10000.
+     * Eni/bo‘yi santimetrda keladi (weight/height).
+     * Boshqa turlar uchun dtoCount o'zgarishsiz qaytariladi.
+     */
+    private BigDecimal resolveWindowCount(
+            Goods goods,
+            BigDecimal widthCm,
+            BigDecimal heightCm,
+            BigDecimal dtoCount
+    ) {
+        if (goods.getType() != Type.WINDOW) {
+            return dtoCount;
+        }
+        if (widthCm == null || heightCm == null) {
+            throw new BadRequestException("Oyna (WINDOW) uchun eni va bo‘yi majburiy!");
+        }
+        if (widthCm.compareTo(BigDecimal.ZERO) <= 0 || heightCm.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BadRequestException("Eni va bo‘yi noldan katta bo‘lishi kerak!");
+        }
+        if (dtoCount == null || dtoCount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BadRequestException("Soni noldan katta bo‘lishi kerak!");
+        }
+        BigDecimal kvm = widthCm
+                .multiply(heightCm)
+                .multiply(dtoCount)
+                .divide(BigDecimal.valueOf(10_000), 6, RoundingMode.HALF_UP);
+        log.info("WINDOW kv.m: ({}sm * {}sm * {}) / 10000 = {}", widthCm, heightCm, dtoCount, kvm);
+        return kvm;
     }
 
     private Warehouse findWarehouse(Long id) {

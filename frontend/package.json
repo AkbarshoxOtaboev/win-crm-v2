@@ -29,6 +29,7 @@
     "lucide-vue-next": "^0.474.0",
     "pinia": "^4.0.3",
     "simplebar-vue": "^2.4.0",
+    "sweetalert2": "^11.26.25",
     "swiper": "^14.2.0",
     "temporal-polyfill": "^1.0.4",
     "vue": "^3.5.26",

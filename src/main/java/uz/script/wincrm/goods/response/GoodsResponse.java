@@ -83,6 +83,12 @@ public class GoodsResponse {
     )
     private String barcode;
 
+    @Schema(description = "Default window width in centimeters (WINDOW type)", example = "120")
+    private BigDecimal width;
+
+    @Schema(description = "Default window height in centimeters (WINDOW type)", example = "150")
+    private BigDecimal height;
+
     @Schema(
             description = "Goods photo URL or path",
             example = "https://cdn.wincrm.uz/goods/12345.png"

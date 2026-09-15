@@ -72,6 +72,14 @@ public class GoodsDTO {
     )
     private String barcode;
 
+    @DecimalMin(value = "0.0", inclusive = false, message = "Width must be greater than 0")
+    @Schema(description = "Default window width in centimeters (WINDOW type)", example = "120")
+    private BigDecimal width;
+
+    @DecimalMin(value = "0.0", inclusive = false, message = "Height must be greater than 0")
+    @Schema(description = "Default window height in centimeters (WINDOW type)", example = "150")
+    private BigDecimal height;
+
     @Schema(
             description = "Goods photo file. Optional on create and update.",
             type = "string",

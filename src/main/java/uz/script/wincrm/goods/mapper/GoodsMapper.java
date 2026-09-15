@@ -5,6 +5,7 @@ import uz.script.wincrm.goods.Goods;
 import uz.script.wincrm.goods.GoodsGroup;
 import uz.script.wincrm.goods.UnitType;
 import uz.script.wincrm.goods.dto.GoodsDTO;
+import uz.script.wincrm.goods.enums.Type;
 import uz.script.wincrm.goods.response.GoodsResponse;
 import uz.script.wincrm.utils.Status;
 
@@ -20,6 +21,8 @@ public class GoodsMapper {
                 .priceCost(dto.getPriceCost())
                 .priceSelling(dto.getPriceSelling())
                 .barcode(dto.getBarcode())
+                .width(dto.getType() == Type.WINDOW ? dto.getWidth() : null)
+                .height(dto.getType() == Type.WINDOW ? dto.getHeight() : null)
                 .photo(photoPath)
                 .status(Status.ACTIVE)
                 .build();
@@ -35,6 +38,13 @@ public class GoodsMapper {
         goods.setPriceCost(dto.getPriceCost());
         goods.setPriceSelling(dto.getPriceSelling());
         goods.setBarcode(dto.getBarcode());
+        if (dto.getType() == Type.WINDOW) {
+            goods.setWidth(dto.getWidth());
+            goods.setHeight(dto.getHeight());
+        } else {
+            goods.setWidth(null);
+            goods.setHeight(null);
+        }
         if (photoPath != null) {
             goods.setPhoto(photoPath);
         }
@@ -53,6 +63,8 @@ public class GoodsMapper {
                 .priceCost(goods.getPriceCost())
                 .priceSelling(goods.getPriceSelling())
                 .barcode(goods.getBarcode())
+                .width(goods.getWidth())
+                .height(goods.getHeight())
                 .photo(goods.getPhoto())
                 .status(goods.getStatus())
                 .createdAt(goods.getCreatedAt())
