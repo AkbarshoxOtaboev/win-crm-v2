@@ -15,12 +15,14 @@ import java.math.BigDecimal;
 public class WarehouseOrderMapper {
 
     public WarehouseOrder toEntity(WarehouseOrderDTO dto, Supplier supplier, Warehouse warehouse) {
+        BigDecimal serviceFee = normalizeServiceFee(dto.getServiceFee());
         return WarehouseOrder.builder()
                 .supplier(supplier)
                 .warehouse(warehouse)
                 .comment(dto.getComment())
                 .arrivalDate(dto.getArrivalDate())
-                .totalSum(BigDecimal.ZERO)
+                .serviceFee(serviceFee)
+                .totalSum(serviceFee)
                 .orderStatus(WarehouseOrderStatus.NEW)
                 .status(Status.ACTIVE)
                 .build();
@@ -31,6 +33,7 @@ public class WarehouseOrderMapper {
         order.setWarehouse(warehouse);
         order.setComment(dto.getComment());
         order.setArrivalDate(dto.getArrivalDate());
+        order.setServiceFee(normalizeServiceFee(dto.getServiceFee()));
     }
 
     public WarehouseOrderResponse toResponse(WarehouseOrder order) {
@@ -43,11 +46,19 @@ public class WarehouseOrderMapper {
                 .comment(order.getComment())
                 .arrivalDate(order.getArrivalDate())
                 .totalSum(order.getTotalSum())
+                .serviceFee(order.getServiceFee())
                 .orderStatus(order.getOrderStatus())
                 .status(order.getStatus())
                 .createdAt(order.getCreatedAt())
                 .updatedAt(order.getUpdatedAt())
                 .createdUsername(order.getCreatedUsername())
                 .build();
+    }
+
+    private BigDecimal normalizeServiceFee(BigDecimal serviceFee) {
+        if (serviceFee == null || serviceFee.compareTo(BigDecimal.ZERO) < 0) {
+            return BigDecimal.ZERO;
+        }
+        return serviceFee;
     }
 }

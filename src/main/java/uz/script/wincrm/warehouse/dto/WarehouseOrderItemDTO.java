@@ -50,8 +50,11 @@ public class WarehouseOrderItemDTO {
 
     @NotNull(message = "Count is required")
     @DecimalMin(value = "0.0", inclusive = false, message = "Count must be greater than 0")
-    @Schema(description = "Quantity received", example = "100", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "Quantity received in pieces (dona). For WINDOW, kv.m is calculated server-side.", example = "5", requiredMode = Schema.RequiredMode.REQUIRED)
     private BigDecimal count;
+
+    @Schema(description = "Internal: piece count before WINDOW kv.m conversion (filled by service)", hidden = true)
+    private BigDecimal pieceCount;
 
     @NotNull(message = "Arrival date is required")
     @Schema(description = "Arrival date and time", example = "2026-07-10T14:00:00", requiredMode = Schema.RequiredMode.REQUIRED)

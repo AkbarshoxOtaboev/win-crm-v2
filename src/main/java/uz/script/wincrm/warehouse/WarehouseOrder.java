@@ -40,6 +40,9 @@ public class WarehouseOrder extends BaseEntity {
 
     private BigDecimal totalSum;
 
+    /** Ixtiyoriy xizmat haqi — totalSum = pozitsiyalar + serviceFee */
+    private BigDecimal serviceFee;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "order_status", nullable = false)
     private WarehouseOrderStatus orderStatus;

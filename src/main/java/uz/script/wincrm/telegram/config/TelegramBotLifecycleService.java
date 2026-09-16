@@ -109,6 +109,39 @@ public class TelegramBotLifecycleService {
         return sent ? TelegramSendResult.SENT : TelegramSendResult.SEND_FAILED;
     }
 
+    /**
+     * Telefon raqami Telegram botdan ro'yxatdan o'tgan foydalanuvchiga xabar yuboradi.
+     */
+    public synchronized TelegramSendResult sendMessageToPhone(String phone, String text) {
+        if (activeBot == null) {
+            return TelegramSendResult.BOT_NOT_CONNECTED;
+        }
+
+        String normalized = normalizePhone(phone);
+        if (normalized == null) {
+            return TelegramSendResult.SEND_FAILED;
+        }
+
+        Optional<TelegramUser> userOpt = telegramUserRepository.findByPhone(normalized);
+        if (userOpt.isEmpty()) {
+            return TelegramSendResult.CLIENT_NOT_LINKED;
+        }
+
+        boolean sent = activeBot.sendMessageToClientChat(userOpt.get().getChatId(), text);
+        return sent ? TelegramSendResult.SENT : TelegramSendResult.SEND_FAILED;
+    }
+
+    private String normalizePhone(String phone) {
+        if (phone == null || phone.isBlank()) {
+            return null;
+        }
+        String digits = phone.replaceAll("[^0-9]", "");
+        if (digits.length() == 9) {
+            digits = "998" + digits;
+        }
+        return (digits.length() == 12 && digits.startsWith("998")) ? digits : null;
+    }
+
     private void stopBotIfRunning() {
         if (activeBotSession != null) {
             try {

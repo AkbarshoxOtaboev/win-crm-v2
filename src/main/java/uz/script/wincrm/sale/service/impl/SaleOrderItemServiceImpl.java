@@ -269,14 +269,21 @@ public class SaleOrderItemServiceImpl implements SaleOrderItemService {
             return dtoCount;
         }
         if (width == null || height == null) {
-            throw new BadRequestException("Oyna (WINDOW) uchun width va height majburiy!");
+            throw new BadRequestException("Oyna (WINDOW) uchun eni va bo‘yi majburiy!");
         }
         if (width.compareTo(BigDecimal.ZERO) <= 0 || height.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new BadRequestException("width va height noldan katta bo'lishi kerak!");
+            throw new BadRequestException("Eni va bo‘yi noldan katta bo‘lishi kerak!");
         }
-        BigDecimal computed = width.multiply(height);
-        log.info("WINDOW count computed: width={} * height={} = {}", width, height, computed);
-        return computed;
+        if (dtoCount == null || dtoCount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BadRequestException("Soni noldan katta bo‘lishi kerak!");
+        }
+        // sm → m²: (eni_sm * boyi_sm * dona) / 10000
+        BigDecimal kvm = width
+                .multiply(height)
+                .multiply(dtoCount)
+                .divide(BigDecimal.valueOf(10_000), 6, java.math.RoundingMode.HALF_UP);
+        log.info("WINDOW kv.m: ({}sm * {}sm * {}) / 10000 = {}", width, height, dtoCount, kvm);
+        return kvm;
     }
 
     /**

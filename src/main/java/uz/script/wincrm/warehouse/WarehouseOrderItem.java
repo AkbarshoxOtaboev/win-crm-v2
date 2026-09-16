@@ -51,6 +51,15 @@ public class WarehouseOrderItem extends BaseEntity {
 
     private BigDecimal height;
 
+    /**
+     * Miqdor (dona). WINDOW uchun foydalanuvchi kiritgan dona soni.
+     * Boshqa turlar uchun count bilan bir xil.
+     */
+    private BigDecimal pieceCount;
+
+    /**
+     * Ombor hisobi: WINDOW uchun kv.m, boshqa turlar uchun miqdor.
+     */
     @Column(nullable = false)
     private BigDecimal count;
     @Column(nullable = false)

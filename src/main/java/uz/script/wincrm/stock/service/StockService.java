@@ -16,17 +16,22 @@ public interface StockService {
     List<StockResponse> fetchByGoodsId(Long goodsId);
 
     /**
-     * Omborga mahsulot kirim qilinganda (masalan WarehouseOrderItem yaratilganda) chaqiriladi.
-     * Agar shu goods + warehouse bo'yicha Stock allaqachon mavjud bo'lsa - count ustiga qo'shiladi,
-     * mavjud bo'lmasa - yangi Stock yozuvi yaratiladi. Bu metoddan tashqari Stock hech qayerda
-     * to'g'ridan-to'g'ri yaratilmasligi kerak.
+     * Omborga mahsulot kirim. count — asosiy ombor miqdori (WINDOW: kv.m),
+     * pieceCount — dona (WINDOW uchun alohida; null bo'lsa count olinadi).
      */
-    void increaseStock(Long goodsId, Long warehouseId, BigDecimal count);
+    void increaseStock(Long goodsId, Long warehouseId, BigDecimal count, BigDecimal pieceCount);
+
+    default void increaseStock(Long goodsId, Long warehouseId, BigDecimal count) {
+        increaseStock(goodsId, warehouseId, count, count);
+    }
+
     BigDecimal getAvailableStock(Long goodsId, Long warehouseId);
-    /**
-     * Ombordan mahsulot chiqim qilinganda (sotuv, ombordan-omborga ko'chirish va h.k.) chaqiriladi.
-     */
-    void decreaseStock(Long goodsId, Long warehouseId, BigDecimal count);
+
+    void decreaseStock(Long goodsId, Long warehouseId, BigDecimal count, BigDecimal pieceCount);
+
+    default void decreaseStock(Long goodsId, Long warehouseId, BigDecimal count) {
+        decreaseStock(goodsId, warehouseId, count, null);
+    }
 
     void delete(Long id);
 }

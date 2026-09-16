@@ -36,4 +36,9 @@ public class Stock extends BaseEntity {
 
     @Column(nullable = false)
     private BigDecimal count;
+
+    /**
+     * Miqdor (dona). WINDOW uchun alohida saqlanadi; boshqa turlar uchun count bilan bir xil.
+     */
+    private BigDecimal pieceCount;
 }

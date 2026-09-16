@@ -14,6 +14,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import uz.script.wincrm.utils.RestApiResponse;
 import uz.script.wincrm.warehouse.dto.WarehouseOrderDTO;
+import uz.script.wincrm.warehouse.dto.WarehouseOrderNotifyDTO;
 import uz.script.wincrm.warehouse.response.WarehouseOrderResponse;
 import uz.script.wincrm.warehouse.service.WarehouseOrderService;
 
@@ -200,6 +201,36 @@ public class WarehouseOrderController {
                 RestApiResponse.<WarehouseOrderResponse>builder()
                         .message("Warehouse order omborga muvaffaqiyatli transfer qilindi")
                         .data(response)
+                        .build()
+        );
+    }
+
+    @PostMapping("/{id}/notify/sms")
+    @PreAuthorize("hasAuthority('WAREHOUSE_ORDER_VIEW')")
+    @Operation(summary = "Yetkazuvchiga kirim haqida SMS yuborish")
+    public ResponseEntity<?> sendSmsToSupplier(
+            @PathVariable Long id,
+            @Valid @RequestBody WarehouseOrderNotifyDTO dto
+    ) {
+        service.sendSmsToSupplier(id, dto.getMessage());
+        return ResponseEntity.ok(
+                RestApiResponse.<Void>builder()
+                        .message("SMS yetkazuvchiga yuborildi")
+                        .build()
+        );
+    }
+
+    @PostMapping("/{id}/notify/telegram")
+    @PreAuthorize("hasAuthority('WAREHOUSE_ORDER_VIEW')")
+    @Operation(summary = "Yetkazuvchiga kirim haqida Telegram bot orqali xabar yuborish")
+    public ResponseEntity<?> sendTelegramToSupplier(
+            @PathVariable Long id,
+            @Valid @RequestBody WarehouseOrderNotifyDTO dto
+    ) {
+        service.sendTelegramToSupplier(id, dto.getMessage());
+        return ResponseEntity.ok(
+                RestApiResponse.<Void>builder()
+                        .message("Xabar yetkazuvchiga Telegram orqali yuborildi")
                         .build()
         );
     }

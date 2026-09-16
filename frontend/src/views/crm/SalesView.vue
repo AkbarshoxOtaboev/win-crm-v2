@@ -2,11 +2,13 @@
   <AdminLayout>
     <PageBreadcrumb pageTitle="Savdolar" />
     <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-      <div class="flex flex-col gap-3 border-b border-gray-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-gray-800">
+      <div class="border-b border-gray-100 px-5 py-4 dark:border-gray-800">
         <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Savdolar</h3>
-        <div class="flex gap-2">
-          <input v-model="search" type="search" placeholder="Qidiruv..." class="field sm:w-56" />
-          <button type="button" class="btn" @click="openCreate">+ Yangi savdo</button>
+        <div class="toolbar mt-3">
+          <input v-model="search" type="search" placeholder="Qidiruv..." class="field search" />
+          <input v-model="dateFrom" type="date" class="field date" title="Dan" />
+          <input v-model="dateTo" type="date" class="field date" title="Gacha" />
+          <button type="button" class="btn create-btn" @click="goCreate">+ Yangi savdo</button>
         </div>
       </div>
       <div v-if="error" class="err mx-5 mt-4">{{ error }}</div>
@@ -16,7 +18,7 @@
             <tr class="border-b border-gray-100 dark:border-gray-800">
               <th class="th">#</th>
               <th class="th">Mijoz</th>
-              <th class="th">Ombor</th>
+              <th class="th">Sana</th>
               <th class="th">Jami</th>
               <th class="th">To‘langan</th>
               <th class="th">Qarz</th>
@@ -32,7 +34,7 @@
                 <router-link :to="`/sales/${o.id}`" class="text-brand-500 hover:underline">#{{ o.id }}</router-link>
               </td>
               <td class="td font-medium text-gray-800 dark:text-white/90">{{ o.clientFullName || '—' }}</td>
-              <td class="td">{{ o.warehouseName || '—' }}</td>
+              <td class="td">{{ formatDate(o.orderDate) }}</td>
               <td class="td">{{ money(o.totalSum) }}</td>
               <td class="td">{{ money(o.paidSum) }}</td>
               <td class="td">{{ money(o.debtSum) }}</td>
@@ -53,9 +55,7 @@
 
     <div v-if="modalOpen" class="fixed inset-0 z-99999 flex items-center justify-center bg-black/40 p-4" @click.self="modalOpen = false">
       <div class="w-full max-w-lg rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-        <h3 class="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">
-          {{ editingId ? 'Savdoni tahrirlash' : 'Yangi savdo' }}
-        </h3>
+        <h3 class="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">Savdoni tahrirlash</h3>
         <div v-if="formError" class="err mb-3">{{ formError }}</div>
         <form class="space-y-3" @submit.prevent="onSubmit">
           <div>
@@ -105,12 +105,12 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import RowActions from '@/components/crm/RowActions.vue'
 import {
   changeSaleOrderStatus,
-  createSaleOrder,
   deleteSaleOrder,
   fetchSaleOrders,
   updateSaleOrder,
@@ -119,10 +119,10 @@ import {
 import { fetchWarehouses, type Warehouse } from '@/api/warehouses'
 import { fetchClients, type Client } from '@/api/clients'
 import { fetchUsers, type UserItem } from '@/api/users'
-import { useAuthStore } from '@/stores/auth'
 import { formatApiError } from '@/api/http'
-import { money, nowLocal, toApiDate } from '@/utils/format'
+import { formatDate, money, toApiDate } from '@/utils/format'
 
+const router = useRouter()
 const statuses = ['NEW', 'CONFIRMED', 'PROCESSING', 'DELIVERED', 'COMPLETED', 'CANCELLED']
 
 const items = ref<SaleOrder[]>([])
@@ -134,9 +134,10 @@ const saving = ref(false)
 const error = ref<string | null>(null)
 const formError = ref<string | null>(null)
 const search = ref('')
+const dateFrom = ref('')
+const dateTo = ref('')
 const modalOpen = ref(false)
 const editingId = ref<number | null>(null)
-const auth = useAuthStore()
 
 const form = reactive({
   warehouseId: 0,
@@ -149,12 +150,23 @@ const form = reactive({
 
 const filtered = computed(() => {
   const q = search.value.trim().toLowerCase()
-  if (!q) return items.value
-  return items.value.filter((o) =>
-    [o.clientFullName, o.warehouseName, o.orderStatus, String(o.id)]
-      .filter(Boolean)
-      .some((v) => String(v).toLowerCase().includes(q)),
-  )
+  const from = dateFrom.value ? new Date(`${dateFrom.value}T00:00:00`) : null
+  const to = dateTo.value ? new Date(`${dateTo.value}T23:59:59`) : null
+  return items.value.filter((o) => {
+    if (q) {
+      const hit = [o.clientFullName, o.orderStatus, String(o.id)]
+        .filter(Boolean)
+        .some((v) => String(v).toLowerCase().includes(q))
+      if (!hit) return false
+    }
+    if (from || to) {
+      const d = o.orderDate ? new Date(o.orderDate) : null
+      if (!d || Number.isNaN(d.getTime())) return false
+      if (from && d < from) return false
+      if (to && d > to) return false
+    }
+    return true
+  })
 })
 
 async function load() {
@@ -178,17 +190,8 @@ async function load() {
   }
 }
 
-function openCreate() {
-  const me = users.value.find((u) => u.username === auth.username)
-  editingId.value = null
-  form.warehouseId = warehouses.value[0]?.id || 0
-  form.clientId = 0
-  form.userId = me?.id || users.value[0]?.id || 0
-  form.orderDate = nowLocal()
-  form.totalSum = 0
-  form.comment = ''
-  formError.value = null
-  modalOpen.value = true
+function goCreate() {
+  void router.push('/sales/create')
 }
 
 function openEdit(o: SaleOrder) {
@@ -204,19 +207,18 @@ function openEdit(o: SaleOrder) {
 }
 
 async function onSubmit() {
+  if (!editingId.value) return
   saving.value = true
   formError.value = null
   try {
-    const payload = {
+    await updateSaleOrder(editingId.value, {
       warehouseId: form.warehouseId,
       userId: form.userId,
       orderDate: toApiDate(form.orderDate),
       totalSum: form.totalSum,
       clientId: form.clientId || null,
       comment: form.comment || undefined,
-    }
-    if (editingId.value) await updateSaleOrder(editingId.value, payload)
-    else await createSaleOrder(payload)
+    })
     modalOpen.value = false
     await load()
   } catch (e) {
@@ -253,7 +255,11 @@ onMounted(load)
 .td { padding: 0.75rem 1.25rem; font-size: 0.875rem; color: #4b5563; }
 .empty { padding: 2.5rem 1.25rem; text-align: center; font-size: 0.875rem; color: #6b7280; }
 .field { height: 2.5rem; width: 100%; border-radius: 0.5rem; border: 1px solid #d1d5db; background: transparent; padding: 0 0.75rem; font-size: 0.875rem; }
-.btn { display: inline-flex; height: 2.5rem; align-items: center; justify-content: center; border-radius: 0.5rem; background: #465fff; padding: 0 1rem; font-size: 0.875rem; font-weight: 500; color: #fff; }
+.toolbar { display: flex; align-items: center; gap: 0.75rem; width: 100%; flex-wrap: wrap; }
+.toolbar .search { width: 14rem; max-width: 100%; flex: 0 0 auto; }
+.toolbar .date { width: 10rem; flex: 0 0 auto; }
+.btn { display: inline-flex; height: 2.5rem; align-items: center; justify-content: center; border-radius: 0.5rem; background: #465fff; padding: 0 1rem; font-size: 0.875rem; font-weight: 500; color: #fff; white-space: nowrap; }
+.create-btn { margin-left: auto; min-width: 11.5rem; padding: 0 1.5rem; flex-shrink: 0; }
 .err { border-radius: 0.5rem; border: 1px solid #fecaca; background: #fef2f2; padding: 0.75rem 1rem; font-size: 0.875rem; color: #dc2626; }
 .lbl { display: block; margin-bottom: 0.25rem; font-size: 0.875rem; color: #4b5563; }
 </style>

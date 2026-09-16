@@ -70,6 +70,12 @@ const router = createRouter({
       meta: { title: 'Yangi kirim', requiresAuth: true },
     },
     {
+      path: '/warehouse-orders/:id/edit',
+      name: 'WarehouseOrderEdit',
+      component: () => import('../views/crm/WarehouseOrderCreateView.vue'),
+      meta: { title: 'Kirimni tahrirlash', requiresAuth: true },
+    },
+    {
       path: '/stock',
       name: 'Stock',
       component: () => import('../views/crm/StockView.vue'),
@@ -92,6 +98,12 @@ const router = createRouter({
       name: 'Sales',
       component: () => import('../views/crm/SalesView.vue'),
       meta: { title: 'Savdolar', requiresAuth: true },
+    },
+    {
+      path: '/sales/create',
+      name: 'SaleOrderCreate',
+      component: () => import('../views/crm/SaleOrderCreateView.vue'),
+      meta: { title: 'Yangi savdo', requiresAuth: true },
     },
     {
       path: '/sales/:id',

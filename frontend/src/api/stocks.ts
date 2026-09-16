@@ -5,9 +5,15 @@ export interface Stock {
   id: number
   goodsId?: number
   goodsName?: string
+  goodsType?: string
+  unitTypeName?: string
+  width?: number
+  height?: number
   warehouseId?: number
   warehouseName?: string
   count?: number
+  pieceCount?: number
+  kvm?: number
   status?: string
 }
 

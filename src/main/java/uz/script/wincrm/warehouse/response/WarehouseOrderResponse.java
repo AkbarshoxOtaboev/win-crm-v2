@@ -37,8 +37,11 @@ public class WarehouseOrderResponse {
     @Schema(description = "Arrival date and time", example = "2026-07-10T14:00:00")
     private LocalDateTime arrivalDate;
 
-    @Schema(description = "Total sum of the order, computed from its items", example = "1250000.00")
+    @Schema(description = "Total sum of the order (items + service fee)", example = "1250000.00")
     private BigDecimal totalSum;
+
+    @Schema(description = "Optional service fee", example = "50000.00")
+    private BigDecimal serviceFee;
 
     @Schema(description = "NEW - hali omborga tushmagan, TRANSFERRED - Stock'ga qo'shilgan", example = "NEW", implementation = WarehouseOrderStatus.class)
     private WarehouseOrderStatus orderStatus;

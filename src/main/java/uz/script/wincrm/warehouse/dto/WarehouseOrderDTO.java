@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Getter
@@ -41,4 +42,10 @@ public class WarehouseOrderDTO {
             requiredMode = Schema.RequiredMode.REQUIRED
     )
     private LocalDateTime arrivalDate;
+
+    @Schema(
+            description = "Optional service fee added to order total",
+            example = "50000.00"
+    )
+    private BigDecimal serviceFee;
 }

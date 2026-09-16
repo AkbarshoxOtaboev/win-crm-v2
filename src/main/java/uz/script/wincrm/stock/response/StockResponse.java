@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
+import uz.script.wincrm.goods.enums.Type;
 import uz.script.wincrm.utils.Status;
 
 import java.math.BigDecimal;
@@ -24,14 +25,32 @@ public class StockResponse {
     @Schema(description = "Goods name", example = "Coca-Cola 1.5L")
     private String goodsName;
 
+    @Schema(description = "Goods type", example = "WINDOW", implementation = Type.class)
+    private Type goodsType;
+
+    @Schema(description = "Unit type name", example = "dona")
+    private String unitTypeName;
+
+    @Schema(description = "Window width in cm (WINDOW)", example = "260")
+    private BigDecimal width;
+
+    @Schema(description = "Window height in cm (WINDOW)", example = "180")
+    private BigDecimal height;
+
     @Schema(description = "Warehouse identifier", example = "1")
     private Long warehouseId;
 
     @Schema(description = "Warehouse name", example = "Central Warehouse")
     private String warehouseName;
 
-    @Schema(description = "Current quantity in stock", example = "250")
+    @Schema(description = "Current quantity in stock (kv.m for WINDOW, otherwise unit count)", example = "23.4")
     private BigDecimal count;
+
+    @Schema(description = "Quantity in pieces (dona). For WINDOW derived from kv.m and dimensions.", example = "5")
+    private BigDecimal pieceCount;
+
+    @Schema(description = "Quantity in square meters (only for WINDOW)", example = "23.4")
+    private BigDecimal kvm;
 
     @Schema(description = "Current stock status", example = "ACTIVE", implementation = Status.class)
     private Status status;

@@ -66,8 +66,7 @@ public class WarehouseOrderItemServiceImpl implements WarehouseOrderItemService 
         Supplier supplier = findSupplier(dto.getSupplierId());
         Goods goods = findGoods(dto.getGoodsId());
 
-    // WINDOW: count = (eni_sm * boyi_sm * dona) / 10000 → kv.m
-        dto.setCount(resolveWindowCount(goods, dto.getWeight(), dto.getHeight(), dto.getCount()));
+        applyWindowQuantities(goods, dto);
 
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
 
@@ -80,7 +79,11 @@ public class WarehouseOrderItemServiceImpl implements WarehouseOrderItemService 
         // Order allaqachon TRANSFERRED bo'lsa (tuzatish/qo'shimcha kirim) — yangi item darhol Stock'ga qo'shiladi,
         // chunki shu orderning boshqa item'lari allaqachon Stock'da.
         if (warehouseOrder.getOrderStatus() == WarehouseOrderStatus.TRANSFERRED) {
-            stockService.increaseStock(dto.getGoodsId(), dto.getWarehouseId(), dto.getCount());
+            stockService.increaseStock(
+                    dto.getGoodsId(),
+                    dto.getWarehouseId(),
+                    dto.getCount(),
+                    dto.getPieceCount());
         }
         recalculateOrderTotalSum(warehouseOrder);
 
@@ -153,7 +156,7 @@ public class WarehouseOrderItemServiceImpl implements WarehouseOrderItemService 
         Supplier supplier = findSupplier(dto.getSupplierId());
         Goods goods = findGoods(dto.getGoodsId());
 
-        dto.setCount(resolveWindowCount(goods, dto.getWeight(), dto.getHeight(), dto.getCount()));
+        applyWindowQuantities(goods, dto);
 
         WarehouseOrder previousOrder = item.getWarehouseOrder();
 
@@ -163,6 +166,7 @@ public class WarehouseOrderItemServiceImpl implements WarehouseOrderItemService 
         Long previousGoodsId = item.getGoods().getId();
         Long previousWarehouseId = item.getWarehouse().getId();
         BigDecimal previousCount = item.getCount();
+        BigDecimal previousPieceCount = item.getPieceCount() != null ? item.getPieceCount() : previousCount;
 
         mapper.updateEntity(item, dto, warehouse, warehouseOrder, supplier, goods);
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -171,11 +175,15 @@ public class WarehouseOrderItemServiceImpl implements WarehouseOrderItemService 
 
         // Faqat item avval haqiqatan Stockda hisobga olingan bo'lsa (order TRANSFERRED edi) - eskisini ayiramiz
         if (wasInStock) {
-            stockService.decreaseStock(previousGoodsId, previousWarehouseId, previousCount);
+            stockService.decreaseStock(previousGoodsId, previousWarehouseId, previousCount, previousPieceCount);
         }
        // Faqat item endi tegishli bo'ladigan order TRANSFERRED bo'lsa - yangisini qo'shamiz
         if (willBeInStock) {
-            stockService.increaseStock(dto.getGoodsId(), dto.getWarehouseId(), dto.getCount());
+            stockService.increaseStock(
+                    dto.getGoodsId(),
+                    dto.getWarehouseId(),
+                    dto.getCount(),
+                    dto.getPieceCount());
         }
 
         recalculateOrderTotalSum(warehouseOrder);
@@ -206,10 +214,26 @@ public class WarehouseOrderItemServiceImpl implements WarehouseOrderItemService 
         repository.save(item);
 
         if (item.getWarehouseOrder().getOrderStatus() == WarehouseOrderStatus.TRANSFERRED) {
-            stockService.decreaseStock(item.getGoods().getId(), item.getWarehouse().getId(), item.getCount());
+            BigDecimal pieces = item.getPieceCount() != null ? item.getPieceCount() : item.getCount();
+            stockService.decreaseStock(
+                    item.getGoods().getId(),
+                    item.getWarehouse().getId(),
+                    item.getCount(),
+                    pieces);
         }
 
         recalculateOrderTotalSum(item.getWarehouseOrder());
+    }
+
+    /**
+     * WINDOW: pieceCount = dona (foydalanuvchi kiritgan), count = kv.m.
+     * Boshqa turlar: pieceCount = count.
+     */
+    private void applyWindowQuantities(Goods goods, WarehouseOrderItemDTO dto) {
+        BigDecimal pieces = dto.getCount();
+        BigDecimal stockQty = resolveWindowCount(goods, dto.getWeight(), dto.getHeight(), pieces);
+        dto.setPieceCount(pieces);
+        dto.setCount(stockQty);
     }
 
     /**
@@ -221,10 +245,15 @@ public class WarehouseOrderItemServiceImpl implements WarehouseOrderItemService 
     private void recalculateOrderTotalSum(WarehouseOrder warehouseOrder) {
         List<WarehouseOrderItem> items = repository.findAllByWarehouseOrderId(warehouseOrder.getId());
 
-        BigDecimal newTotal = items.stream()
+        BigDecimal itemsTotal = items.stream()
                 .filter(i -> i.getStatus() == Status.ACTIVE)
                 .map(i -> i.getPriceSelling().multiply(i.getCount()))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal serviceFee = warehouseOrder.getServiceFee() != null
+                ? warehouseOrder.getServiceFee()
+                : BigDecimal.ZERO;
+        BigDecimal newTotal = itemsTotal.add(serviceFee);
 
         BigDecimal oldTotal = warehouseOrder.getTotalSum() != null
                 ? warehouseOrder.getTotalSum()

@@ -18,6 +18,7 @@ import uz.script.wincrm.warehouse.Warehouse;
 import uz.script.wincrm.warehouse.repository.WarehouseRepository;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 
 @Service
@@ -67,10 +68,15 @@ public class StockServiceImpl implements StockService {
 
     @Override
     @Transactional
-    public void increaseStock(Long goodsId, Long warehouseId, BigDecimal count) {
+    public void increaseStock(Long goodsId, Long warehouseId, BigDecimal count, BigDecimal pieceCount) {
+        BigDecimal pieces = pieceCount != null ? pieceCount : count;
         Stock stock = stockRepository.findByGoodsIdAndWarehouseId(goodsId, warehouseId)
                 .map(existing -> {
                     existing.setCount(existing.getCount().add(count));
+                    BigDecimal existingPieces = existing.getPieceCount() != null
+                            ? existing.getPieceCount()
+                            : BigDecimal.ZERO;
+                    existing.setPieceCount(existingPieces.add(pieces));
                     return stockRepository.save(existing);
                 })
                 .orElseGet(() -> {
@@ -83,6 +89,7 @@ public class StockServiceImpl implements StockService {
                             .goods(goods)
                             .warehouse(warehouse)
                             .count(count)
+                            .pieceCount(pieces)
                             .status(Status.ACTIVE)
                             .build();
                     return stockRepository.save(newStock);
@@ -100,7 +107,7 @@ public class StockServiceImpl implements StockService {
 
     @Override
     @Transactional
-    public void decreaseStock(Long goodsId, Long warehouseId, BigDecimal count) {
+    public void decreaseStock(Long goodsId, Long warehouseId, BigDecimal count, BigDecimal pieceCount) {
         Stock stock = stockRepository.findByGoodsIdAndWarehouseId(goodsId, warehouseId)
                 .orElseThrow(() -> new EntityNotFoundException(
                         "Stock not found for goodsId: " + goodsId + " and warehouseId: " + warehouseId));
@@ -109,10 +116,34 @@ public class StockServiceImpl implements StockService {
             throw new InsufficientStockException("Insufficient stock count for goodsId: " + goodsId);
         }
 
+        BigDecimal piecesDelta = resolvePieceDelta(stock, count, pieceCount);
+        BigDecimal currentPieces = stock.getPieceCount() != null ? stock.getPieceCount() : BigDecimal.ZERO;
+        if (currentPieces.compareTo(piecesDelta) < 0) {
+            piecesDelta = currentPieces;
+        }
+
         stock.setCount(stock.getCount().subtract(count));
+        stock.setPieceCount(currentPieces.subtract(piecesDelta));
         stockRepository.save(stock);
 
         stockHistoryService.recordOut(goodsId, warehouseId, count, stock.getCount(), "Ombordan mahsulot chiqim qilindi");
+    }
+
+    private BigDecimal resolvePieceDelta(Stock stock, BigDecimal count, BigDecimal pieceCount) {
+        if (pieceCount != null) {
+            return pieceCount;
+        }
+        BigDecimal stockPieces = stock.getPieceCount();
+        BigDecimal stockCount = stock.getCount();
+        if (stockPieces != null
+                && stockCount != null
+                && stockCount.compareTo(BigDecimal.ZERO) > 0
+                && stockPieces.compareTo(stockCount) != 0) {
+            // WINDOW: pieceCount ni count (kv.m) ga proporsional kamaytirish
+            return stockPieces.multiply(count)
+                    .divide(stockCount, 4, RoundingMode.HALF_UP);
+        }
+        return count;
     }
 
     @Override

@@ -51,7 +51,10 @@ public class WarehouseOrderItemResponse {
     @Schema(description = "Height of the batch", example = "12.0")
     private BigDecimal height;
 
-    @Schema(description = "Quantity received", example = "100")
+    @Schema(description = "Quantity in pieces (dona)", example = "5")
+    private BigDecimal pieceCount;
+
+    @Schema(description = "Stock quantity: kv.m for WINDOW, otherwise unit count", example = "23.4")
     private BigDecimal count;
 
     @Schema(description = "Arrival date and time", example = "2026-07-10T14:00:00")

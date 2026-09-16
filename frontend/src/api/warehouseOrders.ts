@@ -10,6 +10,7 @@ export interface WarehouseOrder {
   comment?: string
   arrivalDate?: string
   totalSum?: number
+  serviceFee?: number
   paidSum?: number
   debtSum?: number
   transferred?: boolean
@@ -22,6 +23,7 @@ export interface WarehouseOrderPayload {
   warehouseId: number
   arrivalDate: string
   comment?: string
+  serviceFee?: number
 }
 
 export interface WarehouseOrderItem {
@@ -35,7 +37,10 @@ export interface WarehouseOrderItem {
   priceSelling?: number
   weight?: number
   height?: number
+  /** WINDOW: kv.m; boshqa: miqdor */
   count?: number
+  /** Miqdor (dona) — bazada alohida */
+  pieceCount?: number
   arrivalDate?: string
 }
 
@@ -89,6 +94,20 @@ export function deleteWarehouseOrder(id: number) {
 export function transferWarehouseOrder(id: number) {
   return apiRequest<RestApiResponse<WarehouseOrder>>(`/api/warehouse-orders/${id}/transfer`, {
     method: 'PATCH',
+  })
+}
+
+export function sendWarehouseOrderSms(orderId: number, message: string) {
+  return apiRequest<RestApiResponse<null>>(`/api/warehouse-orders/${orderId}/notify/sms`, {
+    method: 'POST',
+    body: { message },
+  })
+}
+
+export function sendWarehouseOrderTelegram(orderId: number, message: string) {
+  return apiRequest<RestApiResponse<null>>(`/api/warehouse-orders/${orderId}/notify/telegram`, {
+    method: 'POST',
+    body: { message },
   })
 }
 

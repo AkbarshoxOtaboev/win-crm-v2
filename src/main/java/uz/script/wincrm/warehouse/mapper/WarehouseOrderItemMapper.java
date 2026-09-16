@@ -29,6 +29,7 @@ public class WarehouseOrderItemMapper {
                 .priceSelling(dto.getPriceSelling())
                 .weight(dto.getWeight())
                 .height(dto.getHeight())
+                .pieceCount(dto.getPieceCount() != null ? dto.getPieceCount() : dto.getCount())
                 .count(dto.getCount())
                 .arrivalDate(dto.getArrivalDate())
                 .status(Status.ACTIVE)
@@ -51,6 +52,7 @@ public class WarehouseOrderItemMapper {
         item.setPriceSelling(dto.getPriceSelling());
         item.setWeight(dto.getWeight());
         item.setHeight(dto.getHeight());
+        item.setPieceCount(dto.getPieceCount() != null ? dto.getPieceCount() : dto.getCount());
         item.setCount(dto.getCount());
         item.setArrivalDate(dto.getArrivalDate());
     }
@@ -69,6 +71,7 @@ public class WarehouseOrderItemMapper {
                 .priceSelling(item.getPriceSelling())
                 .weight(item.getWeight())
                 .height(item.getHeight())
+                .pieceCount(item.getPieceCount() != null ? item.getPieceCount() : item.getCount())
                 .count(item.getCount())
                 .arrivalDate(item.getArrivalDate())
                 .status(item.getStatus())

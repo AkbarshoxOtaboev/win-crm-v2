@@ -14,4 +14,8 @@ public interface WarehouseOrderService {
     WarehouseOrderResponse update(Long id, WarehouseOrderDTO dto);
     void delete(Long id);
     WarehouseOrderResponse transferToWarehouse(Long id);
+
+    void sendSmsToSupplier(Long id, String message);
+
+    void sendTelegramToSupplier(Long id, String message);
 }

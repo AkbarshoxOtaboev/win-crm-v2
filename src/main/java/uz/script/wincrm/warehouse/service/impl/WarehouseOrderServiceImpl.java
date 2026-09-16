@@ -8,10 +8,15 @@ import org.springframework.stereotype.Service;
 import uz.script.wincrm.audit.AuditAction;
 import uz.script.wincrm.audit.Auditable;
 import uz.script.wincrm.exceptions.ResourceNotFoundException;
+import uz.script.wincrm.exceptions.BadRequestException;
+import uz.script.wincrm.sms.SmsSendException;
+import uz.script.wincrm.sms.SmsService;
 import uz.script.wincrm.stock.service.StockService;
 import uz.script.wincrm.suppliers.Supplier;
 import uz.script.wincrm.suppliers.repository.SupplierRepository;
 import uz.script.wincrm.suppliers.service.SupplierBalanceService;
+import uz.script.wincrm.telegram.TelegramSendResult;
+import uz.script.wincrm.telegram.config.TelegramBotLifecycleService;
 import uz.script.wincrm.utils.Status;
 import uz.script.wincrm.warehouse.Warehouse;
 import uz.script.wincrm.warehouse.WarehouseOrder;
@@ -42,6 +47,8 @@ public class WarehouseOrderServiceImpl implements WarehouseOrderService {
     private final SupplierBalanceService supplierBalanceService;
     private final WarehouseOrderItemRepository warehouseOrderItemRepository;
     private final StockService stockService;
+    private final SmsService smsService;
+    private final TelegramBotLifecycleService telegramBotLifecycleService;
 
     @Override
     @Auditable(
@@ -69,6 +76,13 @@ public class WarehouseOrderServiceImpl implements WarehouseOrderService {
         // Supplier balansi (totalPurchase/totalDebt) faqat item qo'shilganda
         // WarehouseOrderItemServiceImpl#recalculateOrderTotalSum orqali yangilanadi.
         order = repository.save(order);
+
+        BigDecimal serviceFee = order.getServiceFee() != null ? order.getServiceFee() : BigDecimal.ZERO;
+        if (serviceFee.compareTo(BigDecimal.ZERO) > 0) {
+            supplierBalanceService.increasePurchase(supplier.getId(), serviceFee);
+            log.info("Supplier balance increased by service fee. SupplierId: {}, Fee: {}",
+                    supplier.getId(), serviceFee);
+        }
 
         return mapper.toResponse(order);
     }
@@ -145,17 +159,42 @@ public class WarehouseOrderServiceImpl implements WarehouseOrderService {
         Long newSupplierId = newSupplier.getId();
         BigDecimal currentTotalSum = order.getTotalSum() != null ? order.getTotalSum() : BigDecimal.ZERO;
 
+        BigDecimal oldServiceFee = order.getServiceFee() != null ? order.getServiceFee() : BigDecimal.ZERO;
+
         mapper.updateEntity(order, dto, newSupplier, warehouse);
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         order.setCreatedUsername(username);
+
+        BigDecimal itemsTotal = warehouseOrderItemRepository.findAllByWarehouseOrderId(id)
+                .stream()
+                .filter(i -> i.getStatus() == Status.ACTIVE)
+                .map(i -> i.getPriceSelling().multiply(i.getCount()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal newServiceFee = order.getServiceFee() != null ? order.getServiceFee() : BigDecimal.ZERO;
+        BigDecimal newTotalSum = itemsTotal.add(newServiceFee);
+        order.setTotalSum(newTotalSum);
         order = repository.save(order);
 
-        if (!Objects.equals(oldSupplierId, newSupplierId)
+        BigDecimal totalDiff = newTotalSum.subtract(currentTotalSum);
+        if (totalDiff.compareTo(BigDecimal.ZERO) != 0) {
+            if (!Objects.equals(oldSupplierId, newSupplierId)) {
+                supplierBalanceService.decreasePurchase(oldSupplierId, currentTotalSum);
+                supplierBalanceService.increasePurchase(newSupplierId, newTotalSum);
+                log.info("Order supplier changed, balance transferred. Old supplierId: {} (-{}), New supplierId: {} (+{})",
+                        oldSupplierId, currentTotalSum, newSupplierId, newTotalSum);
+            } else {
+                if (totalDiff.compareTo(BigDecimal.ZERO) > 0) {
+                    supplierBalanceService.increasePurchase(newSupplierId, totalDiff);
+                } else {
+                    supplierBalanceService.decreasePurchase(newSupplierId, totalDiff.abs());
+                }
+                log.info("Order total updated. SupplierId: {}, Diff: {}, ServiceFee: {} -> {}",
+                        newSupplierId, totalDiff, oldServiceFee, newServiceFee);
+            }
+        } else if (!Objects.equals(oldSupplierId, newSupplierId)
                 && currentTotalSum.compareTo(BigDecimal.ZERO) != 0) {
-
             supplierBalanceService.decreasePurchase(oldSupplierId, currentTotalSum);
             supplierBalanceService.increasePurchase(newSupplierId, currentTotalSum);
-
             log.info("Order's supplier changed, balance transferred. Old supplierId: {} (-{}), New supplierId: {} (+{})",
                     oldSupplierId, currentTotalSum, newSupplierId, currentTotalSum);
         }
@@ -179,7 +218,12 @@ public class WarehouseOrderServiceImpl implements WarehouseOrderService {
             List<WarehouseOrderItem> items = warehouseOrderItemRepository.findAllByWarehouseOrderId(id);
             for (WarehouseOrderItem item : items) {
                 if (item.getStatus() == Status.ACTIVE) {
-                    stockService.decreaseStock(item.getGoods().getId(), item.getWarehouse().getId(), item.getCount());
+                    BigDecimal pieces = item.getPieceCount() != null ? item.getPieceCount() : item.getCount();
+                    stockService.decreaseStock(
+                            item.getGoods().getId(),
+                            item.getWarehouse().getId(),
+                            item.getCount(),
+                            pieces);
                 }
             }
             log.info("Order was TRANSFERRED, stock reverted for {} items", items.size());
@@ -218,7 +262,12 @@ public class WarehouseOrderServiceImpl implements WarehouseOrderService {
         }
 
         for (WarehouseOrderItem item : items) {
-            stockService.increaseStock(item.getGoods().getId(), item.getWarehouse().getId(), item.getCount());
+            BigDecimal pieces = item.getPieceCount() != null ? item.getPieceCount() : item.getCount();
+            stockService.increaseStock(
+                    item.getGoods().getId(),
+                    item.getWarehouse().getId(),
+                    item.getCount(),
+                    pieces);
         }
 
         order.setOrderStatus(WarehouseOrderStatus.TRANSFERRED);
@@ -226,5 +275,42 @@ public class WarehouseOrderServiceImpl implements WarehouseOrderService {
 
         log.info("Order transferred to stock. OrderId: {}, items: {}", id, items.size());
         return mapper.toResponse(order);
+    }
+
+    @Override
+    public void sendSmsToSupplier(Long id, String message) {
+        WarehouseOrder order = repository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Warehouse order not found with id: " + id));
+        Supplier supplier = order.getSupplier();
+        if (supplier == null || supplier.getPhone() == null || supplier.getPhone().isBlank()) {
+            throw new BadRequestException("Yetkazuvchi telefon raqami topilmadi");
+        }
+        try {
+            smsService.sendSms(supplier.getPhone(), message);
+            log.info("Warehouse order SMS sent. OrderId: {}, SupplierId: {}", id, supplier.getId());
+        } catch (SmsSendException e) {
+            throw new BadRequestException("SMS yuborilmadi: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public void sendTelegramToSupplier(Long id, String message) {
+        WarehouseOrder order = repository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Warehouse order not found with id: " + id));
+        Supplier supplier = order.getSupplier();
+        if (supplier == null || supplier.getPhone() == null || supplier.getPhone().isBlank()) {
+            throw new BadRequestException("Yetkazuvchi telefon raqami topilmadi");
+        }
+
+        TelegramSendResult result = telegramBotLifecycleService.sendMessageToPhone(supplier.getPhone(), message);
+        switch (result) {
+            case SENT -> log.info("Warehouse order Telegram sent. OrderId: {}, SupplierId: {}", id, supplier.getId());
+            case BOT_NOT_CONNECTED -> throw new IllegalStateException(
+                    "Telegram bot hozircha ulanmagan. Admin panelidan bot tokenini tekshiring.");
+            case CLIENT_NOT_LINKED -> throw new IllegalStateException(
+                    "Yetkazuvchi Telegram botdan hali ro'yxatdan o'tmagan (telefon raqami orqali /start bosilmagan).");
+            case SEND_FAILED -> throw new IllegalStateException(
+                    "Xabar yuborishda Telegram API xatoligi yuz berdi. Qaytadan urinib ko'ring.");
+        }
     }
 }
