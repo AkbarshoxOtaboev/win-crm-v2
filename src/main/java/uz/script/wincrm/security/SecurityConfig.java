@@ -141,7 +141,8 @@ public class SecurityConfig {
         configuration.setAllowedHeaders(List.of(
                 "Authorization",
                 "Content-Type",
-                "Accept"
+                "Accept",
+                "X-Filial-Id"
         ));
 
         configuration.setExposedHeaders(List.of(

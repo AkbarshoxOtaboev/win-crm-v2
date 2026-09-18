@@ -76,7 +76,7 @@ export function fetchSaleOrdersByDateRange(startDate: string, endDate: string) {
 
 export function fetchSaleOrdersByClient(clientId: number, page = 0, size = 50) {
   return apiRequest<RestApiResponse<SpringPage<SaleOrder>>>(
-    `/api/sale-orders/client/${clientId}?page=${page}&size=${size}`,
+    `/api/sale-orders/client/${clientId}?page=${page}&size=${size}&sort=id,asc`,
   )
 }
 

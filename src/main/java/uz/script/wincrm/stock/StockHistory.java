@@ -7,9 +7,9 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.SQLRestriction;
+import uz.script.wincrm.filial.FilialScopedEntity;
 import uz.script.wincrm.goods.Goods;
 import uz.script.wincrm.stock.enums.StockStatus;
-import uz.script.wincrm.utils.BaseEntity;
 import uz.script.wincrm.utils.TableName;
 import uz.script.wincrm.warehouse.Warehouse;
 
@@ -23,7 +23,7 @@ import java.math.BigDecimal;
 @SuperBuilder
 @Table(name = TableName.STOCK_HISTORIES)
 @SQLRestriction("status <> 'DELETED'")
-public class StockHistory extends BaseEntity {
+public class StockHistory extends FilialScopedEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "goods_id", nullable = false)

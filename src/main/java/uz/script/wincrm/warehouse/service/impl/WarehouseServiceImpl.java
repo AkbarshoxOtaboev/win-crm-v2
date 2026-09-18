@@ -45,8 +45,7 @@ public class WarehouseServiceImpl implements WarehouseService {
         log.info("Create warehouse");
 
         if (existsByName(dto.getName())) {
-            throw new AlreadyExistsException(
-                    "Warehouse with name '" + dto.getName() + "' already exists");
+            throw new AlreadyExistsException("error.warehouse.name.exists", dto.getName());
         }
 
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -96,8 +95,7 @@ public class WarehouseServiceImpl implements WarehouseService {
                         new ResourceNotFoundException("Warehouse not found with id: " + id));
 
         if (!warehouse.getName().equals(dto.getName()) && existsByName(dto.getName())) {
-            throw new AlreadyExistsException(
-                    "Warehouse with name '" + dto.getName() + "' already exists");
+            throw new AlreadyExistsException("error.warehouse.name.exists", dto.getName());
         }
 
         mapper.updateEntity(warehouse, dto);

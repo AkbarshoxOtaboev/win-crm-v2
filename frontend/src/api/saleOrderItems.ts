@@ -1,5 +1,5 @@
 import { apiRequest } from './http'
-import type { RestApiResponse } from './types'
+import type { PageResponse, RestApiResponse } from './types'
 
 export interface SaleOrderItem {
   id: number
@@ -35,6 +35,12 @@ export interface SaleOrderItemPayload {
 export function fetchSaleOrderItems(saleOrderId: number) {
   return apiRequest<RestApiResponse<SaleOrderItem[]>>(
     `/api/sale-order-items/sale-order/${saleOrderId}`,
+  )
+}
+
+export function fetchSaleOrderItemsByClient(clientId: number, page = 0, size = 200) {
+  return apiRequest<RestApiResponse<PageResponse<SaleOrderItem>>>(
+    `/api/sale-order-items/client/${clientId}?page=${page}&size=${size}&sort=id,asc`,
   )
 }
 

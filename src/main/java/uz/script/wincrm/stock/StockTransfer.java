@@ -7,8 +7,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.SQLRestriction;
+import uz.script.wincrm.filial.FilialScopedEntity;
 import uz.script.wincrm.goods.Goods;
-import uz.script.wincrm.utils.BaseEntity;
 import uz.script.wincrm.utils.TableName;
 import uz.script.wincrm.warehouse.Warehouse;
 
@@ -28,7 +28,7 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @Table(name = TableName.STOCK_TRANSFERS)
 @SQLRestriction("status <> 'DELETED'")
-public class StockTransfer extends BaseEntity {
+public class StockTransfer extends FilialScopedEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "goods_id", nullable = false)

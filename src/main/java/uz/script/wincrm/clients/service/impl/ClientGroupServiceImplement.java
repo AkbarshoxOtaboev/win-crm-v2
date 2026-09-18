@@ -35,8 +35,7 @@ public class ClientGroupServiceImplement implements ClientGroupService {
         log.info("Create client group");
 
         if (repository.existsByNameIgnoreCase(dto.getName())) {
-            throw new AlreadyExistsException(
-                    "Client group with name '" + dto.getName() + "' already exists");
+            throw new AlreadyExistsException("error.client.group.name.exists", dto.getName());
         }
 
         ClientGroup clientGroup = ClientGroup.builder()
@@ -66,8 +65,7 @@ public class ClientGroupServiceImplement implements ClientGroupService {
         if (!clientGroup.getName().equalsIgnoreCase(dto.getName())
                 && repository.existsByNameIgnoreCase(dto.getName())) {
 
-            throw new AlreadyExistsException(
-                    "Client group with name '" + dto.getName() + "' already exists");
+            throw new AlreadyExistsException("error.client.group.name.exists", dto.getName());
         }
 
         clientGroup.setName(dto.getName());

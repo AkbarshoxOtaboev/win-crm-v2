@@ -86,7 +86,7 @@ export function deletePaymentType(id: number) {
 
 export function fetchPaymentsByClient(clientId: number, page = 0, size = 50) {
   return apiRequest<RestApiResponse<PageResponse<Payment>>>(
-    `/api/payments/client/${clientId}?page=${page}&size=${size}`,
+    `/api/payments/client/${clientId}?page=${page}&size=${size}&sort=id,asc`,
   )
 }
 

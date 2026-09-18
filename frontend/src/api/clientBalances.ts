@@ -15,8 +15,17 @@ export function fetchClientBalances() {
   return apiRequest<RestApiResponse<ClientBalance[]>>('/api/client-balances')
 }
 
-export function fetchClientBalance(clientId: number) {
-  return apiRequest<RestApiResponse<ClientBalance>>(`/api/client-balances/${clientId}`)
+export function fetchClientBalance(
+  clientId: number,
+  params?: { fromDate?: string; toDate?: string },
+) {
+  const q = new URLSearchParams()
+  if (params?.fromDate) q.set('fromDate', params.fromDate)
+  if (params?.toDate) q.set('toDate', params.toDate)
+  const qs = q.toString()
+  return apiRequest<RestApiResponse<ClientBalance>>(
+    `/api/client-balances/${clientId}${qs ? `?${qs}` : ''}`,
+  )
 }
 
 export function recalculateClientBalance(clientId: number) {

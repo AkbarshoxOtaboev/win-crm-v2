@@ -26,4 +26,6 @@ public class UserResponse {
     private LocalDateTime updateAt;
     private Set<RoleResponse> role;
     private String photoLink;
+    private Long filialId;
+    private String filialName;
 }

@@ -11,6 +11,8 @@ export interface UserItem {
   photoLink?: string
   role?: RoleItem[]
   createdAt?: string
+  filialId?: number | null
+  filialName?: string | null
 }
 
 export interface UserStat {

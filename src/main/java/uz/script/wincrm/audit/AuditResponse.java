@@ -1,4 +1,5 @@
 package uz.script.wincrm.audit;
+
 import lombok.Builder;
 import lombok.Data;
 
@@ -15,6 +16,10 @@ public class AuditResponse {
     private String entity;
 
     private String action;
+
+    private String httpMethod;
+
+    private String requestUrl;
 
     private String description;
 

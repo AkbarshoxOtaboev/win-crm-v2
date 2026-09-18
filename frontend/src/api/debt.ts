@@ -50,6 +50,6 @@ export function fetchDebtHistory(page = 0, size = 50) {
 
 export function fetchDebtHistoryByClient(clientId: number, page = 0, size = 20) {
   return apiRequest<RestApiResponse<SpringPage<DebtNotificationHistory>>>(
-    `/api/notifications/debt/history/client/${clientId}?page=${page}&size=${size}`,
+    `/api/notifications/debt/history/client/${clientId}?page=${page}&size=${size}&sort=id,asc`,
   )
 }

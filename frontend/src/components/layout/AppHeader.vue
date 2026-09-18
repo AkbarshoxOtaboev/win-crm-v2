@@ -75,6 +75,7 @@
         class="items-center justify-between w-full gap-4 px-5 py-4 shadow-theme-md xl:flex xl:justify-end xl:px-0 xl:shadow-none"
       >
         <div class="flex items-center gap-2 2xsm:gap-3">
+          <FilialSwitcher />
           <LanguageSwitcher />
           <ThemeToggler />
         </div>
@@ -91,6 +92,7 @@ import ThemeToggler from '../common/ThemeToggler.vue'
 import SearchBar from './header/SearchBar.vue'
 import HeaderLogo from './header/HeaderLogo.vue'
 import LanguageSwitcher from './header/LanguageSwitcher.vue'
+import FilialSwitcher from './header/FilialSwitcher.vue'
 import UserMenu from './header/UserMenu.vue'
 
 const { toggleSidebar, toggleMobileSidebar, isMobileOpen } = useSidebar()

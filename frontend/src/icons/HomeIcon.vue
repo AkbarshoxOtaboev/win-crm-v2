@@ -1,10 +1,64 @@
 <template>
-  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <svg
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <rect
+      x="2.75"
+      y="2.75"
+      width="18.5"
+      height="13.5"
+      rx="2.25"
+      stroke="currentColor"
+      stroke-width="1.5"
+    />
+    <circle cx="8.1" cy="8.05" r="2.15" stroke="currentColor" stroke-width="1.35" />
     <path
-      fill-rule="evenodd"
-      clip-rule="evenodd"
-      d="M7.48994 3.61404C7.79216 3.38738 8.20771 3.38738 8.50993 3.61404L12.3433 6.48904C12.5573 6.64957 12.6833 6.9015 12.6833 7.16904V11.8333C12.6833 12.3028 12.3027 12.6833 11.8333 12.6833H8.64993V10.8333C8.64993 10.4744 8.35892 10.1833 7.99993 10.1833C7.64095 10.1833 7.34993 10.4744 7.34993 10.8333V12.6833H4.1666C3.69716 12.6833 3.3166 12.3028 3.3166 11.8333V7.16904C3.3166 6.9015 3.44257 6.64957 3.6566 6.48904L7.48994 3.61404ZM7.99478 13.9833H4.1666C2.97919 13.9833 2.0166 13.0207 2.0166 11.8333V7.16904C2.0166 6.49231 2.33522 5.85508 2.8766 5.44904L6.70994 2.57404C7.47438 2.00071 8.52549 2.00071 9.28993 2.57404L13.1233 5.44904C13.6647 5.85508 13.9833 6.49232 13.9833 7.16904V11.8333C13.9833 13.0207 13.0207 13.9833 11.8333 13.9833H8.00509C8.00337 13.9833 8.00166 13.9833 7.99993 13.9833C7.99821 13.9833 7.9965 13.9833 7.99478 13.9833Z"
-      fill="currentColor"
+      d="M8.1 5.9V8.05H10.25"
+      stroke="currentColor"
+      stroke-width="1.35"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+    <path
+      d="M6.15 11.15H10.2M6.15 12.65H9.15"
+      stroke="currentColor"
+      stroke-width="1.35"
+      stroke-linecap="round"
+    />
+    <path
+      d="M13.15 12.7V10.55M15.25 12.7V8.35M17.35 12.7V10.95"
+      stroke="currentColor"
+      stroke-width="1.5"
+      stroke-linecap="round"
+    />
+    <path
+      d="M12.95 8.55L14.7 6.85L16.2 8.05L18.15 5.95"
+      stroke="currentColor"
+      stroke-width="1.35"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+    <path
+      d="M17.35 5.95L18.2 5.95L18.2 6.85"
+      stroke="currentColor"
+      stroke-width="1.35"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+    <path
+      d="M12 16.25V18.15"
+      stroke="currentColor"
+      stroke-width="1.5"
+      stroke-linecap="round"
+    />
+    <path
+      d="M8.4 20.35C8.4 19.45 10 18.85 12 18.85C14 18.85 15.6 19.45 15.6 20.35C15.6 21.05 14 21.35 12 21.35C10 21.35 8.4 21.05 8.4 20.35Z"
+      stroke="currentColor"
+      stroke-width="1.5"
     />
   </svg>
 </template>

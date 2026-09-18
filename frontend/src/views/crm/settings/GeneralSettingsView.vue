@@ -28,6 +28,7 @@ import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import {
   BarChart3,
   Box,
+  Building2,
   Folder,
   List,
   Plug,
@@ -40,6 +41,7 @@ import {
 } from 'lucide-vue-next'
 
 const links = [
+  { path: '/settings/filials', title: 'Filiallar', desc: 'Filiallar va direktorlar', icon: Building2 },
   { path: '/settings/users', title: 'Foydalanuvchilar', desc: 'Login, rollar va status', icon: UserCircle },
   { path: '/settings/sessions', title: 'Faol sessiyalar', desc: 'Kirishlar va qurilmalar', icon: Plug },
   { path: '/settings/roles', title: 'Rollar', desc: 'Ruxsatlar boshqaruvi', icon: Shield },

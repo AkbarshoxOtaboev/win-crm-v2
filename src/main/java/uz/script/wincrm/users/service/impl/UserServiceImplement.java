@@ -10,6 +10,9 @@ import uz.script.wincrm.audit.Auditable;
 import uz.script.wincrm.exceptions.AlreadyExistsException;
 import uz.script.wincrm.exceptions.BadRequestException;
 import uz.script.wincrm.exceptions.ResourceNotFoundException;
+import uz.script.wincrm.filial.Filial;
+import uz.script.wincrm.filial.FilialAccess;
+import uz.script.wincrm.filial.FilialRepository;
 import uz.script.wincrm.payment.repository.PaymentRepository;
 import uz.script.wincrm.roles.Role;
 import uz.script.wincrm.roles.RoleRepository;
@@ -43,6 +46,8 @@ public class UserServiceImplement implements UserService {
     private final SaleOrderRepository saleOrderRepository;
     private final PaymentRepository paymentRepository;
     private final UserRepository userRepository;
+    private final FilialRepository filialRepository;
+    private final FilialAccess filialAccess;
     @Override
 //    @Caching(evict = {
 //            @CacheEvict(value = "users", allEntries = true)
@@ -56,9 +61,7 @@ public class UserServiceImplement implements UserService {
         log.info("Create user {}", dto.getUsername());
 
         if (repository.existsByUsername(dto.getUsername())) {
-            throw new AlreadyExistsException(
-                    "Username already exists: " + dto.getUsername()
-            );
+            throw new AlreadyExistsException("error.user.username.exists", dto.getUsername());
         }
 
         Set<Role> roles = new HashSet<>(roleRepository.findAllById(dto.getRoleIds()));
@@ -81,6 +84,7 @@ public class UserServiceImplement implements UserService {
                 .phone(dto.getPhone())
                 .roles(roles)
                 .photoLink(photoLink)
+                .filial(resolveFilial(dto.getFilialId()))
                 .status(Status.ACTIVE)
                 .build();
 
@@ -110,8 +114,18 @@ public class UserServiceImplement implements UserService {
 
         log.info("Fetch all users");
 
-        return repository.findAllByStatusNot(Status.DELETED)
-                .stream()
+        List<User> users;
+        if (!filialAccess.isSuperAdmin()) {
+            Long filialId = filialAccess.currentFilialId();
+            if (filialId == null || filialId <= 0) {
+                return List.of();
+            }
+            users = repository.findAllByStatusNotAndFilial_Id(Status.DELETED, filialId);
+        } else {
+            users = repository.findAllByStatusNot(Status.DELETED);
+        }
+
+        return users.stream()
                 .map(this::mapUserToUserResponse)
                 .toList();
     }
@@ -142,6 +156,7 @@ public class UserServiceImplement implements UserService {
         user.setFullName(dto.getFullName());
         user.setPhone(dto.getPhone());
         user.setRoles(roles);
+        user.setFilial(resolveFilial(dto.getFilialId()));
 
         if (dto.getPassword() != null && !dto.getPassword().isBlank()) {
             user.setPassword(passwordEncoder.encode(dto.getPassword()));
@@ -260,7 +275,20 @@ public class UserServiceImplement implements UserService {
                 .status(user.getStatus())
                 .createdAt(user.getCreatedAt())
                 .updateAt(user.getUpdatedAt())
+                .filialId(user.getFilial() != null ? user.getFilial().getId() : null)
+                .filialName(user.getFilial() != null ? user.getFilial().getName() : null)
                 .build();
+    }
+
+    private Filial resolveFilial(Long filialId) {
+        if (!filialAccess.isSuperAdmin()) {
+            return filialAccess.requireCurrentFilial();
+        }
+        if (filialId == null || filialId <= 0) {
+            return null;
+        }
+        return filialRepository.findByIdAndStatusNot(filialId, Status.DELETED)
+                .orElseThrow(() -> new ResourceNotFoundException("Filial not found with id: " + filialId));
     }
 
     private RoleResponse mapRoleToRoleResponse(Role role) {

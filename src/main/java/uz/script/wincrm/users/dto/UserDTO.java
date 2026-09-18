@@ -23,5 +23,6 @@ public class UserDTO {
     private String phone;
     @NotEmpty(message = "Role IDs cannot be empty")
     private Set<Long> roleIds;
+    private Long filialId;
     private MultipartFile photo;
 }

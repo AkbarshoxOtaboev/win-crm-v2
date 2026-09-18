@@ -1,9 +1,13 @@
 package uz.script.wincrm.audit;
 
-import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
+import java.time.LocalDateTime;
 
 public interface AuditLogService {
 
     void save(AuditLog auditLog);
-    List<AuditResponse> getAll();
+
+    Page<AuditResponse> findAll(String username, LocalDateTime fromDate, LocalDateTime toDate, Pageable pageable);
 }

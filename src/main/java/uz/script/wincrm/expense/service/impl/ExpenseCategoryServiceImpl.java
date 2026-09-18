@@ -37,7 +37,7 @@ public class ExpenseCategoryServiceImpl implements ExpenseCategoryService {
 
         repository.findByNameIgnoreCase(dto.getName())
                 .ifPresent(existing -> {
-                    throw new AlreadyExistsException("Expense category already exists with name: " + dto.getName());
+                    throw new AlreadyExistsException("error.expense.category.name.exists", dto.getName());
                 });
 
         ExpenseCategory entity = mapper.toEntity(dto);
@@ -80,7 +80,7 @@ public class ExpenseCategoryServiceImpl implements ExpenseCategoryService {
         if (dto.getName() != null && !dto.getName().equalsIgnoreCase(entity.getName())) {
             repository.findByNameIgnoreCase(dto.getName())
                     .ifPresent(existing -> {
-                        throw new AlreadyExistsException("Expense category already exists with name: " + dto.getName());
+                        throw new AlreadyExistsException("error.expense.category.name.exists", dto.getName());
                     });
         }
 

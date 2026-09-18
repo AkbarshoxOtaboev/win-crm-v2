@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import uz.script.wincrm.exceptions.InsufficientStockException;
+import uz.script.wincrm.filial.FilialAccess;
 import uz.script.wincrm.goods.Goods;
 import uz.script.wincrm.goods.repository.GoodsRepository;
 import uz.script.wincrm.stock.Stock;
@@ -30,6 +31,7 @@ public class StockServiceImpl implements StockService {
     private final WarehouseRepository warehouseRepository;
     private final StockMapper stockMapper;
     private final StockHistoryService stockHistoryService;
+    private final FilialAccess filialAccess;
 
     @Override
     @Transactional(readOnly = true)
@@ -92,6 +94,7 @@ public class StockServiceImpl implements StockService {
                             .pieceCount(pieces)
                             .status(Status.ACTIVE)
                             .build();
+                    filialAccess.attachCurrentFilial(newStock);
                     return stockRepository.save(newStock);
                 });
 

@@ -37,7 +37,7 @@ public class CompanyDetailServiceImpl implements CompanyDetailService {
 
         repository.findByInn(dto.getInn())
                 .ifPresent(existing -> {
-                    throw new AlreadyExistsException("Company detail already exists with INN: " + dto.getInn());
+                    throw new AlreadyExistsException("error.company.inn.exists", dto.getInn());
                 });
 
         CompanyDetail entity = mapper.toEntity(dto);
@@ -92,7 +92,7 @@ public class CompanyDetailServiceImpl implements CompanyDetailService {
         if (dto.getInn() != null && !dto.getInn().equals(entity.getInn())) {
             repository.findByInn(dto.getInn())
                     .ifPresent(existing -> {
-                        throw new AlreadyExistsException("Company detail already exists with INN: " + dto.getInn());
+                        throw new AlreadyExistsException("error.company.inn.exists", dto.getInn());
                     });
         }
 

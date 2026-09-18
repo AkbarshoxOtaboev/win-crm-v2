@@ -40,7 +40,7 @@ public class RoleServiceImplement implements RoleService {
         log.info("Create role with name: {}", dto.getName());
 
         if (roleRepository.existsRoleByName(dto.getName())) {
-            throw new AlreadyExistsException("Role already exists with name: " + dto.getName());
+            throw new AlreadyExistsException("error.role.name.exists", dto.getName());
         }
 
         Role role = Role.builder()

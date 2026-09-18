@@ -1,9 +1,9 @@
 <template>
   <AdminLayout>
-    <PageBreadcrumb pageTitle="Savdolar" />
+    <PageBreadcrumb pageTitle="Sotuv buyurtmalari" />
     <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
       <div class="border-b border-gray-100 px-5 py-4 dark:border-gray-800">
-        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Savdolar</h3>
+        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Sotuv buyurtmalari</h3>
         <div class="toolbar mt-3">
           <input v-model="search" type="search" placeholder="Qidiruv..." class="field search" />
           <input v-model="dateFrom" type="date" class="field date" title="Dan" />

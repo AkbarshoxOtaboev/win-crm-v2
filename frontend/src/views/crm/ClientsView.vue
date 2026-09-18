@@ -16,6 +16,14 @@
       >
         <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Mijozlar</h3>
         <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <select
+            v-model.number="groupFilter"
+            class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:text-white/90 sm:w-48"
+          >
+            <option :value="0">Barcha guruhlar</option>
+            <option :value="-1">Guruhsiz</option>
+            <option v-for="g in groups" :key="g.id" :value="g.id">{{ g.name }}</option>
+          </select>
           <input
             v-model="search"
             type="search"
@@ -45,6 +53,7 @@
             <tr class="border-b border-gray-100 dark:border-gray-800">
               <th class="px-5 py-3 text-left text-xs font-medium text-gray-500">#</th>
               <th class="px-5 py-3 text-left text-xs font-medium text-gray-500">F.I.Sh</th>
+              <th class="px-5 py-3 text-left text-xs font-medium text-gray-500">Guruh</th>
               <th class="px-5 py-3 text-left text-xs font-medium text-gray-500">Telefon</th>
               <th class="px-5 py-3 text-left text-xs font-medium text-gray-500">Manzil</th>
               <th class="px-5 py-3 text-left text-xs font-medium text-gray-500">INN</th>
@@ -54,12 +63,12 @@
           </thead>
           <tbody>
             <tr v-if="loading">
-              <td colspan="7" class="px-5 py-10 text-center text-sm text-gray-500">
+              <td colspan="8" class="px-5 py-10 text-center text-sm text-gray-500">
                 Yuklanmoqda...
               </td>
             </tr>
             <tr v-else-if="filtered.length === 0">
-              <td colspan="7" class="px-5 py-10 text-center text-sm text-gray-500">
+              <td colspan="8" class="px-5 py-10 text-center text-sm text-gray-500">
                 Mijoz topilmadi
               </td>
             </tr>
@@ -73,6 +82,9 @@
                 <router-link :to="`/clients/${client.id}`" class="text-brand-500 hover:underline">
                   {{ client.fullName }}
                 </router-link>
+              </td>
+              <td class="px-5 py-3 text-sm text-gray-600 dark:text-gray-300">
+                {{ client.clientGroupName || '—' }}
               </td>
               <td class="px-5 py-3 text-sm text-gray-600 dark:text-gray-300">
                 {{ formatUzPhone(client.phone) }}
@@ -126,112 +138,140 @@
 
         <form class="space-y-3" @submit.prevent="onSubmit">
           <div>
-            <label class="mb-1 block text-sm text-gray-600 dark:text-gray-400">Guruh</label>
-            <select v-model.number="form.clientGroupId" class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:text-white/90">
-              <option :value="0">— guruh yo‘q —</option>
-              <option v-for="g in groups" :key="g.id" :value="g.id">{{ g.name }}</option>
-            </select>
+            <label class="lbl">Guruh</label>
+            <div class="relative">
+              <Users class="field-icon" />
+              <select v-model.number="form.clientGroupId" class="field field-select">
+                <option :value="0">— guruh yo‘q —</option>
+                <option v-for="g in groups" :key="g.id" :value="g.id">{{ g.name }}</option>
+              </select>
+              <ChevronDown class="pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            </div>
           </div>
           <div>
-            <label class="mb-1 block text-sm text-gray-600 dark:text-gray-400">F.I.Sh *</label>
-            <input
-              v-model="form.fullName"
-              required
-              class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:text-white/90"
-            />
+            <label class="lbl">F.I.Sh <span class="req">*</span></label>
+            <div class="relative">
+              <User class="field-icon" />
+              <input v-model="form.fullName" required class="field" placeholder="Ism familiya" />
+            </div>
           </div>
           <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <label class="mb-1 block text-sm text-gray-600 dark:text-gray-400">Telefon *</label>
-              <input
-                :value="form.phone"
-                required
-                inputmode="tel"
-                placeholder="+998-(97)-221-88-96"
-                maxlength="19"
-                class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:text-white/90"
-                @input="onPhoneInput('phone', $event)"
-              />
+              <label class="lbl">Telefon <span class="req">*</span></label>
+              <div class="relative">
+                <Phone class="field-icon" />
+                <input
+                  :value="form.phone"
+                  required
+                  inputmode="tel"
+                  placeholder="+998-(97)-221-88-96"
+                  maxlength="19"
+                  class="field"
+                  @input="onPhoneInput('phone', $event)"
+                />
+              </div>
               <p v-if="phoneHint" class="mt-1 text-xs text-error-500">{{ phoneHint }}</p>
             </div>
             <div>
-              <label class="mb-1 block text-sm text-gray-600 dark:text-gray-400">Qo‘shimcha tel</label>
-              <input
-                :value="form.additionalPhone"
-                inputmode="tel"
-                placeholder="+998-(97)-221-88-96"
-                maxlength="19"
-                class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:text-white/90"
-                @input="onPhoneInput('additionalPhone', $event)"
-              />
+              <label class="lbl">Qo‘shimcha tel</label>
+              <div class="relative">
+                <Phone class="field-icon" />
+                <input
+                  :value="form.additionalPhone"
+                  inputmode="tel"
+                  placeholder="+998-(97)-221-88-96"
+                  maxlength="19"
+                  class="field"
+                  @input="onPhoneInput('additionalPhone', $event)"
+                />
+              </div>
             </div>
           </div>
           <div>
-            <label class="mb-1 block text-sm text-gray-600 dark:text-gray-400">Manzil *</label>
-            <input
-              v-model="form.address"
-              required
-              class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:text-white/90"
-            />
-          </div>
-          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div>
-              <label class="mb-1 block text-sm text-gray-600 dark:text-gray-400">INN</label>
-              <input
-                v-model="form.inn"
-                maxlength="20"
-                class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:text-white/90"
-              />
-            </div>
-            <div>
-              <label class="mb-1 block text-sm text-gray-600 dark:text-gray-400">Bank</label>
-              <input
-                v-model="form.bankName"
-                maxlength="150"
-                class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:text-white/90"
-              />
+            <label class="lbl">Manzil <span class="req">*</span></label>
+            <div class="relative">
+              <MapPin class="field-icon" />
+              <input v-model="form.address" required class="field" placeholder="Ko‘cha, tuman, shahar" />
             </div>
           </div>
           <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <label class="mb-1 block text-sm text-gray-600 dark:text-gray-400">MFO</label>
-              <input
-                v-model="form.mfo"
-                maxlength="10"
-                class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:text-white/90"
-              />
+              <label class="lbl">INN</label>
+              <div class="relative">
+                <Hash class="field-icon" />
+                <input
+                  :value="form.inn"
+                  inputmode="numeric"
+                  pattern="[0-9]{9}"
+                  minlength="9"
+                  maxlength="9"
+                  placeholder="123456789"
+                  class="field"
+                  @input="onDigitsInput('inn', 9, $event)"
+                />
+              </div>
+              <p class="mt-1 text-xs text-gray-400">9 ta raqam (ixtiyoriy)</p>
             </div>
             <div>
-              <label class="mb-1 block text-sm text-gray-600 dark:text-gray-400">Hisob raqam</label>
-              <input
-                v-model="form.accountNumber"
-                maxlength="30"
-                class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:text-white/90"
-              />
+              <label class="lbl">Bank</label>
+              <div class="relative">
+                <Landmark class="field-icon" />
+                <input
+                  v-model="form.bankName"
+                  maxlength="150"
+                  class="field"
+                  placeholder="Bank nomi"
+                />
+              </div>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label class="lbl">MFO</label>
+              <div class="relative">
+                <Landmark class="field-icon" />
+                <input
+                  :value="form.mfo"
+                  inputmode="numeric"
+                  pattern="[0-9]{5}"
+                  minlength="5"
+                  maxlength="5"
+                  placeholder="00000"
+                  class="field"
+                  @input="onDigitsInput('mfo', 5, $event)"
+                />
+              </div>
+              <p class="mt-1 text-xs text-gray-400">5 ta raqam (ixtiyoriy)</p>
+            </div>
+            <div>
+              <label class="lbl">Hisob raqam</label>
+              <div class="relative">
+                <CreditCard class="field-icon" />
+                <input
+                  v-model="form.accountNumber"
+                  maxlength="30"
+                  class="field"
+                  placeholder="20208000..."
+                />
+              </div>
             </div>
           </div>
           <div>
-            <label class="mb-1 block text-sm text-gray-600 dark:text-gray-400">Izoh</label>
-            <textarea
-              v-model="form.description"
-              rows="2"
-              class="w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:text-white/90"
-            />
+            <label class="lbl">Izoh</label>
+            <div class="relative">
+              <AlignLeft class="field-icon field-icon-top" />
+              <textarea
+                v-model="form.description"
+                rows="2"
+                class="field field-textarea"
+                placeholder="Qo‘shimcha ma’lumot"
+              />
+            </div>
           </div>
 
           <div class="flex justify-end gap-2 pt-2">
-            <button
-              type="button"
-              class="h-10 rounded-lg border border-gray-300 px-4 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300"
-              @click="closeModal"
-            >
-              Bekor
-            </button>
-            <button
-              type="submit"
-              :disabled="saving"
-              class="h-10 rounded-lg bg-brand-500 px-4 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60"
-            >
+            <button type="button" class="ghost" @click="closeModal">Bekor</button>
+            <button type="submit" class="btn" :disabled="saving">
               {{ saving ? 'Saqlanmoqda...' : 'Saqlash' }}
             </button>
           </div>
@@ -311,6 +351,17 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
+import {
+  AlignLeft,
+  ChevronDown,
+  CreditCard,
+  Hash,
+  Landmark,
+  MapPin,
+  Phone,
+  User,
+  Users,
+} from 'lucide-vue-next'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import RowActions from '@/components/crm/RowActions.vue'
@@ -352,6 +403,7 @@ const deletingId = ref<number | null>(null)
 const error = ref<string | null>(null)
 const formError = ref<string | null>(null)
 const search = ref('')
+const groupFilter = ref(0)
 const modalOpen = ref(false)
 const editingId = ref<number | null>(null)
 
@@ -372,9 +424,15 @@ const form = reactive<ClientPayload>(emptyForm())
 const phoneHint = ref<string | null>(null)
 
 const filtered = computed(() => {
+  let list = clients.value
+  if (groupFilter.value === -1) {
+    list = list.filter((c) => !c.clientGroupId)
+  } else if (groupFilter.value > 0) {
+    list = list.filter((c) => c.clientGroupId === groupFilter.value)
+  }
   const q = search.value.trim()
-  if (!q) return clients.value
-  return clients.value.filter((c) =>
+  if (!q) return list
+  return list.filter((c) =>
     matchesClientQuery(q, {
       fullName: c.fullName,
       phone: c.phone,
@@ -391,6 +449,13 @@ function onPhoneInput(field: 'phone' | 'additionalPhone', e: Event) {
   form[field] = formatted
   el.value = formatted
   if (field === 'phone') checkPhoneUnique()
+}
+
+function onDigitsInput(field: 'inn' | 'mfo', maxLen: number, e: Event) {
+  const el = e.target as HTMLInputElement
+  const digits = el.value.replace(/\D/g, '').slice(0, maxLen)
+  form[field] = digits
+  el.value = digits
 }
 
 function checkPhoneUnique() {
@@ -439,10 +504,10 @@ function openEdit(client: Client) {
     fullName: client.fullName || '',
     phone: formatUzPhone(client.phone || ''),
     address: client.address || '',
-    inn: client.inn || '',
+    inn: (client.inn || '').replace(/\D/g, '').slice(0, 9),
     additionalPhone: client.additionalPhone ? formatUzPhone(client.additionalPhone) : '',
     bankName: client.bankName || '',
-    mfo: client.mfo || '',
+    mfo: (client.mfo || '').replace(/\D/g, '').slice(0, 5),
     accountNumber: client.accountNumber || '',
     description: client.description || '',
     clientGroupId: client.clientGroupId || 0,
@@ -472,7 +537,10 @@ function payloadFromForm(): ClientPayload {
     mfo: clean(form.mfo),
     accountNumber: clean(form.accountNumber),
     description: clean(form.description),
-    clientGroupId: form.clientGroupId || null,
+    clientGroupId:
+      form.clientGroupId != null && Number(form.clientGroupId) > 0
+        ? Number(form.clientGroupId)
+        : null,
   }
 }
 
@@ -495,6 +563,16 @@ async function onSubmit() {
       /* ok */
     } else if (form.additionalPhone && form.additionalPhone.replace(/\D/g, '').length > 3) {
       formError.value = 'Qo‘shimcha telefon to‘liq formatda bo‘lishi kerak'
+      return
+    }
+    const inn = (form.inn || '').trim()
+    if (inn && inn.length !== 9) {
+      formError.value = 'INN 9 ta belgidan iborat bo‘lishi kerak'
+      return
+    }
+    const mfo = (form.mfo || '').trim()
+    if (mfo && mfo.length !== 5) {
+      formError.value = 'MFO 5 ta belgidan iborat bo‘lishi kerak'
       return
     }
     const payload = payloadFromForm()
@@ -593,4 +671,72 @@ onMounted(load)
 <style scoped>
 .tab { height: 2.25rem; border-radius: 0.5rem; border: 1px solid #d1d5db; padding: 0 1rem; font-size: 0.875rem; }
 .tab.active { background: #465fff; border-color: #465fff; color: #fff; }
+.lbl { display: block; margin-bottom: 0.375rem; font-size: 0.875rem; font-weight: 500; color: #374151; }
+.req { color: #ef4444; }
+.field-icon {
+  position: absolute;
+  top: 50%;
+  left: 0.75rem;
+  z-index: 10;
+  height: 1.1rem;
+  width: 1.1rem;
+  transform: translateY(-50%);
+  color: #98a2b3;
+  pointer-events: none;
+}
+.field-icon-top {
+  top: 0.9rem;
+  transform: none;
+}
+.field {
+  height: 2.75rem;
+  width: 100%;
+  border-radius: 0.5rem;
+  border: 1px solid #d1d5db;
+  background: transparent;
+  padding: 0 0.75rem 0 2.5rem;
+  font-size: 0.875rem;
+  color: #1f2937;
+  outline: none;
+}
+.field:focus {
+  border-color: #9cb0ff;
+  box-shadow: 0 0 0 4px rgb(70 95 255 / 10%);
+}
+.field-select {
+  appearance: none;
+  padding-right: 2.5rem;
+}
+.field-textarea {
+  height: auto;
+  min-height: 4.5rem;
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+  resize: vertical;
+}
+.btn {
+  height: 2.75rem;
+  border-radius: 0.5rem;
+  background: #465fff;
+  padding: 0 1.25rem;
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+.btn:disabled { opacity: 0.6; }
+.ghost {
+  height: 2.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid #d1d5db;
+  padding: 0 1.25rem;
+  font-size: 0.875rem;
+  color: #374151;
+}
+:global(.dark) .lbl { color: #9ca3af; }
+:global(.dark) .field {
+  border-color: #344054;
+  color: rgba(255, 255, 255, 0.9);
+}
+:global(.dark) .field::placeholder { color: rgba(255, 255, 255, 0.3); }
+:global(.dark) .ghost { border-color: #344054; color: #d1d5db; }
 </style>

@@ -22,6 +22,25 @@ public class CustomUserDetails implements UserDetails {
         return user.getId();
     }
 
+    public User getUser() {
+        return user;
+    }
+
+    public Long getFilialId() {
+        return user.getFilial() != null ? user.getFilial().getId() : null;
+    }
+
+    public String getFilialName() {
+        return user.getFilial() != null ? user.getFilial().getName() : null;
+    }
+
+    public boolean isSuperAdmin() {
+        if (user.getRoles() == null) {
+            return false;
+        }
+        return user.getRoles().stream().anyMatch(role -> "SUPER_ADMIN".equals(role.getName()));
+    }
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
 

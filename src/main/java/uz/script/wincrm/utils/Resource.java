@@ -1,6 +1,7 @@
 package uz.script.wincrm.utils;
 
 public enum Resource {
+    FILIAL,
     USER,
     ROLE,
     CLIENT,

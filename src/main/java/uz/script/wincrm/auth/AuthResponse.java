@@ -3,6 +3,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.Data;
 
+import java.util.List;
+
 @Data
 @Builder
 @Schema(description = "Access token and refresh token")
@@ -15,4 +17,8 @@ public class AuthResponse {
     private String tokenType;
     @Schema(description = "Session id", example = "42")
     private Long sessionId;
+    private List<String> roles;
+    private boolean superAdmin;
+    private Long filialId;
+    private String filialName;
 }

@@ -257,7 +257,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import SearchableSelect from '@/components/crm/SearchableSelect.vue'
@@ -279,6 +279,7 @@ import { money } from '@/utils/format'
 import { formatUzPhone, isCompleteUzPhone } from '@/utils/phone'
 
 const router = useRouter()
+const route = useRoute()
 const auth = useAuthStore()
 const warehouses = ref<Warehouse[]>([])
 const clients = ref<Client[]>([])
@@ -487,6 +488,10 @@ async function load() {
     const me = users.value.find((x) => x.username === auth.username)
     if (!form.userId) {
       form.userId = me?.id || users.value[0]?.id || 0
+    }
+    const qClientId = Number(route.query.clientId)
+    if (qClientId > 0 && clients.value.some((c) => c.id === qClientId)) {
+      form.clientId = qClientId
     }
   } catch (e) {
     error.value = formatApiError(e)

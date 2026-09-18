@@ -24,7 +24,7 @@
           v-if="isExpanded || isHovered || isMobileOpen"
           class="dark:hidden"
           src="/images/logo/logo.svg"
-          alt="Logo"
+          alt="WinCRM"
           width="150"
           height="40"
         />
@@ -32,14 +32,14 @@
           v-if="isExpanded || isHovered || isMobileOpen"
           class="hidden dark:block"
           src="/images/logo/logo-dark.svg"
-          alt="Logo"
+          alt="WinCRM"
           width="150"
           height="40"
         />
         <img
           v-else
           src="/images/logo/logo-icon.svg"
-          alt="Logo"
+          alt="WinCRM"
           width="32"
           height="32"
         />
@@ -154,11 +154,13 @@
                             {
                               'menu-dropdown-item-active': isActive(
                                 subItem.path,
-                                subItem.exact
+                                subItem.exact,
+                                subItem.match
                               ),
                               'menu-dropdown-item-inactive': !isActive(
                                 subItem.path,
-                                subItem.exact
+                                subItem.exact,
+                                subItem.match
                               ),
                             },
                           ]"
@@ -230,10 +232,13 @@ import {
   ArrowLeftRight,
   BarChart3,
   Box,
+  Building2,
   ClipboardList,
+  FileText,
   Files,
   Folder,
   History,
+  LayoutGrid,
   List,
   Package,
   Plug,
@@ -264,11 +269,15 @@ const route = useRoute()
 
 const { isExpanded, isMobileOpen, isHovered, openSubmenu } = useSidebar()
 
+const isSalesOrdersPath = (path: string) =>
+  path === '/sales' || path.startsWith('/sales/create') || /^\/sales\/\d+(?:\/|$)/.test(path)
+
 interface SubItem {
   name: string
   path: string
   icon?: Component
   exact?: boolean
+  match?: (path: string) => boolean
   pro?: boolean
   new?: boolean
 }
@@ -292,22 +301,21 @@ const menuGroups = computed<MenuGroup[]>(() => [
     title: t('nav.main'),
     items: [
       { icon: HomeIcon, name: t('nav.home'), path: '/' },
-      { icon: UserGroupIcon, name: t('nav.clients'), path: '/clients' },
-      { icon: BoxIcon, name: t('nav.goods'), path: '/goods' },
       {
-        icon: Package,
-        name: t('nav.warehouseMenu'),
+        icon: PieChartIcon,
+        name: t('nav.sales'),
         subItems: [
-          { name: t('nav.inbound'), path: '/warehouse-orders', icon: ClipboardList },
-          { name: t('nav.stock'), path: '/stock', icon: Box, exact: true },
-          { name: t('nav.stockHistory'), path: '/stock/history', icon: History },
-          { name: t('nav.inventory'), path: '/inventory', icon: Files },
-          { name: t('nav.transfers'), path: '/stock/transfers', icon: ArrowLeftRight },
-          { name: t('nav.warehouses'), path: '/warehouses', icon: Package },
+          { name: t('nav.salesDashboard'), path: '/sales/dashboard', icon: LayoutGrid, exact: true },
+          {
+            name: t('nav.salesOrders'),
+            path: '/sales',
+            icon: ClipboardList,
+            match: isSalesOrdersPath,
+          },
+          { name: t('nav.salesReport'), path: '/sales/report', icon: List, exact: true },
+          { name: t('nav.salesWaste'), path: '/sales/wastes', icon: FileText, exact: true },
         ],
       },
-      { icon: DocsIcon, name: t('nav.sales'), path: '/sales' },
-      { icon: PieChartIcon, name: t('nav.payments'), path: '/payments' },
       {
         icon: BoxIcon,
         name: t('nav.suppliers'),
@@ -316,6 +324,21 @@ const menuGroups = computed<MenuGroup[]>(() => [
           { name: t('nav.suppliersBalance'), path: '/suppliers/balances', icon: PieChartIcon },
         ],
       },
+      {
+        icon: Package,
+        name: t('nav.warehouseMenu'),
+        subItems: [
+          { name: t('nav.goods'), path: '/goods', icon: BoxIcon },
+          { name: t('nav.inbound'), path: '/warehouse-orders', icon: ClipboardList },
+          { name: t('nav.stock'), path: '/stock', icon: Box, exact: true },
+          { name: t('nav.stockHistory'), path: '/stock/history', icon: History },
+          { name: t('nav.inventory'), path: '/inventory', icon: Files },
+          { name: t('nav.transfers'), path: '/stock/transfers', icon: ArrowLeftRight },
+          { name: t('nav.warehouses'), path: '/warehouses', icon: Package },
+        ],
+      },
+      { icon: PieChartIcon, name: t('nav.payments'), path: '/payments' },
+      { icon: UserGroupIcon, name: t('nav.clients'), path: '/clients' },
     ],
   },
   {
@@ -333,6 +356,7 @@ const menuGroups = computed<MenuGroup[]>(() => [
         name: t('nav.settings'),
         subItems: [
           { name: t('nav.generalSettings'), path: '/settings', icon: Settings, exact: true },
+          { name: t('nav.filials'), path: '/settings/filials', icon: Building2 },
           { name: t('nav.users'), path: '/settings/users', icon: UserCircle },
           { name: t('nav.sessions'), path: '/settings/sessions', icon: Plug },
           { name: t('nav.roles'), path: '/settings/roles', icon: Shield },
@@ -350,7 +374,8 @@ const menuGroups = computed<MenuGroup[]>(() => [
   },
 ])
 
-const isActive = (path?: string, exact = false) => {
+const isActive = (path?: string, exact = false, match?: (path: string) => boolean) => {
+  if (match) return match(route.path)
   if (!path) return false
   if (route.path === path) return true
   if (!exact && path !== '/' && route.path.startsWith(`${path}/`)) return true
@@ -360,7 +385,9 @@ const isActive = (path?: string, exact = false) => {
 const setActiveMenuFromRoute = () => {
   menuGroups.value.forEach((group, groupIndex) => {
     group.items.forEach((item, itemIndex) => {
-      if (item.subItems?.some((subItem) => isActive(subItem.path, subItem.exact))) {
+      if (
+        item.subItems?.some((subItem) => isActive(subItem.path, subItem.exact, subItem.match))
+      ) {
         openSubmenu.value = `${groupIndex}-${itemIndex}`
       }
     })

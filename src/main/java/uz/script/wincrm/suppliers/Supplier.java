@@ -4,30 +4,36 @@ import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.SQLRestriction;
+import uz.script.wincrm.filial.FilialScopedEntity;
 import uz.script.wincrm.goods.Goods;
-import uz.script.wincrm.utils.BaseEntity;
 import uz.script.wincrm.utils.TableName;
 import uz.script.wincrm.warehouse.WarehouseOrder;
 
 import java.util.List;
 
 @Entity
-@Table(name = TableName.SUPPLIERS)
+@Table(
+        name = TableName.SUPPLIERS,
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_suppliers_phone_filial", columnNames = {"phone", "filial_id"}),
+                @UniqueConstraint(name = "uk_suppliers_inn_filial", columnNames = {"inn", "filial_id"})
+        }
+)
 @SQLRestriction("status <> 'DELETED' ")
 @Getter
 @Setter
 @SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Supplier extends BaseEntity {
+public class Supplier extends FilialScopedEntity {
 
     @Column(nullable = false)
     private String name;
 
-    @Column(length = 20, unique = true)
+    @Column(length = 20)
     private String inn;
 
-    @Column(nullable = false, length = 32, unique = true)
+    @Column(nullable = false, length = 32)
     private String phone;
 
     @Column(length = 32)

@@ -7,8 +7,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.SQLRestriction;
+import uz.script.wincrm.filial.FilialScopedEntity;
 import uz.script.wincrm.goods.Goods;
-import uz.script.wincrm.utils.BaseEntity;
 import uz.script.wincrm.utils.TableName;
 
 import java.math.BigDecimal;
@@ -29,7 +29,7 @@ import java.math.BigDecimal;
 @SuperBuilder
 @Table(name = TableName.SALE_ORDER_WASTES)
 @SQLRestriction("status <> 'DELETED'")
-public class SaleOrderWaste extends BaseEntity {
+public class SaleOrderWaste extends FilialScopedEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sale_order_id", nullable = false)

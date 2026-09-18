@@ -6,7 +6,10 @@ export interface SaleOrderWaste {
   saleOrderId?: number
   goodsId?: number
   goodsName?: string
+  unitName?: string
   quantity?: number
+  width?: number
+  height?: number
   comment?: string
   createdAt?: string
 }
@@ -28,6 +31,16 @@ export function fetchSaleOrderWastePage(page = 0, size = 50) {
   return apiRequest<RestApiResponse<SpringPage<SaleOrderWaste>>>(
     `/api/sale-order-wastes?page=${page}&size=${size}`,
   )
+}
+
+export interface SaleOrderWasteSummary {
+  goodsId?: number
+  goodsName?: string
+  totalQuantity?: number
+}
+
+export function fetchSaleOrderWasteSummary() {
+  return apiRequest<RestApiResponse<SaleOrderWasteSummary[]>>('/api/sale-order-wastes/summary')
 }
 
 export function createSaleOrderWaste(payload: SaleOrderWastePayload) {

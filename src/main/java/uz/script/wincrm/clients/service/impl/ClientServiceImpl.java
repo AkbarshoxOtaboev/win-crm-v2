@@ -7,7 +7,9 @@ import org.springframework.stereotype.Service;
 import uz.script.wincrm.audit.AuditAction;
 import uz.script.wincrm.audit.Auditable;
 import uz.script.wincrm.clients.Client;
+import uz.script.wincrm.clients.ClientGroup;
 import uz.script.wincrm.clients.dto.ClientDTO;
+import uz.script.wincrm.clients.repository.ClientGroupRepository;
 import uz.script.wincrm.clients.repository.ClientRepository;
 import uz.script.wincrm.clients.response.ClientResponse;
 import uz.script.wincrm.clients.service.ClientService;
@@ -24,6 +26,7 @@ import java.util.List;
 public class ClientServiceImpl implements ClientService {
 
     private final ClientRepository repository;
+    private final ClientGroupRepository clientGroupRepository;
 
     @Override
     public boolean existsByPhone(String phone) {
@@ -45,13 +48,11 @@ public class ClientServiceImpl implements ClientService {
         log.info("Create client");
 
         if (existsByPhone(dto.getPhone())) {
-            throw new AlreadyExistsException(
-                    "Client with phone '" + dto.getPhone() + "' already exists");
+            throw new AlreadyExistsException("error.client.phone.exists", dto.getPhone());
         }
 
         if (existsByInn(dto.getInn())) {
-            throw new AlreadyExistsException(
-                    "Client with INN '" + dto.getInn() + "' already exists");
+            throw new AlreadyExistsException("error.client.inn.exists", dto.getInn());
         }
 
 
@@ -65,6 +66,7 @@ public class ClientServiceImpl implements ClientService {
                 .mfo(dto.getMfo())
                 .accountNumber(dto.getAccountNumber())
                 .description(dto.getDescription())
+                .clientGroup(resolveClientGroup(dto.getClientGroupId()))
                 .status(Status.ACTIVE)
                 .build();
 
@@ -90,7 +92,7 @@ public class ClientServiceImpl implements ClientService {
     public List<ClientResponse> fetchAllClients() {
         log.info("Fetch all clients");
 
-        return repository.findAll()
+        return repository.findAllByOrderByIdAsc()
                 .stream()
                 .map(this::mapClientToClientResponse)
                 .toList();
@@ -103,7 +105,7 @@ public class ClientServiceImpl implements ClientService {
     )
 //    @CacheEvict(value = {"clients", "client"}, allEntries = true)
     public ClientResponse update(Long id, ClientDTO dto) {
-        log.info("Update client with id {}", id);
+        log.info("Update client with id {}, clientGroupId={}", id, dto.getClientGroupId());
 
         Client client = repository.findById(id)
                 .orElseThrow(() ->
@@ -111,15 +113,13 @@ public class ClientServiceImpl implements ClientService {
 
         if (!client.getPhone().equals(dto.getPhone())
                 && existsByPhone(dto.getPhone())) {
-            throw new AlreadyExistsException(
-                    "Client with phone '" + dto.getPhone() + "' already exists");
+            throw new AlreadyExistsException("error.client.phone.exists", dto.getPhone());
         }
 
         if (dto.getInn() != null
                 && !dto.getInn().equals(client.getInn())
                 && existsByInn(dto.getInn())) {
-            throw new AlreadyExistsException(
-                    "Client with INN '" + dto.getInn() + "' already exists");
+            throw new AlreadyExistsException("error.client.inn.exists", dto.getInn());
         }
 
         client.setFullName(dto.getFullName());
@@ -131,8 +131,9 @@ public class ClientServiceImpl implements ClientService {
         client.setMfo(dto.getMfo());
         client.setAccountNumber(dto.getAccountNumber());
         client.setDescription(dto.getDescription());
+        client.setClientGroup(resolveClientGroup(dto.getClientGroupId()));
 
-        client = repository.save(client);
+        client = repository.saveAndFlush(client);
 
         return mapClientToClientResponse(client);
     }
@@ -154,7 +155,17 @@ public class ClientServiceImpl implements ClientService {
         repository.save(client);
     }
 
+    private ClientGroup resolveClientGroup(Long clientGroupId) {
+        if (clientGroupId == null || clientGroupId <= 0) {
+            return null;
+        }
+        return clientGroupRepository.findById(clientGroupId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Client group not found with id: " + clientGroupId));
+    }
+
     private ClientResponse mapClientToClientResponse(Client client) {
+        ClientGroup group = client.getClientGroup();
         return ClientResponse.builder()
                 .id(client.getId())
                 .fullName(client.getFullName())
@@ -170,6 +181,8 @@ public class ClientServiceImpl implements ClientService {
                 .createdAt(client.getCreatedAt())
                 .updatedAt(client.getUpdatedAt())
                 .createdUsername(client.getCreatedUsername())
+                .clientGroupId(group != null ? group.getId() : null)
+                .clientGroupName(group != null ? group.getName() : null)
                 .build();
     }
 }

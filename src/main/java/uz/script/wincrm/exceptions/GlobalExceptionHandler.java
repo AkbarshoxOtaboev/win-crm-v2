@@ -1,6 +1,9 @@
 package uz.script.wincrm.exceptions;
 
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.RequiredArgsConstructor;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -12,12 +15,15 @@ import uz.script.wincrm.sms.SmsSendException;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
 @RestControllerAdvice
+@RequiredArgsConstructor
 public class GlobalExceptionHandler {
 
-    // ⭐ INSUFFICIENT STOCK EXCEPTION HANDLER
+    private final MessageSource messageSource;
+
     @ExceptionHandler(InsufficientStockException.class)
     public ResponseEntity<ErrorResponse> handleInsufficientStock(
             InsufficientStockException ex,
@@ -26,7 +32,6 @@ public class GlobalExceptionHandler {
         return buildResponse(ex.getMessage(), HttpStatus.BAD_REQUEST, request);
     }
 
-    // SMS yuborishda xatolik (Eskiz.uz bilan bog'lanish muammosi)
     @ExceptionHandler(SmsSendException.class)
     public ResponseEntity<ErrorResponse> handleSmsSend(
             SmsSendException ex,
@@ -35,7 +40,6 @@ public class GlobalExceptionHandler {
         return buildResponse(ex.getMessage(), HttpStatus.BAD_GATEWAY, request);
     }
 
-    // validation exceptions
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<?> handleValidation(
             MethodArgumentNotValidException ex
@@ -49,19 +53,20 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(errors);
     }
 
-    // invalid sort/pageable property (e.g. ?sort=string)
     @ExceptionHandler(InvalidDataAccessApiUsageException.class)
     public ResponseEntity<ErrorResponse> handleInvalidSort(
             InvalidDataAccessApiUsageException ex,
             HttpServletRequest request
     ) {
-        String message = "Noto'g'ri 'sort' maydoni yuborildi. Mavjud maydonlardan birini tanlang, "
-                + "masalan: id, createdAt, updatedAt.";
-
+        String message = messageSource.getMessage(
+                "error.invalid.sort",
+                null,
+                "Noto'g'ri 'sort' maydoni yuborildi.",
+                currentLocale()
+        );
         return buildResponse(message, HttpStatus.BAD_REQUEST, request);
     }
 
-    // resource not found
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleNotFound(
             ResourceNotFoundException ex,
@@ -70,7 +75,6 @@ public class GlobalExceptionHandler {
         return buildResponse(ex.getMessage(), HttpStatus.NOT_FOUND, request);
     }
 
-    // bad request
     @ExceptionHandler(BadRequestException.class)
     public ResponseEntity<ErrorResponse> handleBadRequest(
             BadRequestException ex,
@@ -79,47 +83,90 @@ public class GlobalExceptionHandler {
         return buildResponse(ex.getMessage(), HttpStatus.BAD_REQUEST, request);
     }
 
-    // unauthorized
     @ExceptionHandler(UnauthorizedException.class)
     public ResponseEntity<ErrorResponse> handleUnauthorized(
             UnauthorizedException ex,
             HttpServletRequest request
     ) {
-        return buildResponse(ex.getMessage(), HttpStatus.UNAUTHORIZED, request);
+        String message = resolveOrDefault(ex.getMessage(), "error.unauthorized");
+        return buildResponse(message, HttpStatus.UNAUTHORIZED, request);
     }
 
-    // forbidden
     @ExceptionHandler(ForbiddenException.class)
     public ResponseEntity<ErrorResponse> handleForbidden(
+            ForbiddenException ex,
             HttpServletRequest request
     ) {
-        return buildResponse("Access denied", HttpStatus.FORBIDDEN, request);
+        String message = resolveOrDefault(ex.getMessage(), "error.forbidden");
+        return buildResponse(message, HttpStatus.FORBIDDEN, request);
     }
 
-    //Already Exists
     @ExceptionHandler(AlreadyExistsException.class)
     public ResponseEntity<ErrorResponse> handleAlreadyExists(
             AlreadyExistsException ex,
             HttpServletRequest request
-    ){
-        return buildResponse(ex.getMessage(), HttpStatus.CONFLICT, request);
+    ) {
+        String message = messageSource.getMessage(
+                ex.getMessageCode(),
+                ex.getArgs(),
+                ex.getMessageCode(),
+                currentLocale()
+        );
+        return buildResponse(message, HttpStatus.CONFLICT, request);
     }
 
     @ExceptionHandler(UserDisabledException.class)
     public ResponseEntity<ErrorResponse> handleUserDisabled(
             UserDisabledException ex,
             HttpServletRequest request
-    ){
+    ) {
         return buildResponse(ex.getMessage(), HttpStatus.FORBIDDEN, request);
     }
 
-    // generic exception
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleAll(
             Exception ex,
             HttpServletRequest request
     ) {
-        return buildResponse(ex.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR, request);
+        Throwable current = ex;
+        while (current != null) {
+            if (current instanceof AlreadyExistsException already) {
+                return handleAlreadyExists(already, request);
+            }
+            if (current instanceof BadRequestException bad) {
+                return buildResponse(bad.getMessage(), HttpStatus.BAD_REQUEST, request);
+            }
+            if (current instanceof ForbiddenException forbidden) {
+                return handleForbidden(forbidden, request);
+            }
+            if (current instanceof ResourceNotFoundException missing) {
+                return buildResponse(missing.getMessage(), HttpStatus.NOT_FOUND, request);
+            }
+            current = current.getCause();
+        }
+        String fallback = messageSource.getMessage(
+                "error.generic",
+                null,
+                "An unexpected error occurred",
+                currentLocale()
+        );
+        String message = ex.getMessage() == null || ex.getMessage().isBlank() ? fallback : ex.getMessage();
+        return buildResponse(message, HttpStatus.INTERNAL_SERVER_ERROR, request);
+    }
+
+    private String resolveOrDefault(String message, String code) {
+        if (message == null || message.isBlank() || "Access denied".equalsIgnoreCase(message)) {
+            return messageSource.getMessage(code, null, message, currentLocale());
+        }
+        return message;
+    }
+
+    private Locale currentLocale() {
+        Locale locale = LocaleContextHolder.getLocale();
+        if (locale == null || locale.getLanguage() == null || locale.getLanguage().isBlank()) {
+            return Locale.forLanguageTag("uz");
+        }
+        return locale;
     }
 
     private ResponseEntity<ErrorResponse> buildResponse(

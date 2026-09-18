@@ -8,7 +8,7 @@ import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.SQLRestriction;
 import uz.script.wincrm.suppliers.Supplier;
-import uz.script.wincrm.utils.BaseEntity;
+import uz.script.wincrm.filial.FilialScopedEntity;
 import uz.script.wincrm.utils.TableName;
 
 import java.math.BigDecimal;
@@ -22,7 +22,7 @@ import java.time.LocalDateTime;
 @SuperBuilder
 @SQLRestriction("status <> 'DELETED' ")
 @Table(name = TableName.CLIENT_BALANCES)
-public class ClientBalance extends BaseEntity {
+public class ClientBalance extends FilialScopedEntity {
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "client_id", unique = true)
     private Client client;

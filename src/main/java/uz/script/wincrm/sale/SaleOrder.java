@@ -8,11 +8,11 @@ import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.SQLRestriction;
 import uz.script.wincrm.clients.Client;
+import uz.script.wincrm.filial.FilialScopedEntity;
 import uz.script.wincrm.payment.Payment;
 import uz.script.wincrm.sale.enums.DiscountType;
 import uz.script.wincrm.sale.enums.SalesOrderStatus;
 import uz.script.wincrm.users.User;
-import uz.script.wincrm.utils.BaseEntity;
 import uz.script.wincrm.utils.TableName;
 import uz.script.wincrm.warehouse.Warehouse;
 
@@ -28,7 +28,7 @@ import java.util.List;
 @SuperBuilder
 @Table(name = TableName.SALE_ORDERS)
 @SQLRestriction("status <> 'DELETED'")
-public class SaleOrder extends BaseEntity {
+public class SaleOrder extends FilialScopedEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "client_id")

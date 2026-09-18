@@ -5,6 +5,10 @@ export interface AuthResponse {
   refreshToken: string
   tokenType: string
   sessionId: number
+  roles?: string[]
+  superAdmin?: boolean
+  filialId?: number | null
+  filialName?: string | null
 }
 
 export interface LoginPayload {
@@ -26,6 +30,10 @@ export function refresh(refreshToken: string) {
     body: { refreshToken },
     auth: false,
   })
+}
+
+export function fetchMe() {
+  return apiRequest<AuthResponse>('/api/auth/me')
 }
 
 export function logout() {

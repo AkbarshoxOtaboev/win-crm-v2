@@ -44,7 +44,7 @@ export function updateClientNote(id: number, payload: ClientNotePayload) {
 
 export function updateReminderStatus(id: number, reminderStatus: string) {
   return apiRequest<RestApiResponse<ClientNote>>(
-    `/api/client-notes/${id}/reminder-status?reminderStatus=${encodeURIComponent(reminderStatus)}`,
+    `/api/client-notes/${id}/reminder-status?status=${encodeURIComponent(reminderStatus)}`,
     { method: 'PATCH' },
   )
 }

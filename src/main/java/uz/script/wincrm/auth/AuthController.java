@@ -14,6 +14,7 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -28,11 +29,13 @@ import uz.script.wincrm.security.blacklist.TokenBlacklistService;
 import uz.script.wincrm.security.jwt.JwtService;
 import uz.script.wincrm.security.refreshToken.RefreshToken;
 import uz.script.wincrm.security.refreshToken.SessionService;
+import uz.script.wincrm.roles.Role;
 import uz.script.wincrm.users.User;
 import uz.script.wincrm.users.repository.UserRepository;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -116,14 +119,7 @@ public class AuthController {
 
         sessionService.finalizeSession(session.getId(), refreshToken, refreshExpiresAt);
 
-        return ResponseEntity.ok(
-                AuthResponse.builder()
-                        .accessToken(accessToken)
-                        .refreshToken(refreshToken)
-                        .tokenType("Bearer")
-                        .sessionId(session.getId())
-                        .build()
-        );
+        return ResponseEntity.ok(toAuthResponse(accessToken, refreshToken, session.getId(), user));
     }
 
 
@@ -169,15 +165,25 @@ public class AuthController {
         }
 
         String newAccessToken = jwtService.generateAccessToken(session.getUsername(), session.getId());
+        User user = userRepository.findByUsername(session.getUsername())
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
-        return ResponseEntity.ok(
-                AuthResponse.builder()
-                        .accessToken(newAccessToken)
-                        .refreshToken(refreshToken)
-                        .tokenType("Bearer")
-                        .sessionId(session.getId())
-                        .build()
-        );
+        return ResponseEntity.ok(toAuthResponse(newAccessToken, refreshToken, session.getId(), user));
+    }
+
+    @GetMapping("/me")
+    @Operation(summary = "Current user profile")
+    public ResponseEntity<AuthResponse> me(HttpServletRequest request) {
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            throw new ResourceNotFoundException("Token not found");
+        }
+        String token = authHeader.substring(7);
+        String username = jwtService.extractUsername(token);
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+        Long sid = jwtService.extractSid(token);
+        return ResponseEntity.ok(toAuthResponse(token, null, sid, user));
     }
 
 
@@ -221,6 +227,23 @@ public class AuthController {
         }
 
         return ResponseEntity.ok("Logged out successfully");
+    }
+
+    private AuthResponse toAuthResponse(String accessToken, String refreshToken, Long sessionId, User user) {
+        List<String> roles = user.getRoles() == null
+                ? List.of()
+                : user.getRoles().stream().map(Role::getName).toList();
+        boolean superAdmin = roles.contains("SUPER_ADMIN");
+        return AuthResponse.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .tokenType("Bearer")
+                .sessionId(sessionId)
+                .roles(roles)
+                .superAdmin(superAdmin)
+                .filialId(user.getFilial() != null ? user.getFilial().getId() : null)
+                .filialName(user.getFilial() != null ? user.getFilial().getName() : null)
+                .build();
     }
 
     private String resolveIp(HttpServletRequest request) {

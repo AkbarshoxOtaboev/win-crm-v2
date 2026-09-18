@@ -138,6 +138,18 @@ public class CrmTelegramBot extends TelegramLongPollingBot {
     private void handleContact(Long chatId, Contact contact) {
         String phone = normalizePhone(contact.getPhoneNumber());
 
+        Optional<Client> clientOpt = clientRepository.findByPhoneDigits(phone);
+        if (clientOpt.isEmpty()) {
+            sessionService.setState(chatId, BotConversationState.AWAITING_PHONE);
+            sendWithKeyboard(chatId,
+                    "Kechirasiz, bu telefon raqami CRM tizimida mijoz sifatida topilmadi.\n\n" +
+                            "Avval administrator orqali tizimga (Mijozlar) qo'shilishingiz kerak. " +
+                            "Qo'shilgandan keyin yana /start bosing va telefon raqamingizni yuboring.",
+                    keyboards.requestContactKeyboard());
+            return;
+        }
+
+        Client client = clientOpt.get();
         Optional<TelegramUser> existing = telegramUserRepository.findByPhone(phone);
         TelegramUser user = existing.orElseGet(() -> TelegramUser.builder()
                 .chatId(chatId)
@@ -148,25 +160,19 @@ public class CrmTelegramBot extends TelegramLongPollingBot {
                 .build());
 
         user.setChatId(chatId);
+        user.setPhone(phone);
         user.setFirstName(contact.getFirstName());
         user.setLastName(contact.getLastName());
         user.setTelegramUsername(contact.getUserId() != null ? String.valueOf(contact.getUserId()) : null);
-
-        // Asosiy bazadagi (Clients jadvalidagi) mavjud mijozlar botdan ro'yxatdan
-        // o'tganda avtomatik bog'lanadi — indekslangan findByPhone orqali
-        // (avvalgi versiyada findAll().stream().filter(...) bilan BUTUN jadval
-        // yuklanardi, bu N+1/performance muammosi edi — endi tuzatildi).
-        clientRepository.findByPhone(phone).ifPresent(user::setClient);
+        user.setClient(client);
+        user.setVerified(true);
+        user.setStatus(Status.ACTIVE);
 
         telegramUserRepository.save(user);
         sessionService.setState(chatId, BotConversationState.MAIN_MENU);
 
-        String clientInfo = user.getClient() != null
-                ? "Xush kelibsiz, " + user.getClient().getFullName() + "!"
-                : "Ro'yxatdan o'tdingiz. Diqqat: bu raqam bo'yicha CRM tizimida mijoz topilmadi, " +
-                "shuning uchun buyurtma/to'lov ma'lumotlari bo'sh ko'rinishi mumkin.";
-
-        sendWithKeyboard(chatId, clientInfo + "\n\nQuyidagi menyudan kerakli bo'limni tanlang:",
+        sendWithKeyboard(chatId,
+                "Xush kelibsiz, " + client.getFullName() + "!\n\nQuyidagi menyudan kerakli bo'limni tanlang:",
                 keyboards.mainMenuKeyboard());
     }
 

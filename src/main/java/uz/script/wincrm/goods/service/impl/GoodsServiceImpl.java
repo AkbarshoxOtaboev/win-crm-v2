@@ -51,8 +51,7 @@ public class GoodsServiceImpl implements GoodsService {
         log.info("Create goods");
 
         if (existsByBarcode(dto.getBarcode())) {
-            throw new AlreadyExistsException(
-                    "Goods with barcode '" + dto.getBarcode() + "' already exists");
+            throw new AlreadyExistsException("error.goods.barcode.exists", dto.getBarcode());
         }
 
         GoodsGroup goodsGroup = goodsGroupRepository.findById(dto.getGoodsGroupId())
@@ -116,8 +115,7 @@ public class GoodsServiceImpl implements GoodsService {
         String newBarcode = dto.getBarcode();
         if (!Objects.equals(goods.getBarcode(), newBarcode)
                 && existsByBarcode(newBarcode)) {
-            throw new AlreadyExistsException(
-                    "Goods with barcode '" + newBarcode + "' already exists");
+            throw new AlreadyExistsException("error.goods.barcode.exists", newBarcode);
         }
 
         GoodsGroup goodsGroup = goodsGroupRepository.findById(dto.getGoodsGroupId())

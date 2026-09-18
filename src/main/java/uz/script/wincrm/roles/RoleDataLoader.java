@@ -42,14 +42,29 @@ public class RoleDataLoader implements CommandLineRunner {
 
             repository.save(superAdmin);
             repository.save(admin);
+            repository.save(Role.builder()
+                    .name("DIRECTOR")
+                    .status(Status.ACTIVE)
+                    .permissions(new HashSet<>(allPermissions))
+                    .build());
 
             System.out.println("SUPER_ADMIN role created successfully ✅");
             return;
         }
 
+        if (repository.findByName("DIRECTOR").isEmpty()) {
+            repository.save(Role.builder()
+                    .name("DIRECTOR")
+                    .status(Status.ACTIVE)
+                    .permissions(new HashSet<>(allPermissions))
+                    .build());
+            System.out.println("DIRECTOR role created successfully ✅");
+        }
+
         // Keep SUPER_ADMIN in sync with newly seeded permissions after enum additions
         syncAllPermissions("SUPER_ADMIN", allPermissions);
         syncAllPermissions("ADMIN", allPermissions);
+        syncAllPermissions("DIRECTOR", allPermissions);
     }
 
     private void syncAllPermissions(String roleName, Set<Permissions> allPermissions) {

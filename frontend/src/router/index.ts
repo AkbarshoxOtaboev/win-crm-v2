@@ -97,7 +97,25 @@ const router = createRouter({
       path: '/sales',
       name: 'Sales',
       component: () => import('../views/crm/SalesView.vue'),
-      meta: { title: 'Savdolar', requiresAuth: true },
+      meta: { title: 'Sotuv buyurtmalari', requiresAuth: true },
+    },
+    {
+      path: '/sales/dashboard',
+      name: 'SalesDashboard',
+      component: () => import('../views/crm/SalesDashboardView.vue'),
+      meta: { title: 'Sotuv dashboard', requiresAuth: true },
+    },
+    {
+      path: '/sales/report',
+      name: 'SalesReport',
+      component: () => import('../views/crm/SalesReportView.vue'),
+      meta: { title: 'Sotuv hisoboti', requiresAuth: true },
+    },
+    {
+      path: '/sales/wastes',
+      name: 'SalesWastes',
+      component: () => import('../views/crm/SalesWastesView.vue'),
+      meta: { title: 'Ortiqcha material', requiresAuth: true },
     },
     {
       path: '/sales/create',
@@ -156,6 +174,12 @@ const router = createRouter({
       name: 'SettingsGeneral',
       component: () => import('../views/crm/settings/GeneralSettingsView.vue'),
       meta: { title: 'Umumiy sozlamalar', requiresAuth: true },
+    },
+    {
+      path: '/settings/filials',
+      name: 'SettingsFilials',
+      component: () => import('../views/crm/settings/FilialsView.vue'),
+      meta: { title: 'Filiallar', requiresAuth: true },
     },
     {
       path: '/settings/users',

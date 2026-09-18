@@ -10,11 +10,11 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.SQLRestriction;
+import uz.script.wincrm.filial.FilialScopedEntity;
 import uz.script.wincrm.sale.SaleOrder;
 import uz.script.wincrm.sale.SaleOrderItem;
 import uz.script.wincrm.stock.Stock;
 import uz.script.wincrm.stock.StockHistory;
-import uz.script.wincrm.utils.BaseEntity;
 import uz.script.wincrm.utils.TableName;
 
 import java.util.List;
@@ -27,7 +27,7 @@ import java.util.List;
 @SuperBuilder
 @SQLRestriction("status <> 'DELETED'")
 @Table(name = TableName.WAREHOUSE)
-public class Warehouse extends BaseEntity {
+public class Warehouse extends FilialScopedEntity {
     @Column(nullable = false)
     private String name;
 

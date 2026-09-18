@@ -1,3 +1,5 @@
+import i18n, { getStoredLocale } from '@/i18n'
+
 export class ApiError extends Error {
   status: number
   body: unknown
@@ -22,6 +24,11 @@ interface RequestOptions {
 const ACCESS_KEY = 'wincrm_access_token'
 const REFRESH_KEY = 'wincrm_refresh_token'
 const SESSION_KEY = 'wincrm_session_id'
+const SUPER_ADMIN_KEY = 'wincrm_is_super_admin'
+const SELECTED_FILIAL_KEY = 'wincrm_selected_filial_id'
+const ASSIGNED_FILIAL_KEY = 'wincrm_assigned_filial_id'
+const ASSIGNED_FILIAL_NAME_KEY = 'wincrm_assigned_filial_name'
+const ROLES_KEY = 'wincrm_roles'
 
 export function getAccessToken(): string | null {
   return localStorage.getItem(ACCESS_KEY)
@@ -48,15 +55,58 @@ export function clearTokens() {
   localStorage.removeItem(REFRESH_KEY)
   localStorage.removeItem(SESSION_KEY)
   localStorage.removeItem('wincrm_username')
+  localStorage.removeItem(SUPER_ADMIN_KEY)
+  localStorage.removeItem(SELECTED_FILIAL_KEY)
+  localStorage.removeItem(ASSIGNED_FILIAL_KEY)
+  localStorage.removeItem(ASSIGNED_FILIAL_NAME_KEY)
+  localStorage.removeItem(ROLES_KEY)
 }
 
-export function formatApiError(e: unknown, fallback = 'Xatolik yuz berdi'): string {
+export function isStoredSuperAdmin(): boolean {
+  return localStorage.getItem(SUPER_ADMIN_KEY) === 'true'
+}
+
+export function getSelectedFilialId(): string | null {
+  return localStorage.getItem(SELECTED_FILIAL_KEY)
+}
+
+export function setSelectedFilialId(id: number | string | null) {
+  if (id == null || id === '' || id === 'all') {
+    localStorage.removeItem(SELECTED_FILIAL_KEY)
+    return
+  }
+  localStorage.setItem(SELECTED_FILIAL_KEY, String(id))
+}
+
+export function persistAuthProfile(profile: {
+  superAdmin?: boolean
+  roles?: string[]
+  filialId?: number | null
+  filialName?: string | null
+}) {
+  localStorage.setItem(SUPER_ADMIN_KEY, profile.superAdmin ? 'true' : 'false')
+  localStorage.setItem(ROLES_KEY, JSON.stringify(profile.roles || []))
+  if (profile.filialId != null) {
+    localStorage.setItem(ASSIGNED_FILIAL_KEY, String(profile.filialId))
+  } else {
+    localStorage.removeItem(ASSIGNED_FILIAL_KEY)
+  }
+  if (profile.filialName) {
+    localStorage.setItem(ASSIGNED_FILIAL_NAME_KEY, profile.filialName)
+  } else {
+    localStorage.removeItem(ASSIGNED_FILIAL_NAME_KEY)
+  }
+}
+
+export function formatApiError(e: unknown, fallback?: string): string {
+  const t = i18n.global.t
+  const defaultFallback = fallback ?? String(t('errors.generic'))
   if (e instanceof ApiError) {
     if (e.status === 403) {
-      return 'Ruxsat yo‘q (403). Bu amal uchun yetarli huquqingiz yo‘q.'
+      return String(t('errors.forbidden'))
     }
     if (e.status === 401) {
-      return 'Sessiya tugadi. Qayta kiring.'
+      return String(t('errors.unauthorized'))
     }
     const body = e.body as
       | { message?: string; error?: string; phone?: string; name?: string }
@@ -70,10 +120,10 @@ export function formatApiError(e: unknown, fallback = 'Xatolik yuz berdi'): stri
         .map(([, v]) => v)
       if (fieldMsgs.length) return fieldMsgs.join('; ')
     }
-    return e.message || fallback
+    return e.message || defaultFallback
   }
   if (e instanceof Error) return e.message
-  return fallback
+  return defaultFallback
 }
 
 function redirectToSignin() {
@@ -104,8 +154,18 @@ async function tryRefreshToken(): Promise<boolean> {
       accessToken: string
       refreshToken: string
       sessionId?: number
+      roles?: string[]
+      superAdmin?: boolean
+      filialId?: number | null
+      filialName?: string | null
     }
     setTokens(data.accessToken, data.refreshToken, data.sessionId)
+    persistAuthProfile({
+      superAdmin: data.superAdmin,
+      roles: data.roles,
+      filialId: data.filialId,
+      filialName: data.filialName,
+    })
     return true
   } catch {
     clearTokens()
@@ -120,6 +180,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   const doFetch = async (): Promise<Response> => {
     const reqHeaders: Record<string, string> = {
       Accept: 'application/json',
+      'Accept-Language': getStoredLocale(),
       ...headers,
     }
     if (body !== undefined && !isFormData) {
@@ -129,6 +190,12 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
       const token = getAccessToken()
       if (token) {
         reqHeaders.Authorization = `Bearer ${token}`
+      }
+      if (isStoredSuperAdmin()) {
+        const filialId = getSelectedFilialId()
+        if (filialId) {
+          reqHeaders['X-Filial-Id'] = filialId
+        }
       }
     }
 

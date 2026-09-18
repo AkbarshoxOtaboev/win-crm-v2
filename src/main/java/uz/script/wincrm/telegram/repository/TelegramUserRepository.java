@@ -1,6 +1,10 @@
 package uz.script.wincrm.telegram.repository;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 import uz.script.wincrm.telegram.TelegramUser;
 
@@ -19,4 +23,8 @@ public interface TelegramUserRepository extends JpaRepository<TelegramUser, Long
 
     /** Admin panelidan tanlangan mijozga xabar yuborishda uning chatId'sini topish uchun. */
     Optional<TelegramUser> findByClient_Id(Long clientId);
+
+    @EntityGraph(attributePaths = "client")
+    @Query("select t from TelegramUser t")
+    Page<TelegramUser> findAllWithClient(Pageable pageable);
 }

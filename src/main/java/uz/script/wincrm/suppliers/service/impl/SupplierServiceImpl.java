@@ -44,16 +44,12 @@ public class SupplierServiceImpl implements SupplierService {
                 && !dto.getInn().isBlank()
                 && repository.existsByInn(dto.getInn())) {
 
-            throw new AlreadyExistsException(
-                    "Supplier with INN '" + dto.getInn() + "' already exists."
-            );
+            throw new AlreadyExistsException("error.supplier.inn.exists", dto.getInn());
         }
 
         if (repository.existsByPhone(dto.getPhone())) {
 
-            throw new AlreadyExistsException(
-                    "Supplier with phone '" + dto.getPhone() + "' already exists."
-            );
+            throw new AlreadyExistsException("error.supplier.phone.exists", dto.getPhone());
         }
 
         Supplier supplier = SupplierMapper.toEntity(dto);
@@ -83,17 +79,13 @@ public class SupplierServiceImpl implements SupplierService {
                 && !dto.getInn().isBlank()
                 && repository.existsByInnAndIdNot(dto.getInn(), id)) {
 
-            throw new AlreadyExistsException(
-                    "Supplier with INN '" + dto.getInn() + "' already exists."
-            );
+            throw new AlreadyExistsException("error.supplier.inn.exists", dto.getInn());
         }
 
         // Phone duplicate check
         if (repository.existsByPhoneAndIdNot(dto.getPhone(), id)) {
 
-            throw new AlreadyExistsException(
-                    "Supplier with phone '" + dto.getPhone() + "' already exists."
-            );
+            throw new AlreadyExistsException("error.supplier.phone.exists", dto.getPhone());
         }
 
         SupplierMapper.updateEntity(supplier, dto);

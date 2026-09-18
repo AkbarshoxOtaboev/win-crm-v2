@@ -7,32 +7,38 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.SQLRestriction;
+import uz.script.wincrm.filial.FilialScopedEntity;
 import uz.script.wincrm.payment.Payment;
 import uz.script.wincrm.sale.SaleOrder;
 import uz.script.wincrm.sale.SaleOrderItem;
 import uz.script.wincrm.suppliers.SupplierBalance;
-import uz.script.wincrm.utils.BaseEntity;
 import uz.script.wincrm.utils.TableName;
 
 import java.util.List;
 
 @Entity
-@Table(name = TableName.CLIENTS)
+@Table(
+        name = TableName.CLIENTS,
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_clients_phone_filial", columnNames = {"phone", "filial_id"}),
+                @UniqueConstraint(name = "uk_clients_inn_filial", columnNames = {"inn", "filial_id"})
+        }
+)
 @SQLRestriction("status <> 'DELETED'")
 @Getter
 @Setter
 @SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Client extends BaseEntity {
+public class Client extends FilialScopedEntity {
 
     @Column(nullable = false)
     private String fullName;
 
-    @Column(length = 20, unique = true)
+    @Column(length = 20)
     private String inn;
 
-    @Column(nullable = false, length = 32, unique = true)
+    @Column(nullable = false, length = 32)
     private String phone;
 
     @Column(length = 32)

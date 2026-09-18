@@ -2,6 +2,7 @@ package uz.script.wincrm.utils;
 
 public interface TableName {
     String USERS = "_users";
+    String FILIALS = "filials";
     String ROLES = "roles";
     String PERMISSIONS = "permissions";
     String REFRESH_TOKENS = "refresh_tokens";

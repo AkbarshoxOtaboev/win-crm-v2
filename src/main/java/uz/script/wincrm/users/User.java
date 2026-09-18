@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.SQLRestriction;
+import uz.script.wincrm.filial.Filial;
 import uz.script.wincrm.payment.Payment;
 import uz.script.wincrm.roles.Role;
 import uz.script.wincrm.sale.SaleOrder;
@@ -42,6 +43,11 @@ public class User extends BaseEntity {
             inverseJoinColumns = @JoinColumn(name = "role_id")
     )
     private Set<Role> roles;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "filial_id")
+    private Filial filial;
+
     private LocalDateTime lastLogin;
 
     @OneToMany(mappedBy = "user")
