@@ -1,9 +1,9 @@
 <template>
   <AdminLayout>
-    <PageBreadcrumb pageTitle="Sex board" />
+    <PageBreadcrumb :pageTitle="t('nav.productionBoard')" />
     <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
       <div class="flex flex-col gap-3 border-b border-gray-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-gray-800">
-        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Sex board</h3>
+        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('nav.productionBoard') }}</h3>
         <select v-model.number="workshopId" class="field sm:w-64" @change="loadBoard">
           <option :value="0" disabled>Sex tanlang</option>
           <option v-for="w in workshops" :key="w.id" :value="w.id">{{ w.name }}</option>
@@ -17,21 +17,25 @@
               <th class="th">PO #</th>
               <th class="th">Savdo</th>
               <th class="th">Mijoz</th>
-              <th class="th">Assignment</th>
-              <th class="th">Holat</th>
+              <th class="th">{{ t('production.assignment') }}</th>
+              <th class="th">{{ t('production.status') }}</th>
+              <th class="th">{{ t('production.acceptedAt') }}</th>
+              <th class="th">{{ t('production.submittedAt') }}</th>
               <th class="th text-right">Amallar</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-if="loading"><td colspan="6" class="empty">Yuklanmoqda...</td></tr>
-            <tr v-else-if="!workshopId"><td colspan="6" class="empty">Sex tanlang</td></tr>
-            <tr v-else-if="items.length === 0"><td colspan="6" class="empty">Navbat bo‘sh</td></tr>
+            <tr v-if="loading"><td colspan="8" class="empty">Yuklanmoqda...</td></tr>
+            <tr v-else-if="!workshopId"><td colspan="8" class="empty">Sex tanlang</td></tr>
+            <tr v-else-if="items.length === 0"><td colspan="8" class="empty">Navbat bo‘sh</td></tr>
             <tr v-for="o in items" :key="o.id" class="border-b border-gray-100 dark:border-gray-800">
               <td class="td">{{ o.id }}</td>
               <td class="td">#{{ o.saleOrderId }}</td>
               <td class="td font-medium text-gray-800 dark:text-white/90">{{ o.clientFullName || '—' }}</td>
-              <td class="td">{{ o.currentAssignmentStatus || '—' }}</td>
-              <td class="td">{{ o.productionStatus || '—' }}</td>
+              <td class="td">{{ assignmentLabel(o.currentAssignmentStatus) }}</td>
+              <td class="td">{{ productionStatusLabel(o.productionStatus) }}</td>
+              <td class="td whitespace-nowrap">{{ formatDate(o.startedAt) }}</td>
+              <td class="td whitespace-nowrap">{{ formatDate(o.doneAt) }}</td>
               <td class="td text-right">
                 <div class="inline-flex flex-wrap justify-end gap-1.5">
                   <button
@@ -86,6 +90,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import {
@@ -96,8 +101,10 @@ import {
   type ProductionOrder,
 } from '@/api/production'
 import { fetchActiveWorkshops, type Workshop } from '@/api/workshops'
-import { ApiError } from '@/api/http'
+import { formatApiError } from '@/api/http'
+import { formatDate } from '@/utils/format'
 
+const { t } = useI18n()
 const workshops = ref<Workshop[]>([])
 const workshopId = ref(0)
 const items = ref<ProductionOrder[]>([])
@@ -113,6 +120,20 @@ const saving = ref(false)
 const redirectWorkshops = computed(() =>
   workshops.value.filter((w) => w.id !== selected.value?.currentWorkshopId),
 )
+
+function productionStatusLabel(status?: string | null) {
+  if (!status) return '—'
+  const key = `productionStatus.${status}`
+  const label = t(key)
+  return label !== key ? String(label) : status
+}
+
+function assignmentLabel(status?: string | null) {
+  if (!status) return '—'
+  const key = `assignmentStatus.${status}`
+  const label = t(key)
+  return label !== key ? String(label) : status
+}
 
 async function loadWorkshops() {
   const res = await fetchActiveWorkshops()
@@ -133,7 +154,7 @@ async function loadBoard() {
     const res = await fetchProductionBoard(workshopId.value)
     items.value = res.data || []
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Yuklashda xatolik'
+    error.value = formatApiError(e, 'Yuklashda xatolik')
   } finally {
     loading.value = false
   }
@@ -144,7 +165,7 @@ async function onStart(o: ProductionOrder) {
     await startProduction(o.id)
     await loadBoard()
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Boshlashda xatolik'
+    error.value = formatApiError(e, 'Boshlashda xatolik')
   }
 }
 
@@ -165,7 +186,7 @@ async function onRedirect() {
     redirectOpen.value = false
     await loadBoard()
   } catch (e) {
-    formError.value = e instanceof ApiError ? e.message : 'Yo‘naltirishda xatolik'
+    formError.value = formatApiError(e, 'Yo‘naltirishda xatolik')
   } finally {
     saving.value = false
   }
@@ -177,7 +198,7 @@ async function onComplete(o: ProductionOrder) {
     await completeProduction(o.id)
     await loadBoard()
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Yakunlashda xatolik'
+    error.value = formatApiError(e, 'Yakunlashda xatolik')
   }
 }
 
@@ -186,7 +207,7 @@ onMounted(async () => {
     await loadWorkshops()
     await loadBoard()
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Yuklashda xatolik'
+    error.value = formatApiError(e, 'Yuklashda xatolik')
   }
 })
 </script>

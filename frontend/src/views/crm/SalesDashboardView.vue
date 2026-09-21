@@ -192,6 +192,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import { fetchSaleOrdersByDateRange, type SaleOrder } from '@/api/sales'
@@ -200,14 +201,25 @@ import { money, today } from '@/utils/format'
 import VueApexCharts from 'vue3-apexcharts'
 import { CalendarDays, ListFilter, RefreshCw, X } from 'lucide-vue-next'
 
-const STATUS_DEFS = [
-  { key: 'NEW', label: 'Yangi', color: '#3b82f6' },
-  { key: 'CONFIRMED', label: 'Tasdiqlangan', color: '#fbbf24' },
-  { key: 'PROCESSING', label: 'Jarayonda', color: '#f97316' },
-  { key: 'DELIVERED', label: 'Yetkazilgan', color: '#34d399' },
-  { key: 'COMPLETED', label: 'Yakunlangan', color: '#059669' },
-  { key: 'CANCELLED', label: 'Bekor qilingan', color: '#ef4444' },
-] as const
+const { t } = useI18n()
+
+const STATUS_KEYS = ['NEW', 'CONFIRMED', 'PROCESSING', 'DELIVERED', 'COMPLETED', 'CANCELLED'] as const
+const STATUS_COLORS: Record<(typeof STATUS_KEYS)[number], string> = {
+  NEW: '#3b82f6',
+  CONFIRMED: '#fbbf24',
+  PROCESSING: '#f97316',
+  DELIVERED: '#34d399',
+  COMPLETED: '#059669',
+  CANCELLED: '#ef4444',
+}
+
+const STATUS_DEFS = computed(() =>
+  STATUS_KEYS.map((key) => ({
+    key,
+    label: t(`saleStatus.${key}`),
+    color: STATUS_COLORS[key],
+  })),
+)
 
 const IN_PROGRESS = new Set(['NEW', 'CONFIRMED', 'PROCESSING', 'DELIVERED'])
 
@@ -230,7 +242,7 @@ const grandTotal = computed(() =>
 )
 
 const statusStats = computed(() =>
-  STATUS_DEFS.map((def) => {
+  STATUS_DEFS.value.map((def) => {
     const list = filteredOrders.value.filter((o) => normStatus(o) === def.key)
     const sum = list.reduce((s, o) => s + amt(o.totalSum), 0)
     const share = grandTotal.value > 0 ? Math.round((sum / grandTotal.value) * 100) : 0
@@ -258,11 +270,11 @@ const statusBarSeries = computed(() => [
 const statusBarOptions = computed(() => ({
   chart: { fontFamily: 'Outfit, sans-serif', type: 'bar' as const, toolbar: { show: false } },
   plotOptions: { bar: { horizontal: true, borderRadius: 4, barHeight: '55%', distributed: true } },
-  colors: STATUS_DEFS.map((s) => s.color),
+  colors: STATUS_DEFS.value.map((s) => s.color),
   dataLabels: { enabled: false },
   legend: { show: false },
   xaxis: {
-    categories: STATUS_DEFS.map((s) => s.label),
+    categories: STATUS_DEFS.value.map((s) => s.label),
     labels: { formatter: (v: string) => compactNum(Number(v)) },
   },
   yaxis: { labels: { style: { fontSize: '12px' } } },
@@ -274,8 +286,8 @@ const statusDonutSeries = computed(() => statusStats.value.map((s) => s.sum))
 
 const statusDonutOptions = computed(() => ({
   chart: { fontFamily: 'Outfit, sans-serif', type: 'donut' as const },
-  labels: STATUS_DEFS.map((s) => s.label),
-  colors: STATUS_DEFS.map((s) => s.color),
+  labels: STATUS_DEFS.value.map((s) => s.label),
+  colors: STATUS_DEFS.value.map((s) => s.color),
   legend: { position: 'bottom' as const, fontSize: '12px' },
   dataLabels: { enabled: false },
   plotOptions: {

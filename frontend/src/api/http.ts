@@ -113,17 +113,35 @@ export function formatApiError(e: unknown, fallback?: string): string {
       | Record<string, string>
       | null
     if (body && typeof body === 'object') {
-      if ('message' in body && body.message) return String(body.message)
-      if ('error' in body && body.error) return String(body.error)
+      if ('message' in body && body.message) {
+        return localizeKnownApiMessage(String(body.message), t)
+      }
+      if ('error' in body && body.error) {
+        return localizeKnownApiMessage(String(body.error), t)
+      }
       const fieldMsgs = Object.entries(body)
         .filter(([k, v]) => k !== 'timestamp' && k !== 'status' && k !== 'path' && typeof v === 'string')
         .map(([, v]) => v)
       if (fieldMsgs.length) return fieldMsgs.join('; ')
     }
-    return e.message || defaultFallback
+    return localizeKnownApiMessage(e.message || defaultFallback, t)
   }
-  if (e instanceof Error) return e.message
+  if (e instanceof Error) return localizeKnownApiMessage(e.message, t)
   return defaultFallback
+}
+
+const SALE_STATUS_TRANSITION_RE = /Cannot change order status from (\w+) to (\w+)/i
+
+function localizeKnownApiMessage(message: string, t: typeof i18n.global.t): string {
+  const match = message.match(SALE_STATUS_TRANSITION_RE)
+  if (match) {
+    const fromKey = `saleStatus.${match[1]}`
+    const toKey = `saleStatus.${match[2]}`
+    const from = t(fromKey) !== fromKey ? String(t(fromKey)) : match[1]
+    const to = t(toKey) !== toKey ? String(t(toKey)) : match[2]
+    return String(t('errors.saleStatusTransition', { from, to }))
+  }
+  return message
 }
 
 function redirectToSignin() {

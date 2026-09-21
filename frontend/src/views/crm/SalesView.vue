@@ -38,11 +38,11 @@
               <td class="td">{{ money(o.totalSum) }}</td>
               <td class="td">{{ money(o.paidSum) }}</td>
               <td class="td">{{ money(o.debtSum) }}</td>
-              <td class="td">{{ o.orderStatus || '—' }}</td>
+              <td class="td">{{ statusLabel(o.orderStatus) }}</td>
               <td class="td text-right">
                 <div class="inline-flex items-center gap-1.5 justify-end">
                   <select class="field" style="width: auto; display: inline-block" :value="o.orderStatus" @change="onStatus(o, ($event.target as HTMLSelectElement).value)">
-                    <option v-for="st in statuses" :key="st" :value="st">{{ st }}</option>
+                    <option v-for="st in statuses" :key="st" :value="st">{{ statusLabel(st) }}</option>
                   </select>
                   <RowActions @edit="openEdit(o)" @delete="onDelete(o)" />
                 </div>
@@ -132,6 +132,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import RowActions from '@/components/crm/RowActions.vue'
@@ -151,7 +152,14 @@ import { formatApiError } from '@/api/http'
 import { formatDate, money, toApiDate } from '@/utils/format'
 
 const router = useRouter()
-const statuses = ['NEW', 'CONFIRMED', 'PROCESSING', 'DELIVERED', 'COMPLETED', 'CANCELLED']
+const { t } = useI18n()
+const statuses = ['NEW', 'CONFIRMED', 'PROCESSING', 'DELIVERED', 'COMPLETED', 'CANCELLED'] as const
+
+function statusLabel(status?: string | null) {
+  if (!status) return '—'
+  const key = `saleStatus.${status}`
+  return t(key) !== key ? t(key) : status
+}
 
 const items = ref<SaleOrder[]>([])
 const warehouses = ref<Warehouse[]>([])

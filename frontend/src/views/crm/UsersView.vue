@@ -17,6 +17,7 @@
               <th class="th">F.I.Sh</th>
               <th class="th">Telefon</th>
               <th class="th">Status</th>
+              <th class="th">Role</th>
               <th class="th">Filial</th>
               <th class="th text-right whitespace-nowrap">Amallar</th>
             </tr>
@@ -30,12 +31,13 @@
               <td class="td">
                 <button type="button" class="text-brand-500" @click="onToggle(u)">{{ u.status }}</button>
               </td>
+              <td class="td">{{ formatRoles(u.role) }}</td>
               <td class="td">{{ u.filialName || '—' }}</td>
               <td class="td text-right whitespace-nowrap">
                 <RowActions @edit="openEdit(u)" @delete="onDelete(u)" />
               </td>
             </tr>
-            <tr v-if="users.length === 0"><td colspan="7" class="empty">Foydalanuvchi yo‘q</td></tr>
+            <tr v-if="users.length === 0"><td colspan="8" class="empty">Foydalanuvchi yo‘q</td></tr>
           </tbody>
         </table>
       </div>
@@ -210,6 +212,11 @@ const editingId = ref<number | null>(null)
 const showPassword = ref(false)
 const saving = ref(false)
 const form = reactive({ username: '', fullName: '', phone: '', password: '', roleId: 0, filialId: 0 })
+
+function formatRoles(role?: RoleItem[]) {
+  if (!role?.length) return '—'
+  return role.map((r) => r.name).join(', ')
+}
 
 async function load() {
   error.value = null

@@ -61,7 +61,10 @@ public class RoleServiceImplement implements RoleService {
     )
     public List<RoleResponse> fetchAllRoles() {
         log.info("Fetch all roles");
-        return roleRepository.findAll().stream().map(this::mapRoleToRoleResponse).toList();
+        return roleRepository.findAll().stream()
+                .filter(role -> role.getStatus() != Status.DELETED)
+                .map(this::mapRoleToRoleResponse)
+                .toList();
     }
 
     @Override

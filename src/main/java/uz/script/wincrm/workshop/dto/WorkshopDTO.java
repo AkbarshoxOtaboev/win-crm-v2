@@ -19,4 +19,7 @@ public class WorkshopDTO {
 
     @Schema(description = "Manager user id")
     private Long managerId;
+
+    @Schema(description = "Default fee percent of sale order total (0-100)", example = "5.00")
+    private java.math.BigDecimal feePercent;
 }

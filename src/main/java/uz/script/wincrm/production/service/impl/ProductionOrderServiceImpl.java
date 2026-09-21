@@ -34,7 +34,9 @@ import uz.script.wincrm.security.CustomUserDetails;
 import uz.script.wincrm.users.User;
 import uz.script.wincrm.utils.Status;
 import uz.script.wincrm.workshop.Workshop;
+import uz.script.wincrm.workshop.enums.WorkshopBalanceEventType;
 import uz.script.wincrm.workshop.repository.WorkshopRepository;
+import uz.script.wincrm.workshop.service.WorkshopBalanceService;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -51,6 +53,7 @@ public class ProductionOrderServiceImpl implements ProductionOrderService {
     private final SaleOrderRepository saleOrderRepository;
     private final WorkshopRepository workshopRepository;
     private final SaleOrderHistoryService saleOrderHistoryService;
+    private final WorkshopBalanceService workshopBalanceService;
 
     @Override
     @Auditable(action = AuditAction.CREATE, entity = "ProductionOrder")
@@ -160,6 +163,8 @@ public class ProductionOrderServiceImpl implements ProductionOrderService {
         recordEvent(order, ProductionEventType.STARTED, null, current.getWorkshop(),
                 currentUser(), now, null);
 
+        workshopBalanceService.creditForAssignment(current, WorkshopBalanceEventType.ACCEPT);
+
         return toResponse(order);
     }
 
@@ -193,6 +198,8 @@ public class ProductionOrderServiceImpl implements ProductionOrderService {
 
         recordEvent(order, ProductionEventType.FINISHED, null, current.getWorkshop(),
                 actor, now, dto.getNote());
+
+        workshopBalanceService.creditForAssignment(current, WorkshopBalanceEventType.FINISH);
 
         int nextSeq = assignmentRepository.countByProductionOrder_Id(order.getId()) + 1;
         ProductionAssignment nextAssignment = ProductionAssignment.builder()
@@ -250,6 +257,8 @@ public class ProductionOrderServiceImpl implements ProductionOrderService {
 
         recordEvent(order, ProductionEventType.FINISHED, null, current.getWorkshop(),
                 actor, now, note);
+
+        workshopBalanceService.creditForAssignment(current, WorkshopBalanceEventType.FINISH);
 
         order.setProductionStatus(ProductionOrderStatus.DONE);
         order.setDoneAt(now);

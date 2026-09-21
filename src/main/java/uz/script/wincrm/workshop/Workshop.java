@@ -11,6 +11,8 @@ import uz.script.wincrm.filial.FilialScopedEntity;
 import uz.script.wincrm.users.User;
 import uz.script.wincrm.utils.TableName;
 
+import java.math.BigDecimal;
+
 @Entity
 @Getter
 @Setter
@@ -30,4 +32,8 @@ public class Workshop extends FilialScopedEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "manager_id")
     private User manager;
+
+    /** Default fee % of sale order totalSum credited to workshop balance. */
+    @Column(precision = 7, scale = 2)
+    private BigDecimal feePercent;
 }

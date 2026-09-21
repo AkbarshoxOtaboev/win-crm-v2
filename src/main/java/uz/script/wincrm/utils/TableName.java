@@ -43,6 +43,8 @@ public interface TableName {
     String TELEGRAM_USERS = "telegram_users";
     String BOT_SETTINGS   = "bot_settings";
     String WORKSHOPS = "workshops";
+    String WORKSHOP_BALANCES = "workshop_balances";
+    String WORKSHOP_BALANCE_ENTRIES = "workshop_balance_entries";
     String PRODUCTION_ORDERS = "production_orders";
     String PRODUCTION_ASSIGNMENTS = "production_assignments";
     String PRODUCTION_EVENTS = "production_events";

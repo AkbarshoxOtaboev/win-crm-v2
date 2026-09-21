@@ -12,6 +12,7 @@ import uz.script.wincrm.production.enums.ProductionAssignmentStatus;
 import uz.script.wincrm.utils.TableName;
 import uz.script.wincrm.workshop.Workshop;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -48,4 +49,8 @@ public class ProductionAssignment extends FilialScopedEntity {
 
     @Column(columnDefinition = "TEXT")
     private String note;
+
+    /** Fee % for this completed work (set from workshop default or by super admin). */
+    @Column(precision = 7, scale = 2)
+    private BigDecimal feePercent;
 }

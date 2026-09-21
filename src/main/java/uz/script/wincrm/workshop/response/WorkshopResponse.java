@@ -19,6 +19,7 @@ public class WorkshopResponse {
     private String description;
     private Long managerId;
     private String managerFullName;
+    private java.math.BigDecimal feePercent;
     private Status status;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

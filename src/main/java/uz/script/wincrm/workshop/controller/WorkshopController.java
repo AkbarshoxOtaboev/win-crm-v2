@@ -9,8 +9,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import uz.script.wincrm.utils.RestApiResponse;
+import uz.script.wincrm.workshop.dto.AssignmentFeePercentDTO;
 import uz.script.wincrm.workshop.dto.WorkshopDTO;
+import uz.script.wincrm.workshop.response.WorkshopDashboardResponse;
 import uz.script.wincrm.workshop.response.WorkshopResponse;
+import uz.script.wincrm.workshop.service.WorkshopBalanceService;
 import uz.script.wincrm.workshop.service.WorkshopService;
 
 import java.util.List;
@@ -22,6 +25,7 @@ import java.util.List;
 public class WorkshopController {
 
     private final WorkshopService service;
+    private final WorkshopBalanceService balanceService;
 
     @PostMapping("/create")
     @PreAuthorize("hasAuthority('WORKSHOP_CREATE')")
@@ -91,6 +95,29 @@ public class WorkshopController {
         return ResponseEntity.ok(RestApiResponse.<WorkshopResponse>builder()
                 .message("Workshop status successfully changed")
                 .data(service.changeStatus(id))
+                .build());
+    }
+
+    @GetMapping("/{id}/dashboard")
+    @PreAuthorize("hasAuthority('WORKSHOP_VIEW')")
+    @Operation(summary = "Workshop production dashboard (queue, progress, completed, balance)")
+    public ResponseEntity<?> dashboard(@PathVariable Long id) {
+        return ResponseEntity.ok(RestApiResponse.<WorkshopDashboardResponse>builder()
+                .message("Workshop dashboard fetched successfully")
+                .data(balanceService.dashboard(id))
+                .build());
+    }
+
+    @PutMapping("/assignments/{assignmentId}/fee-percent")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @Operation(summary = "Set fee percent for a completed workshop assignment (SUPER_ADMIN)")
+    public ResponseEntity<?> setAssignmentFee(
+            @PathVariable Long assignmentId,
+            @Valid @RequestBody AssignmentFeePercentDTO dto
+    ) {
+        balanceService.setAssignmentFeePercent(assignmentId, dto.getFeePercent());
+        return ResponseEntity.ok(RestApiResponse.<Void>builder()
+                .message("Assignment fee percent updated")
                 .build());
     }
 }

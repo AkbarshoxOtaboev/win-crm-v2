@@ -15,14 +15,16 @@
               <th class="th">Savdo</th>
               <th class="th">Mijoz</th>
               <th class="th">Joriy sex</th>
-              <th class="th">Assignment</th>
-              <th class="th">Holat</th>
+              <th class="th">{{ t('production.assignment') }}</th>
+              <th class="th">{{ t('production.status') }}</th>
+              <th class="th">{{ t('production.acceptedAt') }}</th>
+              <th class="th">{{ t('production.submittedAt') }}</th>
               <th class="th text-right">Amallar</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-if="loading"><td colspan="7" class="empty">Yuklanmoqda...</td></tr>
-            <tr v-else-if="filtered.length === 0"><td colspan="7" class="empty">Buyurtma yo‘q</td></tr>
+            <tr v-if="loading"><td colspan="9" class="empty">Yuklanmoqda...</td></tr>
+            <tr v-else-if="filtered.length === 0"><td colspan="9" class="empty">Buyurtma yo‘q</td></tr>
             <tr v-for="o in filtered" :key="o.id" class="border-b border-gray-100 dark:border-gray-800">
               <td class="td">{{ o.id }}</td>
               <td class="td">
@@ -33,10 +35,12 @@
               </td>
               <td class="td font-medium text-gray-800 dark:text-white/90">{{ o.clientFullName || '—' }}</td>
               <td class="td">{{ o.currentWorkshopName || '—' }}</td>
-              <td class="td">{{ o.currentAssignmentStatus || '—' }}</td>
-              <td class="td">{{ o.productionStatus || '—' }}</td>
+              <td class="td">{{ assignmentLabel(o.currentAssignmentStatus) }}</td>
+              <td class="td">{{ productionStatusLabel(o.productionStatus) }}</td>
+              <td class="td whitespace-nowrap">{{ formatDt(o.startedAt) }}</td>
+              <td class="td whitespace-nowrap">{{ formatDt(o.doneAt) }}</td>
               <td class="td text-right">
-                <button type="button" class="link-btn" @click="openDetail(o)">Timeline</button>
+                <button type="button" class="link-btn" @click="openDetail(o)">{{ t('production.timeline') }}</button>
               </td>
             </tr>
           </tbody>
@@ -48,7 +52,7 @@
       <div class="w-full max-w-xl max-h-[85vh] overflow-y-auto rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
         <div class="mb-4 flex items-center justify-between">
           <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">
-            Xronologiya #{{ selected?.id }}
+            {{ t('production.timeline') }} #{{ selected?.id }}
           </h3>
           <button type="button" class="text-sm text-gray-500" @click="detailOpen = false">Yopish</button>
         </div>
@@ -61,7 +65,7 @@
             class="rounded-lg border border-gray-100 p-3 dark:border-gray-800"
           >
             <div class="flex items-center justify-between gap-2">
-              <span class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ ev.eventType }}</span>
+              <span class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ eventTypeLabel(ev.eventType) }}</span>
               <span class="text-xs text-gray-500">{{ formatDt(ev.occurredAt) }}</span>
             </div>
             <div class="mt-1 text-sm text-gray-600 dark:text-gray-400">
@@ -79,6 +83,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import {
@@ -87,8 +92,10 @@ import {
   type ProductionEvent,
   type ProductionOrder,
 } from '@/api/production'
-import { ApiError } from '@/api/http'
+import { formatApiError } from '@/api/http'
+import { formatDate } from '@/utils/format'
 
+const { t } = useI18n()
 const items = ref<ProductionOrder[]>([])
 const loading = ref(false)
 const error = ref<string | null>(null)
@@ -113,12 +120,28 @@ const filtered = computed(() => {
 })
 
 function formatDt(v?: string) {
-  if (!v) return '—'
-  try {
-    return new Date(v).toLocaleString()
-  } catch {
-    return v
-  }
+  return formatDate(v)
+}
+
+function productionStatusLabel(status?: string | null) {
+  if (!status) return '—'
+  const key = `productionStatus.${status}`
+  const label = t(key)
+  return label !== key ? String(label) : status
+}
+
+function assignmentLabel(status?: string | null) {
+  if (!status) return '—'
+  const key = `assignmentStatus.${status}`
+  const label = t(key)
+  return label !== key ? String(label) : status
+}
+
+function eventTypeLabel(eventType?: string | null) {
+  if (!eventType) return '—'
+  const key = `productionEvent.${eventType}`
+  const label = t(key)
+  return label !== key ? String(label) : eventType
 }
 
 async function load() {
@@ -128,7 +151,7 @@ async function load() {
     const res = await fetchProductionOrders()
     items.value = res.data || []
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Yuklashda xatolik'
+    error.value = formatApiError(e, 'Yuklashda xatolik')
   } finally {
     loading.value = false
   }
@@ -144,7 +167,7 @@ async function openDetail(o: ProductionOrder) {
     const res = await fetchProductionTimeline(o.id)
     timeline.value = res.data || []
   } catch (e) {
-    timelineError.value = e instanceof ApiError ? e.message : 'Timeline xatolik'
+    timelineError.value = formatApiError(e, 'Timeline xatolik')
   } finally {
     timelineLoading.value = false
   }

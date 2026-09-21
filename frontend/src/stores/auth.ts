@@ -45,6 +45,17 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isAuthenticated = computed(() => Boolean(accessToken.value))
 
+  const isProductionManagerOnly = computed(() => {
+    if (superAdmin.value) return false
+    const elevated = new Set(['SUPER_ADMIN', 'ADMIN', 'DIRECTOR'])
+    if (roles.value.some((r) => elevated.has(r))) return false
+    return roles.value.includes('PRODUCTION_MANAGER')
+  })
+
+  function hasRole(name: string) {
+    return roles.value.includes(name)
+  }
+
   function applyProfile(data: authApi.AuthResponse) {
     roles.value = data.roles || []
     superAdmin.value = Boolean(data.superAdmin)
@@ -135,6 +146,8 @@ export const useAuthStore = defineStore('auth', () => {
     assignedFilialName,
     selectedFilialId,
     isAuthenticated,
+    isProductionManagerOnly,
+    hasRole,
     login,
     logout,
     hydrateProfile,

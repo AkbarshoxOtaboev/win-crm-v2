@@ -22,5 +22,10 @@ public interface ProductionAssignmentRepository extends JpaRepository<Production
             List<ProductionAssignmentStatus> statuses
     );
 
+    List<ProductionAssignment> findByWorkshop_IdAndAssignmentStatusInOrderByFinishedAtDesc(
+            Long workshopId,
+            List<ProductionAssignmentStatus> statuses
+    );
+
     int countByProductionOrder_Id(Long productionOrderId);
 }

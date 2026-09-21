@@ -17,14 +17,15 @@
               <th class="th">#</th>
               <th class="th">Nomi</th>
               <th class="th">Mas’ul</th>
+              <th class="th">Foiz %</th>
               <th class="th">Status</th>
               <th class="th">Yoqish / o‘chirish</th>
               <th class="th text-right">Amallar</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-if="loading"><td colspan="6" class="empty">Yuklanmoqda...</td></tr>
-            <tr v-else-if="filtered.length === 0"><td colspan="6" class="empty">Sex yo‘q</td></tr>
+            <tr v-if="loading"><td colspan="7" class="empty">Yuklanmoqda...</td></tr>
+            <tr v-else-if="filtered.length === 0"><td colspan="7" class="empty">Sex yo‘q</td></tr>
             <tr v-for="w in filtered" :key="w.id" class="border-b border-gray-100 dark:border-gray-800">
               <td class="td">{{ w.id }}</td>
               <td class="td font-medium text-gray-800 dark:text-white/90">
@@ -32,6 +33,7 @@
                 <div v-if="w.description" class="text-xs text-gray-500">{{ w.description }}</div>
               </td>
               <td class="td">{{ w.managerFullName || '—' }}</td>
+              <td class="td">{{ w.feePercent != null ? `${w.feePercent}%` : '—' }}</td>
               <td class="td">
                 <span
                   class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium"
@@ -81,6 +83,10 @@
               <option v-for="u in users" :key="u.id" :value="u.id">{{ u.fullName || u.username }}</option>
             </select>
           </div>
+          <div>
+            <label class="mb-1 block text-sm text-gray-600 dark:text-gray-400">Standart foiz (%)</label>
+            <input v-model.number="form.feePercent" type="number" min="0" max="100" step="0.01" class="field" />
+          </div>
           <div class="flex justify-end gap-2">
             <button type="button" class="h-10 rounded-lg border border-gray-300 px-4 text-sm dark:border-gray-700" @click="modalOpen = false">Bekor</button>
             <button type="submit" class="btn" :disabled="saving">{{ saving ? '...' : 'Saqlash' }}</button>
@@ -116,7 +122,7 @@ const formError = ref<string | null>(null)
 const search = ref('')
 const modalOpen = ref(false)
 const editingId = ref<number | null>(null)
-const form = reactive({ name: '', description: '', managerId: 0 })
+const form = reactive({ name: '', description: '', managerId: 0, feePercent: 0 as number | null })
 
 function isActiveStatus(status?: string) {
   return !status || status === 'ACTIVE'
@@ -148,6 +154,7 @@ function openCreate() {
   form.name = ''
   form.description = ''
   form.managerId = 0
+  form.feePercent = 0
   formError.value = null
   modalOpen.value = true
 }
@@ -157,6 +164,7 @@ function openEdit(w: Workshop) {
   form.name = w.name
   form.description = w.description || ''
   form.managerId = w.managerId || 0
+  form.feePercent = w.feePercent != null ? Number(w.feePercent) : 0
   formError.value = null
   modalOpen.value = true
 }
@@ -168,6 +176,7 @@ async function onSubmit() {
     name: form.name.trim(),
     description: form.description.trim() || undefined,
     managerId: form.managerId || null,
+    feePercent: form.feePercent != null ? Number(form.feePercent) : 0,
   }
   try {
     if (editingId.value) await updateWorkshop(editingId.value, payload)

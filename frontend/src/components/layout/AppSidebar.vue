@@ -264,9 +264,11 @@ import {
   UserGroupIcon,
 } from '@/icons'
 import SidebarWidget from './SidebarWidget.vue'
+import { useAuthStore } from '@/stores/auth'
 
 const { t } = useI18n()
 const route = useRoute()
+const auth = useAuthStore()
 
 const { isExpanded, isMobileOpen, isHovered, openSubmenu } = useSidebar()
 
@@ -297,7 +299,38 @@ interface MenuGroup {
   items: MenuItem[]
 }
 
-const menuGroups = computed<MenuGroup[]>(() => [
+const menuGroups = computed<MenuGroup[]>(() => {
+  const productionSubItems: SubItem[] = [
+    { name: t('nav.productionDashboard'), path: '/production/dashboard', icon: LayoutGrid, exact: true },
+    { name: t('nav.productionBoard'), path: '/production/board', icon: LayoutGrid, exact: true },
+    { name: t('nav.workshops'), path: '/workshops', icon: Factory, exact: true },
+  ]
+
+  if (!auth.isProductionManagerOnly) {
+    productionSubItems.splice(2, 0, {
+      name: t('nav.productionOrders'),
+      path: '/production',
+      icon: ClipboardList,
+      exact: true,
+    })
+  }
+
+  const productionItem: MenuItem = {
+    icon: Factory,
+    name: t('nav.productionMenu'),
+    subItems: productionSubItems,
+  }
+
+  if (auth.isProductionManagerOnly) {
+    return [
+      {
+        title: t('nav.main'),
+        items: [productionItem],
+      },
+    ]
+  }
+
+  return [
   {
     title: t('nav.main'),
     items: [
@@ -338,15 +371,7 @@ const menuGroups = computed<MenuGroup[]>(() => [
           { name: t('nav.warehouses'), path: '/warehouses', icon: Package },
         ],
       },
-      {
-        icon: Factory,
-        name: t('nav.productionMenu'),
-        subItems: [
-          { name: t('nav.productionBoard'), path: '/production/board', icon: LayoutGrid, exact: true },
-          { name: t('nav.productionOrders'), path: '/production', icon: ClipboardList, exact: true },
-          { name: t('nav.workshops'), path: '/workshops', icon: Factory, exact: true },
-        ],
-      },
+      productionItem,
       { icon: PieChartIcon, name: t('nav.payments'), path: '/payments' },
       { icon: UserGroupIcon, name: t('nav.clients'), path: '/clients' },
     ],
@@ -382,7 +407,8 @@ const menuGroups = computed<MenuGroup[]>(() => [
       { icon: UserCircleIcon, name: t('nav.profile'), path: '/profile' },
     ],
   },
-])
+]
+})
 
 const isActive = (path?: string, exact = false, match?: (path: string) => boolean) => {
   if (match) return match(route.path)

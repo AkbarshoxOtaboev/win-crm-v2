@@ -42,14 +42,6 @@ public class RoleDataLoader implements CommandLineRunner {
             "DASHBOARD_VIEW"
     );
 
-    /** Sex egasi / ustasi — faqat o‘z sexida ishlash */
-    private static final Set<String> WORKSHOP_MANAGER_PERMISSIONS = Set.of(
-            "WORKSHOP_VIEW",
-            "PRODUCTION_ORDER_VIEW", "PRODUCTION_ORDER_EDIT",
-            "GOODS_VIEW",
-            "DASHBOARD_VIEW"
-    );
-
     /** Ishlab chiqarish boshlig‘i — sexlar + barcha production */
     private static final Set<String> PRODUCTION_MANAGER_PERMISSIONS = Set.of(
             "WORKSHOP_VIEW", "WORKSHOP_CREATE", "WORKSHOP_EDIT", "WORKSHOP_DELETE",
@@ -110,8 +102,19 @@ public class RoleDataLoader implements CommandLineRunner {
 
         // Operational roles for CRM / ERP workshop flow
         ensureRoleWithPermissions("SELLER", SELLER_PERMISSIONS, byName);
-        ensureRoleWithPermissions("WORKSHOP_MANAGER", WORKSHOP_MANAGER_PERMISSIONS, byName);
         ensureRoleWithPermissions("PRODUCTION_MANAGER", PRODUCTION_MANAGER_PERMISSIONS, byName);
+        retireRole("WORKSHOP_MANAGER");
+    }
+
+    /** Soft-delete legacy roles that are no longer used. */
+    private void retireRole(String roleName) {
+        repository.findByName(roleName).ifPresent(role -> {
+            if (role.getStatus() != Status.DELETED) {
+                role.setStatus(Status.DELETED);
+                repository.save(role);
+                System.out.println(roleName + " role retired (DELETED) ✅");
+            }
+        });
     }
 
     private void syncAllPermissions(String roleName, Set<Permissions> allPermissions) {

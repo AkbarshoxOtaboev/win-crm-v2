@@ -14,6 +14,7 @@ public class WorkshopMapper {
         return Workshop.builder()
                 .name(dto.getName())
                 .description(dto.getDescription())
+                .feePercent(dto.getFeePercent())
                 .status(Status.ACTIVE)
                 .build();
     }
@@ -21,6 +22,7 @@ public class WorkshopMapper {
     public void updateEntity(Workshop workshop, WorkshopDTO dto) {
         workshop.setName(dto.getName());
         workshop.setDescription(dto.getDescription());
+        workshop.setFeePercent(dto.getFeePercent());
     }
 
     public WorkshopResponse toResponse(Workshop workshop) {
@@ -33,6 +35,7 @@ public class WorkshopMapper {
                 .managerFullName(manager != null
                         ? (manager.getFullName() != null ? manager.getFullName() : manager.getUsername())
                         : null)
+                .feePercent(workshop.getFeePercent())
                 .status(workshop.getStatus())
                 .createdAt(workshop.getCreatedAt())
                 .updatedAt(workshop.getUpdatedAt())

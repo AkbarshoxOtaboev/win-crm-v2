@@ -74,10 +74,16 @@ const router = createRouter({
       meta: { title: 'Ishlab chiqarish', requiresAuth: true },
     },
     {
+      path: '/production/dashboard',
+      name: 'ProductionDashboard',
+      component: () => import('../views/crm/ProductionDashboardView.vue'),
+      meta: { title: 'Dashboard', requiresAuth: true },
+    },
+    {
       path: '/production/board',
       name: 'ProductionBoard',
       component: () => import('../views/crm/ProductionBoardView.vue'),
-      meta: { title: 'Sex board', requiresAuth: true },
+      meta: { title: 'Ishlab chiqarish', requiresAuth: true },
     },
     {
       path: '/warehouse-orders',
@@ -300,6 +306,26 @@ router.beforeEach((to, _from, next) => {
   if (guestOnly && auth.isAuthenticated) {
     next({ path: '/' })
     return
+  }
+
+  if (auth.isAuthenticated && auth.isProductionManagerOnly) {
+    const allowed =
+      to.path === '/production/dashboard' ||
+      to.path.startsWith('/production/dashboard/') ||
+      to.path === '/production/board' ||
+      to.path.startsWith('/production/board/') ||
+      to.path === '/workshops' ||
+      to.path.startsWith('/workshops/') ||
+      to.path === '/profile' ||
+      to.path.startsWith('/profile/')
+    if (to.path === '/' || to.path === '' || to.path === '/production') {
+      next({ path: '/production/dashboard' })
+      return
+    }
+    if (!allowed) {
+      next({ path: '/production/dashboard' })
+      return
+    }
   }
 
   next()
