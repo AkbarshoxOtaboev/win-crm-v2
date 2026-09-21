@@ -14,6 +14,7 @@ import uz.script.wincrm.clients.repository.ClientRepository;
 import uz.script.wincrm.clients.service.ClientBalanceService;
 import uz.script.wincrm.exceptions.BadRequestException;
 import uz.script.wincrm.exceptions.ResourceNotFoundException;
+import uz.script.wincrm.production.repository.ProductionOrderRepository;
 import uz.script.wincrm.sale.SaleOrder;
 import uz.script.wincrm.sale.dto.ApplyDiscountDTO;
 import uz.script.wincrm.sale.dto.SaleOrderDTO;
@@ -48,6 +49,7 @@ import java.util.Objects;
 public class SaleOrderServiceImpl implements SaleOrderService {
 
     private final SaleOrderRepository repository;
+    private final ProductionOrderRepository productionOrderRepository;
     private final SaleOrderMapper mapper;
     private final ClientRepository clientRepository;
     private final WarehouseRepository warehouseRepository;
@@ -246,6 +248,21 @@ public class SaleOrderServiceImpl implements SaleOrderService {
         if (!currentStatus.canTransitionTo(salesOrderStatus)) {
             throw new BadRequestException(
                     "Cannot change order status from " + currentStatus + " to " + salesOrderStatus);
+        }
+
+        if (salesOrderStatus == SalesOrderStatus.PROCESSING
+                && !productionOrderRepository.existsBySaleOrder_Id(id)) {
+            throw new BadRequestException(
+                    "Ishlab chiqarishga yuborish uchun sex tanlang (send-to-production)");
+        }
+
+        if (salesOrderStatus == SalesOrderStatus.DELIVERED) {
+            productionOrderRepository.findBySaleOrder_Id(id).ifPresent(po -> {
+                if (po.getProductionStatus() != uz.script.wincrm.production.enums.ProductionOrderStatus.DONE) {
+                    throw new BadRequestException(
+                            "Ishlab chiqarish yakunlanmagan. Avval sexda complete qiling.");
+                }
+            });
         }
 
         entity.setSalesOrderStatus(salesOrderStatus);

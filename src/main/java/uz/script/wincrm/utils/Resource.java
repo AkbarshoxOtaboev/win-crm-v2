@@ -35,4 +35,6 @@ public enum Resource {
     SALARY_CONFIG,
     SALARY_TRANSACTION,
     SALARY_SLIP,
+    WORKSHOP,
+    PRODUCTION_ORDER,
 }

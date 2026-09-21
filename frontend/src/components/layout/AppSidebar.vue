@@ -237,6 +237,7 @@ import {
   FileText,
   Files,
   Folder,
+  Factory,
   History,
   LayoutGrid,
   List,
@@ -335,6 +336,15 @@ const menuGroups = computed<MenuGroup[]>(() => [
           { name: t('nav.inventory'), path: '/inventory', icon: Files },
           { name: t('nav.transfers'), path: '/stock/transfers', icon: ArrowLeftRight },
           { name: t('nav.warehouses'), path: '/warehouses', icon: Package },
+        ],
+      },
+      {
+        icon: Factory,
+        name: t('nav.productionMenu'),
+        subItems: [
+          { name: t('nav.productionBoard'), path: '/production/board', icon: LayoutGrid, exact: true },
+          { name: t('nav.productionOrders'), path: '/production', icon: ClipboardList, exact: true },
+          { name: t('nav.workshops'), path: '/workshops', icon: Factory, exact: true },
         ],
       },
       { icon: PieChartIcon, name: t('nav.payments'), path: '/payments' },

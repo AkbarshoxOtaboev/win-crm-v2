@@ -53,6 +53,32 @@
       </div>
     </div>
 
+    <div v-if="prodModalOpen" class="fixed inset-0 z-99999 flex items-center justify-center bg-black/40 p-4" @click.self="closeProdModal">
+      <div class="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+        <h3 class="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">
+          Ishlab chiqarishga yuborish #{{ prodOrder?.id }}
+        </h3>
+        <div v-if="prodError" class="err mb-3">{{ prodError }}</div>
+        <form class="space-y-3" @submit.prevent="onSendToProduction">
+          <div>
+            <label class="lbl">Birinchi sex *</label>
+            <select v-model.number="prodWorkshopId" required class="field">
+              <option :value="0" disabled>Tanlang</option>
+              <option v-for="w in activeWorkshops" :key="w.id" :value="w.id">{{ w.name }}</option>
+            </select>
+          </div>
+          <div>
+            <label class="lbl">Izoh</label>
+            <input v-model="prodNote" class="field" />
+          </div>
+          <div class="flex justify-end gap-2">
+            <button type="button" class="h-10 rounded-lg border border-gray-300 px-4 text-sm" @click="closeProdModal">Bekor</button>
+            <button type="submit" class="btn" :disabled="prodSaving">{{ prodSaving ? '...' : 'Yuborish' }}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <div v-if="modalOpen" class="fixed inset-0 z-99999 flex items-center justify-center bg-black/40 p-4" @click.self="modalOpen = false">
       <div class="w-full max-w-lg rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
         <h3 class="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">Savdoni tahrirlash</h3>
@@ -116,6 +142,8 @@ import {
   updateSaleOrder,
   type SaleOrder,
 } from '@/api/sales'
+import { sendToProduction } from '@/api/production'
+import { fetchActiveWorkshops, type Workshop } from '@/api/workshops'
 import { fetchWarehouses, type Warehouse } from '@/api/warehouses'
 import { fetchClients, type Client } from '@/api/clients'
 import { fetchUsers, type UserItem } from '@/api/users'
@@ -129,6 +157,7 @@ const items = ref<SaleOrder[]>([])
 const warehouses = ref<Warehouse[]>([])
 const clients = ref<Client[]>([])
 const users = ref<UserItem[]>([])
+const activeWorkshops = ref<Workshop[]>([])
 const loading = ref(false)
 const saving = ref(false)
 const error = ref<string | null>(null)
@@ -138,6 +167,12 @@ const dateFrom = ref('')
 const dateTo = ref('')
 const modalOpen = ref(false)
 const editingId = ref<number | null>(null)
+const prodModalOpen = ref(false)
+const prodOrder = ref<SaleOrder | null>(null)
+const prodWorkshopId = ref(0)
+const prodNote = ref('')
+const prodError = ref<string | null>(null)
+const prodSaving = ref(false)
 
 const form = reactive({
   warehouseId: 0,
@@ -229,11 +264,54 @@ async function onSubmit() {
 }
 
 async function onStatus(o: SaleOrder, status: string) {
+  if (status === 'PROCESSING' && o.orderStatus !== 'PROCESSING') {
+    await openProdModal(o)
+    return
+  }
   try {
     await changeSaleOrderStatus(o.id, status)
     await load()
   } catch (e) {
     error.value = formatApiError(e, 'Holat o‘zgartirishda xatolik')
+  }
+}
+
+async function openProdModal(o: SaleOrder) {
+  prodOrder.value = o
+  prodWorkshopId.value = 0
+  prodNote.value = ''
+  prodError.value = null
+  prodModalOpen.value = true
+  try {
+    const res = await fetchActiveWorkshops()
+    activeWorkshops.value = res.data || []
+    if (activeWorkshops.value[0]) prodWorkshopId.value = activeWorkshops.value[0].id
+  } catch (e) {
+    prodError.value = formatApiError(e, 'Sexlar yuklanmadi')
+  }
+}
+
+function closeProdModal() {
+  prodModalOpen.value = false
+  prodOrder.value = null
+}
+
+async function onSendToProduction() {
+  if (!prodOrder.value || !prodWorkshopId.value) return
+  prodSaving.value = true
+  prodError.value = null
+  try {
+    await sendToProduction({
+      saleOrderId: prodOrder.value.id,
+      workshopId: prodWorkshopId.value,
+      note: prodNote.value.trim() || undefined,
+    })
+    closeProdModal()
+    await load()
+  } catch (e) {
+    prodError.value = formatApiError(e, 'Yuborishda xatolik')
+  } finally {
+    prodSaving.value = false
   }
 }
 

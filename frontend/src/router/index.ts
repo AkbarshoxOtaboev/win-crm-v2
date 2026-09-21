@@ -58,6 +58,28 @@ const router = createRouter({
       redirect: '/warehouses',
     },
     {
+      path: '/workshops',
+      name: 'Workshops',
+      component: () => import('../views/crm/WorkshopsView.vue'),
+      meta: { title: 'Sexlar', requiresAuth: true },
+    },
+    {
+      path: '/settings/workshops',
+      redirect: '/workshops',
+    },
+    {
+      path: '/production',
+      name: 'ProductionOrders',
+      component: () => import('../views/crm/ProductionOrdersView.vue'),
+      meta: { title: 'Ishlab chiqarish', requiresAuth: true },
+    },
+    {
+      path: '/production/board',
+      name: 'ProductionBoard',
+      component: () => import('../views/crm/ProductionBoardView.vue'),
+      meta: { title: 'Sex board', requiresAuth: true },
+    },
+    {
       path: '/warehouse-orders',
       name: 'WarehouseOrders',
       component: () => import('../views/crm/WarehouseOrdersView.vue'),

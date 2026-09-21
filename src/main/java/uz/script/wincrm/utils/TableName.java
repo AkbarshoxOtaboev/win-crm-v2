@@ -42,4 +42,8 @@ public interface TableName {
     String DEBT_NOTIFICATION_HISTORY = "debt_notification_history";
     String TELEGRAM_USERS = "telegram_users";
     String BOT_SETTINGS   = "bot_settings";
+    String WORKSHOPS = "workshops";
+    String PRODUCTION_ORDERS = "production_orders";
+    String PRODUCTION_ASSIGNMENTS = "production_assignments";
+    String PRODUCTION_EVENTS = "production_events";
 }
