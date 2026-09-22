@@ -51,6 +51,8 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 export interface SearchableOption {
   value: number
   label: string
+  /** Extra text for search (e.g. phone, FIO) — not shown in the button */
+  searchText?: string
 }
 
 const props = withDefaults(
@@ -85,7 +87,16 @@ const selectedLabel = computed(() => {
 const filtered = computed(() => {
   const q = query.value.trim().toLowerCase()
   if (!q) return props.options
-  return props.options.filter((o) => o.label.toLowerCase().includes(q))
+  const qDigits = q.replace(/\D/g, '')
+  return props.options.filter((o) => {
+    const hay = `${o.label} ${o.searchText || ''}`.toLowerCase()
+    if (hay.includes(q)) return true
+    if (qDigits.length >= 2) {
+      const digits = `${o.label} ${o.searchText || ''}`.replace(/\D/g, '')
+      if (digits.includes(qDigits)) return true
+    }
+    return false
+  })
 })
 
 function toggle() {
@@ -128,7 +139,7 @@ onMounted(() => {})
 <style scoped>
 .field-btn {
   display: flex;
-  height: 2.5rem;
+  height: 2.75rem;
   width: 100%;
   align-items: center;
   justify-content: space-between;

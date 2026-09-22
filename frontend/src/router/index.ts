@@ -277,9 +277,7 @@ const router = createRouter({
     },
     {
       path: '/profile/password',
-      name: 'ChangePassword',
-      component: () => import('../views/Others/ChangePasswordView.vue'),
-      meta: { title: 'Parolni yangilash', requiresAuth: true },
+      redirect: { path: '/profile', hash: '#password' },
     },
     {
       path: '/:pathMatch(.*)*',

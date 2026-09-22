@@ -98,8 +98,8 @@
                 @change="toggleDraft(p.id, ($event.target as HTMLInputElement).checked)"
               />
               <span>
-                <span class="font-medium">{{ p.name }}</span>
-                <span v-if="p.description" class="mt-0.5 block text-xs text-gray-400">{{ p.description }}</span>
+                <span class="font-medium">{{ permissionLabel(p.name, t) }}</span>
+                <span class="mt-0.5 block text-xs text-gray-400">{{ p.name }}</span>
               </span>
             </label>
           </div>
@@ -118,6 +118,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import RowActions from '@/components/crm/RowActions.vue'
@@ -135,7 +136,9 @@ import {
   type RoleItem,
 } from '@/api/roles'
 import { formatApiError } from '@/api/http'
+import { permissionLabel } from '@/utils/permissions'
 
+const { t } = useI18n()
 const roles = ref<RoleItem[]>([])
 const allPerms = ref<PermissionItem[]>([])
 const permRole = ref<RoleItem | null>(null)
