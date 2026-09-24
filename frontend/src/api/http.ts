@@ -191,9 +191,39 @@ async function tryRefreshToken(): Promise<boolean> {
   }
 }
 
+const FILIAL_OPTIONAL_PREFIXES = [
+  '/api/auth',
+  '/api/filials',
+  '/api/roles',
+  '/api/sessions',
+  '/api/company-details',
+  '/api/telegram/',
+  '/api/eskiz-settings',
+  '/api/files',
+  '/api/users',
+  '/api/unit-types',
+  '/api/payment-types',
+  '/api/expense-categories',
+  '/api/audit',
+]
+
+function writeRequiresSelectedFilial(method: HttpMethod, path: string): boolean {
+  if (method !== 'POST') return false
+  if (path.includes('/filter')) return false
+  if (FILIAL_OPTIONAL_PREFIXES.some((prefix) => path.startsWith(prefix))) return false
+  if (!isStoredSuperAdmin()) {
+    return !localStorage.getItem(ASSIGNED_FILIAL_KEY)
+  }
+  return !getSelectedFilialId()
+}
+
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { method = 'GET', body, auth = true, headers = {} } = options
   const isFormData = typeof FormData !== 'undefined' && body instanceof FormData
+
+  if (auth && writeRequiresSelectedFilial(method, path)) {
+    throw new ApiError(String(i18n.global.t('errors.filialRequired')), 400)
+  }
 
   const doFetch = async (): Promise<Response> => {
     const reqHeaders: Record<string, string> = {

@@ -16,7 +16,7 @@
       <input v-model="dateFrom" type="date" class="field sm:w-40" title="Dan" />
       <input v-model="dateTo" type="date" class="field sm:w-40" title="Gacha" />
       <button type="button" class="ghost" @click="clearFilters">Filterni tozalash</button>
-      <button type="button" class="btn ms-auto" @click="goCreate">+ Yangi kirim</button>
+      <button type="button" class="btn ms-auto" :disabled="writeBlocked" @click="goCreate">+ Yangi kirim</button>
     </div>
 
     <div v-if="error" class="err mb-4">{{ error }}</div>
@@ -103,9 +103,11 @@ import {
 import { fetchWarehouses, type Warehouse } from '@/api/warehouses'
 import { fetchSuppliers, type Supplier } from '@/api/suppliers'
 import { formatApiError } from '@/api/http'
+import { useFilialScope } from '@/composables/useFilialScope'
 import { formatDate, money } from '@/utils/format'
 import Swal from 'sweetalert2'
 
+const { writeBlocked } = useFilialScope()
 const route = useRoute()
 const router = useRouter()
 const orders = ref<WarehouseOrder[]>([])

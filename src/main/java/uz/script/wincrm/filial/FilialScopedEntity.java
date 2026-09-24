@@ -37,6 +37,10 @@ public abstract class FilialScopedEntity extends BaseEntity {
         }
         Long filialId = FilialContext.getFilialId();
         if (filialId == null) {
+            // Super admin sozlamalarda filial tanlamasdan ham yozishi mumkin
+            if (FilialContext.isSuperAdmin()) {
+                return;
+            }
             throw new BadRequestException("Filial tanlanmagan. Avval filialni tanlang.");
         }
         if (filialId <= 0) {

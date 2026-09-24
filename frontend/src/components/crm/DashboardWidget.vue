@@ -4,7 +4,7 @@
       <button
         type="button"
         class="widget-drag-handle mt-0.5 shrink-0 cursor-grab text-gray-400 hover:text-gray-600 active:cursor-grabbing dark:hover:text-gray-300"
-        title="Tartibni o‘zgartirish uchun ushlab torting"
+        :title="t('home.dragHint')"
       >
         <GripVertical class="h-5 w-5" />
       </button>
@@ -47,7 +47,7 @@
         </div>
 
         <p v-if="sortedRows.length === 0" class="py-12 text-center text-sm text-gray-500">
-          Topilmadi
+          {{ t('home.empty') }}
         </p>
         <ul v-else class="mt-3 space-y-2">
           <li
@@ -74,6 +74,7 @@
 
 <script setup lang="ts">
 import { computed, ref, type Component } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ChevronDown, GripVertical } from 'lucide-vue-next'
 import { money } from '@/utils/format'
 
@@ -100,6 +101,8 @@ const props = withDefaults(
     tone: 'blue',
   },
 )
+
+const { t, locale } = useI18n()
 
 const sortKey = ref<'name' | 'value'>('value')
 const sortDir = ref<'asc' | 'desc'>('desc')
@@ -153,7 +156,7 @@ const sortedRows = computed(() => {
   copy.sort((a, b) => {
     const cmp =
       sortKey.value === 'name'
-        ? a.name.localeCompare(b.name, 'uz')
+        ? a.name.localeCompare(b.name, locale.value)
         : Number(a.value || 0) - Number(b.value || 0)
     return sortDir.value === 'asc' ? cmp : -cmp
   })

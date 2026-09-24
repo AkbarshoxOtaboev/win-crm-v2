@@ -6,7 +6,7 @@
         <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Sexlar (Workshop)</h3>
         <div class="flex gap-2">
           <input v-model="search" type="search" placeholder="Qidiruv..." class="field sm:w-56" />
-          <button type="button" class="btn" @click="openCreate">+ Yangi sex</button>
+          <button type="button" class="btn" :disabled="writeBlocked" @click="openCreate">+ Yangi sex</button>
         </div>
       </div>
       <div v-if="error" class="err mx-5 mt-4">{{ error }}</div>
@@ -61,7 +61,7 @@
       </div>
     </div>
 
-    <div v-if="modalOpen" class="fixed inset-0 z-99999 flex items-center justify-center bg-black/40 p-4" @click.self="modalOpen = false">
+    <div v-if="modalOpen" class="fixed inset-0 z-99999 flex items-center justify-center bg-black/40 p-4">
       <div class="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
         <h3 class="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">
           {{ editingId ? 'Sexni tahrirlash' : 'Yangi sex' }}
@@ -112,7 +112,9 @@ import {
 } from '@/api/workshops'
 import { fetchUsers, type UserItem } from '@/api/users'
 import { ApiError } from '@/api/http'
+import { useFilialScope } from '@/composables/useFilialScope'
 
+const { writeBlocked } = useFilialScope()
 const items = ref<Workshop[]>([])
 const users = ref<UserItem[]>([])
 const loading = ref(false)

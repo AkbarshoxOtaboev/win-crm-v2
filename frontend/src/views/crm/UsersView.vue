@@ -1,12 +1,12 @@
 <template>
   <AdminLayout>
-    <PageBreadcrumb pageTitle="Foydalanuvchilar" />
+    <PageBreadcrumb :pageTitle="pageTitle" />
     <div v-if="error" class="err mb-4">{{ error }}</div>
 
     <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
       <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-800">
-        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Foydalanuvchilar</h3>
-        <button type="button" class="btn" @click="openCreate">+ Yangi</button>
+        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ pageTitle }}</h3>
+        <button type="button" class="btn" :disabled="writeBlocked" @click="openCreate">+ Yangi</button>
       </div>
       <div class="overflow-x-auto">
         <table class="min-w-full">
@@ -18,7 +18,7 @@
               <th class="th">Telefon</th>
               <th class="th">Status</th>
               <th class="th">Role</th>
-              <th class="th">Filial</th>
+              <th v-if="showFilialColumn" class="th">Filial</th>
               <th class="th text-right whitespace-nowrap">Amallar</th>
             </tr>
           </thead>
@@ -32,23 +32,25 @@
                 <button type="button" class="text-brand-500" @click="onToggle(u)">{{ u.status }}</button>
               </td>
               <td class="td">{{ formatRoles(u.role) }}</td>
-              <td class="td">{{ u.filialName || '—' }}</td>
+              <td v-if="showFilialColumn" class="td">{{ u.filialName || '—' }}</td>
               <td class="td text-right whitespace-nowrap">
                 <RowActions @edit="openEdit(u)" @delete="onDelete(u)" />
               </td>
             </tr>
-            <tr v-if="users.length === 0"><td colspan="8" class="empty">Foydalanuvchi yo‘q</td></tr>
+            <tr v-if="users.length === 0">
+              <td :colspan="emptyColspan" class="empty">{{ emptyLabel }}</td>
+            </tr>
           </tbody>
         </table>
       </div>
     </div>
 
-    <div v-if="modal" class="overlay" @click.self="closeModal">
+    <div v-if="modal" class="overlay">
       <div class="modal" role="dialog" aria-modal="true" :aria-labelledby="modalTitleId">
         <div class="mb-5 flex items-start justify-between gap-3">
           <div>
             <h3 id="modalTitleId" class="text-lg font-semibold text-gray-800 dark:text-white/90">
-              {{ editingId ? 'Foydalanuvchini tahrirlash' : 'Yangi foydalanuvchi' }}
+              {{ editingId ? editModalTitle : createModalTitle }}
             </h3>
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
               Login, telefon va rolni to‘ldiring
@@ -151,7 +153,7 @@
               <Shield class="field-icon" />
               <select id="user-role" v-model.number="form.roleId" required class="field field-select">
                 <option :value="0" disabled>Rolni tanlang</option>
-                <option v-for="r in roles" :key="r.id" :value="r.id">{{ r.name }}</option>
+                <option v-for="r in assignableRoles" :key="r.id" :value="r.id">{{ r.name }}</option>
               </select>
               <ChevronDown class="pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
             </div>
@@ -182,7 +184,8 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { AtSign, Building2, ChevronDown, Eye, EyeOff, Lock, Phone, Shield, User, X } from 'lucide-vue-next'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
@@ -198,10 +201,24 @@ import {
 import { fetchRoles, type RoleItem } from '@/api/roles'
 import { fetchFilials, type FilialItem } from '@/api/filials'
 import { formatApiError } from '@/api/http'
+import { useFilialScope } from '@/composables/useFilialScope'
 import { useAuthStore } from '@/stores/auth'
 import { formatUzPhone, isCompleteUzPhone } from '@/utils/phone'
 
+const DIRECTOR_BLOCKED_ROLES = new Set(['SUPER_ADMIN', 'ADMIN', 'DIRECTOR'])
+
+const { writeBlocked } = useFilialScope()
 const auth = useAuthStore()
+const route = useRoute()
+
+const isEmployeesPage = computed(() => route.path.startsWith('/employees'))
+const pageTitle = computed(() => (isEmployeesPage.value ? 'Xodimlar' : 'Foydalanuvchilar'))
+const createModalTitle = computed(() => (isEmployeesPage.value ? 'Yangi xodim' : 'Yangi foydalanuvchi'))
+const editModalTitle = computed(() => (isEmployeesPage.value ? 'Xodimni tahrirlash' : 'Foydalanuvchini tahrirlash'))
+const emptyLabel = computed(() => (isEmployeesPage.value ? 'Xodim yo‘q' : 'Foydalanuvchi yo‘q'))
+const showFilialColumn = computed(() => auth.superAdmin || auth.canAccessSettings)
+const emptyColspan = computed(() => (showFilialColumn.value ? 8 : 7))
+
 const users = ref<UserItem[]>([])
 const roles = ref<RoleItem[]>([])
 const filials = ref<FilialItem[]>([])
@@ -212,6 +229,11 @@ const editingId = ref<number | null>(null)
 const showPassword = ref(false)
 const saving = ref(false)
 const form = reactive({ username: '', fullName: '', phone: '', password: '', roleId: 0, filialId: 0 })
+
+const assignableRoles = computed(() => {
+  if (!isEmployeesPage.value && auth.canAccessSettings) return roles.value
+  return roles.value.filter((r) => !DIRECTOR_BLOCKED_ROLES.has(r.name))
+})
 
 function formatRoles(role?: RoleItem[]) {
   if (!role?.length) return '—'
@@ -246,7 +268,7 @@ function openCreate() {
     fullName: '',
     phone: '+998-',
     password: '',
-    roleId: roles.value[0]?.id || 0,
+    roleId: assignableRoles.value[0]?.id || 0,
     filialId: auth.assignedFilialId || 0,
   })
   formError.value = null
@@ -283,7 +305,7 @@ function fd() {
   data.append('phone', formatUzPhone(form.phone))
   if (form.password) data.append('password', form.password)
   data.append('roleIds', String(form.roleId))
-  if (form.filialId) data.append('filialId', String(form.filialId))
+  if (auth.superAdmin && form.filialId) data.append('filialId', String(form.filialId))
   return data
 }
 

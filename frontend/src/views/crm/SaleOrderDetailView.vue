@@ -26,7 +26,7 @@
     <div v-show="tab === 'items'" class="card">
       <div class="head">
         <h3 class="title">Qatorlar</h3>
-        <button type="button" class="btn" @click="openItemCreate">+ Qator</button>
+        <button type="button" class="btn" :disabled="writeBlocked" @click="openItemCreate">+ Qator</button>
       </div>
       <table class="min-w-full">
         <thead>
@@ -105,7 +105,7 @@
     <div v-show="tab === 'waste'" class="card">
       <div class="head">
         <h3 class="title">Chiqindi</h3>
-        <button type="button" class="btn" @click="openWasteCreate">+ Chiqindi</button>
+        <button type="button" class="btn" :disabled="writeBlocked" @click="openWasteCreate">+ Chiqindi</button>
       </div>
       <table class="min-w-full">
         <thead><tr class="border-b border-gray-100 dark:border-gray-800"><th class="th">Mahsulot</th><th class="th">Miqdor</th><th class="th">Izoh</th><th class="th text-right">Amallar</th></tr></thead>
@@ -121,7 +121,7 @@
       </table>
     </div>
 
-    <div v-if="orderModal" class="overlay" @click.self="orderModal = false">
+    <div v-if="orderModal" class="overlay">
       <div class="modal">
         <h3 class="title mb-4">Savdoni tahrirlash</h3>
         <div v-if="formError" class="err mb-3">{{ formError }}</div>
@@ -147,7 +147,7 @@
       </div>
     </div>
 
-    <div v-if="itemModal" class="overlay" @click.self="itemModal = false">
+    <div v-if="itemModal" class="overlay">
       <div class="modal">
         <h3 class="title mb-4">{{ itemEditingId ? 'Qatorni tahrirlash' : 'Yangi qator' }}</h3>
         <div v-if="formError" class="err mb-3">{{ formError }}</div>
@@ -170,7 +170,7 @@
       </div>
     </div>
 
-    <div v-if="wasteModal" class="overlay" @click.self="wasteModal = false">
+    <div v-if="wasteModal" class="overlay">
       <div class="modal">
         <h3 class="title mb-4">Chiqindi</h3>
         <div v-if="formError" class="err mb-3">{{ formError }}</div>
@@ -229,7 +229,10 @@ import { fetchClients, type Client } from '@/api/clients'
 import { fetchUsers, type UserItem } from '@/api/users'
 import { fetchGoods, type Goods } from '@/api/goods'
 import { formatApiError } from '@/api/http'
+import { useFilialScope } from '@/composables/useFilialScope'
 import { formatDate, money, nowLocal, toApiDate } from '@/utils/format'
+
+const { writeBlocked } = useFilialScope()
 
 const route = useRoute()
 const tabs = [

@@ -7,7 +7,7 @@
         <option v-for="w in warehouses" :key="w.id" :value="w.id">{{ w.name }}</option>
       </select>
       <input v-model="startComment" class="field w-56" placeholder="Izoh" />
-      <button type="button" class="btn" @click="onStart">Boshlash</button>
+      <button type="button" class="btn" :disabled="writeBlocked" @click="onStart">Boshlash</button>
     </div>
     <div v-if="error" class="err mb-4">{{ error }}</div>
     <div class="card mb-4">
@@ -78,8 +78,10 @@ import {
 } from '@/api/inventory'
 import { fetchWarehouses, type Warehouse } from '@/api/warehouses'
 import { formatApiError } from '@/api/http'
+import { useFilialScope } from '@/composables/useFilialScope'
 import { formatDate } from '@/utils/format'
 
+const { writeBlocked } = useFilialScope()
 const checks = ref<InventoryCheck[]>([])
 const current = ref<InventoryCheck | null>(null)
 const warehouses = ref<Warehouse[]>([])

@@ -9,7 +9,7 @@ import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.SQLRestriction;
 import uz.script.wincrm.salary.enums.CommissionType;
 import uz.script.wincrm.salary.enums.SalaryEntryType;
-import uz.script.wincrm.utils.BaseEntity;
+import uz.script.wincrm.filial.FilialScopedEntity;
 import uz.script.wincrm.utils.TableName;
 
 import java.math.BigDecimal;
@@ -32,7 +32,7 @@ import java.time.LocalDateTime;
 @SuperBuilder
 @Table(name = TableName.SALARY_TRANSACTIONS)
 @SQLRestriction("status <> 'DELETED'")
-public class SalaryTransaction extends BaseEntity {
+public class SalaryTransaction extends FilialScopedEntity {
 
     /** Komissiya/tuzatish tegishli bo'lgan xodim (sotuvchi) ID si. */
     @Column(nullable = false)

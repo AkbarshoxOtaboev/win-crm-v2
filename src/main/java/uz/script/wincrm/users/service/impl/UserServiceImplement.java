@@ -9,6 +9,7 @@ import uz.script.wincrm.audit.AuditAction;
 import uz.script.wincrm.audit.Auditable;
 import uz.script.wincrm.exceptions.AlreadyExistsException;
 import uz.script.wincrm.exceptions.BadRequestException;
+import uz.script.wincrm.exceptions.ForbiddenException;
 import uz.script.wincrm.exceptions.ResourceNotFoundException;
 import uz.script.wincrm.filial.Filial;
 import uz.script.wincrm.filial.FilialAccess;
@@ -69,7 +70,7 @@ public class UserServiceImplement implements UserService {
         if (roles.size() != dto.getRoleIds().size()) {
             throw new BadRequestException("One or more roles not found");
         }
-
+        assertAssignableRoles(roles);
 
         String photoLink = null;
 
@@ -152,6 +153,8 @@ public class UserServiceImplement implements UserService {
         if (roles.size() != dto.getRoleIds().size()) {
             throw new BadRequestException("One or more roles not found");
         }
+        assertAssignableRoles(roles);
+        assertCanManageUser(user);
 
         user.setFullName(dto.getFullName());
         user.setPhone(dto.getPhone());
@@ -195,6 +198,8 @@ public class UserServiceImplement implements UserService {
                 .orElseThrow(() ->
                         new ResourceNotFoundException("User not found with id " + id));
 
+        assertCanManageUser(user);
+
         user.setStatus(Status.DELETED);
 
         log.info("User {} marked as deleted", user.getUsername());
@@ -216,6 +221,8 @@ public class UserServiceImplement implements UserService {
         User user = repository.findByIdAndStatusNot(id, Status.DELETED)
                 .orElseThrow(() ->
                         new ResourceNotFoundException("User not found with id " + id));
+
+        assertCanManageUser(user);
 
         switch (user.getStatus()) {
 
@@ -289,6 +296,61 @@ public class UserServiceImplement implements UserService {
         }
         return filialRepository.findByIdAndStatusNot(filialId, Status.DELETED)
                 .orElseThrow(() -> new ResourceNotFoundException("Filial not found with id: " + filialId));
+    }
+
+    private boolean isElevatedAdmin() {
+        var user = filialAccess.currentUser();
+        if (user == null) return false;
+        if (user.isSuperAdmin()) return true;
+        if (user.getUser().getRoles() == null) return false;
+        return user.getUser().getRoles().stream()
+                .anyMatch(role -> "ADMIN".equals(role.getName()));
+    }
+
+    private boolean isDirectorOnly() {
+        var user = filialAccess.currentUser();
+        if (user == null || isElevatedAdmin()) return false;
+        if (user.getUser().getRoles() == null) return false;
+        return user.getUser().getRoles().stream()
+                .anyMatch(role -> "DIRECTOR".equals(role.getName()));
+    }
+
+    private void assertAssignableRoles(Set<Role> roles) {
+        if (filialAccess.isSuperAdmin()) {
+            return;
+        }
+        Set<String> blocked;
+        if (isElevatedAdmin()) {
+            blocked = Set.of("SUPER_ADMIN");
+        } else if (isDirectorOnly()) {
+            blocked = Set.of("SUPER_ADMIN", "ADMIN", "DIRECTOR");
+        } else {
+            blocked = Set.of("SUPER_ADMIN", "ADMIN", "DIRECTOR");
+        }
+        boolean forbidden = roles.stream().anyMatch(r -> blocked.contains(r.getName()));
+        if (forbidden) {
+            throw new ForbiddenException("Bu rollarni biriktirishga ruxsat yo‘q");
+        }
+    }
+
+    private void assertCanManageUser(User target) {
+        if (filialAccess.isSuperAdmin()) {
+            return;
+        }
+        if (isDirectorOnly()) {
+            Long myFilial = filialAccess.currentFilialId();
+            Long targetFilial = target.getFilial() != null ? target.getFilial().getId() : null;
+            if (myFilial == null || targetFilial == null || !myFilial.equals(targetFilial)) {
+                throw new ForbiddenException("Faqat o‘z filialingiz xodimlarini boshqarishingiz mumkin");
+            }
+            boolean elevatedTarget = target.getRoles().stream()
+                    .anyMatch(r -> "SUPER_ADMIN".equals(r.getName())
+                            || "ADMIN".equals(r.getName())
+                            || "DIRECTOR".equals(r.getName()));
+            if (elevatedTarget) {
+                throw new ForbiddenException("Bu foydalanuvchini o‘zgartirishga ruxsat yo‘q");
+            }
+        }
     }
 
     private RoleResponse mapRoleToRoleResponse(Role role) {

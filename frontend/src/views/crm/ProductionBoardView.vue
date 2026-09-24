@@ -56,7 +56,7 @@
       </div>
     </div>
 
-    <div v-if="redirectOpen" class="fixed inset-0 z-99999 flex items-center justify-center bg-black/40 p-4" @click.self="redirectOpen = false">
+    <div v-if="redirectOpen" class="fixed inset-0 z-99999 flex items-center justify-center bg-black/40 p-4">
       <div class="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
         <h3 class="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">Keyingi sexga yo‘naltirish</h3>
         <div v-if="formError" class="err mb-3">{{ formError }}</div>

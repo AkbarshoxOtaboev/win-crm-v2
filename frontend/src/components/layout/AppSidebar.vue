@@ -374,6 +374,9 @@ const menuGroups = computed<MenuGroup[]>(() => {
       productionItem,
       { icon: PieChartIcon, name: t('nav.payments'), path: '/payments' },
       { icon: UserGroupIcon, name: t('nav.clients'), path: '/clients' },
+      ...(auth.canManageEmployees
+        ? [{ icon: UserCircleIcon, name: t('nav.employees'), path: '/employees' }]
+        : []),
     ],
   },
   {
@@ -386,24 +389,28 @@ const menuGroups = computed<MenuGroup[]>(() => {
   {
     title: t('nav.system'),
     items: [
-      {
-        icon: SettingsIcon,
-        name: t('nav.settings'),
-        subItems: [
-          { name: t('nav.generalSettings'), path: '/settings', icon: Settings, exact: true },
-          { name: t('nav.filials'), path: '/settings/filials', icon: Building2 },
-          { name: t('nav.users'), path: '/settings/users', icon: UserCircle },
-          { name: t('nav.sessions'), path: '/settings/sessions', icon: Plug },
-          { name: t('nav.roles'), path: '/settings/roles', icon: Shield },
-          { name: t('nav.company'), path: '/settings/company', icon: Files },
-          { name: t('nav.telegram'), path: '/settings/telegram', icon: Plug },
-          { name: t('nav.eskiz'), path: '/settings/eskiz', icon: Send },
-          { name: t('nav.units'), path: '/settings/units', icon: List },
-          { name: t('nav.paymentTypes'), path: '/settings/payment-types', icon: BarChart3 },
-          { name: t('nav.expenseCategories'), path: '/settings/expense-categories', icon: Folder },
-          { name: t('nav.audit'), path: '/settings/audit', icon: ShieldCheck },
-        ],
-      },
+      ...(auth.canAccessSettings
+        ? [
+            {
+              icon: SettingsIcon,
+              name: t('nav.settings'),
+              subItems: [
+                { name: t('nav.generalSettings'), path: '/settings', icon: Settings, exact: true },
+                { name: t('nav.filials'), path: '/settings/filials', icon: Building2 },
+                { name: t('nav.users'), path: '/settings/users', icon: UserCircle },
+                { name: t('nav.sessions'), path: '/settings/sessions', icon: Plug },
+                { name: t('nav.roles'), path: '/settings/roles', icon: Shield },
+                { name: t('nav.company'), path: '/settings/company', icon: Files },
+                { name: t('nav.telegram'), path: '/settings/telegram', icon: Plug },
+                { name: t('nav.eskiz'), path: '/settings/eskiz', icon: Send },
+                { name: t('nav.units'), path: '/settings/units', icon: List },
+                { name: t('nav.paymentTypes'), path: '/settings/payment-types', icon: BarChart3 },
+                { name: t('nav.expenseCategories'), path: '/settings/expense-categories', icon: Folder },
+                { name: t('nav.audit'), path: '/settings/audit', icon: ShieldCheck },
+              ],
+            },
+          ]
+        : []),
       { icon: UserCircleIcon, name: t('nav.profile'), path: '/profile' },
     ],
   },

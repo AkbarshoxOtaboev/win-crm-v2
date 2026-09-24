@@ -14,7 +14,7 @@
     <div v-show="tab === 'configs'" class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
       <div class="flex flex-col gap-3 border-b border-gray-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-gray-800">
         <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Oylik konfiguratsiyalar</h3>
-        <button type="button" class="btn" @click="openConfigCreate">+ Yangi config</button>
+        <button type="button" class="btn" :disabled="writeBlocked" @click="openConfigCreate">+ Yangi config</button>
       </div>
       <div class="overflow-x-auto">
         <table class="min-w-full">
@@ -186,7 +186,7 @@
     </div>
 
     <!-- Config modal -->
-    <div v-if="configModal" class="fixed inset-0 z-99999 flex items-center justify-center bg-black/40 p-4" @click.self="configModal = false">
+    <div v-if="configModal" class="fixed inset-0 z-99999 flex items-center justify-center bg-black/40 p-4">
       <div class="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
         <h3 class="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">Yangi oylik config</h3>
         <div v-if="formError" class="err mb-3">{{ formError }}</div>
@@ -248,7 +248,9 @@ import {
 } from '@/api/salary'
 import { fetchUsers, type UserItem } from '@/api/users'
 import { ApiError } from '@/api/http'
+import { useFilialScope } from '@/composables/useFilialScope'
 
+const { writeBlocked } = useFilialScope()
 const tab = ref<'configs' | 'adjust' | 'slip'>('configs')
 const configs = ref<SalaryConfig[]>([])
 const users = ref<UserItem[]>([])

@@ -6,7 +6,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.SQLRestriction;
-import uz.script.wincrm.utils.BaseEntity;
+import lombok.experimental.SuperBuilder;
+import uz.script.wincrm.filial.FilialScopedEntity;
 import uz.script.wincrm.utils.TableName;
 
 import java.util.List;
@@ -18,7 +19,8 @@ import java.util.List;
 @Table(name = TableName.GOODS_GROUP)
 @Getter
 @Setter
-public class GoodsGroup extends BaseEntity {
+@SuperBuilder
+public class GoodsGroup extends FilialScopedEntity {
     @Column(nullable = false)
     private String name;
 

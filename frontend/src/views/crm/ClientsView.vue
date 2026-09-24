@@ -32,7 +32,8 @@
           />
           <button
             type="button"
-            class="inline-flex h-10 items-center justify-center rounded-lg bg-brand-500 px-4 text-sm font-medium text-white hover:bg-brand-600"
+            class="inline-flex h-10 items-center justify-center rounded-lg bg-brand-500 px-4 text-sm font-medium text-white hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-55"
+            :disabled="writeBlocked"
             @click="openCreate"
           >
             + Yangi mijoz
@@ -120,7 +121,6 @@
     <div
       v-if="modalOpen"
       class="fixed inset-0 z-99999 flex items-center justify-center bg-black/40 p-4"
-      @click.self="closeModal"
     >
       <div
         class="w-full max-w-lg rounded-2xl border border-gray-200 bg-white p-5 shadow-xl dark:border-gray-800 dark:bg-gray-900"
@@ -283,7 +283,7 @@
     <div v-show="tab === 'groups'" class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
       <div class="flex justify-between px-5 py-4">
         <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Guruhlar</h3>
-        <button type="button" class="h-10 rounded-lg bg-brand-500 px-4 text-sm text-white" @click="openGroupCreate">+ Guruh</button>
+        <button type="button" class="h-10 rounded-lg bg-brand-500 px-4 text-sm text-white disabled:cursor-not-allowed disabled:opacity-55" :disabled="writeBlocked" @click="openGroupCreate">+ Guruh</button>
       </div>
       <table class="min-w-full">
         <thead>
@@ -334,7 +334,7 @@
       </table>
     </div>
 
-    <div v-if="groupModal" class="fixed inset-0 z-99999 flex items-center justify-center bg-black/40 p-4" @click.self="groupModal = false">
+    <div v-if="groupModal" class="fixed inset-0 z-99999 flex items-center justify-center bg-black/40 p-4">
       <div class="w-full max-w-md rounded-2xl bg-white p-5 dark:bg-gray-900">
         <h3 class="mb-3 text-lg font-semibold">Guruh</h3>
         <form class="space-y-3" @submit.prevent="onGroupSubmit">
@@ -382,6 +382,7 @@ import {
 } from '@/api/clientGroups'
 import { fetchDebtors, sendDebtSmsToClient, sendDebtSmsToClients, type DebtorClient } from '@/api/debt'
 import { formatApiError } from '@/api/http'
+import { useFilialScope } from '@/composables/useFilialScope'
 import {
   formatUzPhone,
   isCompleteUzPhone,
@@ -490,7 +491,10 @@ async function load() {
   }
 }
 
+const { writeBlocked } = useFilialScope()
+
 function openCreate() {
+  if (writeBlocked.value) return
   editingId.value = null
   Object.assign(form, emptyForm(), { phone: '+998-' })
   formError.value = null
@@ -605,6 +609,7 @@ async function onDelete(client: Client) {
 }
 
 function openGroupCreate() {
+  if (writeBlocked.value) return
   groupEditingId.value = null
   groupName.value = ''
   groupModal.value = true

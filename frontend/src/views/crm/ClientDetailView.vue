@@ -649,7 +649,7 @@
     </template>
 
     <!-- Edit modal -->
-    <div v-if="editOpen" class="overlay" @click.self="editOpen = false">
+    <div v-if="editOpen" class="overlay">
       <div class="modal">
         <h3 class="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">Mijozni tahrirlash</h3>
         <div v-if="formError" class="err mb-3">{{ formError }}</div>

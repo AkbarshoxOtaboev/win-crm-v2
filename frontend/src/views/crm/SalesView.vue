@@ -8,7 +8,7 @@
           <input v-model="search" type="search" placeholder="Qidiruv..." class="field search" />
           <input v-model="dateFrom" type="date" class="field date" title="Dan" />
           <input v-model="dateTo" type="date" class="field date" title="Gacha" />
-          <button type="button" class="btn create-btn" @click="goCreate">+ Yangi savdo</button>
+          <button type="button" class="btn create-btn" :disabled="writeBlocked" @click="goCreate">+ Yangi savdo</button>
         </div>
       </div>
       <div v-if="error" class="err mx-5 mt-4">{{ error }}</div>
@@ -53,7 +53,7 @@
       </div>
     </div>
 
-    <div v-if="prodModalOpen" class="fixed inset-0 z-99999 flex items-center justify-center bg-black/40 p-4" @click.self="closeProdModal">
+    <div v-if="prodModalOpen" class="fixed inset-0 z-99999 flex items-center justify-center bg-black/40 p-4">
       <div class="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
         <h3 class="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">
           Ishlab chiqarishga yuborish #{{ prodOrder?.id }}
@@ -79,7 +79,7 @@
       </div>
     </div>
 
-    <div v-if="modalOpen" class="fixed inset-0 z-99999 flex items-center justify-center bg-black/40 p-4" @click.self="modalOpen = false">
+    <div v-if="modalOpen" class="fixed inset-0 z-99999 flex items-center justify-center bg-black/40 p-4">
       <div class="w-full max-w-lg rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
         <h3 class="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">Savdoni tahrirlash</h3>
         <div v-if="formError" class="err mb-3">{{ formError }}</div>
@@ -149,9 +149,11 @@ import { fetchWarehouses, type Warehouse } from '@/api/warehouses'
 import { fetchClients, type Client } from '@/api/clients'
 import { fetchUsers, type UserItem } from '@/api/users'
 import { formatApiError } from '@/api/http'
+import { useFilialScope } from '@/composables/useFilialScope'
 import { formatDate, money, toApiDate } from '@/utils/format'
 
 const router = useRouter()
+const { writeBlocked } = useFilialScope()
 const { t } = useI18n()
 const statuses = ['NEW', 'CONFIRMED', 'PROCESSING', 'DELIVERED', 'COMPLETED', 'CANCELLED'] as const
 
@@ -234,6 +236,7 @@ async function load() {
 }
 
 function goCreate() {
+  if (writeBlocked.value) return
   void router.push('/sales/create')
 }
 

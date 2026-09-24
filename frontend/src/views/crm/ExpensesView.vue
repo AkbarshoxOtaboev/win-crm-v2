@@ -13,7 +13,7 @@
         <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Xarajatlar</h3>
         <div class="flex gap-2">
           <input v-model="expenseSearch" type="search" placeholder="Qidiruv..." class="field sm:w-56" />
-          <button type="button" class="btn" @click="openExpenseCreate">+ Yangi xarajat</button>
+          <button type="button" class="btn" :disabled="writeBlocked" @click="openExpenseCreate">+ Yangi xarajat</button>
         </div>
       </div>
       <div v-if="error" class="err mx-5 mt-4">{{ error }}</div>
@@ -51,7 +51,7 @@
     <div v-show="tab === 'categories'" class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
       <div class="flex flex-col gap-3 border-b border-gray-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-gray-800">
         <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Kategoriyalar</h3>
-        <button type="button" class="btn" @click="openCategoryCreate">+ Yangi kategoriya</button>
+        <button type="button" class="btn" :disabled="writeBlocked" @click="openCategoryCreate">+ Yangi kategoriya</button>
       </div>
       <div class="overflow-x-auto">
         <table class="min-w-full">
@@ -82,7 +82,7 @@
     </div>
 
     <!-- Expense modal -->
-    <div v-if="expenseModal" class="fixed inset-0 z-99999 flex items-center justify-center bg-black/40 p-4" @click.self="expenseModal = false">
+    <div v-if="expenseModal" class="fixed inset-0 z-99999 flex items-center justify-center bg-black/40 p-4">
       <div class="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
         <h3 class="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">
           {{ expenseEditingId ? 'Xarajatni tahrirlash' : 'Yangi xarajat' }}
@@ -119,7 +119,7 @@
     </div>
 
     <!-- Category modal -->
-    <div v-if="categoryModal" class="fixed inset-0 z-99999 flex items-center justify-center bg-black/40 p-4" @click.self="categoryModal = false">
+    <div v-if="categoryModal" class="fixed inset-0 z-99999 flex items-center justify-center bg-black/40 p-4">
       <div class="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
         <h3 class="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">
           {{ categoryEditingId ? 'Kategoriyani tahrirlash' : 'Yangi kategoriya' }}
@@ -162,7 +162,9 @@ import {
   type ExpenseCategory,
 } from '@/api/expenses'
 import { ApiError } from '@/api/http'
+import { useFilialScope } from '@/composables/useFilialScope'
 
+const { writeBlocked } = useFilialScope()
 const tab = ref<'expenses' | 'categories'>('expenses')
 const expenses = ref<Expense[]>([])
 const categories = ref<ExpenseCategory[]>([])

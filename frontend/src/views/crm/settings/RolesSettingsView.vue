@@ -47,7 +47,7 @@
     </div>
 
     <!-- Create / rename role -->
-    <div v-if="nameModal" class="overlay" @click.self="nameModal = false">
+    <div v-if="nameModal" class="overlay">
       <div class="modal">
         <h3 class="mb-4 text-lg font-semibold text-gray-800">
           {{ editingId ? 'Rolni tahrirlash' : 'Yangi rol' }}
@@ -66,7 +66,7 @@
     </div>
 
     <!-- Assign permissions (separate step) -->
-    <div v-if="permModal && permRole" class="overlay" @click.self="closePerms">
+    <div v-if="permModal && permRole" class="overlay">
       <div class="modal modal-lg">
         <div class="mb-4 flex items-start justify-between gap-3">
           <div>

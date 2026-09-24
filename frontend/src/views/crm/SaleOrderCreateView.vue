@@ -207,7 +207,7 @@
       </div>
     </div>
 
-    <div v-if="clientModal" class="overlay" @click.self="clientModal = false">
+    <div v-if="clientModal" class="overlay">
       <div class="modal">
         <h3 class="title mb-4">Yangi mijoz</h3>
         <div v-if="clientError" class="err mb-3">{{ clientError }}</div>

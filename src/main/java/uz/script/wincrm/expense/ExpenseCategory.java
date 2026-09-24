@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.SQLRestriction;
-import uz.script.wincrm.utils.BaseEntity;
+import uz.script.wincrm.filial.FilialScopedEntity;
 import uz.script.wincrm.utils.TableName;
 
 import java.util.ArrayList;
@@ -18,9 +18,9 @@ import java.util.List;
 @AllArgsConstructor
 @SuperBuilder
 @SQLRestriction("status <> 'DELETED'")
-public class ExpenseCategory extends BaseEntity {
+public class ExpenseCategory extends FilialScopedEntity {
 
-    @Column(nullable = false, unique = true, length = 150)
+    @Column(nullable = false, length = 150)
     private String name;
 
     @Column(length = 500)

@@ -11,7 +11,7 @@ import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.SQLRestriction;
 import uz.script.wincrm.suppliers.SupplierPayment;
-import uz.script.wincrm.utils.BaseEntity;
+import uz.script.wincrm.filial.FilialScopedEntity;
 import uz.script.wincrm.utils.TableName;
 
 import java.util.List;
@@ -24,7 +24,7 @@ import java.util.List;
 @SuperBuilder
 @Table(name = TableName.PAYMENT_TYPES)
 @SQLRestriction("status <> 'DELETED'")
-public class PaymentType extends BaseEntity {
+public class PaymentType extends FilialScopedEntity {
     @Column(nullable = false)
     private String name;
 

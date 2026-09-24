@@ -15,7 +15,7 @@
           <button type="button" class="icon-btn" title="Yangilash" :disabled="loading" @click="load">
             <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': loading }" />
           </button>
-          <button type="button" class="btn-plus" title="Yangi" @click="openCreate">
+          <button type="button" class="btn-plus" title="Yangi" :disabled="writeBlocked" @click="openCreate">
             <Plus class="h-5 w-5" />
           </button>
         </div>
@@ -125,47 +125,135 @@
       </router-link>
     </div>
 
-    <div v-if="modalOpen" class="overlay" @click.self="modalOpen = false">
-      <div class="modal">
-        <h3 class="title mb-3">{{ editingId ? 'Tahrirlash' : 'Yangi yetkazib beruvchi' }}</h3>
-        <div v-if="formError" class="err mb-3">{{ formError }}</div>
+    <div
+      v-if="modalOpen"
+      class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto bg-black/40 p-4"
+    >
+      <div
+        class="my-6 w-full max-w-lg rounded-2xl border border-gray-200 bg-white p-5 shadow-xl dark:border-gray-800 dark:bg-gray-900"
+      >
+        <h3 class="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">
+          {{ editingId ? 'Yetkazib beruvchini tahrirlash' : 'Yangi yetkazib beruvchi' }}
+        </h3>
+
+        <div
+          v-if="formError"
+          class="mb-3 rounded-lg border border-error-200 bg-error-50 px-3 py-2 text-sm text-error-600 dark:border-error-500/30 dark:bg-error-500/10 dark:text-error-400"
+        >
+          {{ formError }}
+        </div>
+
         <form class="space-y-3" @submit.prevent="onSubmit">
           <div>
-            <label class="form-lbl">Nomi *</label>
-            <input v-model="form.name" required class="field" placeholder="Nomi" />
+            <label class="m-lbl">Nomi <span class="req">*</span></label>
+            <div class="relative">
+              <Building2 class="field-icon" />
+              <input v-model="form.name" required class="m-field" placeholder="Tashkilot nomi" />
+            </div>
+          </div>
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label class="m-lbl">Telefon <span class="req">*</span></label>
+              <div class="relative">
+                <Phone class="field-icon" />
+                <input
+                  :value="form.phone"
+                  required
+                  inputmode="tel"
+                  placeholder="+998-(97)-221-88-96"
+                  maxlength="19"
+                  class="m-field"
+                  @input="onPhoneInput('phone', $event)"
+                />
+              </div>
+            </div>
+            <div>
+              <label class="m-lbl">Qo‘shimcha tel</label>
+              <div class="relative">
+                <Phone class="field-icon" />
+                <input
+                  :value="form.additionalPhone"
+                  inputmode="tel"
+                  placeholder="+998-(97)-221-88-96"
+                  maxlength="19"
+                  class="m-field"
+                  @input="onPhoneInput('additionalPhone', $event)"
+                />
+              </div>
+            </div>
           </div>
           <div>
-            <label class="form-lbl">Telefon *</label>
-            <input
-              :value="form.phone"
-              required
-              inputmode="tel"
-              placeholder="+998-(97)-221-88-96"
-              maxlength="19"
-              class="field"
-              @input="onPhoneInput('phone', $event)"
-            />
+            <label class="m-lbl">Manzil</label>
+            <div class="relative">
+              <MapPin class="field-icon" />
+              <input v-model="form.address" class="m-field" placeholder="Ko‘cha, tuman, shahar" />
+            </div>
+          </div>
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label class="m-lbl">INN</label>
+              <div class="relative">
+                <Hash class="field-icon" />
+                <input
+                  :value="form.inn"
+                  inputmode="numeric"
+                  maxlength="9"
+                  placeholder="123456789"
+                  class="m-field"
+                  @input="onDigitsInput('inn', 9, $event)"
+                />
+              </div>
+              <p class="mt-1 text-xs text-gray-400">9 ta raqam (ixtiyoriy)</p>
+            </div>
+            <div>
+              <label class="m-lbl">Bank</label>
+              <div class="relative">
+                <Landmark class="field-icon" />
+                <input v-model="form.bankName" maxlength="150" class="m-field" placeholder="Bank nomi" />
+              </div>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label class="m-lbl">MFO</label>
+              <div class="relative">
+                <Landmark class="field-icon" />
+                <input
+                  :value="form.mfo"
+                  inputmode="numeric"
+                  maxlength="5"
+                  placeholder="00000"
+                  class="m-field"
+                  @input="onDigitsInput('mfo', 5, $event)"
+                />
+              </div>
+              <p class="mt-1 text-xs text-gray-400">5 ta raqam (ixtiyoriy)</p>
+            </div>
+            <div>
+              <label class="m-lbl">Hisob raqam</label>
+              <div class="relative">
+                <CreditCard class="field-icon" />
+                <input v-model="form.accountNumber" maxlength="30" class="m-field" placeholder="20208000..." />
+              </div>
+            </div>
           </div>
           <div>
-            <label class="form-lbl">Qo‘shimcha tel</label>
-            <input
-              :value="form.additionalPhone"
-              inputmode="tel"
-              placeholder="+998-(97)-221-88-96"
-              maxlength="19"
-              class="field"
-              @input="onPhoneInput('additionalPhone', $event)"
-            />
+            <label class="m-lbl">Izoh</label>
+            <div class="relative">
+              <AlignLeft class="field-icon field-icon-top" />
+              <textarea
+                v-model="form.description"
+                rows="2"
+                class="m-field m-textarea"
+                placeholder="Qo‘shimcha ma’lumot"
+              />
+            </div>
           </div>
-          <input v-model="form.inn" class="field" placeholder="INN" />
-          <input v-model="form.address" class="field" placeholder="Manzil" />
-          <input v-model="form.bankName" class="field" placeholder="Bank" />
-          <input v-model="form.mfo" class="field" placeholder="MFO" />
-          <input v-model="form.accountNumber" class="field" placeholder="Hisob" />
-          <input v-model="form.description" class="field" placeholder="Izoh" />
-          <div class="flex justify-end gap-2">
-            <button type="button" class="ghost" @click="modalOpen = false">Bekor</button>
-            <button type="submit" class="btn">Saqlash</button>
+          <div class="flex justify-end gap-2 pt-2">
+            <button type="button" class="ghost" @click="closeModal">Bekor</button>
+            <button type="submit" class="btn" :disabled="saving">
+              {{ saving ? 'Saqlanmoqda...' : 'Saqlash' }}
+            </button>
           </div>
         </form>
       </div>
@@ -176,7 +264,18 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { ListFilter, Plus, RefreshCw } from 'lucide-vue-next'
+import {
+  AlignLeft,
+  Building2,
+  CreditCard,
+  Hash,
+  Landmark,
+  ListFilter,
+  MapPin,
+  Phone,
+  Plus,
+  RefreshCw,
+} from 'lucide-vue-next'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import RowActions from '@/components/crm/RowActions.vue'
@@ -190,6 +289,7 @@ import {
 } from '@/api/suppliers'
 import { fetchWarehouseOrdersBySupplier, type WarehouseOrder } from '@/api/warehouseOrders'
 import { formatApiError } from '@/api/http'
+import { useFilialScope } from '@/composables/useFilialScope'
 import {
   formatUzPhone,
   isCompleteUzPhone,
@@ -197,6 +297,7 @@ import {
   phonesEqual,
 } from '@/utils/phone'
 
+const { writeBlocked } = useFilialScope()
 const route = useRoute()
 const items = ref<Supplier[]>([])
 const inbound = ref<WarehouseOrder[]>([])
@@ -207,6 +308,7 @@ const formError = ref<string | null>(null)
 const showFilters = ref(true)
 const pageSize = ref(20)
 const modalOpen = ref(false)
+const saving = ref(false)
 const editingId = ref<number | null>(null)
 const filters = reactive({ name: '', inn: '', phone: '', status: '' })
 const form = reactive({
@@ -275,6 +377,18 @@ function onPhoneInput(field: 'phone' | 'additionalPhone', e: Event) {
   el.value = form[field]
 }
 
+function onDigitsInput(field: 'inn' | 'mfo', max: number, e: Event) {
+  const el = e.target as HTMLInputElement
+  const digits = el.value.replace(/\D/g, '').slice(0, max)
+  form[field] = digits
+  el.value = digits
+}
+
+function closeModal() {
+  if (saving.value) return
+  modalOpen.value = false
+}
+
 function payload() {
   const additional = form.additionalPhone.trim()
   return {
@@ -332,10 +446,10 @@ function openEdit(s: Supplier) {
     name: s.name,
     phone: formatUzPhone(s.phone || ''),
     additionalPhone: s.additionalPhone ? formatUzPhone(s.additionalPhone) : '',
-    inn: s.inn || '',
+    inn: (s.inn || '').replace(/\D/g, '').slice(0, 9),
     address: s.address || '',
     bankName: s.bankName || '',
-    mfo: s.mfo || '',
+    mfo: (s.mfo || '').replace(/\D/g, '').slice(0, 5),
     accountNumber: s.accountNumber || '',
     description: s.description || '',
   })
@@ -357,6 +471,16 @@ async function onSubmit() {
     formError.value = 'Qo‘shimcha telefon to‘liq formatda bo‘lishi kerak'
     return
   }
+  const inn = form.inn.trim()
+  if (inn && inn.length !== 9) {
+    formError.value = 'INN 9 ta belgidan iborat bo‘lishi kerak'
+    return
+  }
+  const mfo = form.mfo.trim()
+  if (mfo && mfo.length !== 5) {
+    formError.value = 'MFO 5 ta belgidan iborat bo‘lishi kerak'
+    return
+  }
   const dup = items.value.find(
     (s) => phonesEqual(s.phone, form.phone) && s.id !== editingId.value,
   )
@@ -364,6 +488,7 @@ async function onSubmit() {
     formError.value = `Bu raqam band: ${dup.name}`
     return
   }
+  saving.value = true
   try {
     if (editingId.value) await updateSupplier(editingId.value, payload())
     else await createSupplier(payload())
@@ -371,6 +496,8 @@ async function onSubmit() {
     await load()
   } catch (e) {
     formError.value = formatApiError(e)
+  } finally {
+    saving.value = false
   }
 }
 
@@ -429,17 +556,46 @@ onMounted(load)
 .td { padding: 0.75rem 1rem; font-size: 0.875rem; color: #4b5563; }
 .empty { padding: 2rem; text-align: center; color: #6b7280; }
 .field { height: 2.5rem; width: 100%; border-radius: 0.5rem; border: 1px solid #d1d5db; padding: 0 0.75rem; font-size: 0.875rem; background: #fff; }
-.form-lbl { display: block; margin-bottom: 0.35rem; font-size: 0.8125rem; font-weight: 500; color: #6b7280; }
-.btn { height: 2.5rem; border-radius: 0.5rem; background: #465fff; padding: 0 1rem; color: #fff; font-size: 0.875rem; font-weight: 500; }
+.m-lbl { display: block; margin-bottom: 0.375rem; font-size: 0.875rem; font-weight: 500; color: #374151; }
+.req { color: #ef4444; }
+.field-icon {
+  position: absolute;
+  top: 50%;
+  left: 0.75rem;
+  z-index: 10;
+  height: 1.1rem;
+  width: 1.1rem;
+  transform: translateY(-50%);
+  color: #98a2b3;
+  pointer-events: none;
+}
+.field-icon-top { top: 0.9rem; transform: none; }
+.m-field {
+  height: 2.75rem;
+  width: 100%;
+  border-radius: 0.5rem;
+  border: 1px solid #d1d5db;
+  background: transparent;
+  padding: 0 0.75rem 0 2.5rem;
+  font-size: 0.875rem;
+  color: #1f2937;
+  outline: none;
+}
+.m-field:focus { border-color: #9cb0ff; box-shadow: 0 0 0 4px rgb(70 95 255 / 10%); }
+.m-textarea { height: auto; min-height: 4.5rem; padding-top: 0.75rem; padding-bottom: 0.75rem; resize: vertical; }
+.btn { height: 2.75rem; border-radius: 0.5rem; background: #465fff; padding: 0 1.25rem; color: #fff; font-size: 0.875rem; font-weight: 500; }
+.btn:disabled { opacity: 0.6; }
 .btn-plus { display: inline-flex; height: 2.5rem; width: 2.5rem; align-items: center; justify-content: center; border-radius: 0.5rem; background: #465fff; color: #fff; }
 .icon-btn { display: inline-flex; height: 2.5rem; width: 2.5rem; align-items: center; justify-content: center; border-radius: 0.5rem; border: 1px solid #d1d5db; color: #4b5563; background: #fff; }
-.ghost { height: 2.5rem; border-radius: 0.5rem; border: 1px solid #d1d5db; padding: 0 0.75rem; font-size: 0.875rem; }
+.ghost { height: 2.75rem; border-radius: 0.5rem; border: 1px solid #d1d5db; padding: 0 1.25rem; font-size: 0.875rem; color: #374151; }
 .link { color: #465fff; font-weight: 500; }
 .status-link { font-size: 0.8125rem; font-weight: 500; color: #f97316; white-space: nowrap; }
 .badge { display: inline-flex; border-radius: 9999px; padding: 0.15rem 0.55rem; font-size: 0.75rem; font-weight: 600; }
 .badge-ok { background: #ecfdf5; color: #059669; }
 .badge-off { background: #f3f4f6; color: #6b7280; }
 .err { border-radius: 0.5rem; border: 1px solid #fecaca; background: #fef2f2; padding: 0.75rem; color: #dc2626; font-size: 0.875rem; }
-.overlay { position: fixed; inset: 0; z-index: 99999; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.4); padding: 1rem; }
-.modal { width: 100%; max-width: 28rem; border-radius: 1rem; background: #fff; padding: 1.25rem; }
+:global(.dark) .m-lbl { color: #9ca3af; }
+:global(.dark) .m-field { border-color: #344054; color: rgba(255, 255, 255, 0.9); }
+:global(.dark) .m-field::placeholder { color: rgba(255, 255, 255, 0.3); }
+:global(.dark) .ghost { border-color: #344054; color: #d1d5db; }
 </style>

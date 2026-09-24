@@ -5,7 +5,7 @@
     <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
       <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-800">
         <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Birliklar</h3>
-        <button type="button" class="btn" @click="openCreate">+ Yangi</button>
+        <button type="button" class="btn" :disabled="writeBlocked" @click="openCreate">+ Yangi</button>
       </div>
       <table class="min-w-full">
         <thead>
@@ -28,7 +28,7 @@
       </table>
     </div>
 
-    <div v-if="modal" class="overlay" @click.self="modal = false">
+    <div v-if="modal" class="overlay">
       <div class="modal">
         <form class="space-y-3" @submit.prevent="onSave">
           <input v-model="name" required class="field" placeholder="Nomi *" />
@@ -49,7 +49,9 @@ import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import RowActions from '@/components/crm/RowActions.vue'
 import { createUnitType, deleteUnitType, fetchUnitTypes, updateUnitType, type UnitType } from '@/api/goods'
 import { formatApiError } from '@/api/http'
+import { useFilialScope } from '@/composables/useFilialScope'
 
+const { writeBlocked } = useFilialScope()
 const units = ref<UnitType[]>([])
 const error = ref<string | null>(null)
 const modal = ref(false)

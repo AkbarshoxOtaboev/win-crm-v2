@@ -59,7 +59,7 @@
           >
             <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': loading }" />
           </button>
-          <button type="button" class="btn btn-with-icon" @click="openCreate">
+          <button type="button" class="btn btn-with-icon" :disabled="writeBlocked" @click="openCreate">
             <Plus class="h-4 w-4" />
             Yangi to‘lov
           </button>
@@ -182,7 +182,7 @@
             Naqd, plastik, o‘tkazma va boshqa to‘lov usullari
           </p>
         </div>
-        <button type="button" class="btn btn-with-icon" @click="openTypeCreate">
+        <button type="button" class="btn btn-with-icon" :disabled="writeBlocked" @click="openTypeCreate">
           <Plus class="h-4 w-4" />
           Yangi tur
         </button>
@@ -234,7 +234,7 @@
     </div>
 
     <!-- Payment modal -->
-    <div v-if="modalOpen" class="overlay" @click.self="closePaymentModal">
+    <div v-if="modalOpen" class="overlay">
       <div
         class="modal modal-lg"
         role="dialog"
@@ -447,7 +447,7 @@
     </div>
 
     <!-- Payment type modal -->
-    <div v-if="typeModal" class="overlay" @click.self="closeTypeModal">
+    <div v-if="typeModal" class="overlay">
       <div
         class="modal"
         role="dialog"
@@ -549,9 +549,11 @@ import { fetchUsers, type UserItem } from '@/api/users'
 import { fetchSaleOrdersByClient, type SaleOrder } from '@/api/sales'
 import { useAuthStore } from '@/stores/auth'
 import { formatApiError } from '@/api/http'
+import { useFilialScope } from '@/composables/useFilialScope'
 import { formatDate, money, nowLocal, toApiDate, today } from '@/utils/format'
 import { formatUzPhone } from '@/utils/phone'
 
+const { writeBlocked } = useFilialScope()
 const tab = ref<'payments' | 'types'>('payments')
 const items = ref<Payment[]>([])
 const clients = ref<Client[]>([])

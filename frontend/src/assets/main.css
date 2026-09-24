@@ -1410,4 +1410,112 @@ td.text-right {
   text-align: right !important;
 }
 
+/* App theme drives native controls. OS dark mode otherwise paints date inputs black in both themes. */
+html {
+  color-scheme: light;
+}
+html.dark {
+  color-scheme: dark;
+}
+
+html.dark .card,
+html.dark .modal,
+html.dark .stat {
+  background-color: #111827 !important;
+  border-color: #1f2937 !important;
+  color: rgba(255, 255, 255, 0.92);
+}
+html.dark .head {
+  border-bottom-color: #1f2937 !important;
+}
+html.dark .title {
+  color: rgba(255, 255, 255, 0.92);
+}
+html.dark .th {
+  color: #9ca3af;
+}
+html.dark .td,
+html.dark .empty,
+html.dark .lbl,
+html.dark .sub {
+  color: #d1d5db;
+}
+html.dark .card table,
+html.dark .card thead,
+html.dark .card tbody,
+html.dark .card tr,
+html.dark .modal table,
+html.dark .modal thead,
+html.dark .modal tbody,
+html.dark .modal tr {
+  background-color: transparent !important;
+}
+html.dark .field,
+html.dark select.field,
+html.dark textarea.field {
+  background-color: #111827 !important;
+  border-color: #374151 !important;
+  color: rgba(255, 255, 255, 0.92) !important;
+}
+html.dark .field::placeholder {
+  color: rgba(255, 255, 255, 0.38) !important;
+}
+html.dark .field option,
+html.dark select option {
+  background-color: #111827;
+  color: #f9fafb;
+}
+html.dark .ghost,
+html.dark .icon-btn,
+html.dark .tab:not(.active) {
+  background-color: transparent !important;
+  border-color: #374151 !important;
+  color: #e5e7eb !important;
+}
+html.dark .err {
+  background-color: rgba(127, 29, 29, 0.35) !important;
+  border-color: rgba(248, 113, 113, 0.45) !important;
+  color: #fecaca !important;
+}
+html.dark .photo-preview {
+  background-color: #1f2937 !important;
+  border-color: #374151 !important;
+}
+.btn:disabled,
+.btn-plus:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+input[type='date'],
+input[type='datetime-local'],
+input[type='time'],
+input[type='month'] {
+  color-scheme: light;
+  background-color: #fff !important;
+  color: #1f2937 !important;
+}
+html.dark input[type='date'],
+html.dark input[type='datetime-local'],
+html.dark input[type='time'],
+html.dark input[type='month'] {
+  color-scheme: dark;
+  background-color: #111827 !important;
+  color: rgba(255, 255, 255, 0.92) !important;
+  border-color: #374151 !important;
+}
+input[type='date']::-webkit-calendar-picker-indicator,
+input[type='datetime-local']::-webkit-calendar-picker-indicator,
+input[type='time']::-webkit-calendar-picker-indicator {
+  display: block !important;
+  opacity: 1 !important;
+  cursor: pointer;
+  -webkit-appearance: auto !important;
+}
+html.dark input[type='date']::-webkit-calendar-picker-indicator,
+html.dark input[type='datetime-local']::-webkit-calendar-picker-indicator,
+html.dark input[type='time']::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+}
+
 

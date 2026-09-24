@@ -52,6 +52,16 @@ export const useAuthStore = defineStore('auth', () => {
     return roles.value.includes('PRODUCTION_MANAGER')
   })
 
+  /** Sozlamalar menyusi: faqat SUPER_ADMIN va ADMIN */
+  const canAccessSettings = computed(
+    () => superAdmin.value || roles.value.includes('ADMIN'),
+  )
+
+  /** Asosiy > Xodimlar: filial direktori */
+  const canManageEmployees = computed(
+    () => !canAccessSettings.value && roles.value.includes('DIRECTOR'),
+  )
+
   function hasRole(name: string) {
     return roles.value.includes(name)
   }
@@ -147,6 +157,8 @@ export const useAuthStore = defineStore('auth', () => {
     selectedFilialId,
     isAuthenticated,
     isProductionManagerOnly,
+    canAccessSettings,
+    canManageEmployees,
     hasRole,
     login,
     logout,

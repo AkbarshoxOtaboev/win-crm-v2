@@ -12,7 +12,7 @@ import uz.script.wincrm.sale.SaleOrderItem;
 import uz.script.wincrm.sale.SaleOrderWaste;
 import uz.script.wincrm.stock.Stock;
 import uz.script.wincrm.stock.StockHistory;
-import uz.script.wincrm.utils.BaseEntity;
+import uz.script.wincrm.filial.FilialScopedEntity;
 import uz.script.wincrm.utils.TableName;
 import uz.script.wincrm.warehouse.WarehouseOrderItem;
 
@@ -27,7 +27,7 @@ import java.util.List;
 @Getter
 @Setter
 @SuperBuilder
-public class Goods extends BaseEntity {
+public class Goods extends FilialScopedEntity {
     @Column(nullable = false)
     private String name;
 

@@ -2,7 +2,7 @@
   <AdminLayout>
     <PageBreadcrumb pageTitle="Transferlar" />
     <div class="mb-4 flex flex-wrap items-center gap-2">
-      <button type="button" class="btn ms-auto" @click="showTransfer = true">+ Transfer</button>
+      <button type="button" class="btn ms-auto" :disabled="writeBlocked" @click="showTransfer = true">+ Transfer</button>
     </div>
     <div v-if="error" class="err mb-4">{{ error }}</div>
 
@@ -31,7 +31,7 @@
       </table>
     </div>
 
-    <div v-if="showTransfer" class="overlay" @click.self="showTransfer = false">
+    <div v-if="showTransfer" class="overlay">
       <div class="modal">
         <h3 class="mb-4 text-lg font-semibold">Stock transfer</h3>
         <div v-if="formError" class="err mb-3">{{ formError }}</div>
@@ -52,7 +52,7 @@
           <input v-model="transfer.comment" class="field" placeholder="Izoh" />
           <div class="flex justify-end gap-2">
             <button type="button" class="ghost" @click="showTransfer = false">Bekor</button>
-            <button type="submit" class="btn" :disabled="saving">Transfer</button>
+            <button type="submit" class="btn" :disabled="saving || writeBlocked">Transfer</button>
           </div>
         </form>
       </div>
@@ -72,7 +72,9 @@ import {
 import { fetchWarehouses, type Warehouse } from '@/api/warehouses'
 import { fetchGoods, type Goods } from '@/api/goods'
 import { formatApiError } from '@/api/http'
+import { useFilialScope } from '@/composables/useFilialScope'
 
+const { writeBlocked } = useFilialScope()
 const transfers = ref<StockTransfer[]>([])
 const warehouses = ref<Warehouse[]>([])
 const goodsOptions = ref<Goods[]>([])

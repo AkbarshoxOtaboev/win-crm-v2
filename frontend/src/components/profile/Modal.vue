@@ -3,7 +3,6 @@
     <div
       class="fixed inset-0 h-full w-full bg-gray-400/50 backdrop-blur-[32px]"
       aria-hidden="true"
-      @click="$emit('close')"
     ></div>
     <slot name="body"></slot>
   </div>

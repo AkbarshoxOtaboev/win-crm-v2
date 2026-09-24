@@ -1,6 +1,6 @@
 <template>
   <Teleport to="body">
-    <div v-if="open" class="wo-view-overlay" @click.self="close">
+    <div v-if="open" class="wo-view-overlay">
       <div class="modal">
         <div class="modal-head no-print">
           <div>

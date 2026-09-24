@@ -8,7 +8,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.SuperBuilder;
-import uz.script.wincrm.utils.BaseEntity;
+import uz.script.wincrm.filial.FilialScopedEntity;
 import uz.script.wincrm.utils.TableName;
 
 import java.util.List;
@@ -20,7 +20,7 @@ import java.util.List;
 @NoArgsConstructor
 @SuperBuilder
 @Table(name = TableName.CLIENT_GROUPS)
-public class ClientGroup extends BaseEntity {
+public class ClientGroup extends FilialScopedEntity {
     private String name;
     @OneToMany(mappedBy = "clientGroup")
     private List<Client> clients;

@@ -6,7 +6,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.SuperBuilder;
-import uz.script.wincrm.utils.BaseEntity;
+import uz.script.wincrm.filial.FilialScopedEntity;
 import uz.script.wincrm.utils.TableName;
 
 import java.util.List;
@@ -18,7 +18,7 @@ import java.util.List;
 @NoArgsConstructor
 @SuperBuilder
 @Table(name = TableName.UNIT_TYPES)
-public class UnitType extends BaseEntity {
+public class UnitType extends FilialScopedEntity {
     @Column(nullable = false)
     private String name;
 

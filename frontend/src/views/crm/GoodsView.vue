@@ -14,7 +14,7 @@
         <h3 class="title">Mahsulotlar</h3>
         <div class="flex gap-2">
           <input v-model="search" type="search" placeholder="Qidiruv..." class="field sm:w-56" />
-          <button type="button" class="btn" @click="openCreate">+ Yangi mahsulot</button>
+          <button type="button" class="btn" :disabled="writeBlocked" @click="openCreate">+ Yangi mahsulot</button>
         </div>
       </div>
       <div class="overflow-x-auto">
@@ -50,7 +50,7 @@
     <div v-show="tab === 'groups'" class="card">
       <div class="head">
         <h3 class="title">Guruhlar</h3>
-        <button type="button" class="btn" @click="openGroupCreate">+ Yangi guruh</button>
+        <button type="button" class="btn" :disabled="writeBlocked" @click="openGroupCreate">+ Yangi guruh</button>
       </div>
       <table class="min-w-full">
         <thead>
@@ -96,7 +96,7 @@
     <div v-show="tab === 'units'" class="card">
       <div class="head">
         <h3 class="title">Birliklar</h3>
-        <button type="button" class="btn" @click="openUnitCreate">+ Yangi birlik</button>
+        <button type="button" class="btn" :disabled="writeBlocked" @click="openUnitCreate">+ Yangi birlik</button>
       </div>
       <table class="min-w-full">
         <thead>
@@ -139,7 +139,7 @@
       </table>
     </div>
 
-    <div v-if="modalOpen" class="overlay" @click.self="modalOpen = false">
+    <div v-if="modalOpen" class="overlay">
       <div class="modal">
         <h3 class="title mb-4">{{ editingId ? 'Mahsulotni tahrirlash' : 'Yangi mahsulot' }}</h3>
         <div v-if="formError" class="err mb-3">{{ formError }}</div>
@@ -198,7 +198,10 @@
           </div>
           <div>
             <label class="lbl">Rasm</label>
-            <input type="file" accept="image/*" class="field" @change="onFile" />
+            <div v-if="previewUrl" class="photo-preview">
+              <img :src="previewUrl" alt="Mahsulot rasmi" />
+            </div>
+            <input :key="fileInputKey" type="file" accept="image/*" class="field" @change="onFile" />
           </div>
           <div class="flex justify-end gap-2">
             <button type="button" class="ghost" @click="modalOpen = false">Bekor</button>
@@ -208,7 +211,7 @@
       </div>
     </div>
 
-    <div v-if="nameModal" class="overlay" @click.self="nameModal = false">
+    <div v-if="nameModal" class="overlay">
       <div class="modal max-w-md">
         <h3 class="title mb-4">{{ nameKind === 'group' ? 'Guruh' : 'Birlik' }}</h3>
         <div v-if="formError" class="err mb-3">{{ formError }}</div>
@@ -228,7 +231,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import RowActions from '@/components/crm/RowActions.vue'
@@ -251,8 +254,11 @@ import {
   type GoodsGroup,
   type UnitType,
 } from '@/api/goods'
-import { formatApiError } from '@/api/http'
+import { formatApiError, getAccessToken } from '@/api/http'
+import { useFilialScope } from '@/composables/useFilialScope'
 import { money } from '@/utils/format'
+
+const { writeBlocked } = useFilialScope()
 
 const tab = ref<'goods' | 'groups' | 'units'>('goods')
 const items = ref<Goods[]>([])
@@ -266,6 +272,10 @@ const search = ref('')
 const modalOpen = ref(false)
 const editingId = ref<number | null>(null)
 const photoFile = ref<File | null>(null)
+const localPreview = ref('')
+const fileInputKey = ref(0)
+const previewUrl = computed(() => localPreview.value)
+let photoToken = 0
 const nameModal = ref(false)
 const nameKind = ref<'group' | 'unit'>('group')
 const nameEditingId = ref<number | null>(null)
@@ -299,8 +309,42 @@ function byIdAsc<T extends { id: number }>(arr: T[]) {
   return [...arr].sort((a, b) => Number(a.id) - Number(b.id))
 }
 
+function revokeLocalPreview() {
+  if (localPreview.value.startsWith('blob:')) URL.revokeObjectURL(localPreview.value)
+  localPreview.value = ''
+}
+
+function resetPhoto() {
+  photoToken += 1
+  photoFile.value = null
+  revokeLocalPreview()
+  fileInputKey.value += 1
+}
+
+async function showStoredPhoto(path: string) {
+  const tokenId = photoToken
+  if (!path) return
+  try {
+    const token = getAccessToken()
+    const res = await fetch(path, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+    if (!res.ok || tokenId !== photoToken) return
+    const blob = await res.blob()
+    if (tokenId !== photoToken) return
+    revokeLocalPreview()
+    localPreview.value = URL.createObjectURL(blob)
+  } catch {
+    /* preview stays empty */
+  }
+}
+
 function onFile(e: Event) {
-  photoFile.value = (e.target as HTMLInputElement).files?.[0] || null
+  photoToken += 1
+  const file = (e.target as HTMLInputElement).files?.[0] || null
+  photoFile.value = file
+  revokeLocalPreview()
+  if (file) localPreview.value = URL.createObjectURL(file)
 }
 
 async function load() {
@@ -323,6 +367,7 @@ async function load() {
 }
 
 function openCreate() {
+  if (writeBlocked.value) return
   editingId.value = null
   Object.assign(form, {
     name: '',
@@ -335,7 +380,7 @@ function openCreate() {
     width: 0,
     height: 0,
   })
-  photoFile.value = null
+  resetPhoto()
   formError.value = null
   modalOpen.value = true
 }
@@ -353,9 +398,10 @@ function openEdit(g: Goods) {
     width: Number(g.width || 0),
     height: Number(g.height || 0),
   })
-  photoFile.value = null
+  resetPhoto()
   formError.value = null
   modalOpen.value = true
+  void showStoredPhoto(g.photo || '')
 }
 
 function buildFormData() {
@@ -406,6 +452,7 @@ async function onDelete(g: Goods) {
 }
 
 function openGroupCreate() {
+  if (writeBlocked.value) return
   nameKind.value = 'group'
   nameEditingId.value = null
   nameValue.value = ''
@@ -422,6 +469,7 @@ function openGroupEdit(gr: GoodsGroup) {
 }
 
 function openUnitCreate() {
+  if (writeBlocked.value) return
   nameKind.value = 'unit'
   nameEditingId.value = null
   nameValue.value = ''
@@ -501,6 +549,7 @@ async function onUnitStatus(u: UnitType) {
 }
 
 onMounted(load)
+onBeforeUnmount(revokeLocalPreview)
 </script>
 
 <style scoped>
@@ -516,6 +565,17 @@ onMounted(load)
 .ghost { height: 2.5rem; border-radius: 0.5rem; border: 1px solid #d1d5db; padding: 0 1rem; font-size: 0.875rem; }
 .err { border-radius: 0.5rem; border: 1px solid #fecaca; background: #fef2f2; padding: 0.75rem 1rem; font-size: 0.875rem; color: #dc2626; }
 .lbl { display: block; margin-bottom: 0.25rem; font-size: 0.875rem; color: #4b5563; }
+.photo-preview {
+  margin-bottom: 0.5rem;
+  display: inline-flex;
+  overflow: hidden;
+  height: 7rem;
+  width: 7rem;
+  border-radius: 0.75rem;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+.photo-preview img { height: 100%; width: 100%; object-fit: cover; }
 .tab { height: 2.25rem; border-radius: 0.5rem; border: 1px solid #d1d5db; background: transparent; padding: 0 1rem; font-size: 0.875rem; color: #4b5563; }
 .tab.active { background: #465fff; border-color: #465fff; color: #fff; }
 .overlay { position: fixed; inset: 0; z-index: 99999; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.4); padding: 1rem; }

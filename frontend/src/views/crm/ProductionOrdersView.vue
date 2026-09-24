@@ -48,7 +48,7 @@
       </div>
     </div>
 
-    <div v-if="detailOpen" class="fixed inset-0 z-99999 flex items-center justify-center bg-black/40 p-4" @click.self="detailOpen = false">
+    <div v-if="detailOpen" class="fixed inset-0 z-99999 flex items-center justify-center bg-black/40 p-4">
       <div class="w-full max-w-xl max-h-[85vh] overflow-y-auto rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
         <div class="mb-4 flex items-center justify-between">
           <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">

@@ -31,7 +31,7 @@
         <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-brand-500 text-white shadow-theme-sm">
           <ShoppingBag class="h-6 w-6" />
         </div>
-        <p class="mt-4 text-sm text-brand-600 dark:text-brand-400">Jami sotuv</p>
+        <p class="mt-4 text-sm text-brand-600 dark:text-brand-400">{{ t('home.totalSales') }}</p>
         <h4 class="mt-1 text-title-sm font-bold text-gray-800 dark:text-white/90">{{ money(totals.sales) }}</h4>
       </article>
       <article
@@ -40,7 +40,7 @@
         <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-success-500 text-white shadow-theme-sm">
           <Wallet class="h-6 w-6" />
         </div>
-        <p class="mt-4 text-sm text-success-600 dark:text-success-400">Jami to‘lov</p>
+        <p class="mt-4 text-sm text-success-600 dark:text-success-400">{{ t('home.totalPayments') }}</p>
         <h4 class="mt-1 text-title-sm font-bold text-gray-800 dark:text-white/90">{{ money(totals.payments) }}</h4>
       </article>
       <article
@@ -49,7 +49,7 @@
         <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-orange-500 text-white shadow-theme-sm">
           <Receipt class="h-6 w-6" />
         </div>
-        <p class="mt-4 text-sm text-orange-600 dark:text-orange-400">Jami xarajatlar</p>
+        <p class="mt-4 text-sm text-orange-600 dark:text-orange-400">{{ t('home.totalExpenses') }}</p>
         <h4 class="mt-1 text-title-sm font-bold text-gray-800 dark:text-white/90">{{ money(totals.expenses) }}</h4>
       </article>
     </div>
@@ -60,7 +60,7 @@
           <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400">
             <BarChart3 class="h-4 w-4" />
           </span>
-          <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Sotuvlar</h3>
+          <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('home.salesChart') }}</h3>
         </div>
         <div class="inline-flex rounded-lg border border-gray-200 p-1 dark:border-gray-800">
           <button
@@ -80,7 +80,7 @@
         </div>
       </div>
       <div v-if="chartMounted">
-        <VueApexCharts type="bar" height="280" :options="chartOptions" :series="chartSeries" />
+        <VueApexCharts :key="`sales-${locale}`" type="bar" height="280" :options="chartOptions" :series="chartSeries" />
       </div>
     </div>
 
@@ -89,10 +89,10 @@
         <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-orange-50 text-orange-600 dark:bg-orange-500/15 dark:text-orange-400">
           <Wallet class="h-4 w-4" />
         </span>
-        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Kunlik to‘lovlar</h3>
+        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('home.dailyPayments') }}</h3>
       </div>
       <div v-if="chartMounted">
-        <VueApexCharts type="bar" height="280" :options="paymentsChartOptions" :series="paymentsChartSeries" />
+        <VueApexCharts :key="`payments-${locale}`" type="bar" height="280" :options="paymentsChartOptions" :series="paymentsChartSeries" />
       </div>
     </div>
 
@@ -107,10 +107,10 @@
       <template #item="{ element }">
         <div class="col-span-12 xl:col-span-6" data-draggable="true">
           <DashboardWidget
-            :title="element.title"
+            :title="t(element.titleKey)"
             :icon="element.icon"
-            :name-label="element.nameLabel"
-            :value-label="element.valueLabel"
+            :name-label="t(element.nameKey)"
+            :value-label="t(element.valueKey)"
             :rows="element.rows"
             :format-as="element.formatAs"
             :tone="element.tone"
@@ -159,22 +159,22 @@ type WidgetTone = 'blue' | 'indigo' | 'violet' | 'green' | 'teal' | 'orange'
 
 interface WidgetDef {
   id: string
-  title: string
+  titleKey: string
   icon: Component
-  nameLabel: string
-  valueLabel: string
+  nameKey: string
+  valueKey: string
   tone: WidgetTone
   formatAs: 'money' | 'number'
   rows: DashboardRow[]
 }
 
 const STORAGE_KEY = 'wincrm_dashboard_widgets'
-const { t } = useI18n()
-const chartPeriods = [
-  { id: 'daily' as const, label: 'Kunlik' },
-  { id: 'weekly' as const, label: 'Haftalik' },
-  { id: 'monthly' as const, label: 'Oylik' },
-]
+const { t, tm, locale } = useI18n()
+const chartPeriods = computed(() => [
+  { id: 'daily' as const, label: t('home.daily') },
+  { id: 'weekly' as const, label: t('home.weekly') },
+  { id: 'monthly' as const, label: t('home.monthly') },
+])
 
 const error = ref<string | null>(null)
 const startDate = ref(monthStart())
@@ -226,10 +226,16 @@ function barChartOptions(categories: string[], color: string) {
   }
 }
 
-const chartSeries = computed(() => [{ name: 'Sotuv', data: chartValues.value }])
-const chartOptions = computed(() => barChartOptions(chartCategories.value, '#465fff'))
-const paymentsChartSeries = computed(() => [{ name: 'To‘lov', data: paymentsValues.value }])
-const paymentsChartOptions = computed(() => barChartOptions(paymentsCategories.value, '#f97316'))
+const chartSeries = computed(() => [{ name: t('home.sale'), data: chartValues.value }])
+const chartOptions = computed(() => {
+  void locale.value
+  return barChartOptions(chartCategories.value, '#465fff')
+})
+const paymentsChartSeries = computed(() => [{ name: t('home.payment'), data: paymentsValues.value }])
+const paymentsChartOptions = computed(() => {
+  void locale.value
+  return barChartOptions(paymentsCategories.value, '#f97316')
+})
 
 function monthStart() {
   const d = new Date()
@@ -255,9 +261,9 @@ function amt(v?: number | null) {
 }
 
 function compact(v: number) {
-  if (Math.abs(v) >= 1_000_000_000) return `${(v / 1_000_000_000).toFixed(1)} mlrd`
-  if (Math.abs(v) >= 1_000_000) return `${(v / 1_000_000).toFixed(1)} mln`
-  if (Math.abs(v) >= 1000) return `${(v / 1000).toFixed(0)} ming`
+  if (Math.abs(v) >= 1_000_000_000) return `${(v / 1_000_000_000).toFixed(1)} ${t('home.billion')}`
+  if (Math.abs(v) >= 1_000_000) return `${(v / 1_000_000).toFixed(1)} ${t('home.million')}`
+  if (Math.abs(v) >= 1000) return `${(v / 1000).toFixed(0)} ${t('home.thousand')}`
   return String(Math.round(v))
 }
 
@@ -273,11 +279,11 @@ function formatDayLabel(raw?: string) {
 
 function defaultWidgets(): WidgetDef[] {
   return [
-    { id: 'topAmount', title: 'Top mahsulotlar', icon: Trophy, nameLabel: 'Nomi', valueLabel: 'Sof tushum', tone: 'blue', formatAs: 'money', rows: [] },
-    { id: 'topQty', title: 'Top mahsulotlar', icon: Package, nameLabel: 'Nomi', valueLabel: 'Soni', tone: 'indigo', formatAs: 'number', rows: [] },
-    { id: 'groups', title: 'Tovar guruhlari', icon: Boxes, nameLabel: 'Nomi', valueLabel: 'Sof tushum', tone: 'violet', formatAs: 'money', rows: [] },
-    { id: 'sellers', title: 'Top sotuvchilar', icon: Users, nameLabel: 'Nomi', valueLabel: 'Sof tushum', tone: 'green', formatAs: 'money', rows: [] },
-    { id: 'payTypes', title: 'To‘lov turlari', icon: Banknote, nameLabel: 'Nomi', valueLabel: 'Sof tushum', tone: 'teal', formatAs: 'money', rows: [] },
+    { id: 'topAmount', titleKey: 'home.topProducts', icon: Trophy, nameKey: 'home.name', valueKey: 'home.netRevenue', tone: 'blue', formatAs: 'money', rows: [] },
+    { id: 'topQty', titleKey: 'home.topProducts', icon: Package, nameKey: 'home.name', valueKey: 'home.quantity', tone: 'indigo', formatAs: 'number', rows: [] },
+    { id: 'groups', titleKey: 'home.productGroups', icon: Boxes, nameKey: 'home.name', valueKey: 'home.netRevenue', tone: 'violet', formatAs: 'money', rows: [] },
+    { id: 'sellers', titleKey: 'home.topSellers', icon: Users, nameKey: 'home.name', valueKey: 'home.netRevenue', tone: 'green', formatAs: 'money', rows: [] },
+    { id: 'payTypes', titleKey: 'home.paymentTypes', icon: Banknote, nameKey: 'home.name', valueKey: 'home.netRevenue', tone: 'teal', formatAs: 'money', rows: [] },
   ]
 }
 
@@ -338,12 +344,12 @@ function buckets(period: ChartPeriod, start: Date, end: Date) {
       const key = weekKey(cursor)
       if (!keys.includes(key)) {
         keys.push(key)
-        labels.push(`${key.slice(6)}-hafta`)
+        labels.push(`${key.slice(6)}-${t('home.week')}`)
       }
       cursor.setDate(cursor.getDate() + 1)
     }
   } else {
-    const months = ['Yan', 'Fev', 'Mar', 'Apr', 'May', 'Iyn', 'Iyl', 'Avg', 'Sen', 'Okt', 'Noy', 'Dek']
+    const months = (tm('home.months') as string[]) || []
     const cursor = new Date(start.getFullYear(), start.getMonth(), 1)
     const last = new Date(end.getFullYear(), end.getMonth(), 1)
     while (cursor <= last) {
@@ -462,6 +468,9 @@ async function load() {
 }
 
 watch(widgets, persistWidgets, { deep: false })
+watch(locale, () => {
+  loadChart()
+})
 
 onMounted(async () => {
   widgets.value = restoreWidgets()

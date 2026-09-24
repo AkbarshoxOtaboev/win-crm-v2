@@ -48,7 +48,7 @@
       </div>
     </div>
 
-    <div v-if="modal" class="overlay" @click.self="closeModal">
+    <div v-if="modal" class="overlay">
       <div class="modal" role="dialog" aria-modal="true" aria-labelledby="filial-modal-title">
         <div class="mb-5 flex items-start justify-between gap-3">
           <div>

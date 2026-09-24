@@ -9,7 +9,7 @@ import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.SQLRestriction;
 import uz.script.wincrm.salary.enums.CommissionType;
 import uz.script.wincrm.users.User;
-import uz.script.wincrm.utils.BaseEntity;
+import uz.script.wincrm.filial.FilialScopedEntity;
 import uz.script.wincrm.utils.TableName;
 
 import java.math.BigDecimal;
@@ -31,7 +31,7 @@ import java.time.LocalDate;
 @SuperBuilder
 @Table(name = TableName.SALARY_CONFIGS)
 @SQLRestriction("status <> 'DELETED'")
-public class SalaryConfig extends BaseEntity {
+public class SalaryConfig extends FilialScopedEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)

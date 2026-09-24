@@ -8,6 +8,10 @@ declare module 'vue-router' {
     api?: string
     requiresAuth?: boolean
     guest?: boolean
+    /** Faqat SUPER_ADMIN yoki ADMIN */
+    settingsAdmin?: boolean
+    /** Faqat DIRECTOR (xodimlar) */
+    employeesOnly?: boolean
   }
 }
 
@@ -195,79 +199,89 @@ const router = createRouter({
     },
     {
       path: '/users',
-      redirect: '/settings/users',
+      redirect: () => {
+        const auth = useAuthStore()
+        if (auth.canManageEmployees) return '/employees'
+        return '/settings/users'
+      },
+    },
+    {
+      path: '/employees',
+      name: 'Employees',
+      component: () => import('../views/crm/UsersView.vue'),
+      meta: { title: 'Xodimlar', requiresAuth: true, employeesOnly: true },
     },
     {
       path: '/settings',
       name: 'SettingsGeneral',
       component: () => import('../views/crm/settings/GeneralSettingsView.vue'),
-      meta: { title: 'Umumiy sozlamalar', requiresAuth: true },
+      meta: { title: 'Umumiy sozlamalar', requiresAuth: true, settingsAdmin: true },
     },
     {
       path: '/settings/filials',
       name: 'SettingsFilials',
       component: () => import('../views/crm/settings/FilialsView.vue'),
-      meta: { title: 'Filiallar', requiresAuth: true },
+      meta: { title: 'Filiallar', requiresAuth: true, settingsAdmin: true },
     },
     {
       path: '/settings/users',
       name: 'SettingsUsers',
       component: () => import('../views/crm/UsersView.vue'),
-      meta: { title: 'Foydalanuvchilar', requiresAuth: true },
+      meta: { title: 'Foydalanuvchilar', requiresAuth: true, settingsAdmin: true },
     },
     {
       path: '/settings/sessions',
       name: 'SettingsSessions',
       component: () => import('../views/crm/settings/SessionsSettingsView.vue'),
-      meta: { title: 'Faol sessiyalar', requiresAuth: true },
+      meta: { title: 'Faol sessiyalar', requiresAuth: true, settingsAdmin: true },
     },
     {
       path: '/settings/roles',
       name: 'SettingsRoles',
       component: () => import('../views/crm/settings/RolesSettingsView.vue'),
-      meta: { title: 'Rollar', requiresAuth: true },
+      meta: { title: 'Rollar', requiresAuth: true, settingsAdmin: true },
     },
     {
       path: '/settings/company',
       name: 'SettingsCompany',
       component: () => import('../views/crm/settings/CompanySettingsView.vue'),
-      meta: { title: 'Tashkilot rekvizitlari', requiresAuth: true },
+      meta: { title: 'Tashkilot rekvizitlari', requiresAuth: true, settingsAdmin: true },
     },
     {
       path: '/settings/telegram',
       name: 'SettingsTelegram',
       component: () => import('../views/crm/settings/TelegramSettingsView.vue'),
-      meta: { title: 'Telegram bot', requiresAuth: true },
+      meta: { title: 'Telegram bot', requiresAuth: true, settingsAdmin: true },
     },
     {
       path: '/settings/eskiz',
       name: 'SettingsEskiz',
       component: () => import('../views/crm/settings/EskizSettingsView.vue'),
-      meta: { title: 'Eskiz.uz SMS', requiresAuth: true },
+      meta: { title: 'Eskiz.uz SMS', requiresAuth: true, settingsAdmin: true },
     },
     {
       path: '/settings/units',
       name: 'SettingsUnits',
       component: () => import('../views/crm/settings/UnitsSettingsView.vue'),
-      meta: { title: 'O‘lchov birliklari', requiresAuth: true },
+      meta: { title: 'O‘lchov birliklari', requiresAuth: true, settingsAdmin: true },
     },
     {
       path: '/settings/payment-types',
       name: 'SettingsPaymentTypes',
       component: () => import('../views/crm/settings/PaymentTypesSettingsView.vue'),
-      meta: { title: 'To‘lov turlari', requiresAuth: true },
+      meta: { title: 'To‘lov turlari', requiresAuth: true, settingsAdmin: true },
     },
     {
       path: '/settings/expense-categories',
       name: 'SettingsExpenseCategories',
       component: () => import('../views/crm/settings/ExpenseCategoriesSettingsView.vue'),
-      meta: { title: 'Xarajat kategoriyalari', requiresAuth: true },
+      meta: { title: 'Xarajat kategoriyalari', requiresAuth: true, settingsAdmin: true },
     },
     {
       path: '/settings/audit',
       name: 'SettingsAudit',
       component: () => import('../views/crm/settings/AuditSettingsView.vue'),
-      meta: { title: 'Audit loglar', requiresAuth: true },
+      meta: { title: 'Audit loglar', requiresAuth: true, settingsAdmin: true },
     },
     {
       path: '/profile',
@@ -324,6 +338,16 @@ router.beforeEach((to, _from, next) => {
       next({ path: '/production/dashboard' })
       return
     }
+  }
+
+  if (auth.isAuthenticated && to.matched.some((r) => r.meta.settingsAdmin) && !auth.canAccessSettings) {
+    next({ path: auth.canManageEmployees ? '/employees' : '/' })
+    return
+  }
+
+  if (auth.isAuthenticated && to.matched.some((r) => r.meta.employeesOnly) && !auth.canManageEmployees) {
+    next({ path: auth.canAccessSettings ? '/settings/users' : '/' })
+    return
   }
 
   next()

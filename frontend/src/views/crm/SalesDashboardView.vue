@@ -82,6 +82,7 @@
           <h4 class="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-200">Holat bo‘yicha summa</h4>
           <VueApexCharts
             v-if="chartMounted"
+            :key="`status-bar-${chartThemeKey}`"
             type="bar"
             height="280"
             :options="statusBarOptions"
@@ -92,6 +93,7 @@
           <h4 class="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-200">Holat bo‘yicha taqsimot</h4>
           <VueApexCharts
             v-if="chartMounted"
+            :key="`status-donut-${chartThemeKey}`"
             type="donut"
             height="280"
             :options="statusDonutOptions"
@@ -145,6 +147,7 @@
       </div>
       <VueApexCharts
         v-if="chartMounted"
+        :key="`dynamics-${chartThemeKey}`"
         type="area"
         height="320"
         :options="dynamicsOptions"
@@ -168,6 +171,7 @@
           <p class="mb-2 text-xs text-gray-500">Har bir sotuvchi bo‘yicha solishtirma</p>
           <VueApexCharts
             v-if="chartMounted"
+            :key="`seller-scatter-${chartThemeKey}`"
             type="scatter"
             height="300"
             :options="sellerScatterOptions"
@@ -179,6 +183,7 @@
           <p class="mb-2 text-xs text-gray-500">Sotuvchilar kesimida buyurtmalar taqsimoti</p>
           <VueApexCharts
             v-if="chartMounted"
+            :key="`seller-pie-${chartThemeKey}`"
             type="pie"
             height="300"
             :options="sellerPieOptions"
@@ -200,8 +205,21 @@ import { formatApiError } from '@/api/http'
 import { money, today } from '@/utils/format'
 import VueApexCharts from 'vue3-apexcharts'
 import { CalendarDays, ListFilter, RefreshCw, X } from 'lucide-vue-next'
+import { useTheme } from '@/components/layout/ThemeProvider.vue'
 
 const { t } = useI18n()
+const { isDarkMode } = useTheme()
+const chartThemeKey = computed(() => (isDarkMode.value ? 'dark' : 'light'))
+
+const chartUi = computed(() => {
+  const dark = isDarkMode.value
+  return {
+    fore: dark ? '#9ca3af' : '#6b7280',
+    text: dark ? 'rgba(255,255,255,0.92)' : '#111827',
+    grid: dark ? '#1f2937' : '#f1f5f9',
+    mode: (dark ? 'dark' : 'light') as 'dark' | 'light',
+  }
+})
 
 const STATUS_KEYS = ['NEW', 'CONFIRMED', 'PROCESSING', 'DELIVERED', 'COMPLETED', 'CANCELLED'] as const
 const STATUS_COLORS: Record<(typeof STATUS_KEYS)[number], string> = {
@@ -268,54 +286,71 @@ const statusBarSeries = computed(() => [
 ])
 
 const statusBarOptions = computed(() => ({
-  chart: { fontFamily: 'Outfit, sans-serif', type: 'bar' as const, toolbar: { show: false } },
+  chart: {
+    fontFamily: 'Outfit, sans-serif',
+    type: 'bar' as const,
+    toolbar: { show: false },
+    background: 'transparent',
+    foreColor: chartUi.value.fore,
+  },
+  theme: { mode: chartUi.value.mode },
   plotOptions: { bar: { horizontal: true, borderRadius: 4, barHeight: '55%', distributed: true } },
   colors: STATUS_DEFS.value.map((s) => s.color),
   dataLabels: { enabled: false },
   legend: { show: false },
   xaxis: {
     categories: STATUS_DEFS.value.map((s) => s.label),
-    labels: { formatter: (v: string) => compactNum(Number(v)) },
+    labels: {
+      formatter: (v: string) => compactNum(Number(v)),
+      style: { colors: chartUi.value.fore, fontSize: '12px' },
+    },
   },
-  yaxis: { labels: { style: { fontSize: '12px' } } },
-  grid: { borderColor: '#f1f5f9', xaxis: { lines: { show: true } }, yaxis: { lines: { show: false } } },
-  tooltip: { y: { formatter: (v: number) => `${money(v)} so‘m` } },
+  yaxis: { labels: { style: { colors: chartUi.value.fore, fontSize: '12px' } } },
+  grid: { borderColor: chartUi.value.grid, xaxis: { lines: { show: true } }, yaxis: { lines: { show: false } } },
+  tooltip: { theme: chartUi.value.mode, y: { formatter: (v: number) => `${money(v)} so‘m` } },
 }))
 
 const statusDonutSeries = computed(() => statusStats.value.map((s) => s.sum))
 
 const statusDonutOptions = computed(() => ({
-  chart: { fontFamily: 'Outfit, sans-serif', type: 'donut' as const },
+  chart: {
+    fontFamily: 'Outfit, sans-serif',
+    type: 'donut' as const,
+    background: 'transparent',
+    foreColor: chartUi.value.fore,
+  },
+  theme: { mode: chartUi.value.mode },
   labels: STATUS_DEFS.value.map((s) => s.label),
   colors: STATUS_DEFS.value.map((s) => s.color),
-  legend: { position: 'bottom' as const, fontSize: '12px' },
+  legend: { position: 'bottom' as const, fontSize: '12px', labels: { colors: chartUi.value.fore } },
   dataLabels: { enabled: false },
+  stroke: { colors: [isDarkMode.value ? '#111827' : '#ffffff'] },
   plotOptions: {
     pie: {
       donut: {
         size: '70%',
         labels: {
           show: true,
-          name: { show: true, fontSize: '12px', color: '#6b7280', offsetY: -8 },
+          name: { show: true, fontSize: '12px', color: chartUi.value.fore, offsetY: -8 },
           value: {
             show: true,
             fontSize: '20px',
             fontWeight: 700,
-            color: '#111827',
+            color: chartUi.value.text,
             formatter: () => compactNum(grandTotal.value),
           },
           total: {
             show: true,
             label: 'Umumiy jami',
             fontSize: '12px',
-            color: '#6b7280',
+            color: chartUi.value.fore,
             formatter: () => compactNum(grandTotal.value),
           },
         },
       },
     },
   },
-  tooltip: { y: { formatter: (v: number) => `${money(v)} so‘m` } },
+  tooltip: { theme: chartUi.value.mode, y: { formatter: (v: number) => `${money(v)} so‘m` } },
 }))
 
 const dailyBuckets = computed(() => {
@@ -353,7 +388,15 @@ const dynamicsSeries = computed(() => [
 ])
 
 const dynamicsOptions = computed(() => ({
-  chart: { fontFamily: 'Outfit, sans-serif', type: 'area' as const, toolbar: { show: false }, zoom: { enabled: false } },
+  chart: {
+    fontFamily: 'Outfit, sans-serif',
+    type: 'area' as const,
+    toolbar: { show: false },
+    zoom: { enabled: false },
+    background: 'transparent',
+    foreColor: chartUi.value.fore,
+  },
+  theme: { mode: chartUi.value.mode },
   colors: ['#6366f1', '#ef4444'],
   dataLabels: { enabled: false },
   stroke: { curve: 'smooth' as const, width: 2.5 },
@@ -361,11 +404,14 @@ const dynamicsOptions = computed(() => ({
     type: 'gradient',
     gradient: { shadeIntensity: 1, opacityFrom: 0.35, opacityTo: 0.05, stops: [0, 90, 100] },
   },
-  legend: { position: 'top' as const, horizontalAlign: 'right' as const },
-  xaxis: { categories: dailyBuckets.value.labels, labels: { style: { fontSize: '11px' } } },
-  yaxis: { labels: { formatter: (v: number) => compactNum(v) } },
-  grid: { borderColor: '#f1f5f9' },
-  tooltip: { y: { formatter: (v: number) => `${money(v)} so‘m` } },
+  legend: { position: 'top' as const, horizontalAlign: 'right' as const, labels: { colors: chartUi.value.fore } },
+  xaxis: {
+    categories: dailyBuckets.value.labels,
+    labels: { style: { colors: chartUi.value.fore, fontSize: '11px' } },
+  },
+  yaxis: { labels: { style: { colors: chartUi.value.fore }, formatter: (v: number) => compactNum(v) } },
+  grid: { borderColor: chartUi.value.grid },
+  tooltip: { theme: chartUi.value.mode, y: { formatter: (v: number) => `${money(v)} so‘m` } },
 }))
 
 const sellerStats = computed(() => {
@@ -393,31 +439,44 @@ const sellerScatterSeries = computed(() => [
 ])
 
 const sellerScatterOptions = computed(() => ({
-  chart: { fontFamily: 'Outfit, sans-serif', type: 'scatter' as const, toolbar: { show: false }, zoom: { enabled: false } },
+  chart: {
+    fontFamily: 'Outfit, sans-serif',
+    type: 'scatter' as const,
+    toolbar: { show: false },
+    zoom: { enabled: false },
+    background: 'transparent',
+    foreColor: chartUi.value.fore,
+  },
+  theme: { mode: chartUi.value.mode },
   colors: ['#3b82f6', '#ef4444'],
   markers: { size: 8, strokeWidth: 0 },
-  legend: { position: 'top' as const, horizontalAlign: 'right' as const },
+  legend: { position: 'top' as const, horizontalAlign: 'right' as const, labels: { colors: chartUi.value.fore } },
   xaxis: {
     type: 'numeric' as const,
     tickAmount: Math.max(sellerStats.value.length, 1),
     min: 0.5,
     max: Math.max(sellerStats.value.length, 1) + 0.5,
     labels: {
+      style: { colors: chartUi.value.fore },
       formatter: (v: string) => {
         const i = Math.round(Number(v)) - 1
         return sellerStats.value[i]?.name || ''
       },
     },
   },
-  yaxis: { labels: { formatter: (v: number) => compactNum(v) } },
-  grid: { borderColor: '#f1f5f9' },
+  yaxis: { labels: { style: { colors: chartUi.value.fore }, formatter: (v: number) => compactNum(v) } },
+  grid: { borderColor: chartUi.value.grid },
   tooltip: {
+    theme: chartUi.value.mode,
     custom: ({ seriesIndex, dataPointIndex }: { seriesIndex: number; dataPointIndex: number }) => {
       const s = sellerStats.value[dataPointIndex]
       if (!s) return ''
       const label = seriesIndex === 0 ? 'Sotilgan summa' : 'Qarz summasi'
       const val = seriesIndex === 0 ? s.sales : s.debt
-      return `<div style="padding:8px 10px"><b>${s.name}</b><br/>${label}: ${money(val)} so‘m</div>`
+      const bg = isDarkMode.value ? '#111827' : '#ffffff'
+      const fg = isDarkMode.value ? '#f3f4f6' : '#111827'
+      const border = isDarkMode.value ? '#374151' : '#e5e7eb'
+      return `<div style="padding:8px 10px;background:${bg};color:${fg};border:1px solid ${border};border-radius:8px"><b>${s.name}</b><br/>${label}: ${money(val)} so‘m</div>`
     },
   },
 }))
@@ -428,17 +487,26 @@ const sellerPieSeries = computed(() => {
 })
 
 const sellerPieOptions = computed(() => ({
-  chart: { fontFamily: 'Outfit, sans-serif', type: 'pie' as const },
+  chart: {
+    fontFamily: 'Outfit, sans-serif',
+    type: 'pie' as const,
+    background: 'transparent',
+    foreColor: chartUi.value.fore,
+  },
+  theme: { mode: chartUi.value.mode },
   labels: sellerStats.value.length ? sellerStats.value.map((s) => s.name) : ['Ma’lumot yo‘q'],
   colors: sellerStats.value.length
     ? ['#3b82f6', '#22c55e', '#f59e0b', '#8b5cf6', '#06b6d4', '#ef4444', '#84cc16']
     : ['#e5e7eb'],
-  legend: { position: 'bottom' as const },
+  stroke: { colors: [isDarkMode.value ? '#111827' : '#ffffff'] },
+  legend: { position: 'bottom' as const, labels: { colors: chartUi.value.fore } },
   dataLabels: {
     enabled: sellerStats.value.length > 0,
     formatter: (val: number) => `${Math.round(val)}%`,
+    style: { colors: [chartUi.value.text] },
   },
   tooltip: {
+    theme: chartUi.value.mode,
     y: {
       formatter: (v: number) => `${v} ta buyurtma`,
     },
@@ -602,12 +670,30 @@ onMounted(async () => {
   border-radius: 9999px;
   background: var(--accent);
 }
-:global(.dark) .card,
-:global(.dark) .status-card,
-:global(.dark) .kpi-card,
-:global(.dark) .date-range,
-:global(.dark) .icon-btn {
+:global(html.dark .status-card),
+:global(html.dark .kpi-card) {
   border-color: #1f2937;
   background: rgba(255, 255, 255, 0.03);
+}
+:global(html.dark .date-range),
+:global(html.dark .icon-btn),
+:global(html.dark .field) {
+  border-color: #374151;
+  background: #111827;
+  color: rgba(255, 255, 255, 0.92);
+}
+:global(html.dark input.date-input) {
+  background-color: transparent !important;
+  border-color: transparent !important;
+  color: rgba(255, 255, 255, 0.92) !important;
+  color-scheme: dark;
+}
+:global(html.dark .icon-btn:hover) {
+  background: #1f2937;
+}
+:global(html.dark .err) {
+  border-color: rgba(248, 113, 113, 0.45);
+  background: rgba(127, 29, 29, 0.35);
+  color: #fecaca;
 }
 </style>

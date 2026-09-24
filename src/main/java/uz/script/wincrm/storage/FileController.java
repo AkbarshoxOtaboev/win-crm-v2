@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.MediaTypeFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -34,11 +35,15 @@ public class FileController {
     ) {
 
         Resource resource = storageService.downloadFile(fileName);
+        MediaType mediaType = MediaTypeFactory.getMediaType(fileName)
+                .orElse(MediaType.APPLICATION_OCTET_STREAM);
+        String disposition = "image".equals(mediaType.getType()) ? "inline" : "attachment";
 
         return ResponseEntity.ok()
+                .contentType(mediaType)
                 .header(
                         HttpHeaders.CONTENT_DISPOSITION,
-                        "attachment; filename=\"" + fileName + "\""
+                        disposition + "; filename=\"" + fileName + "\""
                 )
                 .body(resource);
     }
