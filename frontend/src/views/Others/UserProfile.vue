@@ -107,15 +107,15 @@
           <div v-if="stats" class="grid grid-cols-3 gap-3 pt-1">
             <div class="stat-cell">
               <span class="stat-lbl">Savdolar</span>
-              <span class="stat-val">{{ stats.orderCount ?? '—' }}</span>
+              <span class="stat-val">{{ stats.totalOrdersCount ?? '—' }}</span>
             </div>
             <div class="stat-cell">
               <span class="stat-lbl">To‘lovlar</span>
-              <span class="stat-val">{{ stats.paymentSum ?? '—' }}</span>
+              <span class="stat-val">{{ stats.totalPaidSum ?? '—' }}</span>
             </div>
             <div class="stat-cell">
               <span class="stat-lbl">Qarz</span>
-              <span class="stat-val">{{ stats.debtSum ?? '—' }}</span>
+              <span class="stat-val">{{ stats.totalDebt ?? '—' }}</span>
             </div>
           </div>
 
@@ -563,35 +563,35 @@ onUnmounted(() => {
   color: #166534;
   font-size: 0.875rem;
 }
-:global(.dark) .icon-pick:hover {
+.dark .icon-pick:hover {
   background: rgb(255 255 255 / 5%);
 }
-:global(.dark) .icon-pick.active {
+.dark .icon-pick.active {
   background: rgb(70 95 255 / 12%);
 }
-:global(.dark) .ghost-btn {
+.dark .ghost-btn {
   border-color: #344054;
   color: #d1d5db;
 }
-:global(.dark) .info-cell {
+.dark .info-cell {
   border-color: #344054;
   background: rgb(255 255 255 / 3%);
 }
-:global(.dark) .info-cell dd,
-:global(.dark) .stat-val {
+.dark .info-cell dd,
+.dark .stat-val {
   color: rgba(255, 255, 255, 0.9);
 }
-:global(.dark) .stat-cell,
-:global(.dark) .password-box {
+.dark .stat-cell,
+.dark .password-box {
   border-color: #344054;
   background: rgb(255 255 255 / 3%);
 }
-:global(.dark) .field {
+.dark .field {
   border-color: #344054;
   background: #101828;
   color: rgba(255, 255, 255, 0.9);
 }
-:global(.dark) .gen-btn {
+.dark .gen-btn {
   border-color: #465fff;
   background: rgb(70 95 255 / 15%);
 }

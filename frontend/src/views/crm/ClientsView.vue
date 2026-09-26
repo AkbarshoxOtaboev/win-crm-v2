@@ -737,11 +737,11 @@ onMounted(load)
   font-size: 0.875rem;
   color: #374151;
 }
-:global(.dark) .lbl { color: #9ca3af; }
-:global(.dark) .field {
+.dark .lbl { color: #9ca3af; }
+.dark .field {
   border-color: #344054;
   color: rgba(255, 255, 255, 0.9);
 }
-:global(.dark) .field::placeholder { color: rgba(255, 255, 255, 0.3); }
-:global(.dark) .ghost { border-color: #344054; color: #d1d5db; }
+.dark .field::placeholder { color: rgba(255, 255, 255, 0.3); }
+.dark .ghost { border-color: #344054; color: #d1d5db; }
 </style>

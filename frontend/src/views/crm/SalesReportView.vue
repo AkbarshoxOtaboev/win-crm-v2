@@ -12,7 +12,7 @@
     <div class="mb-4 grid grid-cols-1 gap-4 md:grid-cols-4">
       <article class="stat">
         <p class="stat-label">Buyurtmalar</p>
-        <h4 class="stat-value">{{ orders.length }}</h4>
+        <h4 class="stat-value">{{ activeOrders.length }}</h4>
       </article>
       <article class="stat">
         <p class="stat-label">Jami sotuv</p>
@@ -20,11 +20,11 @@
       </article>
       <article class="stat">
         <p class="stat-label">To‘langan</p>
-        <h4 class="stat-value text-emerald-600">{{ money(totals.paid) }}</h4>
+        <h4 class="stat-value paid">{{ money(totals.paid) }}</h4>
       </article>
       <article class="stat">
         <p class="stat-label">Qarz</p>
-        <h4 class="stat-value text-red-600">{{ money(totals.debt) }}</h4>
+        <h4 class="stat-value debt">{{ money(totals.debt) }}</h4>
       </article>
     </div>
 
@@ -59,7 +59,7 @@
               <td class="td">{{ money(o.totalSum) }}</td>
               <td class="td">{{ money(o.paidSum) }}</td>
               <td class="td">{{ money(o.debtSum) }}</td>
-              <td class="td">{{ o.orderStatus || '—' }}</td>
+              <td class="td"><SaleStatusBadge :status="o.orderStatus" /></td>
             </tr>
           </tbody>
         </table>
@@ -123,6 +123,7 @@
 import { computed, onMounted, ref } from 'vue'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
+import SaleStatusBadge from '@/components/crm/SaleStatusBadge.vue'
 import { fetchSaleOrdersByDateRange, type SaleOrder } from '@/api/sales'
 import { formatApiError } from '@/api/http'
 import { formatDate, money, today } from '@/utils/format'
@@ -139,14 +140,16 @@ const loading = ref(false)
 const error = ref<string | null>(null)
 const orders = ref<SaleOrder[]>([])
 
+const activeOrders = computed(() => orders.value.filter((o) => o.orderStatus !== 'CANCELLED'))
+
 const totals = computed(() => ({
-  sales: orders.value.reduce((s, o) => s + Number(o.totalSum || 0), 0),
-  paid: orders.value.reduce((s, o) => s + Number(o.paidSum || 0), 0),
-  debt: orders.value.reduce((s, o) => s + Number(o.debtSum || 0), 0),
+  sales: activeOrders.value.reduce((s, o) => s + Number(o.totalSum || 0), 0),
+  paid: activeOrders.value.reduce((s, o) => s + Number(o.paidSum || 0), 0),
+  debt: activeOrders.value.reduce((s, o) => s + Number(o.debtSum || 0), 0),
 }))
 
-const bySeller = computed(() => groupBy(orders.value, (o) => o.userFullName || '—'))
-const byClient = computed(() => groupBy(orders.value, (o) => o.clientFullName || '—'))
+const bySeller = computed(() => groupBy(activeOrders.value, (o) => o.userFullName || '—'))
+const byClient = computed(() => groupBy(activeOrders.value, (o) => o.clientFullName || '—'))
 
 function monthStart() {
   const d = new Date()
@@ -191,4 +194,10 @@ onMounted(load)
 .stat { border-radius: 1rem; border: 1px solid #e5e7eb; background: #fff; padding: 1.25rem; }
 .stat-label { font-size: 0.875rem; color: #4b5563; }
 .stat-value { margin-top: 0.25rem; font-size: 1.25rem; font-weight: 700; color: #1f2937; }
+.stat-value.paid { color: #059669; }
+.stat-value.debt { color: #dc2626; }
+.dark .stat-label { color: #9ca3af; }
+.dark .stat-value { color: rgba(255, 255, 255, 0.92); }
+.dark .stat-value.paid { color: #34d399; }
+.dark .stat-value.debt { color: #f87171; }
 </style>

@@ -6,7 +6,10 @@
       <div class="head">
         <div>
           <h3 class="title">Yangi savdo buyurtmasi</h3>
-          <p class="sub">Mijoz, ombor, sotuvchi, sana va izoh — keyin pozitsiyalar qo‘shing</p>
+          <p class="sub">
+            Mijoz, ombor, sotuvchi va buyurtma summasini kiriting, pozitsiyalarni qo‘shing.
+            Tovarlar ombordan faqat «Saqlash» bosilganda ayiriladi.
+          </p>
         </div>
         <router-link to="/sales" class="ghost">Orqaga</router-link>
       </div>
@@ -23,12 +26,10 @@
                 :options="clientOptions"
                 placeholder="Mijozni tanlang..."
                 search-placeholder="Ism yoki telefon..."
-                :disabled="!!orderId"
               />
               <button
                 type="button"
                 class="ghost client-add"
-                :disabled="!!orderId"
                 title="Yangi mijoz"
                 @click="openClientModal"
               >
@@ -39,7 +40,13 @@
 
           <label class="lbl min-w-0 flex-1">
             Ombor
-            <select v-model.number="form.warehouseId" required class="field" :disabled="!!orderId">
+            <select
+              v-model.number="form.warehouseId"
+              required
+              class="field"
+              :disabled="draftItems.length > 0"
+              :title="draftItems.length > 0 ? 'Omborni almashtirish uchun avval pozitsiyalarni o‘chiring' : undefined"
+            >
               <option :value="0" disabled>Omborni tanlang</option>
               <option v-for="w in activeWarehouses" :key="w.id" :value="w.id">{{ w.name }}</option>
             </select>
@@ -47,7 +54,7 @@
 
           <label class="lbl min-w-0 flex-1">
             Sotuvchi
-            <select v-model.number="form.userId" required class="field" :disabled="!!orderId">
+            <select v-model.number="form.userId" required class="field">
               <option :value="0" disabled>Sotuvchini tanlang</option>
               <option v-for="u in users" :key="u.id" :value="u.id">{{ u.fullName || u.username }}</option>
             </select>
@@ -55,7 +62,7 @@
 
           <label class="lbl min-w-0 w-full sm:w-44 sm:flex-none">
             Sana
-            <input v-model="form.orderDate" type="date" required class="field" :disabled="!!orderId" />
+            <input v-model="form.orderDate" type="date" required class="field" />
           </label>
 
           <label class="lbl min-w-0 flex-1">
@@ -65,9 +72,42 @@
               type="text"
               class="field"
               placeholder="Izoh (ixtiyoriy)"
-              :disabled="!!orderId"
             />
           </label>
+        </div>
+
+        <div class="form-row mt-3">
+          <label class="lbl min-w-0 w-full sm:w-72 sm:flex-none">
+            Buyurtma summasi *
+            <input
+              :value="totalSumText"
+              inputmode="decimal"
+              class="field total-field"
+              placeholder="0"
+              @input="onTotalSumInput"
+            />
+          </label>
+          <p class="total-hint">
+            Mijoz bilan kelishilgan summa. Pozitsiyalar summasiga bog‘liq emas.
+          </p>
+        </div>
+
+        <div v-if="form.clientId > 0" class="client-summary">
+          <div class="summary-item">
+            <span class="summary-label">Umumiy buyurtma summasi</span>
+            <span class="summary-value">{{ balanceText(clientBalance?.totalPurchase) }}</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">To‘lov summasi</span>
+            <span class="summary-value paid">{{ balanceText(clientBalance?.totalPaid) }}</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">{{ Number(clientBalance?.totalDebt || 0) < 0 ? 'Haqdorlik (ortiqcha to‘lov)' : 'Qarz' }}</span>
+            <span class="summary-value" :class="Number(clientBalance?.totalDebt || 0) > 0 ? 'debt' : 'paid'">
+              {{ balanceText(clientBalance ? Math.abs(Number(clientBalance.totalDebt || 0)) : undefined) }}
+            </span>
+          </div>
+          <p v-if="balanceError" class="summary-note">{{ balanceError }}</p>
         </div>
       </div>
     </div>
@@ -142,13 +182,17 @@
 
           <div class="flex items-end">
             <button type="button" class="btn" :disabled="saving || !canAddItem" @click="onAddItem">
-              {{ saving ? '...' : '+ Qo‘shish' }}
+              + Qo‘shish
             </button>
           </div>
         </div>
         <p v-if="!headerReady" class="mt-2 text-xs text-amber-600">
           Avval mijoz, ombor, sotuvchi va sanani tanlang
         </p>
+        <p v-else-if="selectedGoods && !isServiceGoods" class="stock-hint">
+          Omborda qolgan: {{ formatNum(remainingStock(selectedGoods.id)) }}{{ isWindowGoods ? ' kv.m' : '' }}
+        </p>
+        <p v-if="itemError" class="mt-2 text-xs text-red-600">{{ itemError }}</p>
       </div>
 
       <div class="overflow-x-auto">
@@ -170,7 +214,7 @@
             <tr v-if="displayItems.length === 0">
               <td colspan="9" class="empty">Hali pozitsiya yo‘q</td>
             </tr>
-            <tr v-for="(row, idx) in displayItems" :key="row.id" class="border-b border-gray-100">
+            <tr v-for="(row, idx) in displayItems" :key="row.key" class="border-b border-gray-100">
               <td class="td">{{ idx + 1 }}</td>
               <td class="td">{{ row.goodsName }}</td>
               <td class="td">{{ row.width != null ? formatNum(row.width) : '—' }}</td>
@@ -180,13 +224,13 @@
               <td class="td">{{ money(row.priceSelling) }}</td>
               <td class="td">{{ money(row.sum) }}</td>
               <td class="td text-right">
-                <button type="button" class="danger" @click="onRemoveItem(row.id)">O‘chirish</button>
+                <button type="button" class="danger" :disabled="saving" @click="onRemoveItem(row.key)">O‘chirish</button>
               </td>
             </tr>
           </tbody>
           <tfoot v-if="displayItems.length">
             <tr class="border-t border-gray-200 bg-gray-50">
-              <td class="td font-semibold" colspan="7">Jami</td>
+              <td class="td font-semibold" colspan="7">Pozitsiyalar jami</td>
               <td class="td font-semibold">{{ money(itemsTotalSum) }}</td>
               <td class="td" />
             </tr>
@@ -194,16 +238,20 @@
         </table>
       </div>
 
-      <div class="flex justify-end gap-2 border-t border-gray-100 p-5">
-        <router-link to="/sales" class="ghost">Bekor</router-link>
-        <button
-          type="button"
-          class="btn"
-          :disabled="saving || !orderId || displayItems.length === 0"
-          @click="onSave"
-        >
-          {{ saving ? '...' : 'Saqlash' }}
-        </button>
+      <div class="save-bar border-t border-gray-100 p-5">
+        <div class="save-info">
+          <span v-if="saveBlockReason" class="save-warn">{{ saveBlockReason }}</span>
+          <template v-else>
+            <span class="save-label">Buyurtma summasi:</span>
+            <span class="save-total">{{ money(form.totalSum) }}</span>
+          </template>
+        </div>
+        <div class="flex gap-2">
+          <router-link to="/sales" class="ghost">Bekor</router-link>
+          <button type="button" class="btn" :disabled="saving || !!saveBlockReason" @click="onSave">
+            {{ saving ? '...' : 'Saqlash' }}
+          </button>
+        </div>
       </div>
     </div>
 
@@ -257,19 +305,14 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import SearchableSelect from '@/components/crm/SearchableSelect.vue'
-import { createSaleOrder, updateSaleOrder } from '@/api/sales'
-import {
-  createSaleOrderItem,
-  deleteSaleOrderItem,
-  fetchSaleOrderItems,
-  type SaleOrderItem,
-} from '@/api/saleOrderItems'
+import { createSaleOrder } from '@/api/sales'
 import { fetchWarehouses, type Warehouse } from '@/api/warehouses'
 import { createClient, fetchClients, type Client } from '@/api/clients'
+import { fetchClientBalance, type ClientBalance } from '@/api/clientBalances'
 import { fetchUsers, type UserItem } from '@/api/users'
 import { fetchGoods, type Goods } from '@/api/goods'
 import { fetchStocksByWarehouse, type Stock } from '@/api/stocks'
@@ -286,13 +329,34 @@ const clients = ref<Client[]>([])
 const users = ref<UserItem[]>([])
 const goods = ref<Goods[]>([])
 const stocks = ref<Stock[]>([])
-const items = ref<SaleOrderItem[]>([])
-const orderId = ref<number | null>(null)
+
+interface DraftItem {
+  key: number
+  goodsId: number
+  goodsName: string
+  isWindow: boolean
+  isService: boolean
+  width: number | null
+  height: number | null
+  pieces: number | null
+  count: number
+  priceCost: number
+  priceSelling: number
+}
+
+const draftItems = ref<DraftItem[]>([])
+let draftSeq = 0
 const saving = ref(false)
+const saved = ref(false)
 const error = ref<string | null>(null)
+const itemError = ref<string | null>(null)
 const clientModal = ref(false)
 const clientSaving = ref(false)
 const clientError = ref<string | null>(null)
+const clientBalance = ref<ClientBalance | null>(null)
+const balanceLoading = ref(false)
+const balanceError = ref<string | null>(null)
+let balanceRequest = 0
 
 const form = reactive({
   clientId: 0,
@@ -300,7 +364,22 @@ const form = reactive({
   userId: 0,
   orderDate: todayLocal(),
   comment: '',
+  totalSum: 0,
 })
+
+const totalSumText = ref('')
+
+function onTotalSumInput(e: Event) {
+  const el = e.target as HTMLInputElement
+  const cleaned = el.value.replace(/\s/g, '').replace(',', '.').replace(/[^\d.]/g, '')
+  const [intPart = '', ...rest] = cleaned.split('.')
+  const fraction = rest.join('').slice(0, 2)
+  const hasDot = cleaned.includes('.')
+  const grouped = intPart.replace(/^0+(?=\d)/, '').replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
+  totalSumText.value = hasDot ? `${grouped}.${fraction}` : grouped
+  el.value = totalSumText.value
+  form.totalSum = Number(`${intPart || '0'}.${fraction || '0'}`)
+}
 
 const clientForm = reactive({
   fullName: '',
@@ -337,8 +416,13 @@ function isWindow(g?: Goods | null) {
   return (g?.type || '').toUpperCase() === 'WINDOW'
 }
 
+function isService(g?: Goods | null) {
+  return (g?.type || '').toUpperCase() === 'SERVICE'
+}
+
 const selectedGoods = computed(() => goods.value.find((g) => g.id === itemForm.goodsId) || null)
 const isWindowGoods = computed(() => isWindow(selectedGoods.value))
+const isServiceGoods = computed(() => isService(selectedGoods.value))
 
 const computedKvm = computed(() => {
   if (!isWindowGoods.value) return 0
@@ -373,8 +457,24 @@ const stockByGoodsId = computed(() => {
 })
 
 function hasWarehouseStock(g: Goods) {
-  if ((g.type || '').toUpperCase() === 'SERVICE') return true
+  if (isService(g)) return true
   return (stockByGoodsId.value.get(g.id) || 0) > 0
+}
+
+const availableByGoodsId = computed(() => {
+  const map = new Map<number, number>()
+  for (const s of stocks.value) {
+    if (!s.goodsId) continue
+    map.set(s.goodsId, (map.get(s.goodsId) || 0) + Number(s.count || 0))
+  }
+  return map
+})
+
+function remainingStock(goodsId: number) {
+  const reserved = draftItems.value
+    .filter((d) => d.goodsId === goodsId)
+    .reduce((acc, d) => acc + d.count, 0)
+  return (availableByGoodsId.value.get(goodsId) || 0) - reserved
 }
 
 const goodsOptions = computed(() =>
@@ -404,32 +504,17 @@ const canAddItem = computed(() => {
 })
 
 const displayItems = computed(() =>
-  items.value.map((it) => {
-    const g = goods.value.find((x) => x.id === it.goodsId)
-    const windowItem = isWindow(g)
-    const width = it.width != null ? Number(it.width) : null
-    const height = it.height != null ? Number(it.height) : null
-    const count = Number(it.count || 0)
-    const priceSelling = Number(it.priceSelling || 0)
-    let pieces: number | null = null
-    if (windowItem && width && height && width > 0 && height > 0) {
-      pieces = (count * 10000) / (width * height)
-    }
-    return {
-      id: it.id,
-      goodsName: it.goodsName || String(it.goodsId || ''),
-      width,
-      height,
-      pieces,
-      count,
-      priceSelling,
-      isWindow: windowItem,
-      sum: count * priceSelling,
-    }
-  }),
+  draftItems.value.map((d) => ({ ...d, sum: d.count * d.priceSelling })),
 )
 
 const itemsTotalSum = computed(() => displayItems.value.reduce((acc, r) => acc + r.sum, 0))
+
+const saveBlockReason = computed(() => {
+  if (!headerReady.value) return 'Mijoz, ombor, sotuvchi va sanani tanlang'
+  if (!(form.totalSum > 0)) return 'Buyurtma summasini kiriting'
+  if (draftItems.value.length === 0) return 'Kamida bitta pozitsiya qo‘shing'
+  return null
+})
 
 watch(
   () => itemForm.goodsId,
@@ -447,6 +532,42 @@ watch(
       itemForm.width = 0
       itemForm.height = 0
     }
+  },
+)
+
+function balanceText(v?: number | null) {
+  if (balanceLoading.value && !clientBalance.value) return '...'
+  if (v == null) return '—'
+  return money(v)
+}
+
+async function loadClientBalance() {
+  const clientId = form.clientId
+  const current = ++balanceRequest
+  balanceError.value = null
+  if (!clientId) {
+    clientBalance.value = null
+    return
+  }
+  balanceLoading.value = true
+  try {
+    const res = await fetchClientBalance(clientId, { fromDate: '2000-01-01', toDate: '2100-12-31' })
+    if (current === balanceRequest) clientBalance.value = res.data || null
+  } catch (e) {
+    if (current === balanceRequest) {
+      clientBalance.value = null
+      balanceError.value = formatApiError(e, 'Mijoz balansini yuklab bo‘lmadi')
+    }
+  } finally {
+    if (current === balanceRequest) balanceLoading.value = false
+  }
+}
+
+watch(
+  () => form.clientId,
+  () => {
+    clientBalance.value = null
+    void loadClientBalance()
   },
 )
 
@@ -498,106 +619,91 @@ async function load() {
   }
 }
 
-async function ensureOrder(): Promise<number> {
-  if (orderId.value) return orderId.value
-  if (!headerReady.value) throw new Error('Mijoz, ombor, sotuvchi va sana majburiy')
-  const res = await createSaleOrder({
-    warehouseId: form.warehouseId,
-    userId: form.userId,
-    orderDate: dateToApi(form.orderDate),
-    totalSum: 0,
-    clientId: form.clientId,
-    comment: form.comment.trim() || undefined,
-  })
-  const id = res.data?.id
-  if (!id) throw new Error('Savdo yaratilmadi')
-  orderId.value = id
-  return id
-}
+function onAddItem() {
+  if (!canAddItem.value || !selectedGoods.value) return
+  itemError.value = null
+  const g = selectedGoods.value
+  const windowMode = isWindowGoods.value
+  const selling = Number(itemForm.priceSelling)
+  const pieces = Number(itemForm.count)
+  const count = windowMode ? computedKvm.value : pieces
 
-async function syncOrderTotal() {
-  if (!orderId.value) return
-  await updateSaleOrder(orderId.value, {
-    warehouseId: form.warehouseId,
-    userId: form.userId,
-    orderDate: dateToApi(form.orderDate),
-    totalSum: itemsTotalSum.value,
-    clientId: form.clientId,
-    comment: form.comment.trim() || undefined,
-  })
-}
-
-async function reloadItems() {
-  if (!orderId.value) {
-    items.value = []
-    return
-  }
-  items.value = (await fetchSaleOrderItems(orderId.value)).data || []
-}
-
-async function onAddItem() {
-  if (!canAddItem.value) return
-  saving.value = true
-  error.value = null
-  try {
-    const id = await ensureOrder()
-    const windowMode = isWindowGoods.value
-    const selling = Number(itemForm.priceSelling)
-    await createSaleOrderItem({
-      warehouseId: form.warehouseId,
-      saleOrderId: id,
-      clientId: form.clientId,
-      goodsId: itemForm.goodsId,
-      priceCost: windowMode ? selling : Number(itemForm.priceCost),
-      priceSelling: selling,
-      count: Number(itemForm.count),
-      width: windowMode ? Number(itemForm.width) : undefined,
-      height: windowMode ? Number(itemForm.height) : undefined,
-      arrivalDate: dateToApi(form.orderDate),
-    })
-    itemForm.goodsId = 0
-    itemForm.count = 1
-    itemForm.width = 0
-    itemForm.height = 0
-    itemForm.priceCost = 0
-    itemForm.priceSelling = 0
-    await reloadItems()
-    await syncOrderTotal()
-    if (form.warehouseId) {
-      const stockRes = await fetchStocksByWarehouse(form.warehouseId)
-      stocks.value = stockRes.data || []
+  if (!isService(g)) {
+    const left = remainingStock(g.id)
+    if (count > left + 1e-9) {
+      itemError.value = `Omborda yetarli emas: qolgan ${formatNum(Math.max(left, 0))}${windowMode ? ' kv.m' : ''}, so‘ralgan ${formatNum(count)}${windowMode ? ' kv.m' : ''}`
+      return
     }
-  } catch (e) {
-    error.value = formatApiError(e)
-  } finally {
-    saving.value = false
   }
+
+  draftItems.value.push({
+    key: ++draftSeq,
+    goodsId: g.id,
+    goodsName: g.name,
+    isWindow: windowMode,
+    isService: isService(g),
+    width: windowMode ? Number(itemForm.width) : null,
+    height: windowMode ? Number(itemForm.height) : null,
+    pieces: windowMode ? pieces : null,
+    count,
+    priceCost: windowMode ? selling : Number(itemForm.priceCost),
+    priceSelling: selling,
+  })
+  itemForm.goodsId = 0
+  itemForm.count = 1
+  itemForm.width = 0
+  itemForm.height = 0
+  itemForm.priceCost = 0
+  itemForm.priceSelling = 0
 }
 
-async function onRemoveItem(id: number) {
-  if (!confirm('Pozitsiya o‘chirilsinmi?')) return
-  try {
-    await deleteSaleOrderItem(id)
-    await reloadItems()
-    await syncOrderTotal()
-  } catch (e) {
-    error.value = formatApiError(e)
-  }
+function onRemoveItem(key: number) {
+  draftItems.value = draftItems.value.filter((d) => d.key !== key)
+  itemError.value = null
 }
 
 async function onSave() {
-  if (!orderId.value || displayItems.value.length === 0) return
+  if (saving.value || saveBlockReason.value) return
   saving.value = true
   error.value = null
   try {
-    await syncOrderTotal()
-    void router.push(`/sales/${orderId.value}`)
+    const res = await createSaleOrder({
+      warehouseId: form.warehouseId,
+      userId: form.userId,
+      orderDate: dateToApi(form.orderDate),
+      totalSum: form.totalSum,
+      clientId: form.clientId,
+      comment: form.comment.trim() || undefined,
+      items: draftItems.value.map((d) => ({
+        goodsId: d.goodsId,
+        priceCost: d.priceCost,
+        priceSelling: d.priceSelling,
+        count: d.isWindow ? Number(d.pieces) : d.count,
+        width: d.width ?? undefined,
+        height: d.height ?? undefined,
+      })),
+    })
+    const id = res.data?.id
+    if (!id) throw new Error('Savdo yaratilmadi')
+    saved.value = true
+    void router.push(`/sales/${id}`)
   } catch (e) {
     error.value = formatApiError(e)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+    if (form.warehouseId) {
+      fetchStocksByWarehouse(form.warehouseId)
+        .then((r) => (stocks.value = r.data || []))
+        .catch(() => {})
+    }
   } finally {
     saving.value = false
   }
 }
+
+onBeforeRouteLeave(() => {
+  if (saved.value || draftItems.value.length === 0) return true
+  return confirm('Saqlanmagan pozitsiyalar bor. Sahifadan chiqilsinmi?')
+})
 
 onMounted(load)
 
@@ -679,10 +785,36 @@ async function onCreateClient() {
 .td { padding: 0.75rem 1rem; font-size: 0.875rem; color: #4b5563; }
 .empty { padding: 2rem 1.25rem; text-align: center; font-size: 0.875rem; color: #6b7280; }
 .err { border-radius: 0.5rem; border: 1px solid #fecaca; background: #fef2f2; padding: 0.75rem 1rem; font-size: 0.875rem; color: #dc2626; }
+.client-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem; margin-top: 1rem; }
+.summary-item { display: flex; flex-direction: column; gap: 0.25rem; border-radius: 0.75rem; border: 1px solid #e5e7eb; background: #f9fafb; padding: 0.75rem 1rem; }
+.summary-label { font-size: 0.75rem; font-weight: 500; color: #6b7280; }
+.summary-value { font-size: 1.125rem; font-weight: 700; color: #1f2937; }
+.summary-value.paid { color: #059669; }
+.summary-value.debt { color: #dc2626; }
+.summary-note { grid-column: 1 / -1; font-size: 0.75rem; color: #b45309; }
+.dark .summary-item { border-color: #1f2937; background: rgb(255 255 255 / 3%); }
+.dark .summary-label { color: #9ca3af; }
+.dark .summary-value { color: rgba(255, 255, 255, 0.92); }
+.dark .summary-value.paid { color: #34d399; }
+.dark .summary-value.debt { color: #f87171; }
+.dark .summary-note { color: #fbbf24; }
+.total-field { font-size: 1rem; font-weight: 600; }
+.total-hint { align-self: center; font-size: 0.75rem; color: #6b7280; }
+.stock-hint { margin-top: 0.5rem; font-size: 0.75rem; color: #6b7280; }
+.save-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem; }
+.save-info { display: flex; align-items: baseline; gap: 0.5rem; font-size: 0.875rem; }
+.save-label { color: #6b7280; }
+.save-total { font-size: 1.125rem; font-weight: 700; color: #1f2937; }
+.save-warn { font-size: 0.8125rem; color: #b45309; }
+.danger:disabled { opacity: 0.5; cursor: not-allowed; }
+.dark .total-hint, .dark .stock-hint, .dark .save-label { color: #9ca3af; }
+.dark .save-total { color: rgba(255, 255, 255, 0.92); }
+.dark .save-warn { color: #fbbf24; }
 .overlay { position: fixed; inset: 0; z-index: 99999; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.4); padding: 1rem; }
 .modal { width: 100%; max-width: 28rem; border-radius: 1rem; background: #fff; padding: 1.25rem; }
 @media (max-width: 640px) {
   .form-row > * { flex: 1 1 100%; }
+  .client-summary { grid-template-columns: 1fr; }
   .client-row { flex-direction: column; }
 }
 </style>

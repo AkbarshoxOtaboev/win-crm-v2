@@ -52,6 +52,7 @@ export default {
     NEW: 'Новый',
     CONFIRMED: 'Подтверждён',
     PROCESSING: 'В обработке',
+    READY: 'Готов',
     DELIVERED: 'Доставлен',
     COMPLETED: 'Завершён',
     CANCELLED: 'Отменён',

@@ -4,10 +4,10 @@ import org.springframework.stereotype.Component;
 import uz.script.wincrm.goods.Goods;
 import uz.script.wincrm.goods.enums.Type;
 import uz.script.wincrm.stock.Stock;
+import uz.script.wincrm.stock.StockPieces;
 import uz.script.wincrm.stock.response.StockResponse;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 
 @Component
 public class StockMapper {
@@ -19,22 +19,10 @@ public class StockMapper {
         BigDecimal width = goods != null ? goods.getWidth() : null;
         BigDecimal height = goods != null ? goods.getHeight() : null;
 
-        BigDecimal pieceCount = stock.getPieceCount();
-        BigDecimal kvm = null;
-        if (isWindow) {
-            kvm = count;
-            if (pieceCount == null
-                    && width != null && height != null
-                    && width.compareTo(BigDecimal.ZERO) > 0
-                    && height.compareTo(BigDecimal.ZERO) > 0) {
-                // eski yozuvlar: pieceCount yo'q — kv.m dan hisoblash
-                pieceCount = count
-                        .multiply(BigDecimal.valueOf(10_000))
-                        .divide(width.multiply(height), 4, RoundingMode.HALF_UP);
-            }
-        }
+        BigDecimal kvm = isWindow ? count : null;
+        BigDecimal pieceCount = StockPieces.derive(goods, count);
         if (pieceCount == null) {
-            pieceCount = count;
+            pieceCount = stock.getPieceCount() != null ? stock.getPieceCount() : count;
         }
 
         return StockResponse.builder()

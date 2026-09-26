@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import uz.script.wincrm.audit.AuditAction;
 import uz.script.wincrm.audit.Auditable;
 import uz.script.wincrm.exceptions.AlreadyExistsException;
+import uz.script.wincrm.exceptions.BadRequestException;
 import uz.script.wincrm.exceptions.ResourceNotFoundException;
 import uz.script.wincrm.permissions.Permissions;
 import uz.script.wincrm.permissions.PermissionsRepository;
@@ -120,7 +121,7 @@ public class RoleServiceImplement implements RoleService {
                 .orElseThrow(() -> new ResourceNotFoundException("Permission not found"));
 
         if (role.getPermissions().contains(permission)) {
-            throw new IllegalArgumentException("Permission already assigned to role");
+            throw new BadRequestException("Permission already assigned to role");
         }
 
         role.getPermissions().add(permission);
@@ -144,7 +145,7 @@ public class RoleServiceImplement implements RoleService {
                 .orElseThrow(() -> new ResourceNotFoundException("Permission not found"));
 
         if (!role.getPermissions().contains(permission)) {
-            throw new IllegalArgumentException("Permission is not assigned to role");
+            throw new BadRequestException("Permission is not assigned to role");
         }
 
         role.getPermissions().remove(permission);

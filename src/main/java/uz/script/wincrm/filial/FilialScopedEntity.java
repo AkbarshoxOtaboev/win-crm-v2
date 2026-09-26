@@ -19,8 +19,14 @@ import uz.script.wincrm.utils.BaseEntity;
 @MappedSuperclass
 @NoArgsConstructor
 @AllArgsConstructor
-@FilterDef(name = "filialFilter", parameters = @ParamDef(name = "filialId", type = Long.class))
-@Filter(name = "filialFilter", condition = "filial_id = :filialId")
+@FilterDef(
+        name = "filialFilter",
+        parameters = @ParamDef(name = "filialId", type = Long.class, resolver = CurrentFilialIdResolver.class),
+        defaultCondition = "(:filialId = 0 or filial_id = :filialId)",
+        autoEnabled = true,
+        applyToLoadByKey = true
+)
+@Filter(name = "filialFilter")
 public abstract class FilialScopedEntity extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)

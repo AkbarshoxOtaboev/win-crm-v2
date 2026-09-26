@@ -127,8 +127,24 @@ public class ProductionOrderServiceImpl implements ProductionOrderService {
                         workshopId,
                         List.of(ProductionAssignmentStatus.PENDING, ProductionAssignmentStatus.ACTIVE))
                 .stream()
+                .filter(a -> a.getProductionOrder().getProductionStatus() != ProductionOrderStatus.CANCELLED)
                 .map(a -> toResponse(a.getProductionOrder()))
                 .toList();
+    }
+
+    @Override
+    @Auditable(action = AuditAction.UPDATE, entity = "ProductionOrder")
+    public void cancelForSaleOrder(Long saleOrderId) {
+        productionOrderRepository.findBySaleOrder_Id(saleOrderId).ifPresent(order -> {
+            if (order.getProductionStatus() == ProductionOrderStatus.DONE
+                    || order.getProductionStatus() == ProductionOrderStatus.CANCELLED) {
+                return;
+            }
+            order.setProductionStatus(ProductionOrderStatus.CANCELLED);
+            productionOrderRepository.save(order);
+            recordEvent(order, ProductionEventType.CANCELLED, null, order.getCurrentWorkshop(),
+                    currentUser(), LocalDateTime.now(), "Savdo buyurtmasi bekor qilindi");
+        });
     }
 
     @Override
@@ -162,8 +178,6 @@ public class ProductionOrderServiceImpl implements ProductionOrderService {
 
         recordEvent(order, ProductionEventType.STARTED, null, current.getWorkshop(),
                 currentUser(), now, null);
-
-        workshopBalanceService.creditForAssignment(current, WorkshopBalanceEventType.ACCEPT);
 
         return toResponse(order);
     }
@@ -270,7 +284,7 @@ public class ProductionOrderServiceImpl implements ProductionOrderService {
 
         SaleOrder saleOrder = order.getSaleOrder();
         if (saleOrder.getSalesOrderStatus() == SalesOrderStatus.PROCESSING) {
-            transitionSaleOrder(saleOrder, SalesOrderStatus.DELIVERED);
+            transitionSaleOrder(saleOrder, SalesOrderStatus.READY);
         }
 
         return toResponse(order);

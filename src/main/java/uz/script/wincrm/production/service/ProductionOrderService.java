@@ -24,4 +24,7 @@ public interface ProductionOrderService {
     ProductionOrderResponse complete(Long id, CompleteProductionDTO dto);
 
     List<ProductionEventResponse> timeline(Long id);
+
+    /** Savdo buyurtmasi bekor qilinganda ochiq ishlab chiqarish buyurtmasini bekor qiladi. */
+    void cancelForSaleOrder(Long saleOrderId);
 }

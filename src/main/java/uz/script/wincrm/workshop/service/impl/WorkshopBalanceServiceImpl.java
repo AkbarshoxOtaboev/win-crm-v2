@@ -9,6 +9,7 @@ import uz.script.wincrm.exceptions.ResourceNotFoundException;
 import uz.script.wincrm.production.ProductionAssignment;
 import uz.script.wincrm.production.ProductionOrder;
 import uz.script.wincrm.production.enums.ProductionAssignmentStatus;
+import uz.script.wincrm.production.enums.ProductionOrderStatus;
 import uz.script.wincrm.production.repository.ProductionAssignmentRepository;
 import uz.script.wincrm.sale.SaleOrder;
 import uz.script.wincrm.utils.Status;
@@ -135,7 +136,11 @@ public class WorkshopBalanceServiceImpl implements WorkshopBalanceService {
         List<ProductionAssignment> open = assignmentRepository
                 .findByWorkshop_IdAndAssignmentStatusInOrderByCreatedAtAsc(
                         workshopId,
-                        List.of(ProductionAssignmentStatus.PENDING, ProductionAssignmentStatus.ACTIVE));
+                        List.of(ProductionAssignmentStatus.PENDING, ProductionAssignmentStatus.ACTIVE))
+                .stream()
+                .filter(a -> a.getProductionOrder() == null
+                        || a.getProductionOrder().getProductionStatus() != ProductionOrderStatus.CANCELLED)
+                .toList();
 
         List<ProductionAssignment> done = assignmentRepository
                 .findByWorkshop_IdAndAssignmentStatusInOrderByFinishedAtDesc(

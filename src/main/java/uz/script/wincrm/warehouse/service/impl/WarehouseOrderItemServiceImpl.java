@@ -302,7 +302,7 @@ public class WarehouseOrderItemServiceImpl implements WarehouseOrderItemService 
         BigDecimal kvm = widthCm
                 .multiply(heightCm)
                 .multiply(dtoCount)
-                .divide(BigDecimal.valueOf(10_000), 6, RoundingMode.HALF_UP);
+                .divide(BigDecimal.valueOf(10_000), uz.script.wincrm.stock.StockPieces.SCALE, RoundingMode.HALF_UP);
         log.info("WINDOW kv.m: ({}sm * {}sm * {}) / 10000 = {}", widthCm, heightCm, dtoCount, kvm);
         return kvm;
     }

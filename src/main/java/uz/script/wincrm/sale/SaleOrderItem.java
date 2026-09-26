@@ -52,11 +52,13 @@ public class SaleOrderItem extends FilialScopedEntity {
     @Column(nullable = false)
     private BigDecimal priceSelling;
 
+    @Column(precision = 38, scale = 4)
     private BigDecimal width;
 
+    @Column(precision = 38, scale = 4)
     private BigDecimal height;
 
-    @Column(nullable = false)
+    @Column(nullable = false, precision = 38, scale = 4)
     private BigDecimal count;
     @Column(nullable = false)
     private LocalDateTime arrivalDate;

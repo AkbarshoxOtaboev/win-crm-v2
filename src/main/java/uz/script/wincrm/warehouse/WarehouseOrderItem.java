@@ -47,20 +47,23 @@ public class WarehouseOrderItem extends FilialScopedEntity {
     @Column(nullable = false)
     private BigDecimal priceSelling;
 
+    @Column(precision = 38, scale = 4)
     private BigDecimal weight;
 
+    @Column(precision = 38, scale = 4)
     private BigDecimal height;
 
     /**
      * Miqdor (dona). WINDOW uchun foydalanuvchi kiritgan dona soni.
      * Boshqa turlar uchun count bilan bir xil.
      */
+    @Column(precision = 38, scale = 4)
     private BigDecimal pieceCount;
 
     /**
      * Ombor hisobi: WINDOW uchun kv.m, boshqa turlar uchun miqdor.
      */
-    @Column(nullable = false)
+    @Column(nullable = false, precision = 38, scale = 4)
     private BigDecimal count;
     @Column(nullable = false)
     private LocalDateTime arrivalDate;

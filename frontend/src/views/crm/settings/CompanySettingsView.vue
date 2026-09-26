@@ -337,18 +337,18 @@ onMounted(load)
   padding: 0.75rem;
   color: #166534;
 }
-:global(.dark) .lbl { color: #9ca3af; }
-:global(.dark) .field {
+.dark .lbl { color: #9ca3af; }
+.dark .field {
   border-color: #344054;
   color: rgba(255,255,255,.9);
 }
-:global(.dark) .field::placeholder { color: rgba(255,255,255,.3); }
-:global(.dark) .err {
+.dark .field::placeholder { color: rgba(255,255,255,.3); }
+.dark .err {
   border-color: rgb(239 68 68 / 30%);
   background: rgb(239 68 68 / 10%);
   color: #f87171;
 }
-:global(.dark) .ok {
+.dark .ok {
   border-color: rgb(34 197 94 / 30%);
   background: rgb(34 197 94 / 10%);
   color: #4ade80;

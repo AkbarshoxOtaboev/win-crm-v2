@@ -313,17 +313,17 @@ onMounted(() => {
   background: #465fff;
   color: #fff;
 }
-:global(.dark) .field {
+.dark .field {
   border-color: #344054;
   color: rgba(255,255,255,.9);
 }
-:global(.dark) .ghost {
+.dark .ghost {
   border-color: #344054;
   color: #d1d5db;
 }
-:global(.dark) .page-btn {
+.dark .page-btn {
   border-color: #344054;
   color: #d1d5db;
 }
-:global(.dark) .td { color: #9ca3af; }
+.dark .td { color: #9ca3af; }
 </style>

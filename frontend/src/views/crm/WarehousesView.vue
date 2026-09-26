@@ -212,5 +212,5 @@ onMounted(load)
 }
 .status-toggle.off .status-knob { transform: translateX(0); }
 .status-toggle.on .status-knob { transform: translateX(1.25rem); }
-:global(.dark) .status-toggle.off { background: #4b5563; }
+.dark .status-toggle.off { background: #4b5563; }
 </style>

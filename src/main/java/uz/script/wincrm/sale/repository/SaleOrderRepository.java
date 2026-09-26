@@ -48,6 +48,7 @@ public interface SaleOrderRepository extends JpaRepository<SaleOrder, Long> {
      * Aniq CAST bu muammoni butunlay bartaraf etadi.
      */
     @Query("SELECT so FROM SaleOrder so WHERE so.debtSum > 0 " +
+            "AND so.salesOrderStatus <> uz.script.wincrm.sale.enums.SalesOrderStatus.CANCELLED " +
             "AND (CAST(:startDate AS timestamp) IS NULL OR so.orderDate >= :startDate) " +
             "AND (CAST(:endDate AS timestamp) IS NULL OR so.orderDate <= :endDate) " +
             "AND (CAST(:userId AS long) IS NULL OR so.user.id = :userId)")
@@ -77,6 +78,7 @@ public interface SaleOrderRepository extends JpaRepository<SaleOrder, Long> {
             SELECT so.user, COUNT(so), COALESCE(SUM(so.totalSum), 0)
             FROM SaleOrder so
             WHERE so.user IS NOT NULL
+              AND so.salesOrderStatus <> uz.script.wincrm.sale.enums.SalesOrderStatus.CANCELLED
               AND so.orderDate BETWEEN :startDate AND :endDate
             GROUP BY so.user
             ORDER BY SUM(so.totalSum) DESC
@@ -87,11 +89,13 @@ public interface SaleOrderRepository extends JpaRepository<SaleOrder, Long> {
             Pageable pageable
     );
 
-    @Query("SELECT COALESCE(SUM(s.totalSum), 0) FROM SaleOrder s WHERE s.client.id = :clientId")
+    @Query("SELECT COALESCE(SUM(s.totalSum), 0) FROM SaleOrder s WHERE s.client.id = :clientId " +
+            "AND s.salesOrderStatus <> uz.script.wincrm.sale.enums.SalesOrderStatus.CANCELLED")
     BigDecimal sumTotalSumByClientId(@Param("clientId") Long clientId);
 
     @Query("SELECT COALESCE(SUM(s.totalSum), 0) FROM SaleOrder s " +
-            "WHERE s.client.id = :clientId AND s.orderDate BETWEEN :fromDateTime AND :toDateTime")
+            "WHERE s.client.id = :clientId AND s.orderDate BETWEEN :fromDateTime AND :toDateTime " +
+            "AND s.salesOrderStatus <> uz.script.wincrm.sale.enums.SalesOrderStatus.CANCELLED")
     BigDecimal sumTotalSumByClientIdAndDateRange(
             @Param("clientId") Long clientId,
             @Param("fromDateTime") LocalDateTime fromDateTime,
@@ -103,7 +107,8 @@ public interface SaleOrderRepository extends JpaRepository<SaleOrder, Long> {
      * bitta so'rovda qaytaradi. Natija har doim bitta qatordan iborat bo'ladi:
      * row[0] = buyurtmalar soni (Long), row[1] = umumiy summa (BigDecimal).
      */
-    @Query("SELECT COUNT(so), COALESCE(SUM(so.totalSum), 0) FROM SaleOrder so WHERE so.user.id = :userId")
+    @Query("SELECT COUNT(so), COALESCE(SUM(so.totalSum), 0) FROM SaleOrder so WHERE so.user.id = :userId " +
+            "AND so.salesOrderStatus <> uz.script.wincrm.sale.enums.SalesOrderStatus.CANCELLED")
     List<Object[]> countAndSumByUserId(@Param("userId") Long userId);
 
     /**

@@ -37,10 +37,10 @@ public class StockHistory extends FilialScopedEntity {
     @Column(name = "stock_status", nullable = false)
     private StockStatus stockStatus;
 
-    @Column(nullable = false)
+    @Column(nullable = false, precision = 38, scale = 4)
     private BigDecimal count;
 
-    @Column(name = "balance_after", nullable = false)
+    @Column(name = "balance_after", nullable = false, precision = 38, scale = 4)
     private BigDecimal balanceAfter;
 
     private String comment;

@@ -594,8 +594,8 @@ onMounted(load)
 .badge-ok { background: #ecfdf5; color: #059669; }
 .badge-off { background: #f3f4f6; color: #6b7280; }
 .err { border-radius: 0.5rem; border: 1px solid #fecaca; background: #fef2f2; padding: 0.75rem; color: #dc2626; font-size: 0.875rem; }
-:global(.dark) .m-lbl { color: #9ca3af; }
-:global(.dark) .m-field { border-color: #344054; color: rgba(255, 255, 255, 0.9); }
-:global(.dark) .m-field::placeholder { color: rgba(255, 255, 255, 0.3); }
-:global(.dark) .ghost { border-color: #344054; color: #d1d5db; }
+.dark .m-lbl { color: #9ca3af; }
+.dark .m-field { border-color: #344054; color: rgba(255, 255, 255, 0.9); }
+.dark .m-field::placeholder { color: rgba(255, 255, 255, 0.3); }
+.dark .ghost { border-color: #344054; color: #d1d5db; }
 </style>

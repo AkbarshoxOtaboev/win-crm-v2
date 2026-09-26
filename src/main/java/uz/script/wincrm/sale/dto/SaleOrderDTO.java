@@ -12,6 +12,7 @@ import uz.script.wincrm.sale.enums.DiscountType;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Getter
 @Setter
@@ -65,6 +66,14 @@ public class SaleOrderDTO {
 
     @Schema(description = "Boshlang'ich chegirma qiymati (ixtiyoriy)", example = "10")
     private BigDecimal discountValue;
+
+    /**
+     * Faqat create uchun: buyurtma bilan birga bitta tranzaksiyada yaratiladigan pozitsiyalar.
+     * saleOrderId, clientId, warehouseId va arrivalDate buyurtmadan olinadi. Biror pozitsiyaga
+     * ombor zaxirasi yetmasa, buyurtma ham yaratilmaydi.
+     */
+    @Schema(description = "Create paytida buyurtma bilan birga yaratiladigan pozitsiyalar (ixtiyoriy)")
+    private List<SaleOrderItemDTO> items;
 
     @AssertTrue(message = "Planned ready date orderDate'dan oldin bo'lishi mumkin emas")
     @Schema(hidden = true)

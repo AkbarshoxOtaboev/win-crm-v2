@@ -9,6 +9,7 @@ import uz.script.wincrm.filial.FilialAccess;
 import uz.script.wincrm.goods.Goods;
 import uz.script.wincrm.goods.repository.GoodsRepository;
 import uz.script.wincrm.stock.Stock;
+import uz.script.wincrm.stock.StockPieces;
 import uz.script.wincrm.stock.mapper.StockMapper;
 import uz.script.wincrm.stock.repository.StockRepository;
 import uz.script.wincrm.stock.response.StockResponse;
@@ -74,11 +75,13 @@ public class StockServiceImpl implements StockService {
         BigDecimal pieces = pieceCount != null ? pieceCount : count;
         Stock stock = stockRepository.findByGoodsIdAndWarehouseId(goodsId, warehouseId)
                 .map(existing -> {
-                    existing.setCount(existing.getCount().add(count));
                     BigDecimal existingPieces = existing.getPieceCount() != null
                             ? existing.getPieceCount()
                             : BigDecimal.ZERO;
-                    existing.setPieceCount(existingPieces.add(pieces));
+                    BigDecimal delta = pieceCount != null ? pieceCount : resolvePieceDelta(existing, count, null);
+                    existing.setCount(existing.getCount().add(count));
+                    BigDecimal derived = StockPieces.derive(existing.getGoods(), existing.getCount());
+                    existing.setPieceCount(derived != null ? derived : existingPieces.add(delta));
                     return stockRepository.save(existing);
                 })
                 .orElseGet(() -> {
@@ -87,11 +90,12 @@ public class StockServiceImpl implements StockService {
                     Warehouse warehouse = warehouseRepository.findById(warehouseId)
                             .orElseThrow(() -> new EntityNotFoundException("Warehouse not found with id: " + warehouseId));
 
+                    BigDecimal derived = StockPieces.derive(goods, count);
                     Stock newStock = Stock.builder()
                             .goods(goods)
                             .warehouse(warehouse)
                             .count(count)
-                            .pieceCount(pieces)
+                            .pieceCount(derived != null ? derived : pieces)
                             .status(Status.ACTIVE)
                             .build();
                     filialAccess.attachCurrentFilial(newStock);
@@ -126,7 +130,8 @@ public class StockServiceImpl implements StockService {
         }
 
         stock.setCount(stock.getCount().subtract(count));
-        stock.setPieceCount(currentPieces.subtract(piecesDelta));
+        BigDecimal derived = StockPieces.derive(stock.getGoods(), stock.getCount());
+        stock.setPieceCount(derived != null ? derived : currentPieces.subtract(piecesDelta));
         stockRepository.save(stock);
 
         stockHistoryService.recordOut(goodsId, warehouseId, count, stock.getCount(), "Ombordan mahsulot chiqim qilindi");

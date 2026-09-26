@@ -7,7 +7,10 @@
       :disabled="disabled"
       @click="toggle"
     >
-      <span class="truncate" :class="selectedLabel ? 'text-gray-800' : 'text-gray-400'">
+      <span
+        class="truncate"
+        :class="selectedLabel ? 'text-gray-800 dark:text-white/90' : 'text-gray-400 dark:text-gray-500'"
+      >
         {{ selectedLabel || placeholder }}
       </span>
       <svg class="h-4 w-4 shrink-0 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
@@ -203,5 +206,35 @@ onMounted(() => {})
   text-align: center;
   font-size: 0.8125rem;
   color: #9ca3af;
+}
+.dark .field-btn {
+  border-color: #344054;
+  background: #111827;
+}
+.dark .field-btn.disabled,
+.dark .field-btn:disabled {
+  background: #1f2937;
+  color: #9ca3af;
+}
+.dark .dropdown {
+  border-color: #344054;
+  background: #111827;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.45);
+}
+.dark .search {
+  border-bottom-color: #1f2937;
+  background: #111827;
+  color: rgba(255, 255, 255, 0.9);
+}
+.dark .search::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+.dark .option {
+  color: #d1d5db;
+}
+.dark .option:hover,
+.dark .option.active {
+  background: rgb(70 95 255 / 15%);
+  color: #9cb0ff;
 }
 </style>

@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import uz.script.wincrm.audit.AuditAction;
 import uz.script.wincrm.audit.Auditable;
 import uz.script.wincrm.clients.repository.ClientRepository;
+import uz.script.wincrm.exceptions.BadRequestException;
 import uz.script.wincrm.exceptions.ResourceNotFoundException;
 import uz.script.wincrm.telegram.TelegramSendResult;
 import uz.script.wincrm.telegram.config.TelegramBotLifecycleService;
@@ -33,11 +34,11 @@ public class TelegramMessageServiceImpl implements TelegramMessageService {
 
         switch (result) {
             case SENT -> log.info("Telegram xabar muvaffaqiyatli yuborildi: clientId={}", dto.getClientId());
-            case BOT_NOT_CONNECTED -> throw new IllegalStateException(
+            case BOT_NOT_CONNECTED -> throw new BadRequestException(
                     "Telegram bot hozircha ulanmagan. Admin panelidan bot tokenini tekshiring.");
-            case CLIENT_NOT_LINKED -> throw new IllegalStateException(
+            case CLIENT_NOT_LINKED -> throw new BadRequestException(
                     "Bu mijoz Telegram botdan hali ro'yxatdan o'tmagan (telefon raqami orqali /start bosilmagan).");
-            case SEND_FAILED -> throw new IllegalStateException(
+            case SEND_FAILED -> throw new BadRequestException(
                     "Xabar yuborishda Telegram API xatoligi yuz berdi. Qaytadan urinib ko'ring.");
         }
     }

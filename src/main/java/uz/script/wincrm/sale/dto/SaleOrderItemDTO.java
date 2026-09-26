@@ -37,7 +37,7 @@ public class SaleOrderItemDTO {
     private Long goodsId;
 
     @NotNull(message = "Price cost is required")
-    @DecimalMin(value = "0.0", inclusive = false, message = "Price cost must be greater than 0")
+    @DecimalMin(value = "0.0", inclusive = true, message = "Price cost must not be negative")
     @Schema(description = "Cost price of the product", example = "1000.00", required = true)
     private BigDecimal priceCost;
 

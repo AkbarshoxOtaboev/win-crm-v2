@@ -305,11 +305,11 @@ onMounted(load)
   padding: 1.5rem;
   box-shadow: 0 20px 40px rgb(0 0 0 / 12%);
 }
-:global(.dark) .lbl { color: #9ca3af; }
-:global(.dark) .field {
+.dark .lbl { color: #9ca3af; }
+.dark .field {
   border-color: #344054;
   color: rgba(255,255,255,.9);
 }
-:global(.dark) .ghost { border-color: #344054; color: #d1d5db; }
-:global(.dark) .modal { background: #101828; }
+.dark .ghost { border-color: #344054; color: #d1d5db; }
+.dark .modal { background: #101828; }
 </style>

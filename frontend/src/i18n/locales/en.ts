@@ -52,6 +52,7 @@ export default {
     NEW: 'New',
     CONFIRMED: 'Confirmed',
     PROCESSING: 'Processing',
+    READY: 'Ready',
     DELIVERED: 'Delivered',
     COMPLETED: 'Completed',
     CANCELLED: 'Cancelled',

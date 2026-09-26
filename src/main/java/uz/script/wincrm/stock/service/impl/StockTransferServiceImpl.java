@@ -4,6 +4,7 @@ import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import uz.script.wincrm.exceptions.BadRequestException;
 import uz.script.wincrm.exceptions.InsufficientStockException;
 import uz.script.wincrm.goods.Goods;
 import uz.script.wincrm.goods.repository.GoodsRepository;
@@ -36,7 +37,7 @@ public class StockTransferServiceImpl implements StockTransferService {
     public StockTransferResponse transfer(StockTransferRequest request) {
 
         if (request.getFromWarehouseId().equals(request.getToWarehouseId())) {
-            throw new IllegalArgumentException("fromWarehouseId va toWarehouseId bir xil bo'lishi mumkin emas");
+            throw new BadRequestException("fromWarehouseId va toWarehouseId bir xil bo'lishi mumkin emas");
         }
 
         Goods goods = goodsRepository.findById(request.getGoodsId())

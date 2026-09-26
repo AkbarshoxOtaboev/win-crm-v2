@@ -62,4 +62,16 @@ public interface SaleOrderItemService {
     );
 
     void validateSaleOrderStatus(SaleOrder saleOrder);
+
+    /**
+     * Buyurtmaning barcha faol pozitsiyalarini omborga qaytaradi (SERVICE bundan mustasno).
+     * Buyurtma bekor qilinganda yoki o'chirilganda chaqiriladi.
+     */
+    void returnItemsToStock(Long saleOrderId);
+
+    /**
+     * Buyurtma ombori almashtirilganda faol pozitsiyalarni eski omborga qaytarib,
+     * yangi ombordan (zaxira tekshirilib) chiqim qiladi.
+     */
+    void moveItemsToWarehouse(Long saleOrderId, uz.script.wincrm.warehouse.Warehouse target);
 }

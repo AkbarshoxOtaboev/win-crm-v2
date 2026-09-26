@@ -6,6 +6,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import uz.script.wincrm.exceptions.BadRequestException;
 import uz.script.wincrm.inventory.InventoryCheck;
 import uz.script.wincrm.inventory.InventoryCheckItem;
 import uz.script.wincrm.inventory.enums.InventoryCheckStatus;
@@ -68,7 +69,7 @@ public class InventoryCheckServiceImpl implements InventoryCheckService {
     public InventoryCheckResponse start(StartInventoryCheckRequest request) {
         inventoryCheckRepository.findByWarehouseIdAndCheckStatus(request.getWarehouseId(), InventoryCheckStatus.IN_PROGRESS)
                 .ifPresent(existing -> {
-                    throw new IllegalStateException(
+                    throw new BadRequestException(
                             "Bu ombor uchun allaqachon tugallanmagan (IN_PROGRESS) inventarizatsiya mavjud, id: " + existing.getId());
                 });
 
@@ -124,7 +125,7 @@ public class InventoryCheckServiceImpl implements InventoryCheckService {
 
         boolean hasUncounted = items.stream().anyMatch(item -> item.getActualCount() == null);
         if (hasUncounted) {
-            throw new IllegalStateException("Tasdiqlashdan oldin barcha mahsulotlar sanalishi (actualCount kiritilishi) kerak");
+            throw new BadRequestException("Tasdiqlashdan oldin barcha mahsulotlar sanalishi (actualCount kiritilishi) kerak");
         }
 
         Long warehouseId = inventoryCheck.getWarehouse().getId();
@@ -183,7 +184,7 @@ public class InventoryCheckServiceImpl implements InventoryCheckService {
 
     private void validateInProgress(InventoryCheck inventoryCheck) {
         if (inventoryCheck.getCheckStatus() != InventoryCheckStatus.IN_PROGRESS) {
-            throw new IllegalStateException(
+            throw new BadRequestException(
                     "Bu amal faqat IN_PROGRESS holatidagi inventarizatsiya uchun ruxsat etilgan, joriy holat: "
                             + inventoryCheck.getCheckStatus());
         }

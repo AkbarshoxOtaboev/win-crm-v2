@@ -16,9 +16,12 @@ export interface UserItem {
 }
 
 export interface UserStat {
-  orderCount?: number
-  paymentSum?: number
-  debtSum?: number
+  userId?: number
+  userFullName?: string
+  totalOrdersCount?: number
+  totalOrdersSum?: number
+  totalPaidSum?: number
+  totalDebt?: number
 }
 
 export function fetchUsers() {

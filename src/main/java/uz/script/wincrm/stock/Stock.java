@@ -34,11 +34,13 @@ public class Stock extends FilialScopedEntity {
     @JoinColumn(name = "warehouse_id", nullable = false)
     private Warehouse warehouse;
 
-    @Column(nullable = false)
+    @Column(nullable = false, precision = 38, scale = 4)
     private BigDecimal count;
 
     /**
-     * Miqdor (dona). WINDOW uchun alohida saqlanadi; boshqa turlar uchun count bilan bir xil.
+     * Miqdor (dona). Hosila qiymat: WINDOW uchun count (kv.m) / list yuzasi, boshqa turlar uchun count.
+     * Manba har doim count; bu ustun StockServiceImpl tomonidan count bilan birga yangilanadi.
      */
+    @Column(precision = 38, scale = 4)
     private BigDecimal pieceCount;
 }

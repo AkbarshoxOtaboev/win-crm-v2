@@ -31,13 +31,26 @@ export interface SaleOrderPayload {
   comment?: string
 }
 
+export interface SaleOrderInitialItem {
+  goodsId: number
+  priceCost: number
+  priceSelling: number
+  count: number
+  width?: number
+  height?: number
+}
+
+export interface SaleOrderCreatePayload extends SaleOrderPayload {
+  items?: SaleOrderInitialItem[]
+}
+
 export function fetchSaleOrders(page = 0, size = 50) {
   return apiRequest<RestApiResponse<SpringPage<SaleOrder>>>(
     `/api/sale-orders?page=${page}&size=${size}&sort=id,DESC`,
   )
 }
 
-export function createSaleOrder(payload: SaleOrderPayload) {
+export function createSaleOrder(payload: SaleOrderCreatePayload) {
   return apiRequest<RestApiResponse<SaleOrder>>('/api/sale-orders/create', {
     method: 'POST',
     body: payload,
@@ -107,9 +120,14 @@ export interface SaleOrderDiscountHistory {
 
 export interface SaleOrderImage {
   id: number
+  saleOrderId?: number
   fileName?: string
-  url?: string
-  type?: string
+  originalFileName?: string
+  downloadUrl?: string
+  contentType?: string
+  size?: number
+  imageType?: string
+  createdAt?: string
 }
 
 export function fetchSaleOrderHistory(id: number) {

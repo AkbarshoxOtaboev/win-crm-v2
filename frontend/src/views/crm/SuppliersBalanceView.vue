@@ -43,11 +43,11 @@
         </div>
         <div class="stat stat-green">
           <div class="stat-label">To‘langan</div>
-          <div class="stat-value text-emerald-600">{{ moneySom(totals.paid) }}</div>
+          <div class="stat-value paid">{{ moneySom(totals.paid) }}</div>
         </div>
         <div class="stat stat-red">
           <div class="stat-label">Qarz</div>
-          <div class="stat-value text-red-600">{{ moneySom(totals.debt) }}</div>
+          <div class="stat-value debt">{{ moneySom(totals.debt) }}</div>
         </div>
       </div>
 
@@ -56,7 +56,7 @@
       <div class="overflow-x-auto">
         <table class="min-w-full">
           <thead>
-            <tr class="border-b border-gray-100">
+            <tr class="border-b border-gray-100 dark:border-gray-800">
               <th class="th">ID</th>
               <th class="th">Yetkazib beruvchi</th>
               <th class="th">Xarid summasi</th>
@@ -69,7 +69,7 @@
           <tbody>
             <tr v-if="loading"><td colspan="7" class="empty">Yuklanmoqda...</td></tr>
             <tr v-else-if="filtered.length === 0"><td colspan="7" class="empty">Balans yo‘q</td></tr>
-            <tr v-for="b in filtered" :key="b.supplierId || b.id" class="border-b border-gray-100">
+            <tr v-for="b in filtered" :key="b.supplierId || b.id" class="border-b border-gray-100 dark:border-gray-800">
               <td class="td">{{ b.supplierId || b.id }}</td>
               <td class="td">
                 <router-link class="link" :to="{ path: '/suppliers', query: { id: String(b.supplierId || '') } }">
@@ -183,6 +183,17 @@ onMounted(load)
 .stat-red { border-bottom-color: #ef4444; }
 .stat-label { font-size: 0.8125rem; color: #6b7280; margin-bottom: 0.35rem; }
 .stat-value { font-size: 1.25rem; font-weight: 700; color: #111827; }
+.stat-value.paid { color: #059669; }
+.stat-value.debt { color: #dc2626; }
+.dark .filters { border-bottom-color: #1f2937; }
+.dark .check { color: #d1d5db; }
+.dark .stat-blue { border-bottom-color: #465fff !important; }
+.dark .stat-green { border-bottom-color: #10b981 !important; }
+.dark .stat-red { border-bottom-color: #ef4444 !important; }
+.dark .stat-label { color: #9ca3af; }
+.dark .stat-value { color: rgba(255, 255, 255, 0.92); }
+.dark .stat-value.paid { color: #34d399; }
+.dark .stat-value.debt { color: #f87171; }
 .th { padding: 0.75rem 1rem; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; white-space: nowrap; }
 .td { padding: 0.75rem 1rem; font-size: 0.875rem; color: #4b5563; }
 .empty { padding: 2rem; text-align: center; color: #6b7280; }

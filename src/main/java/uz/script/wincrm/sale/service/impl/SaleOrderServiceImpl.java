@@ -20,6 +20,7 @@ import uz.script.wincrm.sale.dto.ApplyDiscountDTO;
 import uz.script.wincrm.sale.dto.SaleOrderDTO;
 import uz.script.wincrm.sale.dto.SaleOrderDiscountHistoryDTO;
 import uz.script.wincrm.sale.dto.SaleOrderHistoryDTO;
+import uz.script.wincrm.sale.dto.SaleOrderItemDTO;
 import uz.script.wincrm.sale.enums.SalesOrderStatus;
 import uz.script.wincrm.sale.mapper.SaleOrderDiscountHistoryMapper;
 import uz.script.wincrm.sale.mapper.SaleOrderMapper;
@@ -30,7 +31,9 @@ import uz.script.wincrm.sale.response.SaleOrderResponse;
 import uz.script.wincrm.sale.service.DiscountCalculator;
 import uz.script.wincrm.sale.service.SaleOrderDiscountHistoryRecorder;
 import uz.script.wincrm.sale.service.SaleOrderHistoryService;
+import uz.script.wincrm.sale.service.SaleOrderItemService;
 import uz.script.wincrm.sale.service.SaleOrderService;
+import uz.script.wincrm.production.service.ProductionOrderService;
 import uz.script.wincrm.users.User;
 import uz.script.wincrm.users.repository.UserRepository;
 import uz.script.wincrm.utils.Status;
@@ -56,6 +59,8 @@ public class SaleOrderServiceImpl implements SaleOrderService {
     private final UserRepository userRepository;
     private final ClientBalanceService clientBalanceService;
     private final SaleOrderHistoryService saleOrderHistoryService;
+    private final SaleOrderItemService saleOrderItemService;
+    private final ProductionOrderService productionOrderService;
 
     // --- chegirma uchun qo'shilgan bog'liqliklar ---
     private final DiscountCalculator discountCalculator;
@@ -92,6 +97,9 @@ public class SaleOrderServiceImpl implements SaleOrderService {
 
         // Kelgan summa - ASL summa (itemlardan yig'ilganmi yoki to'g'ridan-to'g'ri - farqi yo'q)
         BigDecimal original = dto.getTotalSum();
+        if (original.signum() < 0) {
+            throw new BadRequestException("Buyurtma summasi manfiy bo'lishi mumkin emas");
+        }
         entity.setOriginalTotalSum(original);
 
         // Boshlang'ich holatda chegirma yo'q. Agar create paytida chegirma kelsa, quyida qo'llanadi.
@@ -115,13 +123,46 @@ public class SaleOrderServiceImpl implements SaleOrderService {
             entity = repository.save(entity);
         }
 
-        // ... mavjud sale order item yaratish, stock/stockHistory yangilash ...
+        createInitialItems(entity, dto);
 
         if (entity.getClient() != null) {
             clientBalanceService.recalculateClientBalance(entity.getClient().getId());
         }
 
         return mapper.toResponse(entity);
+    }
+
+    private void createInitialItems(SaleOrder order, SaleOrderDTO dto) {
+        List<SaleOrderItemDTO> items = dto.getItems();
+        if (items == null || items.isEmpty()) {
+            return;
+        }
+        if (order.getClient() == null) {
+            throw new BadRequestException("Pozitsiyali buyurtma uchun mijoz majburiy");
+        }
+        for (SaleOrderItemDTO item : items) {
+            if (item == null || item.getGoodsId() == null) {
+                throw new BadRequestException("Pozitsiyada mahsulot tanlanmagan");
+            }
+            if (item.getCount() == null || item.getCount().signum() <= 0) {
+                throw new BadRequestException("Pozitsiya soni noldan katta bo'lishi kerak");
+            }
+            if (item.getPriceSelling() == null || item.getPriceSelling().signum() <= 0) {
+                throw new BadRequestException("Pozitsiya sotish narxi noldan katta bo'lishi kerak");
+            }
+            if (item.getPriceCost() == null) {
+                item.setPriceCost(BigDecimal.ZERO);
+            } else if (item.getPriceCost().signum() < 0) {
+                throw new BadRequestException("Pozitsiya tannarxi manfiy bo'lishi mumkin emas");
+            }
+            item.setSaleOrderId(order.getId());
+            item.setClientId(order.getClient().getId());
+            item.setWarehouseId(order.getWarehouse().getId());
+            if (item.getArrivalDate() == null) {
+                item.setArrivalDate(order.getOrderDate() != null ? order.getOrderDate() : LocalDateTime.now());
+            }
+            saleOrderItemService.create(item);
+        }
     }
 
     @Override
@@ -188,8 +229,13 @@ public class SaleOrderServiceImpl implements SaleOrderService {
                 .orElseThrow(() -> new ResourceNotFoundException("Sale order not found with id: " + id));
 
         if (dto.getWarehouseId() != null && !dto.getWarehouseId().equals(entity.getWarehouse().getId())) {
+            if (entity.getSalesOrderStatus().isFinal()) {
+                throw new BadRequestException(
+                        "Yakuniy holatdagi (" + entity.getSalesOrderStatus() + ") buyurtmaning omborini o'zgartirib bo'lmaydi");
+            }
             Warehouse warehouse = warehouseRepository.findById(dto.getWarehouseId())
                     .orElseThrow(() -> new ResourceNotFoundException("Warehouse not found with id: " + dto.getWarehouseId()));
+            saleOrderItemService.moveItemsToWarehouse(entity.getId(), warehouse);
             entity.setWarehouse(warehouse);
         }
 
@@ -229,8 +275,20 @@ public class SaleOrderServiceImpl implements SaleOrderService {
         SaleOrder entity = repository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Sale order not found with id: " + id));
 
+        SalesOrderStatus current = entity.getSalesOrderStatus();
+        if (current != SalesOrderStatus.CANCELLED
+                && current != SalesOrderStatus.DELIVERED
+                && current != SalesOrderStatus.COMPLETED) {
+            saleOrderItemService.returnItemsToStock(id);
+            productionOrderService.cancelForSaleOrder(id);
+        }
+
         entity.setStatus(Status.DELETED);
-        repository.save(entity);
+        repository.saveAndFlush(entity);
+
+        if (entity.getClient() != null) {
+            clientBalanceService.recalculateClientBalance(entity.getClient().getId());
+        }
     }
 
     @Override
@@ -256,7 +314,7 @@ public class SaleOrderServiceImpl implements SaleOrderService {
                     "Ishlab chiqarishga yuborish uchun sex tanlang (send-to-production)");
         }
 
-        if (salesOrderStatus == SalesOrderStatus.DELIVERED) {
+        if (salesOrderStatus == SalesOrderStatus.READY || salesOrderStatus == SalesOrderStatus.DELIVERED) {
             productionOrderRepository.findBySaleOrder_Id(id).ifPresent(po -> {
                 if (po.getProductionStatus() != uz.script.wincrm.production.enums.ProductionOrderStatus.DONE) {
                     throw new BadRequestException(
@@ -265,8 +323,13 @@ public class SaleOrderServiceImpl implements SaleOrderService {
             });
         }
 
+        if (salesOrderStatus == SalesOrderStatus.CANCELLED) {
+            saleOrderItemService.returnItemsToStock(id);
+            productionOrderService.cancelForSaleOrder(id);
+        }
+
         entity.setSalesOrderStatus(salesOrderStatus);
-        repository.save(entity);
+        repository.saveAndFlush(entity);
 
         saleOrderHistoryService.recordHistory(
                 SaleOrderHistoryDTO.builder()
@@ -275,6 +338,10 @@ public class SaleOrderServiceImpl implements SaleOrderService {
                         .toStatus(salesOrderStatus)
                         .build()
         );
+
+        if (salesOrderStatus == SalesOrderStatus.CANCELLED && entity.getClient() != null) {
+            clientBalanceService.recalculateClientBalance(entity.getClient().getId());
+        }
     }
 
     @Override

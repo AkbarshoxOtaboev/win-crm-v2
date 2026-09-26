@@ -24,6 +24,7 @@ import uz.script.wincrm.sale.repository.SaleOrderItemRepository;
 import uz.script.wincrm.sale.repository.SaleOrderRepository;
 import uz.script.wincrm.sale.response.SaleOrderItemResponse;
 import uz.script.wincrm.sale.service.SaleOrderItemService;
+import uz.script.wincrm.stock.StockPieces;
 import uz.script.wincrm.stock.service.StockService;
 import uz.script.wincrm.utils.Status;
 import uz.script.wincrm.warehouse.Warehouse;
@@ -99,7 +100,8 @@ public class SaleOrderItemServiceImpl implements SaleOrderItemService {
         // Ombordan mahsulot sotildi -> Stockdan chiqim qilamiz (Stock + StockHistory OUT avtomatik)
         // SERVICE turidagi Goods uchun bu qadam o'tkazib yuboriladi
         if (!isService) {
-            stockService.decreaseStock(dto.getGoodsId(), dto.getWarehouseId(), dto.getCount());
+            stockService.decreaseStock(dto.getGoodsId(), dto.getWarehouseId(), dto.getCount(),
+                    sheetPieces(goods, dto.getCount()));
         }
 
         log.info("Sale order item created successfully. ID: {}", entity.getId());
@@ -200,45 +202,79 @@ public class SaleOrderItemServiceImpl implements SaleOrderItemService {
                 .orElseThrow(() -> new ResourceNotFoundException("Sale order item not found with id: " + id));
         validateSaleOrderStatus(entity.getSaleOrder());
 
-        // ⭐ WINDOW (Oyna) turi uchun count = width * height dan qayta hisoblanadi.
-        //    Update partial bo'lgani uchun yangi qiymat kelmasa, entity'dagi eski qiymat olinadi.
-        //    Bu blok oldCount tekshiruvidan OLDIN turishi shart, aks holda stock noto'g'ri hisoblanadi.
-        if (entity.getGoods().getType() == Type.WINDOW) {
-            BigDecimal width  = dto.getWidth()  != null ? dto.getWidth()  : entity.getWidth();
-            BigDecimal height = dto.getHeight() != null ? dto.getHeight() : entity.getHeight();
-            dto.setCount(resolveCount(entity.getGoods(), width, height, dto.getCount()));
-        }
-
+        Goods oldGoods = entity.getGoods();
         BigDecimal oldCount = entity.getCount();
-        Long goodsId = entity.getGoods().getId();
         Long warehouseId = entity.getWarehouse().getId();
 
-        // ⭐ SERVICE turidagi Goods uchun ombor (Stock) hisob-kitobi yuritilmaydi
-        boolean isService = entity.getGoods().getType() == Type.SERVICE;
+        Goods newGoods = oldGoods;
+        if (dto.getGoodsId() != null && !dto.getGoodsId().equals(oldGoods.getId())) {
+            newGoods = goodsRepository.findById(dto.getGoodsId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Goods not found with id: " + dto.getGoodsId()));
+        }
+        boolean goodsChanged = newGoods != oldGoods;
 
-        // Count o'zgargansa: avval eski miqdorni Stockga qaytaramiz,
-        // shundagina Stock haqiqiy (bo'sh) holatni ko'rsatadi va validatsiya to'g'ri ishlaydi
-        // SERVICE uchun bu blok butunlay o'tkazib yuboriladi
-        if (!isService && !oldCount.equals(dto.getCount())) {
-            log.info("Count changed from {} to {}. Returning old count to stock before validating...",
-                    oldCount, dto.getCount());
+        // WINDOW uchun dto.count - dona (bo'laklar soni), entity.count esa kv.m.
+        // Partial update'da kelmagan qiymatlar mavjud pozitsiyadan olinadi.
+        BigDecimal width = dto.getWidth() != null ? dto.getWidth() : entity.getWidth();
+        BigDecimal height = dto.getHeight() != null ? dto.getHeight() : entity.getHeight();
+        BigDecimal requested = dto.getCount();
+        if (requested == null) {
+            requested = !goodsChanged && oldGoods.getType() == Type.WINDOW
+                    ? windowPieces(entity)
+                    : oldCount;
+        }
+        BigDecimal newCount = resolveCount(newGoods, width, height, requested);
 
-            stockService.increaseStock(goodsId, warehouseId, oldCount);
+        boolean countChanged = oldCount == null || oldCount.compareTo(newCount) != 0;
+        boolean stockChanged = goodsChanged || countChanged;
 
-            validateAndCheckStock(warehouseId, goodsId, dto.getCount());
+        if (stockChanged) {
+            log.info("Sale order item {} changed (goods {} -> {}, count {} -> {}). Returning old quantity to stock.",
+                    id, oldGoods.getId(), newGoods.getId(), oldCount, newCount);
+            returnToStock(entity);
+            if (newGoods.getType() != Type.SERVICE) {
+                validateAndCheckStock(warehouseId, newGoods.getId(), newCount);
+            }
         }
 
         mapper.updateEntity(entity, dto);
+        entity.setGoods(newGoods);
+        entity.setCount(newCount);
+        if (newGoods.getType() == Type.WINDOW) {
+            entity.setWidth(width);
+            entity.setHeight(height);
+        }
 
         entity = repository.save(entity);
 
-        // Count o'zgargan bo'lsa, yangi miqdorni Stockdan qayta chiqim qilamiz
-        // SERVICE uchun bu qadam o'tkazib yuboriladi
-        if (!isService && !oldCount.equals(dto.getCount())) {
-            stockService.decreaseStock(goodsId, warehouseId, dto.getCount());
+        if (stockChanged && newGoods.getType() != Type.SERVICE) {
+            stockService.decreaseStock(newGoods.getId(), warehouseId, newCount, sheetPieces(newGoods, newCount));
         }
 
         return mapper.toResponse(entity);
+    }
+
+    @Override
+    public void moveItemsToWarehouse(Long saleOrderId, Warehouse target) {
+        for (SaleOrderItem item : repository.findAllBySaleOrderId(saleOrderId)) {
+            if (item.getStatus() != Status.ACTIVE) {
+                continue;
+            }
+            if (item.getWarehouse() != null && item.getWarehouse().getId().equals(target.getId())) {
+                continue;
+            }
+            Goods goods = item.getGoods();
+            boolean tracked = goods != null && goods.getType() != Type.SERVICE && item.getCount() != null;
+            if (tracked) {
+                returnToStock(item);
+                validateAndCheckStock(target.getId(), goods.getId(), item.getCount());
+            }
+            item.setWarehouse(target);
+            repository.save(item);
+            if (tracked) {
+                stockService.decreaseStock(goods.getId(), target.getId(), item.getCount(), sheetPieces(goods, item.getCount()));
+            }
+        }
     }
 
     @Override
@@ -256,6 +292,44 @@ public class SaleOrderItemServiceImpl implements SaleOrderItemService {
         validateSaleOrderStatus(entity.getSaleOrder());
         entity.setStatus(Status.DELETED);
         repository.save(entity);
+        returnToStock(entity);
+    }
+
+    @Override
+    public void returnItemsToStock(Long saleOrderId) {
+        for (SaleOrderItem item : repository.findAllBySaleOrderId(saleOrderId)) {
+            if (item.getStatus() == Status.ACTIVE) {
+                returnToStock(item);
+            }
+        }
+    }
+
+    private void returnToStock(SaleOrderItem item) {
+        Goods goods = item.getGoods();
+        if (goods == null || goods.getType() == Type.SERVICE || item.getCount() == null) {
+            return;
+        }
+        stockService.increaseStock(goods.getId(), item.getWarehouse().getId(), item.getCount(),
+                sheetPieces(goods, item.getCount()));
+    }
+
+    /**
+     * Stock.pieceCount WINDOW uchun butun listlar sonini bildiradi (count esa kv.m).
+     * Shuning uchun kv.m listlarga mahsulotning list o'lchami orqali o'tkaziladi. O'lcham
+     * noma'lum bo'lsa null qaytadi va StockService mavjud nisbat bo'yicha proporsional hisoblaydi.
+     */
+    private BigDecimal sheetPieces(Goods goods, BigDecimal count) {
+        return StockPieces.derive(goods, count);
+    }
+
+    private BigDecimal windowPieces(SaleOrderItem item) {
+        BigDecimal w = item.getWidth();
+        BigDecimal h = item.getHeight();
+        if (w == null || h == null || w.signum() <= 0 || h.signum() <= 0 || item.getCount() == null) {
+            return item.getCount();
+        }
+        BigDecimal pieceArea = w.multiply(h).divide(BigDecimal.valueOf(10_000), 6, java.math.RoundingMode.HALF_UP);
+        return item.getCount().divide(pieceArea, 4, java.math.RoundingMode.HALF_UP);
     }
 
     /**
@@ -281,7 +355,7 @@ public class SaleOrderItemServiceImpl implements SaleOrderItemService {
         BigDecimal kvm = width
                 .multiply(height)
                 .multiply(dtoCount)
-                .divide(BigDecimal.valueOf(10_000), 6, java.math.RoundingMode.HALF_UP);
+                .divide(BigDecimal.valueOf(10_000), StockPieces.SCALE, java.math.RoundingMode.HALF_UP);
         log.info("WINDOW kv.m: ({}sm * {}sm * {}) / 10000 = {}", width, height, dtoCount, kvm);
         return kvm;
     }
@@ -368,7 +442,7 @@ public class SaleOrderItemServiceImpl implements SaleOrderItemService {
             throw new BadRequestException(
                     String.format(
                             "Sale Order is %s. You cannot add, update or delete items.",
-                            saleOrder.getStatus()
+                            saleOrder.getSalesOrderStatus()
                     )
             );
         }

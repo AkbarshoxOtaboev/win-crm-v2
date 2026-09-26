@@ -1149,64 +1149,64 @@ onMounted(load)
   font-size: 0.75rem;
   color: #6b7280;
 }
-:global(.dark) .debt-card {
+.dark .debt-card {
   border-color: #344054;
   background: rgb(255 255 255 / 4%);
 }
-:global(.dark) .debt-title {
+.dark .debt-title {
   color: rgba(255, 255, 255, 0.9);
 }
-:global(.dark) .debt-item {
+.dark .debt-item {
   background: #101828;
   border-color: #344054;
 }
-:global(.dark) .debt-item-accent {
+.dark .debt-item-accent {
   background: rgb(240 68 56 / 8%);
   border-color: rgb(240 68 56 / 30%);
 }
-:global(.dark) .debt-val {
+.dark .debt-val {
   color: rgba(255, 255, 255, 0.9);
 }
-:global(.dark) .debt-order-row {
+.dark .debt-order-row {
   background: #101828;
   border-color: #344054;
   color: #d1d5db;
 }
-:global(.dark) .debt-order-row:hover,
-:global(.dark) .debt-order-row.active {
+.dark .debt-order-row:hover,
+.dark .debt-order-row.active {
   border-color: #465fff;
   background: rgb(70 95 255 / 12%);
 }
-:global(.dark) .lbl,
-:global(.dark) .lbl-block {
+.dark .lbl,
+.dark .lbl-block {
   color: #9ca3af;
 }
-:global(.dark) .field {
+.dark .field {
   border-color: #344054;
   color: rgba(255, 255, 255, 0.9);
 }
-:global(.dark) .ghost,
-:global(.dark) .icon-btn,
-:global(.dark) .tab {
+.dark .ghost,
+.dark .icon-btn,
+.dark .tab {
   border-color: #344054;
   color: #d1d5db;
   background: transparent;
 }
-:global(.dark) .icon-btn:hover,
-:global(.dark) .close-btn:hover {
+.dark .icon-btn:hover,
+.dark .close-btn:hover {
   background: rgb(255 255 255 / 5%);
   color: rgba(255, 255, 255, 0.8);
 }
-:global(.dark) .modal {
+.dark .modal {
   background: #101828;
   border: 1px solid #344054;
 }
-:global(.dark) .type-badge {
+.dark .type-badge {
   border-color: #344054;
   background: rgb(255 255 255 / 4%);
   color: #d1d5db;
 }
-:global(.dark) .td {
+.dark .td {
   color: #9ca3af;
 }
 </style>

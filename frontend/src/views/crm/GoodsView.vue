@@ -602,7 +602,7 @@ onBeforeUnmount(revokeLocalPreview)
 }
 .status-toggle.off .status-knob { transform: translateX(0); }
 .status-toggle.on .status-knob { transform: translateX(1.25rem); }
-:global(.dark) .card, :global(.dark) .modal { background: #111827; border-color: #1f2937; }
-:global(.dark) .title { color: rgba(255,255,255,.9); }
-:global(.dark) .status-toggle.off { background: #4b5563; }
+.dark .card, .dark .modal { background: #111827; border-color: #1f2937; }
+.dark .title { color: rgba(255,255,255,.9); }
+.dark .status-toggle.off { background: #4b5563; }
 </style>

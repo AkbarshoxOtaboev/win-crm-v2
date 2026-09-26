@@ -221,11 +221,12 @@ const chartUi = computed(() => {
   }
 })
 
-const STATUS_KEYS = ['NEW', 'CONFIRMED', 'PROCESSING', 'DELIVERED', 'COMPLETED', 'CANCELLED'] as const
+const STATUS_KEYS = ['NEW', 'CONFIRMED', 'PROCESSING', 'READY', 'DELIVERED', 'COMPLETED', 'CANCELLED'] as const
 const STATUS_COLORS: Record<(typeof STATUS_KEYS)[number], string> = {
   NEW: '#3b82f6',
   CONFIRMED: '#fbbf24',
   PROCESSING: '#f97316',
+  READY: '#8b5cf6',
   DELIVERED: '#34d399',
   COMPLETED: '#059669',
   CANCELLED: '#ef4444',
@@ -239,7 +240,7 @@ const STATUS_DEFS = computed(() =>
   })),
 )
 
-const IN_PROGRESS = new Set(['NEW', 'CONFIRMED', 'PROCESSING', 'DELIVERED'])
+const IN_PROGRESS = new Set(['NEW', 'CONFIRMED', 'PROCESSING', 'READY', 'DELIVERED'])
 
 const error = ref<string | null>(null)
 const loading = ref(false)

@@ -9,6 +9,7 @@ public enum SalesOrderStatus {
     NEW,
     CONFIRMED,
     PROCESSING,
+    READY,
     DELIVERED,
     COMPLETED,
     CANCELLED;
@@ -17,8 +18,9 @@ public enum SalesOrderStatus {
 
     static {
         TRANSITIONS.put(NEW, EnumSet.of(CONFIRMED, CANCELLED));
-        TRANSITIONS.put(CONFIRMED, EnumSet.of(PROCESSING, CANCELLED));
-        TRANSITIONS.put(PROCESSING, EnumSet.of(DELIVERED, CANCELLED));
+        TRANSITIONS.put(CONFIRMED, EnumSet.of(PROCESSING, READY, CANCELLED));
+        TRANSITIONS.put(PROCESSING, EnumSet.of(READY, CANCELLED));
+        TRANSITIONS.put(READY, EnumSet.of(DELIVERED, CANCELLED));
         TRANSITIONS.put(DELIVERED, EnumSet.of(COMPLETED, CANCELLED));
         TRANSITIONS.put(COMPLETED, EnumSet.noneOf(SalesOrderStatus.class));
         TRANSITIONS.put(CANCELLED, EnumSet.noneOf(SalesOrderStatus.class));

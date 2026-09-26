@@ -249,7 +249,7 @@ public class WarehouseOrderServiceImpl implements WarehouseOrderService {
                 .orElseThrow(() -> new ResourceNotFoundException("Warehouse order not found with id: " + id));
 
         if (order.getOrderStatus() == WarehouseOrderStatus.TRANSFERRED) {
-            throw new IllegalStateException("Order allaqachon omborga transfer qilingan: " + id);
+            throw new BadRequestException("Order allaqachon omborga transfer qilingan: " + id);
         }
 
         List<WarehouseOrderItem> items = warehouseOrderItemRepository.findAllByWarehouseOrderId(id)
@@ -258,7 +258,7 @@ public class WarehouseOrderServiceImpl implements WarehouseOrderService {
                 .toList();
 
         if (items.isEmpty()) {
-            throw new IllegalStateException("Item'lari yo'q orderni transfer qilib bo'lmaydi: " + id);
+            throw new BadRequestException("Item'lari yo'q orderni transfer qilib bo'lmaydi: " + id);
         }
 
         for (WarehouseOrderItem item : items) {
@@ -305,11 +305,11 @@ public class WarehouseOrderServiceImpl implements WarehouseOrderService {
         TelegramSendResult result = telegramBotLifecycleService.sendMessageToPhone(supplier.getPhone(), message);
         switch (result) {
             case SENT -> log.info("Warehouse order Telegram sent. OrderId: {}, SupplierId: {}", id, supplier.getId());
-            case BOT_NOT_CONNECTED -> throw new IllegalStateException(
+            case BOT_NOT_CONNECTED -> throw new BadRequestException(
                     "Telegram bot hozircha ulanmagan. Admin panelidan bot tokenini tekshiring.");
-            case CLIENT_NOT_LINKED -> throw new IllegalStateException(
+            case CLIENT_NOT_LINKED -> throw new BadRequestException(
                     "Yetkazuvchi Telegram botdan hali ro'yxatdan o'tmagan (telefon raqami orqali /start bosilmagan).");
-            case SEND_FAILED -> throw new IllegalStateException(
+            case SEND_FAILED -> throw new BadRequestException(
                     "Xabar yuborishda Telegram API xatoligi yuz berdi. Qaytadan urinib ko'ring.");
         }
     }

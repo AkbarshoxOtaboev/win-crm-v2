@@ -232,7 +232,7 @@ onMounted(async () => {
   border: 1px solid #e5e7eb;
   background: #fff;
 }
-:global(.dark) .card {
+.dark .card {
   border-color: #1f2937;
   background: rgb(255 255 255 / 0.03);
 }
@@ -243,7 +243,7 @@ onMounted(async () => {
   padding: 1.25rem;
   border-top: 3px solid var(--accent);
 }
-:global(.dark) .stat-card {
+.dark .stat-card {
   border-color: #1f2937;
   background: rgb(255 255 255 / 0.03);
 }
@@ -258,7 +258,7 @@ onMounted(async () => {
   font-weight: 700;
   color: #1f2937;
 }
-:global(.dark) .stat-card .count {
+.dark .stat-card .count {
   color: rgb(255 255 255 / 0.9);
 }
 .stat-card .sum {

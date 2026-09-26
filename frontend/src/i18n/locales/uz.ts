@@ -52,6 +52,7 @@ export default {
     NEW: 'Yangi',
     CONFIRMED: 'Tasdiqlangan',
     PROCESSING: 'Jarayonda',
+    READY: 'Tayyor',
     DELIVERED: 'Yetkazilgan',
     COMPLETED: 'Yakunlangan',
     CANCELLED: 'Bekor qilingan',
