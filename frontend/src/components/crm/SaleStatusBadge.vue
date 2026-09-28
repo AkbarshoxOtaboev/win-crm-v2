@@ -38,6 +38,7 @@ const label = computed(() => {
 .badge-confirmed { background: #fffbeb; color: #b45309; }
 .badge-processing { background: #fff7ed; color: #c2410c; }
 .badge-ready { background: #f5f3ff; color: #7c3aed; }
+.badge-in_delivery { background: #ecfeff; color: #0e7490; }
 .badge-delivered { background: #ecfdf5; color: #059669; }
 .badge-completed { background: #d1fae5; color: #047857; }
 .badge-cancelled { background: #fef2f2; color: #dc2626; }
@@ -46,6 +47,7 @@ const label = computed(() => {
 .dark .badge-confirmed { background: rgb(245 158 11 / 15%); color: #fcd34d; }
 .dark .badge-processing { background: rgb(249 115 22 / 15%); color: #fdba74; }
 .dark .badge-ready { background: rgb(139 92 246 / 18%); color: #c4b5fd; }
+.dark .badge-in_delivery { background: rgb(6 182 212 / 15%); color: #67e8f9; }
 .dark .badge-delivered { background: rgb(16 185 129 / 15%); color: #6ee7b7; }
 .dark .badge-completed { background: rgb(5 150 105 / 25%); color: #34d399; }
 .dark .badge-cancelled { background: rgb(239 68 68 / 15%); color: #fca5a5; }

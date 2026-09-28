@@ -230,14 +230,13 @@ import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import {
   ArrowLeftRight,
-  BarChart3,
   Box,
   Building2,
   ClipboardList,
   FileText,
   Files,
-  Folder,
   Factory,
+  HardHat,
   History,
   LayoutGrid,
   List,
@@ -247,6 +246,7 @@ import {
   Settings,
   Shield,
   ShieldCheck,
+  Truck,
   UserCircle,
 } from 'lucide-vue-next'
 
@@ -283,6 +283,7 @@ interface SubItem {
   match?: (path: string) => boolean
   pro?: boolean
   new?: boolean
+  perm?: string[]
 }
 
 interface MenuItem {
@@ -292,6 +293,7 @@ interface MenuItem {
   subItems?: SubItem[]
   new?: boolean
   pro?: boolean
+  perm?: string[]
 }
 
 interface MenuGroup {
@@ -299,11 +301,11 @@ interface MenuGroup {
   items: MenuItem[]
 }
 
-const menuGroups = computed<MenuGroup[]>(() => {
+const rawMenuGroups = computed<MenuGroup[]>(() => {
   const productionSubItems: SubItem[] = [
-    { name: t('nav.productionDashboard'), path: '/production/dashboard', icon: LayoutGrid, exact: true },
-    { name: t('nav.productionBoard'), path: '/production/board', icon: LayoutGrid, exact: true },
-    { name: t('nav.workshops'), path: '/workshops', icon: Factory, exact: true },
+    { name: t('nav.productionDashboard'), path: '/production/dashboard', icon: LayoutGrid, exact: true, perm: ['PRODUCTION_ORDER_VIEW'] },
+    { name: t('nav.productionBoard'), path: '/production/board', icon: LayoutGrid, exact: true, perm: ['PRODUCTION_ORDER_VIEW'] },
+    { name: t('nav.workshops'), path: '/workshops', icon: Factory, exact: true, perm: ['WORKSHOP_VIEW'] },
   ]
 
   if (!auth.isProductionManagerOnly) {
@@ -312,6 +314,7 @@ const menuGroups = computed<MenuGroup[]>(() => {
       path: '/production',
       icon: ClipboardList,
       exact: true,
+      perm: ['PRODUCTION_ORDER_VIEW'],
     })
   }
 
@@ -321,11 +324,31 @@ const menuGroups = computed<MenuGroup[]>(() => {
     subItems: productionSubItems,
   }
 
+  const transportItem: MenuItem = {
+    icon: Truck,
+    name: t('nav.transportMenu'),
+    subItems: [
+      { name: t('nav.transportDashboard'), path: '/transport/dashboard', icon: LayoutGrid, exact: true },
+      { name: t('nav.transportOrders'), path: '/transport/orders', icon: ClipboardList, exact: true },
+      { name: t('nav.transportDrivers'), path: '/transport/drivers', icon: Truck, exact: true },
+      { name: t('nav.transportWorkers'), path: '/transport/workers', icon: HardHat, exact: true },
+    ],
+  }
+
   if (auth.isProductionManagerOnly) {
     return [
       {
         title: t('nav.main'),
         items: [productionItem],
+      },
+    ]
+  }
+
+  if (auth.isTransportManagerOnly) {
+    return [
+      {
+        title: t('nav.main'),
+        items: [transportItem],
       },
     ]
   }
@@ -339,41 +362,43 @@ const menuGroups = computed<MenuGroup[]>(() => {
         icon: PieChartIcon,
         name: t('nav.sales'),
         subItems: [
-          { name: t('nav.salesDashboard'), path: '/sales/dashboard', icon: LayoutGrid, exact: true },
+          { name: t('nav.salesDashboard'), path: '/sales/dashboard', icon: LayoutGrid, exact: true, perm: ['SALE_ORDER_VIEW'] },
           {
             name: t('nav.salesOrders'),
             path: '/sales',
             icon: ClipboardList,
             match: isSalesOrdersPath,
+            perm: ['SALE_ORDER_VIEW'],
           },
-          { name: t('nav.salesReport'), path: '/sales/report', icon: List, exact: true },
-          { name: t('nav.salesWaste'), path: '/sales/wastes', icon: FileText, exact: true },
+          { name: t('nav.salesReport'), path: '/sales/report', icon: List, exact: true, perm: ['SALE_ORDER_VIEW'] },
+          { name: t('nav.salesWaste'), path: '/sales/wastes', icon: FileText, exact: true, perm: ['SALE_ORDER_WASTE_VIEW'] },
         ],
       },
       {
         icon: BoxIcon,
         name: t('nav.suppliers'),
         subItems: [
-          { name: t('nav.suppliersList'), path: '/suppliers', icon: ClipboardList, exact: true },
-          { name: t('nav.suppliersBalance'), path: '/suppliers/balances', icon: PieChartIcon },
+          { name: t('nav.suppliersList'), path: '/suppliers', icon: ClipboardList, exact: true, perm: ['SUPPLIER_VIEW'] },
+          { name: t('nav.suppliersBalance'), path: '/suppliers/balances', icon: PieChartIcon, perm: ['SUPPLIER_BALANCE_VIEW'] },
         ],
       },
       {
         icon: Package,
         name: t('nav.warehouseMenu'),
         subItems: [
-          { name: t('nav.goods'), path: '/goods', icon: BoxIcon },
-          { name: t('nav.inbound'), path: '/warehouse-orders', icon: ClipboardList },
-          { name: t('nav.stock'), path: '/stock', icon: Box, exact: true },
-          { name: t('nav.stockHistory'), path: '/stock/history', icon: History },
-          { name: t('nav.inventory'), path: '/inventory', icon: Files },
-          { name: t('nav.transfers'), path: '/stock/transfers', icon: ArrowLeftRight },
-          { name: t('nav.warehouses'), path: '/warehouses', icon: Package },
+          { name: t('nav.goods'), path: '/goods', icon: BoxIcon, perm: ['GOODS_VIEW'] },
+          { name: t('nav.inbound'), path: '/warehouse-orders', icon: ClipboardList, perm: ['WAREHOUSE_ORDER_VIEW'] },
+          { name: t('nav.stock'), path: '/stock', icon: Box, exact: true, perm: ['STOCK_VIEW'] },
+          { name: t('nav.stockHistory'), path: '/stock/history', icon: History, perm: ['STOCK_HISTORIES_VIEW'] },
+          { name: t('nav.inventory'), path: '/inventory', icon: Files, perm: ['INVENTORY_VIEW'] },
+          { name: t('nav.transfers'), path: '/stock/transfers', icon: ArrowLeftRight, perm: ['STOCK_VIEW'] },
+          { name: t('nav.warehouses'), path: '/warehouses', icon: Package, perm: ['WAREHOUSE_VIEW'] },
         ],
       },
       productionItem,
-      { icon: PieChartIcon, name: t('nav.payments'), path: '/payments' },
-      { icon: UserGroupIcon, name: t('nav.clients'), path: '/clients' },
+      ...(auth.canAccessTransport ? [transportItem] : []),
+      { icon: PieChartIcon, name: t('nav.payments'), path: '/payments', perm: ['PAYMENT_VIEW', 'PAYMENT_TYPE_VIEW'] },
+      { icon: UserGroupIcon, name: t('nav.clients'), path: '/clients', perm: ['CLIENT_VIEW'] },
       ...(auth.canManageEmployees
         ? [{ icon: UserCircleIcon, name: t('nav.employees'), path: '/employees' }]
         : []),
@@ -382,8 +407,8 @@ const menuGroups = computed<MenuGroup[]>(() => {
   {
     title: t('nav.finance'),
     items: [
-      { icon: TaskIcon, name: t('nav.expenses'), path: '/expenses' },
-      { icon: DocsIcon, name: t('nav.salary'), path: '/salary' },
+      { icon: TaskIcon, name: t('nav.expenses'), path: '/expenses', perm: ['EXPENSE_VIEW'] },
+      { icon: DocsIcon, name: t('nav.salary'), path: '/salary', perm: ['SALARY_CONFIG_VIEW', 'SALARY_TRANSACTION_VIEW', 'SALARY_SLIP_VIEW'] },
     ],
   },
   {
@@ -396,16 +421,13 @@ const menuGroups = computed<MenuGroup[]>(() => {
               name: t('nav.settings'),
               subItems: [
                 { name: t('nav.generalSettings'), path: '/settings', icon: Settings, exact: true },
-                { name: t('nav.filials'), path: '/settings/filials', icon: Building2 },
                 { name: t('nav.users'), path: '/settings/users', icon: UserCircle },
-                { name: t('nav.sessions'), path: '/settings/sessions', icon: Plug },
                 { name: t('nav.roles'), path: '/settings/roles', icon: Shield },
+                { name: t('nav.filials'), path: '/settings/filials', icon: Building2 },
                 { name: t('nav.company'), path: '/settings/company', icon: Files },
                 { name: t('nav.telegram'), path: '/settings/telegram', icon: Plug },
                 { name: t('nav.eskiz'), path: '/settings/eskiz', icon: Send },
-                { name: t('nav.units'), path: '/settings/units', icon: List },
-                { name: t('nav.paymentTypes'), path: '/settings/payment-types', icon: BarChart3 },
-                { name: t('nav.expenseCategories'), path: '/settings/expense-categories', icon: Folder },
+                { name: t('nav.sessions'), path: '/settings/sessions', icon: Plug },
                 { name: t('nav.audit'), path: '/settings/audit', icon: ShieldCheck },
               ],
             },
@@ -416,6 +438,22 @@ const menuGroups = computed<MenuGroup[]>(() => {
   },
 ]
 })
+
+const allowed = (perm?: string[]) => !perm || auth.can(...perm)
+
+const menuGroups = computed<MenuGroup[]>(() =>
+  rawMenuGroups.value
+    .map((group) => ({
+      ...group,
+      items: group.items
+        .filter((item) => allowed(item.perm))
+        .map((item) =>
+          item.subItems ? { ...item, subItems: item.subItems.filter((s) => allowed(s.perm)) } : item,
+        )
+        .filter((item) => !item.subItems || item.subItems.length > 0),
+    }))
+    .filter((group) => group.items.length > 0),
+)
 
 const isActive = (path?: string, exact = false, match?: (path: string) => boolean) => {
   if (match) return match(route.path)

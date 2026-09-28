@@ -1,27 +1,27 @@
 <template>
   <AdminLayout>
-    <PageBreadcrumb pageTitle="To‘lov turlari" />
+    <PageBreadcrumb :pageTitle="t('nav.paymentTypes')" />
     <div v-if="error" class="err mb-4">{{ error }}</div>
     <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
       <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-800">
-        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">To‘lov turlari</h3>
-        <button type="button" class="btn" :disabled="writeBlocked" @click="openCreate">+ Yangi</button>
+        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('nav.paymentTypes') }}</h3>
+        <button type="button" class="btn" :disabled="writeBlocked" @click="openCreate">{{ t('common.new') }}</button>
       </div>
       <table class="min-w-full">
         <thead>
           <tr class="border-b border-gray-100 dark:border-gray-800">
             <th class="th">#</th>
-            <th class="th">Nomi</th>
-            <th class="th text-right">Amallar</th>
+            <th class="th">{{ t('common.name') }}</th>
+            <th class="th text-right">{{ t('common.actions') }}</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="t in items" :key="t.id" class="border-b border-gray-100 dark:border-gray-800">
-            <td class="td">{{ t.id }}</td>
-            <td class="td font-medium">{{ t.name }}</td>
-            <td class="td text-right"><RowActions @edit="openEdit(t)" @delete="onDelete(t)" /></td>
+          <tr v-for="pt in items" :key="pt.id" class="border-b border-gray-100 dark:border-gray-800">
+            <td class="td">{{ pt.id }}</td>
+            <td class="td font-medium">{{ pt.name }}</td>
+            <td class="td text-right"><RowActions @edit="openEdit(pt)" @delete="onDelete(pt)" /></td>
           </tr>
-          <tr v-if="items.length === 0"><td colspan="3" class="empty">Tur yo‘q</td></tr>
+          <tr v-if="items.length === 0"><td colspan="3" class="empty">{{ t('settings.paymentTypes.empty') }}</td></tr>
         </tbody>
       </table>
     </div>
@@ -29,10 +29,10 @@
     <div v-if="modal" class="overlay">
       <div class="modal">
         <form class="space-y-3" @submit.prevent="onSave">
-          <input v-model="name" required class="field" placeholder="Nomi *" />
+          <input v-model="name" required class="field" :placeholder="t('shared.nameRequired')" />
           <div class="flex justify-end gap-2">
-            <button type="button" class="ghost" @click="modal = false">Bekor</button>
-            <button type="submit" class="btn">Saqlash</button>
+            <button type="button" class="ghost" @click="modal = false">{{ t('common.cancel') }}</button>
+            <button type="submit" class="btn">{{ t('common.save') }}</button>
           </div>
         </form>
       </div>
@@ -42,6 +42,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import RowActions from '@/components/crm/RowActions.vue'
@@ -55,6 +56,7 @@ import {
 import { formatApiError } from '@/api/http'
 import { useFilialScope } from '@/composables/useFilialScope'
 
+const { t } = useI18n()
 const { writeBlocked } = useFilialScope()
 const items = ref<PaymentType[]>([])
 const error = ref<string | null>(null)
@@ -77,9 +79,9 @@ function openCreate() {
   modal.value = true
 }
 
-function openEdit(t: PaymentType) {
-  editingId.value = t.id
-  name.value = t.name
+function openEdit(pt: PaymentType) {
+  editingId.value = pt.id
+  name.value = pt.name
   modal.value = true
 }
 
@@ -94,10 +96,10 @@ async function onSave() {
   }
 }
 
-async function onDelete(t: PaymentType) {
-  if (!confirm(`“${t.name}” o‘chirilsinmi?`)) return
+async function onDelete(pt: PaymentType) {
+  if (!confirm(t('common.deleteConfirmNamed', { name: pt.name }))) return
   try {
-    await deletePaymentType(t.id)
+    await deletePaymentType(pt.id)
     await load()
   } catch (e) {
     error.value = formatApiError(e)

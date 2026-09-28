@@ -5,6 +5,9 @@ import en from './locales/en'
 
 export type AppLocale = 'uz' | 'ru' | 'en'
 
+type Messages = { [key: string]: string | string[] | Messages }
+type PageMessages = Record<AppLocale, Messages>
+
 const STORAGE_KEY = 'wincrm_locale'
 
 export function getStoredLocale(): AppLocale {
@@ -18,11 +21,28 @@ export function storeLocale(locale: AppLocale) {
   document.documentElement.lang = locale
 }
 
+/**
+ * Each file in ./pages exports `{ uz, ru, en }` and is mounted under a namespace equal to its file name,
+ * e.g. ./pages/suppliers.ts -> t('suppliers.title').
+ */
+const pageModules = import.meta.glob<{ default: PageMessages }>('./pages/*.ts', { eager: true })
+
+function buildMessages(): Record<AppLocale, Messages> {
+  const messages = { uz: { ...uz }, ru: { ...ru }, en: { ...en } } as Record<AppLocale, Messages>
+  for (const [path, mod] of Object.entries(pageModules)) {
+    const ns = path.replace(/^.*\//, '').replace(/\.ts$/, '')
+    for (const locale of ['uz', 'ru', 'en'] as AppLocale[]) {
+      messages[locale][ns] = mod.default[locale] ?? mod.default.uz
+    }
+  }
+  return messages
+}
+
 const i18n = createI18n({
   legacy: false,
   locale: getStoredLocale(),
   fallbackLocale: 'uz',
-  messages: { uz, ru, en },
+  messages: buildMessages(),
 })
 
 storeLocale(getStoredLocale())

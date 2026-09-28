@@ -1,8 +1,8 @@
 <template>
   <AdminLayout>
-    <PageBreadcrumb pageTitle="Transferlar" />
+    <PageBreadcrumb :pageTitle="t('stockTransfers.breadcrumb')" />
     <div class="mb-4 flex flex-wrap items-center gap-2">
-      <button type="button" class="btn ms-auto" :disabled="writeBlocked" @click="showTransfer = true">+ Transfer</button>
+      <button type="button" class="btn ms-auto" :disabled="writeBlocked" @click="showTransfer = true">{{ t('stockTransfers.newTransfer') }}</button>
     </div>
     <div v-if="error" class="err mb-4">{{ error }}</div>
 
@@ -11,15 +11,15 @@
         <thead>
           <tr class="border-b border-gray-100 dark:border-gray-800">
             <th class="th">#</th>
-            <th class="th">Mahsulot</th>
-            <th class="th">Dan</th>
-            <th class="th">Ga</th>
-            <th class="th">Soni</th>
+            <th class="th">{{ t('common.product') }}</th>
+            <th class="th">{{ t('common.from') }}</th>
+            <th class="th">{{ t('stockTransfers.to') }}</th>
+            <th class="th">{{ t('common.count') }}</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-if="loading"><td colspan="5" class="empty">Yuklanmoqda...</td></tr>
-          <tr v-else-if="transfers.length === 0"><td colspan="5" class="empty">Transfer yo‘q</td></tr>
+          <tr v-if="loading"><td colspan="5" class="empty">{{ t('common.loading') }}</td></tr>
+          <tr v-else-if="transfers.length === 0"><td colspan="5" class="empty">{{ t('stockTransfers.empty') }}</td></tr>
           <tr v-for="t in transfers" :key="t.id" class="border-b border-gray-100 dark:border-gray-800">
             <td class="td">{{ t.id }}</td>
             <td class="td">{{ t.goodsName || t.goodsId }}</td>
@@ -33,26 +33,26 @@
 
     <div v-if="showTransfer" class="overlay">
       <div class="modal">
-        <h3 class="mb-4 text-lg font-semibold">Stock transfer</h3>
+        <h3 class="mb-4 text-lg font-semibold">{{ t('stockTransfers.modalTitle') }}</h3>
         <div v-if="formError" class="err mb-3">{{ formError }}</div>
         <form class="space-y-3" @submit.prevent="onTransfer">
           <select v-model.number="transfer.goodsId" required class="field">
-            <option :value="0" disabled>Mahsulot</option>
+            <option :value="0" disabled>{{ t('common.product') }}</option>
             <option v-for="g in goodsOptions" :key="g.id" :value="g.id">{{ g.name }}</option>
           </select>
           <select v-model.number="transfer.fromWarehouseId" required class="field">
-            <option :value="0" disabled>Qayerdan</option>
+            <option :value="0" disabled>{{ t('stockTransfers.fromPlaceholder') }}</option>
             <option v-for="w in warehouses" :key="w.id" :value="w.id">{{ w.name }}</option>
           </select>
           <select v-model.number="transfer.toWarehouseId" required class="field">
-            <option :value="0" disabled>Qayerga</option>
+            <option :value="0" disabled>{{ t('stockTransfers.toPlaceholder') }}</option>
             <option v-for="w in warehouses" :key="'t' + w.id" :value="w.id">{{ w.name }}</option>
           </select>
           <input v-model.number="transfer.count" type="number" min="0.01" step="0.01" required class="field" />
-          <input v-model="transfer.comment" class="field" placeholder="Izoh" />
+          <input v-model="transfer.comment" class="field" :placeholder="t('common.comment')" />
           <div class="flex justify-end gap-2">
-            <button type="button" class="ghost" @click="showTransfer = false">Bekor</button>
-            <button type="submit" class="btn" :disabled="saving || writeBlocked">Transfer</button>
+            <button type="button" class="ghost" @click="showTransfer = false">{{ t('common.cancel') }}</button>
+            <button type="submit" class="btn" :disabled="saving || writeBlocked">{{ t('stockTransfers.submit') }}</button>
           </div>
         </form>
       </div>
@@ -62,6 +62,7 @@
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import {
@@ -74,6 +75,7 @@ import { fetchGoods, type Goods } from '@/api/goods'
 import { formatApiError } from '@/api/http'
 import { useFilialScope } from '@/composables/useFilialScope'
 
+const { t } = useI18n()
 const { writeBlocked } = useFilialScope()
 const transfers = ref<StockTransfer[]>([])
 const warehouses = ref<Warehouse[]>([])

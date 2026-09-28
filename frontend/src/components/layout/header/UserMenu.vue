@@ -85,7 +85,7 @@ import { getAvatarPreference, type AvatarPreference } from '@/utils/avatar'
 const { t } = useI18n()
 const router = useRouter()
 const auth = useAuthStore()
-const displayName = computed(() => auth.username || 'User')
+const displayName = computed(() => auth.username || t('common.user'))
 const dropdownOpen = ref(false)
 const dropdownRef = ref<HTMLElement | null>(null)
 const avatarPref = ref<AvatarPreference>(getAvatarPreference(auth.username))

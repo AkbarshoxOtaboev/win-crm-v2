@@ -1,26 +1,26 @@
 <template>
   <AdminLayout>
-    <PageBreadcrumb pageTitle="Filiallar" />
+    <PageBreadcrumb :pageTitle="t('nav.filials')" />
     <div v-if="error" class="err mb-4">{{ error }}</div>
 
     <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
       <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-800">
         <div>
-          <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Filiallar</h3>
-          <p class="mt-1 text-sm text-gray-500">Har bir filial o‘z ombor, savdo, mijoz va to‘lovlariga ega</p>
+          <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('nav.filials') }}</h3>
+          <p class="mt-1 text-sm text-gray-500">{{ t('settings.filials.subtitle') }}</p>
         </div>
-        <button v-if="auth.superAdmin" type="button" class="btn" @click="openCreate">+ Yangi filial</button>
+        <button v-if="auth.superAdmin" type="button" class="btn" @click="openCreate">{{ t('settings.filials.newFilial') }}</button>
       </div>
       <div class="overflow-x-auto">
         <table class="min-w-full">
           <thead>
             <tr class="border-b border-gray-100 dark:border-gray-800">
               <th class="th">#</th>
-              <th class="th">Nomi</th>
-              <th class="th">Manzil</th>
-              <th class="th">Telefon</th>
-              <th class="th">Direktor</th>
-              <th v-if="auth.superAdmin" class="th text-right whitespace-nowrap">Amallar</th>
+              <th class="th">{{ t('common.name') }}</th>
+              <th class="th">{{ t('common.address') }}</th>
+              <th class="th">{{ t('common.phone') }}</th>
+              <th class="th">{{ t('shared.director') }}</th>
+              <th v-if="auth.superAdmin" class="th text-right whitespace-nowrap">{{ t('common.actions') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -34,14 +34,14 @@
                   <div>{{ item.directorFullName }}</div>
                   <div class="text-xs text-gray-400">{{ item.directorUsername }}</div>
                 </div>
-                <span v-else class="text-gray-400">Tayinlanmagan</span>
+                <span v-else class="text-gray-400">{{ t('settings.filials.notAssigned') }}</span>
               </td>
               <td v-if="auth.superAdmin" class="td text-right whitespace-nowrap">
                 <RowActions @edit="openEdit(item)" @delete="onDelete(item)" />
               </td>
             </tr>
             <tr v-if="items.length === 0">
-              <td :colspan="auth.superAdmin ? 6 : 5" class="empty">Filial yo‘q</td>
+              <td :colspan="auth.superAdmin ? 6 : 5" class="empty">{{ t('settings.filials.empty') }}</td>
             </tr>
           </tbody>
         </table>
@@ -53,16 +53,16 @@
         <div class="mb-5 flex items-start justify-between gap-3">
           <div>
             <h3 id="filial-modal-title" class="text-lg font-semibold text-gray-800 dark:text-white/90">
-              {{ editingId ? 'Filialni tahrirlash' : 'Yangi filial' }}
+              {{ editingId ? t('settings.filials.editTitle') : t('settings.filials.createTitle') }}
             </h3>
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              Filial nomi, manzil va direktorini kiriting
+              {{ t('settings.filials.modalSubtitle') }}
             </p>
           </div>
           <button
             type="button"
             class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-white/5 dark:hover:text-white/80"
-            aria-label="Yopish"
+            :aria-label="t('common.close')"
             @click="closeModal"
           >
             <X class="h-5 w-5" />
@@ -73,34 +73,34 @@
 
         <form class="space-y-4" @submit.prevent="onSave">
           <div>
-            <label for="filial-name" class="lbl">Filial nomi <span class="req">*</span></label>
+            <label for="filial-name" class="lbl">{{ t('settings.filials.nameLabel') }} <span class="req">*</span></label>
             <div class="relative">
               <Building2 class="field-icon" />
               <input
                 id="filial-name"
                 v-model="form.name"
                 required
-                placeholder="Masalan: Toshkent filial"
+                :placeholder="t('settings.filials.namePlaceholder')"
                 class="field"
               />
             </div>
           </div>
 
           <div>
-            <label for="filial-address" class="lbl">Manzil</label>
+            <label for="filial-address" class="lbl">{{ t('common.address') }}</label>
             <div class="relative">
               <MapPin class="field-icon" />
               <input
                 id="filial-address"
                 v-model="form.address"
-                placeholder="Ko‘cha, tuman, shahar"
+                :placeholder="t('shared.addressPlaceholder')"
                 class="field"
               />
             </div>
           </div>
 
           <div>
-            <label for="filial-phone" class="lbl">Telefon</label>
+            <label for="filial-phone" class="lbl">{{ t('common.phone') }}</label>
             <div class="relative">
               <Phone class="field-icon" />
               <input
@@ -115,15 +115,15 @@
                 @input="onPhoneInput"
               />
             </div>
-            <p class="mt-1 text-xs text-gray-400">Format: +998-(12)-345-67-89</p>
+            <p class="mt-1 text-xs text-gray-400">{{ t('shared.phoneFormat') }}</p>
           </div>
 
           <div>
-            <label for="filial-director" class="lbl">Direktor</label>
+            <label for="filial-director" class="lbl">{{ t('shared.director') }}</label>
             <div class="relative">
               <User class="field-icon" />
               <select id="filial-director" v-model.number="form.directorId" class="field field-select">
-                <option :value="0">Direktor tanlanmagan</option>
+                <option :value="0">{{ t('settings.filials.directorNone') }}</option>
                 <option v-for="u in users" :key="u.id" :value="u.id">
                   {{ u.fullName }} ({{ u.username }})
                 </option>
@@ -133,9 +133,9 @@
           </div>
 
           <div class="flex justify-end gap-2 pt-1">
-            <button type="button" class="ghost" @click="closeModal">Bekor</button>
+            <button type="button" class="ghost" @click="closeModal">{{ t('common.cancel') }}</button>
             <button type="submit" class="btn" :disabled="saving">
-              {{ saving ? 'Saqlanmoqda...' : 'Saqlash' }}
+              {{ saving ? t('common.saving') : t('common.save') }}
             </button>
           </div>
         </form>
@@ -146,6 +146,7 @@
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Building2, ChevronDown, MapPin, Phone, User, X } from 'lucide-vue-next'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
@@ -162,6 +163,7 @@ import { formatApiError } from '@/api/http'
 import { useAuthStore } from '@/stores/auth'
 import { formatUzPhone, isCompleteUzPhone, phoneDigits } from '@/utils/phone'
 
+const { t } = useI18n()
 const auth = useAuthStore()
 const items = ref<FilialItem[]>([])
 const users = ref<UserItem[]>([])
@@ -220,7 +222,7 @@ async function onSave() {
   formError.value = null
   const digits = phoneDigits(form.phone)
   if (digits.length > 3 && !isCompleteUzPhone(form.phone)) {
-    formError.value = 'Telefon +998-(12)-345-67-89 formatida to‘liq bo‘lishi kerak'
+    formError.value = t('shared.phoneInvalid')
     return
   }
   saving.value = true
@@ -244,7 +246,7 @@ async function onSave() {
 }
 
 async function onDelete(item: FilialItem) {
-  if (!confirm(`“${item.name}” o‘chirilsinmi?`)) return
+  if (!confirm(t('common.deleteConfirmNamed', { name: item.name }))) return
   try {
     await deleteFilial(item.id)
     await load()

@@ -1,18 +1,18 @@
 <template>
   <AdminLayout>
-    <PageBreadcrumb pageTitle="Telegram bot" />
+    <PageBreadcrumb :pageTitle="t('nav.telegram')" />
     <div v-if="error" class="err mb-4">{{ error }}</div>
     <div v-if="ok" class="ok mb-4">{{ ok }}</div>
 
     <div class="mb-4 space-y-4 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
       <p class="text-sm text-gray-500 dark:text-gray-400">
-        Bot: {{ bot?.botUsername || 'ulangan emas' }}
+        {{ t('settings.telegram.botLabel') }}: {{ bot?.botUsername || t('settings.telegram.notConnected') }}
       </p>
       <form class="grid gap-3 md:grid-cols-2" @submit.prevent="onBotSave">
         <input v-model="botForm.botUsername" required class="field" placeholder="@WinCrmBot" />
-        <input v-model="botForm.token" required class="field" placeholder="Token" />
-        <button type="submit" class="btn">Ro‘yxatdan o‘tkazish</button>
-        <button type="button" class="ghost" @click="onReconnect">Qayta ulash</button>
+        <input v-model="botForm.token" required class="field" :placeholder="t('settings.telegram.token')" />
+        <button type="submit" class="btn">{{ t('settings.telegram.register') }}</button>
+        <button type="button" class="ghost" @click="onReconnect">{{ t('settings.telegram.reconnect') }}</button>
       </form>
     </div>
 
@@ -20,14 +20,14 @@
       <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-4 dark:border-gray-800">
         <div>
           <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">
-            Bot orqali ro‘yxatdan o‘tganlar
+            {{ t('settings.telegram.usersTitle') }}
           </h3>
           <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Faqat CRM mijozlari (Clients) botdan ro‘yxatdan o‘ta oladi
+            {{ t('settings.telegram.usersSubtitle') }}
           </p>
         </div>
         <div class="text-sm text-gray-500 dark:text-gray-400">
-          Jami: <span class="font-medium text-gray-800 dark:text-white/90">{{ totalElements }}</span>
+          {{ t('common.total') }}: <span class="font-medium text-gray-800 dark:text-white/90">{{ totalElements }}</span>
         </div>
       </div>
 
@@ -37,18 +37,18 @@
             <tr class="border-b border-gray-100 dark:border-gray-800">
               <th class="th">#</th>
               <th class="th">Telegram</th>
-              <th class="th">Telefon</th>
-              <th class="th">CRM mijoz</th>
-              <th class="th">Status</th>
-              <th class="th">Ro‘yxatdan o‘tgan</th>
+              <th class="th">{{ t('common.phone') }}</th>
+              <th class="th">{{ t('settings.telegram.colClient') }}</th>
+              <th class="th">{{ t('shared.status') }}</th>
+              <th class="th">{{ t('settings.telegram.colRegistered') }}</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="loadingUsers">
-              <td colspan="6" class="empty">Yuklanmoqda...</td>
+              <td colspan="6" class="empty">{{ t('common.loading') }}</td>
             </tr>
             <tr v-else-if="items.length === 0">
-              <td colspan="6" class="empty">Hali bot orqali ro‘yxatdan o‘tgan mijoz yo‘q</td>
+              <td colspan="6" class="empty">{{ t('settings.telegram.empty') }}</td>
             </tr>
             <tr
               v-for="u in items"
@@ -75,7 +75,7 @@
                 >
                   {{ u.clientFullName || `#${u.clientId}` }}
                 </router-link>
-                <span v-else class="text-gray-400">Bog‘lanmagan</span>
+                <span v-else class="text-gray-400">{{ t('settings.telegram.notLinked') }}</span>
               </td>
               <td class="td">
                 <span
@@ -84,7 +84,7 @@
                     ? 'bg-success-50 text-success-600 dark:bg-success-500/10 dark:text-success-400'
                     : 'bg-orange-50 text-orange-600 dark:bg-orange-500/10 dark:text-orange-400'"
                 >
-                  {{ u.clientId ? 'Bog‘langan' : 'Faqat Telegram' }}
+                  {{ u.clientId ? t('settings.telegram.linked') : t('settings.telegram.telegramOnly') }}
                 </span>
               </td>
               <td class="td whitespace-nowrap">{{ formatDate(u.createdAt) }}</td>
@@ -98,7 +98,7 @@
         class="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 px-5 py-4 dark:border-gray-800"
       >
         <p class="text-sm text-gray-500 dark:text-gray-400">
-          {{ page + 1 }} / {{ totalPages }} sahifa
+          {{ t('settings.telegram.pageOf', { page: page + 1, total: totalPages }) }}
         </p>
         <div class="flex items-center gap-2">
           <button
@@ -107,7 +107,7 @@
             :disabled="page <= 0 || loadingUsers"
             @click="goTo(page - 1)"
           >
-            Oldingi
+            {{ t('common.prev') }}
           </button>
           <button
             v-for="p in visiblePages"
@@ -125,7 +125,7 @@
             :disabled="page >= totalPages - 1 || loadingUsers"
             @click="goTo(page + 1)"
           >
-            Keyingi
+            {{ t('common.next') }}
           </button>
         </div>
       </div>
@@ -135,6 +135,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import {
@@ -148,6 +149,7 @@ import {
 import { ApiError, formatApiError } from '@/api/http'
 import { formatUzPhone } from '@/utils/phone'
 
+const { t } = useI18n()
 const error = ref<string | null>(null)
 const ok = ref<string | null>(null)
 const bot = ref<BotSettings | null>(null)
@@ -175,7 +177,7 @@ function displayName(u: TelegramUserItem) {
   const name = [u.firstName, u.lastName].filter(Boolean).join(' ').trim()
   if (name) return name
   if (u.telegramUsername) return `@${u.telegramUsername.replace(/^@/, '')}`
-  return `Chat #${u.chatId || u.id}`
+  return t('settings.telegram.chat', { id: u.chatId || u.id })
 }
 
 function formatDate(value?: string) {
@@ -227,7 +229,7 @@ function goTo(next: number) {
 async function onBotSave() {
   try {
     bot.value = (await registerBot(botForm.botUsername, botForm.token)).data
-    ok.value = 'Bot saqlandi'
+    ok.value = t('settings.telegram.botSaved')
     error.value = null
   } catch (e) {
     error.value = formatApiError(e)
@@ -237,7 +239,7 @@ async function onBotSave() {
 async function onReconnect() {
   try {
     bot.value = (await reconnectBot()).data
-    ok.value = 'Qayta ulandi'
+    ok.value = t('settings.telegram.reconnected')
   } catch (e) {
     error.value = formatApiError(e)
   }

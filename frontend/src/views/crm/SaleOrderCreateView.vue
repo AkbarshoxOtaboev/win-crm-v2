@@ -1,17 +1,16 @@
 <template>
   <AdminLayout>
-    <PageBreadcrumb pageTitle="Yangi savdo" />
+    <PageBreadcrumb :pageTitle="t('saleOrderCreate.pageTitle')" />
 
     <div class="card">
       <div class="head">
         <div>
-          <h3 class="title">Yangi savdo buyurtmasi</h3>
+          <h3 class="title">{{ t('saleOrderCreate.title') }}</h3>
           <p class="sub">
-            Mijoz, ombor, sotuvchi va buyurtma summasini kiriting, pozitsiyalarni qo‘shing.
-            Tovarlar ombordan faqat «Saqlash» bosilganda ayiriladi.
+            {{ t('saleOrderCreate.subtitle') }}
           </p>
         </div>
-        <router-link to="/sales" class="ghost">Orqaga</router-link>
+        <router-link to="/sales" class="ghost">{{ t('common.back') }}</router-link>
       </div>
 
       <div v-if="error" class="err mx-5 mb-4">{{ error }}</div>
@@ -19,66 +18,66 @@
       <div class="p-5">
         <div class="form-row">
           <label class="lbl min-w-0 flex-[1.4]">
-            Mijoz
+            {{ t('common.client') }}
             <div class="client-row">
               <SearchableSelect
                 v-model="form.clientId"
                 :options="clientOptions"
-                placeholder="Mijozni tanlang..."
-                search-placeholder="Ism yoki telefon..."
+                :placeholder="t('saleOrderCreate.selectClient')"
+                :search-placeholder="t('saleOrderCreate.clientSearch')"
               />
               <button
                 type="button"
                 class="ghost client-add"
-                title="Yangi mijoz"
+                :title="t('saleOrderCreate.newClient')"
                 @click="openClientModal"
               >
-                + Yangi mijoz
+                {{ t('saleOrderCreate.addClient') }}
               </button>
             </div>
           </label>
 
           <label class="lbl min-w-0 flex-1">
-            Ombor
+            {{ t('common.warehouse') }}
             <select
               v-model.number="form.warehouseId"
               required
               class="field"
               :disabled="draftItems.length > 0"
-              :title="draftItems.length > 0 ? 'Omborni almashtirish uchun avval pozitsiyalarni o‘chiring' : undefined"
+              :title="draftItems.length > 0 ? t('saleOrderCreate.warehouseLocked') : undefined"
             >
-              <option :value="0" disabled>Omborni tanlang</option>
+              <option :value="0" disabled>{{ t('saleOrderCreate.selectWarehouse') }}</option>
               <option v-for="w in activeWarehouses" :key="w.id" :value="w.id">{{ w.name }}</option>
             </select>
           </label>
 
           <label class="lbl min-w-0 flex-1">
-            Sotuvchi
+            {{ t('saleOrderCreate.seller') }}
             <select v-model.number="form.userId" required class="field">
-              <option :value="0" disabled>Sotuvchini tanlang</option>
+              <option :value="0" disabled>{{ t('saleOrderCreate.selectSeller') }}</option>
               <option v-for="u in users" :key="u.id" :value="u.id">{{ u.fullName || u.username }}</option>
             </select>
           </label>
 
           <label class="lbl min-w-0 w-full sm:w-44 sm:flex-none">
-            Sana
+            {{ t('common.date') }}
             <input v-model="form.orderDate" type="date" required class="field" />
           </label>
 
           <label class="lbl min-w-0 flex-1">
-            Izoh
+            {{ t('common.comment') }}
             <input
               v-model="form.comment"
               type="text"
               class="field"
-              placeholder="Izoh (ixtiyoriy)"
+              :placeholder="t('saleOrderCreate.commentPlaceholder')"
             />
           </label>
         </div>
 
         <div class="form-row mt-3">
           <label class="lbl min-w-0 w-full sm:w-72 sm:flex-none">
-            Buyurtma summasi *
+            {{ t('saleOrderCreate.orderSumRequired') }}
             <input
               :value="totalSumText"
               inputmode="decimal"
@@ -88,21 +87,21 @@
             />
           </label>
           <p class="total-hint">
-            Mijoz bilan kelishilgan summa. Pozitsiyalar summasiga bog‘liq emas.
+            {{ t('saleOrderCreate.orderSumHint') }}
           </p>
         </div>
 
         <div v-if="form.clientId > 0" class="client-summary">
           <div class="summary-item">
-            <span class="summary-label">Umumiy buyurtma summasi</span>
+            <span class="summary-label">{{ t('saleOrderCreate.totalPurchase') }}</span>
             <span class="summary-value">{{ balanceText(clientBalance?.totalPurchase) }}</span>
           </div>
           <div class="summary-item">
-            <span class="summary-label">To‘lov summasi</span>
+            <span class="summary-label">{{ t('saleOrderCreate.totalPaid') }}</span>
             <span class="summary-value paid">{{ balanceText(clientBalance?.totalPaid) }}</span>
           </div>
           <div class="summary-item">
-            <span class="summary-label">{{ Number(clientBalance?.totalDebt || 0) < 0 ? 'Haqdorlik (ortiqcha to‘lov)' : 'Qarz' }}</span>
+            <span class="summary-label">{{ Number(clientBalance?.totalDebt || 0) < 0 ? t('saleOrderCreate.overpaid') : t('saleOrderCreate.debt') }}</span>
             <span class="summary-value" :class="Number(clientBalance?.totalDebt || 0) > 0 ? 'debt' : 'paid'">
               {{ balanceText(clientBalance ? Math.abs(Number(clientBalance.totalDebt || 0)) : undefined) }}
             </span>
@@ -115,9 +114,9 @@
     <div class="card mt-4">
       <div class="head">
         <div>
-          <h3 class="title">Pozitsiyalar</h3>
+          <h3 class="title">{{ t('saleOrderCreate.items') }}</h3>
           <p class="sub">
-            WINDOW mahsulotlarda kv.m = (eni×bo‘yi×soni)/10000 (eni/bo‘yi sm da), summa = kv.m × sotish
+            {{ t('saleOrderCreate.itemsHint') }}
           </p>
         </div>
       </div>
@@ -125,72 +124,72 @@
       <div class="p-5 border-b border-gray-100">
         <div class="form-row">
           <label class="lbl min-w-0 flex-[1.4]">
-            Mahsulot
+            {{ t('common.product') }}
             <SearchableSelect
               v-model="itemForm.goodsId"
               :options="goodsOptions"
-              placeholder="Mahsulotni tanlang..."
-              search-placeholder="Mahsulot qidirish..."
+              :placeholder="t('saleOrderCreate.selectProduct')"
+              :search-placeholder="t('saleOrderCreate.productSearch')"
             />
           </label>
 
           <template v-if="isWindowGoods">
             <label class="lbl min-w-0 w-28 sm:flex-none">
-              Eni (sm)
+              {{ t('saleOrderCreate.width') }}
               <input v-model.number="itemForm.width" type="number" min="1" step="1" class="field" />
             </label>
             <label class="lbl min-w-0 w-28 sm:flex-none">
-              Bo‘yi (sm)
+              {{ t('saleOrderCreate.height') }}
               <input v-model.number="itemForm.height" type="number" min="1" step="1" class="field" />
             </label>
             <label class="lbl min-w-0 w-24 sm:flex-none">
-              Soni
+              {{ t('common.count') }}
               <input v-model.number="itemForm.count" type="number" min="0.01" step="0.01" class="field" />
             </label>
             <label class="lbl min-w-0 w-28 sm:flex-none">
-              Kv.m
+              {{ t('saleOrderCreate.kvm') }}
               <input :value="formatNum(computedKvm)" class="field" readonly />
             </label>
             <label class="lbl min-w-0 w-36 sm:flex-none">
-              Sotish narxi
+              {{ t('saleOrderCreate.sellingPrice') }}
               <input v-model.number="itemForm.priceSelling" type="number" min="0.01" step="0.01" class="field" />
             </label>
             <label class="lbl min-w-0 w-40 sm:flex-none">
-              Umumiy summa
+              {{ t('saleOrderCreate.totalSum') }}
               <input :value="money(computedSum)" class="field" readonly />
             </label>
           </template>
 
           <template v-else>
             <label class="lbl min-w-0 w-28 sm:flex-none">
-              Soni
+              {{ t('common.count') }}
               <input v-model.number="itemForm.count" type="number" min="0.01" step="0.01" class="field" />
             </label>
             <label class="lbl min-w-0 w-36 sm:flex-none">
-              Tannarx
+              {{ t('saleOrderCreate.costPrice') }}
               <input v-model.number="itemForm.priceCost" type="number" min="0.01" step="0.01" class="field" />
             </label>
             <label class="lbl min-w-0 w-36 sm:flex-none">
-              Sotish
+              {{ t('saleOrderCreate.selling') }}
               <input v-model.number="itemForm.priceSelling" type="number" min="0.01" step="0.01" class="field" />
             </label>
             <label class="lbl min-w-0 w-40 sm:flex-none">
-              Umumiy summa
+              {{ t('saleOrderCreate.totalSum') }}
               <input :value="money(computedSum)" class="field" readonly />
             </label>
           </template>
 
           <div class="flex items-end">
             <button type="button" class="btn" :disabled="saving || !canAddItem" @click="onAddItem">
-              + Qo‘shish
+              {{ t('saleOrderCreate.addItem') }}
             </button>
           </div>
         </div>
         <p v-if="!headerReady" class="mt-2 text-xs text-amber-600">
-          Avval mijoz, ombor, sotuvchi va sanani tanlang
+          {{ t('saleOrderCreate.headerRequired') }}
         </p>
         <p v-else-if="selectedGoods && !isServiceGoods" class="stock-hint">
-          Omborda qolgan: {{ formatNum(remainingStock(selectedGoods.id)) }}{{ isWindowGoods ? ' kv.m' : '' }}
+          {{ t('saleOrderCreate.stockLeft', { qty: qtyWithUnit(remainingStock(selectedGoods.id), isWindowGoods) }) }}
         </p>
         <p v-if="itemError" class="mt-2 text-xs text-red-600">{{ itemError }}</p>
       </div>
@@ -200,19 +199,19 @@
           <thead>
             <tr class="border-b border-gray-100">
               <th class="th">#</th>
-              <th class="th">Mahsulot</th>
-              <th class="th">Eni (sm)</th>
-              <th class="th">Bo‘yi (sm)</th>
-              <th class="th">Soni</th>
-              <th class="th">Kv.m</th>
-              <th class="th">Sotish</th>
-              <th class="th">Summa</th>
-              <th class="th text-right">Amallar</th>
+              <th class="th">{{ t('common.product') }}</th>
+              <th class="th">{{ t('saleOrderCreate.width') }}</th>
+              <th class="th">{{ t('saleOrderCreate.height') }}</th>
+              <th class="th">{{ t('common.count') }}</th>
+              <th class="th">{{ t('saleOrderCreate.kvm') }}</th>
+              <th class="th">{{ t('saleOrderCreate.selling') }}</th>
+              <th class="th">{{ t('common.sum') }}</th>
+              <th class="th text-right">{{ t('common.actions') }}</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="displayItems.length === 0">
-              <td colspan="9" class="empty">Hali pozitsiya yo‘q</td>
+              <td colspan="9" class="empty">{{ t('saleOrderCreate.noItems') }}</td>
             </tr>
             <tr v-for="(row, idx) in displayItems" :key="row.key" class="border-b border-gray-100">
               <td class="td">{{ idx + 1 }}</td>
@@ -224,13 +223,13 @@
               <td class="td">{{ money(row.priceSelling) }}</td>
               <td class="td">{{ money(row.sum) }}</td>
               <td class="td text-right">
-                <button type="button" class="danger" :disabled="saving" @click="onRemoveItem(row.key)">O‘chirish</button>
+                <button type="button" class="danger" :disabled="saving" @click="onRemoveItem(row.key)">{{ t('common.delete') }}</button>
               </td>
             </tr>
           </tbody>
           <tfoot v-if="displayItems.length">
             <tr class="border-t border-gray-200 bg-gray-50">
-              <td class="td font-semibold" colspan="7">Pozitsiyalar jami</td>
+              <td class="td font-semibold" colspan="7">{{ t('saleOrderCreate.itemsTotal') }}</td>
               <td class="td font-semibold">{{ money(itemsTotalSum) }}</td>
               <td class="td" />
             </tr>
@@ -242,14 +241,14 @@
         <div class="save-info">
           <span v-if="saveBlockReason" class="save-warn">{{ saveBlockReason }}</span>
           <template v-else>
-            <span class="save-label">Buyurtma summasi:</span>
+            <span class="save-label">{{ t('saleOrderCreate.orderSum') }}</span>
             <span class="save-total">{{ money(form.totalSum) }}</span>
           </template>
         </div>
         <div class="flex gap-2">
-          <router-link to="/sales" class="ghost">Bekor</router-link>
+          <router-link to="/sales" class="ghost">{{ t('common.cancel') }}</router-link>
           <button type="button" class="btn" :disabled="saving || !!saveBlockReason" @click="onSave">
-            {{ saving ? '...' : 'Saqlash' }}
+            {{ saving ? '...' : t('common.save') }}
           </button>
         </div>
       </div>
@@ -257,15 +256,15 @@
 
     <div v-if="clientModal" class="overlay">
       <div class="modal">
-        <h3 class="title mb-4">Yangi mijoz</h3>
+        <h3 class="title mb-4">{{ t('saleOrderCreate.newClient') }}</h3>
         <div v-if="clientError" class="err mb-3">{{ clientError }}</div>
         <form class="space-y-3" @submit.prevent="onCreateClient">
           <label class="lbl">
-            F.I.Sh *
+            {{ t('common.fullName') }} *
             <input v-model="clientForm.fullName" required class="field" />
           </label>
           <label class="lbl">
-            Telefon *
+            {{ t('common.phone') }} *
             <input
               :value="clientForm.phone"
               required
@@ -277,11 +276,11 @@
             />
           </label>
           <label class="lbl">
-            Manzil *
+            {{ t('common.address') }} *
             <input v-model="clientForm.address" required class="field" />
           </label>
           <label class="lbl">
-            Qo‘shimcha tel
+            {{ t('saleOrderCreate.additionalPhone') }}
             <input
               :value="clientForm.additionalPhone"
               inputmode="tel"
@@ -292,9 +291,9 @@
             />
           </label>
           <div class="flex justify-end gap-2 pt-1">
-            <button type="button" class="ghost" @click="clientModal = false">Bekor</button>
+            <button type="button" class="ghost" @click="clientModal = false">{{ t('common.cancel') }}</button>
             <button type="submit" class="btn" :disabled="clientSaving">
-              {{ clientSaving ? '...' : 'Saqlash' }}
+              {{ clientSaving ? '...' : t('common.save') }}
             </button>
           </div>
         </form>
@@ -306,6 +305,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import SearchableSelect from '@/components/crm/SearchableSelect.vue'
@@ -313,7 +313,7 @@ import { createSaleOrder } from '@/api/sales'
 import { fetchWarehouses, type Warehouse } from '@/api/warehouses'
 import { createClient, fetchClients, type Client } from '@/api/clients'
 import { fetchClientBalance, type ClientBalance } from '@/api/clientBalances'
-import { fetchUsers, type UserItem } from '@/api/users'
+import { fetchUserOptions, type UserItem } from '@/api/users'
 import { fetchGoods, type Goods } from '@/api/goods'
 import { fetchStocksByWarehouse, type Stock } from '@/api/stocks'
 import { useAuthStore } from '@/stores/auth'
@@ -321,6 +321,7 @@ import { formatApiError } from '@/api/http'
 import { money } from '@/utils/format'
 import { formatUzPhone, isCompleteUzPhone } from '@/utils/phone'
 
+const { t } = useI18n()
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
@@ -410,6 +411,10 @@ function dateToApi(date: string) {
 function formatNum(v?: number | null) {
   if (v == null || Number.isNaN(Number(v))) return '—'
   return new Intl.NumberFormat('uz-UZ', { maximumFractionDigits: 4 }).format(Number(v))
+}
+
+function qtyWithUnit(v: number, windowMode: boolean) {
+  return windowMode ? `${formatNum(v)} ${t('saleOrderCreate.kvmUnit')}` : formatNum(v)
 }
 
 function isWindow(g?: Goods | null) {
@@ -510,9 +515,9 @@ const displayItems = computed(() =>
 const itemsTotalSum = computed(() => displayItems.value.reduce((acc, r) => acc + r.sum, 0))
 
 const saveBlockReason = computed(() => {
-  if (!headerReady.value) return 'Mijoz, ombor, sotuvchi va sanani tanlang'
-  if (!(form.totalSum > 0)) return 'Buyurtma summasini kiriting'
-  if (draftItems.value.length === 0) return 'Kamida bitta pozitsiya qo‘shing'
+  if (!headerReady.value) return t('saleOrderCreate.selectHeader')
+  if (!(form.totalSum > 0)) return t('saleOrderCreate.enterSum')
+  if (draftItems.value.length === 0) return t('saleOrderCreate.addAtLeastOne')
   return null
 })
 
@@ -556,7 +561,7 @@ async function loadClientBalance() {
   } catch (e) {
     if (current === balanceRequest) {
       clientBalance.value = null
-      balanceError.value = formatApiError(e, 'Mijoz balansini yuklab bo‘lmadi')
+      balanceError.value = formatApiError(e, t('saleOrderCreate.balanceError'))
     }
   } finally {
     if (current === balanceRequest) balanceLoading.value = false
@@ -592,7 +597,7 @@ async function load() {
     const [w, c, u, g] = await Promise.all([
       fetchWarehouses(),
       fetchClients(),
-      fetchUsers(),
+      fetchUserOptions(),
       fetchGoods(),
     ])
     warehouses.value = w.data || []
@@ -631,7 +636,10 @@ function onAddItem() {
   if (!isService(g)) {
     const left = remainingStock(g.id)
     if (count > left + 1e-9) {
-      itemError.value = `Omborda yetarli emas: qolgan ${formatNum(Math.max(left, 0))}${windowMode ? ' kv.m' : ''}, so‘ralgan ${formatNum(count)}${windowMode ? ' kv.m' : ''}`
+      itemError.value = t('saleOrderCreate.notEnoughStock', {
+        left: qtyWithUnit(Math.max(left, 0), windowMode),
+        requested: qtyWithUnit(count, windowMode),
+      })
       return
     }
   }
@@ -684,7 +692,7 @@ async function onSave() {
       })),
     })
     const id = res.data?.id
-    if (!id) throw new Error('Savdo yaratilmadi')
+    if (!id) throw new Error(t('saleOrderCreate.notCreated'))
     saved.value = true
     void router.push(`/sales/${id}`)
   } catch (e) {
@@ -702,7 +710,7 @@ async function onSave() {
 
 onBeforeRouteLeave(() => {
   if (saved.value || draftItems.value.length === 0) return true
-  return confirm('Saqlanmagan pozitsiyalar bor. Sahifadan chiqilsinmi?')
+  return confirm(t('saleOrderCreate.leaveConfirm'))
 })
 
 onMounted(load)
@@ -731,15 +739,15 @@ async function onCreateClient() {
   clientError.value = null
   try {
     if (!clientForm.fullName.trim()) {
-      clientError.value = 'F.I.Sh majburiy'
+      clientError.value = t('saleOrderCreate.fullNameRequired')
       return
     }
     if (!isCompleteUzPhone(clientForm.phone)) {
-      clientError.value = 'Telefon +998-(XX)-XXX-XX-XX formatida to‘liq bo‘lishi kerak'
+      clientError.value = t('saleOrderCreate.phoneInvalid')
       return
     }
     if (!clientForm.address.trim()) {
-      clientError.value = 'Manzil majburiy'
+      clientError.value = t('saleOrderCreate.addressRequired')
       return
     }
     const extra = clientForm.additionalPhone.trim()

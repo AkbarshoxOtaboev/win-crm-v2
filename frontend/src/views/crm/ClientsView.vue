@@ -1,10 +1,10 @@
 <template>
   <AdminLayout>
-    <PageBreadcrumb pageTitle="Mijozlar" />
+    <PageBreadcrumb :pageTitle="t('nav.clients')" />
     <div class="mb-4 flex gap-2">
-      <button type="button" class="tab" :class="{ active: tab === 'list' }" @click="tab = 'list'">Mijozlar</button>
-      <button type="button" class="tab" :class="{ active: tab === 'groups' }" @click="tab = 'groups'">Guruhlar</button>
-      <button type="button" class="tab" :class="{ active: tab === 'debtors' }" @click="loadDebtors(); tab = 'debtors'">Qarzdorlar</button>
+      <button type="button" class="tab" :class="{ active: tab === 'list' }" @click="tab = 'list'">{{ t('nav.clients') }}</button>
+      <button type="button" class="tab" :class="{ active: tab === 'groups' }" @click="tab = 'groups'">{{ t('clients.groups') }}</button>
+      <button type="button" class="tab" :class="{ active: tab === 'debtors' }" @click="loadDebtors(); tab = 'debtors'">{{ t('clients.debtors') }}</button>
     </div>
 
     <div v-show="tab === 'list'">
@@ -14,20 +14,20 @@
       <div
         class="flex flex-col gap-3 border-b border-gray-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-gray-800"
       >
-        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Mijozlar</h3>
+        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('nav.clients') }}</h3>
         <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
           <select
             v-model.number="groupFilter"
             class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:text-white/90 sm:w-48"
           >
-            <option :value="0">Barcha guruhlar</option>
-            <option :value="-1">Guruhsiz</option>
+            <option :value="0">{{ t('clients.allGroups') }}</option>
+            <option :value="-1">{{ t('clients.noGroup') }}</option>
             <option v-for="g in groups" :key="g.id" :value="g.id">{{ g.name }}</option>
           </select>
           <input
             v-model="search"
             type="search"
-            placeholder="Qidiruv: ism, telefon, manzil..."
+            :placeholder="t('clients.searchPlaceholder')"
             class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:text-white/90 sm:w-64"
           />
           <button
@@ -36,7 +36,7 @@
             :disabled="writeBlocked"
             @click="openCreate"
           >
-            + Yangi mijoz
+            {{ t('clients.newClientBtn') }}
           </button>
         </div>
       </div>
@@ -53,24 +53,24 @@
           <thead>
             <tr class="border-b border-gray-100 dark:border-gray-800">
               <th class="px-5 py-3 text-left text-xs font-medium text-gray-500">#</th>
-              <th class="px-5 py-3 text-left text-xs font-medium text-gray-500">F.I.Sh</th>
-              <th class="px-5 py-3 text-left text-xs font-medium text-gray-500">Guruh</th>
-              <th class="px-5 py-3 text-left text-xs font-medium text-gray-500">Telefon</th>
-              <th class="px-5 py-3 text-left text-xs font-medium text-gray-500">Manzil</th>
-              <th class="px-5 py-3 text-left text-xs font-medium text-gray-500">INN</th>
-              <th class="px-5 py-3 text-left text-xs font-medium text-gray-500">Status</th>
-              <th class="px-5 py-3 text-right text-xs font-medium text-gray-500">Amallar</th>
+              <th class="px-5 py-3 text-left text-xs font-medium text-gray-500">{{ t('common.fullName') }}</th>
+              <th class="px-5 py-3 text-left text-xs font-medium text-gray-500">{{ t('clients.group') }}</th>
+              <th class="px-5 py-3 text-left text-xs font-medium text-gray-500">{{ t('common.phone') }}</th>
+              <th class="px-5 py-3 text-left text-xs font-medium text-gray-500">{{ t('common.address') }}</th>
+              <th class="px-5 py-3 text-left text-xs font-medium text-gray-500">{{ t('common.inn') }}</th>
+              <th class="px-5 py-3 text-left text-xs font-medium text-gray-500">{{ t('clients.status') }}</th>
+              <th class="px-5 py-3 text-right text-xs font-medium text-gray-500">{{ t('common.actions') }}</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="loading">
               <td colspan="8" class="px-5 py-10 text-center text-sm text-gray-500">
-                Yuklanmoqda...
+                {{ t('common.loading') }}
               </td>
             </tr>
             <tr v-else-if="filtered.length === 0">
               <td colspan="8" class="px-5 py-10 text-center text-sm text-gray-500">
-                Mijoz topilmadi
+                {{ t('clients.notFound') }}
               </td>
             </tr>
             <tr
@@ -105,7 +105,7 @@
                   class="rounded-full px-2.5 py-0.5 text-xs font-medium"
                   :class="statusClass(client.status)"
                 >
-                  {{ client.status || 'ACTIVE' }}
+                  {{ statusLabel(client.status) }}
                 </span>
               </td>
               <td class="px-5 py-3 text-right text-sm">
@@ -126,7 +126,7 @@
         class="w-full max-w-lg rounded-2xl border border-gray-200 bg-white p-5 shadow-xl dark:border-gray-800 dark:bg-gray-900"
       >
         <h3 class="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">
-          {{ editingId ? 'Mijozni tahrirlash' : 'Yangi mijoz' }}
+          {{ editingId ? t('clients.editTitle') : t('clients.newTitle') }}
         </h3>
 
         <div
@@ -138,26 +138,26 @@
 
         <form class="space-y-3" @submit.prevent="onSubmit">
           <div>
-            <label class="lbl">Guruh</label>
+            <label class="lbl">{{ t('clients.group') }}</label>
             <div class="relative">
               <Users class="field-icon" />
               <select v-model.number="form.clientGroupId" class="field field-select">
-                <option :value="0">— guruh yo‘q —</option>
+                <option :value="0">{{ t('clients.groupNone') }}</option>
                 <option v-for="g in groups" :key="g.id" :value="g.id">{{ g.name }}</option>
               </select>
               <ChevronDown class="pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
             </div>
           </div>
           <div>
-            <label class="lbl">F.I.Sh <span class="req">*</span></label>
+            <label class="lbl">{{ t('common.fullName') }} <span class="req">*</span></label>
             <div class="relative">
               <User class="field-icon" />
-              <input v-model="form.fullName" required class="field" placeholder="Ism familiya" />
+              <input v-model="form.fullName" required class="field" :placeholder="t('clients.fullNamePlaceholder')" />
             </div>
           </div>
           <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <label class="lbl">Telefon <span class="req">*</span></label>
+              <label class="lbl">{{ t('common.phone') }} <span class="req">*</span></label>
               <div class="relative">
                 <Phone class="field-icon" />
                 <input
@@ -173,7 +173,7 @@
               <p v-if="phoneHint" class="mt-1 text-xs text-error-500">{{ phoneHint }}</p>
             </div>
             <div>
-              <label class="lbl">Qo‘shimcha tel</label>
+              <label class="lbl">{{ t('clients.additionalPhone') }}</label>
               <div class="relative">
                 <Phone class="field-icon" />
                 <input
@@ -188,15 +188,15 @@
             </div>
           </div>
           <div>
-            <label class="lbl">Manzil <span class="req">*</span></label>
+            <label class="lbl">{{ t('common.address') }} <span class="req">*</span></label>
             <div class="relative">
               <MapPin class="field-icon" />
-              <input v-model="form.address" required class="field" placeholder="Ko‘cha, tuman, shahar" />
+              <input v-model="form.address" required class="field" :placeholder="t('clients.addressPlaceholder')" />
             </div>
           </div>
           <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <label class="lbl">INN</label>
+              <label class="lbl">{{ t('common.inn') }}</label>
               <div class="relative">
                 <Hash class="field-icon" />
                 <input
@@ -210,24 +210,24 @@
                   @input="onDigitsInput('inn', 9, $event)"
                 />
               </div>
-              <p class="mt-1 text-xs text-gray-400">9 ta raqam (ixtiyoriy)</p>
+              <p class="mt-1 text-xs text-gray-400">{{ t('clients.innHint') }}</p>
             </div>
             <div>
-              <label class="lbl">Bank</label>
+              <label class="lbl">{{ t('clients.bank') }}</label>
               <div class="relative">
                 <Landmark class="field-icon" />
                 <input
                   v-model="form.bankName"
                   maxlength="150"
                   class="field"
-                  placeholder="Bank nomi"
+                  :placeholder="t('clients.bankPlaceholder')"
                 />
               </div>
             </div>
           </div>
           <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <label class="lbl">MFO</label>
+              <label class="lbl">{{ t('clients.mfo') }}</label>
               <div class="relative">
                 <Landmark class="field-icon" />
                 <input
@@ -241,10 +241,10 @@
                   @input="onDigitsInput('mfo', 5, $event)"
                 />
               </div>
-              <p class="mt-1 text-xs text-gray-400">5 ta raqam (ixtiyoriy)</p>
+              <p class="mt-1 text-xs text-gray-400">{{ t('clients.mfoHint') }}</p>
             </div>
             <div>
-              <label class="lbl">Hisob raqam</label>
+              <label class="lbl">{{ t('clients.accountNumber') }}</label>
               <div class="relative">
                 <CreditCard class="field-icon" />
                 <input
@@ -257,22 +257,22 @@
             </div>
           </div>
           <div>
-            <label class="lbl">Izoh</label>
+            <label class="lbl">{{ t('common.note') }}</label>
             <div class="relative">
               <AlignLeft class="field-icon field-icon-top" />
               <textarea
                 v-model="form.description"
                 rows="2"
                 class="field field-textarea"
-                placeholder="Qo‘shimcha ma’lumot"
+                :placeholder="t('clients.descriptionPlaceholder')"
               />
             </div>
           </div>
 
           <div class="flex justify-end gap-2 pt-2">
-            <button type="button" class="ghost" @click="closeModal">Bekor</button>
+            <button type="button" class="ghost" @click="closeModal">{{ t('common.cancel') }}</button>
             <button type="submit" class="btn" :disabled="saving">
-              {{ saving ? 'Saqlanmoqda...' : 'Saqlash' }}
+              {{ saving ? t('common.saving') : t('common.save') }}
             </button>
           </div>
         </form>
@@ -282,15 +282,15 @@
 
     <div v-show="tab === 'groups'" class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
       <div class="flex justify-between px-5 py-4">
-        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Guruhlar</h3>
-        <button type="button" class="h-10 rounded-lg bg-brand-500 px-4 text-sm text-white disabled:cursor-not-allowed disabled:opacity-55" :disabled="writeBlocked" @click="openGroupCreate">+ Guruh</button>
+        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('clients.groups') }}</h3>
+        <button type="button" class="h-10 rounded-lg bg-brand-500 px-4 text-sm text-white disabled:cursor-not-allowed disabled:opacity-55" :disabled="writeBlocked" @click="openGroupCreate">{{ t('clients.addGroup') }}</button>
       </div>
       <table class="min-w-full">
         <thead>
           <tr class="border-b border-gray-100 dark:border-gray-800">
             <th class="px-5 py-3 text-left text-xs text-gray-500">#</th>
-            <th class="px-5 py-3 text-left text-xs text-gray-500">Nomi</th>
-            <th class="px-5 py-3 text-right text-xs text-gray-500">Amallar</th>
+            <th class="px-5 py-3 text-left text-xs text-gray-500">{{ t('common.name') }}</th>
+            <th class="px-5 py-3 text-right text-xs text-gray-500">{{ t('common.actions') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -305,17 +305,17 @@
 
     <div v-show="tab === 'debtors'" class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
       <div class="px-5 py-4 flex justify-between">
-        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Qarzdorlar</h3>
-        <button type="button" class="h-10 rounded-lg bg-brand-500 px-4 text-sm text-white" @click="sendSelectedSms">Tanlanganlarga SMS</button>
+        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('clients.debtors') }}</h3>
+        <button type="button" class="h-10 rounded-lg bg-brand-500 px-4 text-sm text-white" @click="sendSelectedSms">{{ t('clients.sendSelectedSms') }}</button>
       </div>
       <table class="min-w-full">
         <thead>
           <tr class="border-b border-gray-100 dark:border-gray-800">
             <th class="px-5 py-3"></th>
-            <th class="px-5 py-3 text-left text-xs text-gray-500">Mijoz</th>
-            <th class="px-5 py-3 text-left text-xs text-gray-500">Telefon</th>
-            <th class="px-5 py-3 text-left text-xs text-gray-500">Qarz</th>
-            <th class="px-5 py-3 text-right text-xs text-gray-500">SMS</th>
+            <th class="px-5 py-3 text-left text-xs text-gray-500">{{ t('common.client') }}</th>
+            <th class="px-5 py-3 text-left text-xs text-gray-500">{{ t('common.phone') }}</th>
+            <th class="px-5 py-3 text-left text-xs text-gray-500">{{ t('clients.debt') }}</th>
+            <th class="px-5 py-3 text-right text-xs text-gray-500">{{ t('clients.sms') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -327,7 +327,7 @@
             <td class="px-5 py-3 text-sm">{{ d.phone || '—' }}</td>
             <td class="px-5 py-3 text-sm">{{ d.totalDebt ?? d.debtSum }}</td>
             <td class="px-5 py-3 text-right">
-              <button type="button" class="text-sm text-brand-500" @click="sendOneSms(d.clientId!)">SMS</button>
+              <button type="button" class="text-sm text-brand-500" @click="sendOneSms(d.clientId!)">{{ t('clients.sms') }}</button>
             </td>
           </tr>
         </tbody>
@@ -336,12 +336,12 @@
 
     <div v-if="groupModal" class="fixed inset-0 z-99999 flex items-center justify-center bg-black/40 p-4">
       <div class="w-full max-w-md rounded-2xl bg-white p-5 dark:bg-gray-900">
-        <h3 class="mb-3 text-lg font-semibold">Guruh</h3>
+        <h3 class="mb-3 text-lg font-semibold">{{ t('clients.group') }}</h3>
         <form class="space-y-3" @submit.prevent="onGroupSubmit">
           <input v-model="groupName" required class="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm" />
           <div class="flex justify-end gap-2">
-            <button type="button" class="h-10 rounded-lg border px-4" @click="groupModal = false">Bekor</button>
-            <button type="submit" class="h-10 rounded-lg bg-brand-500 px-4 text-white">Saqlash</button>
+            <button type="button" class="h-10 rounded-lg border px-4" @click="groupModal = false">{{ t('common.cancel') }}</button>
+            <button type="submit" class="h-10 rounded-lg bg-brand-500 px-4 text-white">{{ t('common.save') }}</button>
           </div>
         </form>
       </div>
@@ -351,6 +351,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import {
   AlignLeft,
   ChevronDown,
@@ -390,6 +391,7 @@ import {
   phonesEqual,
 } from '@/utils/phone'
 
+const { t } = useI18n()
 const tab = ref<'list' | 'groups' | 'debtors'>('list')
 const clients = ref<Client[]>([])
 const groups = ref<ClientGroup[]>([])
@@ -466,8 +468,14 @@ function checkPhoneUnique() {
     (c) => phonesEqual(c.phone, form.phone) && c.id !== editingId.value,
   )
   if (dup) {
-    phoneHint.value = `Bu raqam band: ${dup.fullName}`
+    phoneHint.value = t('clients.phoneBusy', { name: dup.fullName })
   }
+}
+
+function statusLabel(status?: string) {
+  if (status === 'DISABLED') return t('common.inactive')
+  if (!status || status === 'ACTIVE') return t('common.active')
+  return status
 }
 
 function statusClass(status?: string) {
@@ -485,7 +493,7 @@ async function load() {
     clients.value = res.data || []
     groups.value = g.data || []
   } catch (e) {
-    error.value = formatApiError(e, 'Mijozlarni yuklab bo‘lmadi')
+    error.value = formatApiError(e, t('clients.loadError'))
   } finally {
     loading.value = false
   }
@@ -553,30 +561,30 @@ async function onSubmit() {
   formError.value = null
   try {
     if (!isCompleteUzPhone(form.phone)) {
-      formError.value = 'Telefon +998-(XX)-XXX-XX-XX formatida to‘liq bo‘lishi kerak'
+      formError.value = t('clients.phoneFormat')
       return
     }
     const dup = clients.value.find(
       (c) => phonesEqual(c.phone, form.phone) && c.id !== editingId.value,
     )
     if (dup) {
-      formError.value = `Bu telefon raqam allaqachon mavjud (${dup.fullName})`
+      formError.value = t('clients.phoneExists', { name: dup.fullName })
       return
     }
     if (form.additionalPhone && isCompleteUzPhone(form.additionalPhone)) {
       /* ok */
     } else if (form.additionalPhone && form.additionalPhone.replace(/\D/g, '').length > 3) {
-      formError.value = 'Qo‘shimcha telefon to‘liq formatda bo‘lishi kerak'
+      formError.value = t('clients.additionalPhoneFormat')
       return
     }
     const inn = (form.inn || '').trim()
     if (inn && inn.length !== 9) {
-      formError.value = 'INN 9 ta belgidan iborat bo‘lishi kerak'
+      formError.value = t('clients.innLength')
       return
     }
     const mfo = (form.mfo || '').trim()
     if (mfo && mfo.length !== 5) {
-      formError.value = 'MFO 5 ta belgidan iborat bo‘lishi kerak'
+      formError.value = t('clients.mfoLength')
       return
     }
     const payload = payloadFromForm()
@@ -588,21 +596,21 @@ async function onSubmit() {
     closeModal()
     await load()
   } catch (e) {
-    formError.value = formatApiError(e, 'Saqlashda xatolik')
+    formError.value = formatApiError(e, t('common.saveError'))
   } finally {
     saving.value = false
   }
 }
 
 async function onDelete(client: Client) {
-  if (!confirm(`“${client.fullName}” o‘chirilsinmi?`)) return
+  if (!confirm(t('common.deleteConfirmNamed', { name: client.fullName }))) return
   deletingId.value = client.id
   error.value = null
   try {
     await deleteClient(client.id)
     await load()
   } catch (e) {
-    error.value = formatApiError(e, 'O‘chirishda xatolik')
+    error.value = formatApiError(e, t('common.deleteError'))
   } finally {
     deletingId.value = null
   }
@@ -633,7 +641,7 @@ async function onGroupSubmit() {
 }
 
 async function onGroupDelete(g: ClientGroup) {
-  if (!confirm(`“${g.name}” o‘chirilsinmi?`)) return
+  if (!confirm(t('common.deleteConfirmNamed', { name: g.name }))) return
   try {
     await deleteClientGroup(g.id)
     await load()
@@ -654,7 +662,7 @@ async function loadDebtors() {
 async function sendOneSms(clientId: number) {
   try {
     await sendDebtSmsToClient(clientId)
-    alert('SMS yuborildi')
+    alert(t('clients.smsSent'))
   } catch (e) {
     error.value = formatApiError(e)
   }
@@ -664,7 +672,7 @@ async function sendSelectedSms() {
   if (!selectedDebtors.value.length) return
   try {
     await sendDebtSmsToClients(selectedDebtors.value)
-    alert('SMS yuborildi')
+    alert(t('clients.smsSent'))
   } catch (e) {
     error.value = formatApiError(e)
   }

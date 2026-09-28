@@ -1,29 +1,29 @@
 <template>
   <AdminLayout>
-    <PageBreadcrumb :pageTitle="order ? `Savdo #${order.id}` : 'Savdo'" />
+    <PageBreadcrumb :pageTitle="order ? t('saleOrderDetail.title', { id: order.id }) : t('saleOrderDetail.titleFallback')" />
     <div class="mb-4 flex flex-wrap items-center gap-2">
-      <router-link to="/sales" class="ghost">← Ro‘yxat</router-link>
-      <button type="button" class="ghost" @click="openEdit">Tahrirlash</button>
+      <router-link to="/sales" class="ghost">{{ t('common.backToList') }}</router-link>
+      <button type="button" class="ghost" @click="openEdit">{{ t('common.edit') }}</button>
     </div>
     <div v-if="error" class="err mb-4">{{ error }}</div>
     <div v-if="order" class="card mb-4 p-5">
       <div class="grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
-        <div><span class="lbl">Mijoz</span>{{ order.clientFullName || '—' }}</div>
-        <div><span class="lbl">Ombor</span>{{ order.warehouseName || '—' }}</div>
-        <div><span class="lbl">Jami</span>{{ money(order.totalSum) }}</div>
-        <div><span class="lbl">Qarz</span>{{ money(order.debtSum) }}</div>
-        <div><span class="lbl">To‘langan</span>{{ money(order.paidSum) }}</div>
-        <div><span class="lbl">Chegirma</span>{{ order.discountType || '—' }} {{ order.discountValue || '' }}</div>
-        <div><span class="lbl">Holat</span><SaleStatusBadge :status="order.orderStatus" /></div>
-        <div><span class="lbl">Sana</span>{{ formatDate(order.orderDate) }}</div>
+        <div><span class="lbl">{{ t('common.client') }}</span>{{ order.clientFullName || '—' }}</div>
+        <div><span class="lbl">{{ t('common.warehouse') }}</span>{{ order.warehouseName || '—' }}</div>
+        <div><span class="lbl">{{ t('common.total') }}</span>{{ money(order.totalSum) }}</div>
+        <div><span class="lbl">{{ t('saleOrderDetail.debt') }}</span>{{ money(order.debtSum) }}</div>
+        <div><span class="lbl">{{ t('saleOrderDetail.paid') }}</span>{{ money(order.paidSum) }}</div>
+        <div><span class="lbl">{{ t('saleOrderDetail.discount') }}</span>{{ order.discountType ? discountTypeLabel(order.discountType) : '—' }} {{ order.discountValue || '' }}</div>
+        <div><span class="lbl">{{ t('common.status') }}</span><SaleStatusBadge :status="order.orderStatus" /></div>
+        <div><span class="lbl">{{ t('common.date') }}</span>{{ formatDate(order.orderDate) }}</div>
       </div>
     </div>
 
     <div v-if="order" class="card mb-4 p-5">
       <div class="status-head">
         <div>
-          <h3 class="title">Holatni o‘zgartirish</h3>
-          <p class="sub">Joriy holat: <SaleStatusBadge :status="order.orderStatus" /></p>
+          <h3 class="title">{{ t('saleOrderDetail.changeStatus') }}</h3>
+          <p class="sub">{{ t('saleOrderDetail.currentStatus') }} <SaleStatusBadge :status="order.orderStatus" /></p>
         </div>
       </div>
       <div class="status-flow">
@@ -41,35 +41,63 @@
           type="button"
           class="status-btn"
           :class="st === 'CANCELLED' ? 'status-btn-danger' : 'status-btn-primary'"
-          :disabled="statusSaving || writeBlocked"
+          :disabled="statusSaving || writeBlocked || (st === 'DELIVERED' && deliveryConfirmBlocked)"
           @click="onStatus(st)"
         >
-          {{ st === 'PROCESSING' ? 'Ishlab chiqarishga yuborish' : `${statusLabel(st)} holatiga o‘tkazish` }}
+          {{ statusButtonLabel(st) }}
         </button>
       </div>
-      <p v-else class="mt-4 text-sm text-gray-500 dark:text-gray-400">Bu holatdan keyin o‘zgartirish mumkin emas.</p>
+      <p v-else class="mt-4 text-sm text-gray-500 dark:text-gray-400">{{ t('saleOrderDetail.noNextStatus') }}</p>
       <p v-if="order.orderStatus === 'PROCESSING'" class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-        Ishlab chiqarish yakunlanganda buyurtma avtomatik «{{ statusLabel('READY') }}» holatiga o‘tadi.
+        {{ t('saleOrderDetail.processingHint', { status: statusLabel('READY') }) }}
+      </p>
+      <p v-if="order.orderStatus === 'READY'" class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+        {{ t('saleOrderDetail.readyHint', { inDelivery: statusLabel('IN_DELIVERY'), delivered: statusLabel('DELIVERED') }) }}
+      </p>
+      <p v-if="order.orderStatus === 'IN_DELIVERY' && deliveryConfirmBlocked" class="mt-2 text-xs text-amber-600 dark:text-amber-400">
+        {{ t('saleOrderDetail.deliveryConfirmBlocked') }}
       </p>
     </div>
 
+    <div v-if="delivery" class="card mb-4 p-5">
+      <div class="status-head">
+        <div>
+          <h3 class="title">{{ t('saleOrderDetail.delivery') }}</h3>
+          <p class="sub">{{ t('saleOrderDetail.statusPrefix') }} <DeliveryStatusBadge :status="delivery.deliveryStatus" /></p>
+        </div>
+      </div>
+      <div class="mt-4 grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
+        <div><span class="lbl">{{ t('saleOrderDetail.driver') }}</span>{{ delivery.driverFullName || '—' }}<span v-if="delivery.driverPhone" class="block text-xs text-gray-500">{{ delivery.driverPhone }}</span></div>
+        <div><span class="lbl">{{ t('saleOrderDetail.car') }}</span>{{ [delivery.carModel, delivery.carNumber].filter(Boolean).join(' · ') || '—' }}</div>
+        <div class="col-span-2"><span class="lbl">{{ t('saleOrderDetail.workers') }}</span>{{ delivery.workers.map((w) => w.fullName).join(', ') || '—' }}</div>
+        <div class="col-span-2"><span class="lbl">{{ t('common.address') }}</span>{{ delivery.address || '—' }}</div>
+        <div><span class="lbl">{{ t('saleOrderDetail.sentAt') }}</span>{{ formatDate(delivery.sentAt) }}</div>
+        <div><span class="lbl">{{ t('saleOrderDetail.acceptedAt') }}</span>{{ formatDate(delivery.acceptedAt) }}<span v-if="delivery.acceptedByName" class="block text-xs text-gray-500">{{ delivery.acceptedByName }}</span></div>
+        <div><span class="lbl">{{ t('saleOrderDetail.departedAt') }}</span>{{ formatDate(delivery.departedAt) }}</div>
+        <div><span class="lbl">{{ t('saleOrderDetail.arrivedAt') }}</span>{{ formatDate(delivery.arrivedAt) }}</div>
+        <div><span class="lbl">{{ t('saleOrderDetail.confirmedAt') }}</span>{{ formatDate(delivery.confirmedAt) }}<span v-if="delivery.confirmedByName" class="block text-xs text-gray-500">{{ delivery.confirmedByName }}</span></div>
+        <div v-if="delivery.salaryTotal != null"><span class="lbl">{{ t('saleOrderDetail.workersSalary') }}</span>{{ money(delivery.salaryTotal) }} ({{ delivery.salaryPercent }}%)</div>
+        <div v-if="delivery.note" class="col-span-2"><span class="lbl">{{ t('common.note') }}</span>{{ delivery.note }}</div>
+      </div>
+    </div>
+
     <div class="mb-4 flex flex-wrap gap-2">
-      <button v-for="t in tabs" :key="t.id" type="button" class="tab" :class="{ active: tab === t.id }" @click="tab = t.id">{{ t.label }}</button>
+      <button v-for="tb in tabs" :key="tb.id" type="button" class="tab" :class="{ active: tab === tb.id }" @click="tab = tb.id">{{ tb.label }}</button>
     </div>
 
     <div v-show="tab === 'items'" class="card">
       <div class="head">
-        <h3 class="title">Qatorlar</h3>
-        <button type="button" class="btn" :disabled="writeBlocked" @click="openItemCreate">+ Qator</button>
+        <h3 class="title">{{ t('saleOrderDetail.tabs.items') }}</h3>
+        <button type="button" class="btn" :disabled="writeBlocked" @click="openItemCreate">{{ t('saleOrderDetail.addItem') }}</button>
       </div>
       <table class="min-w-full">
         <thead>
           <tr class="border-b border-gray-100 dark:border-gray-800">
-            <th class="th">Mahsulot</th><th class="th">Soni</th><th class="th">Sotish</th><th class="th">Sana</th><th class="th text-right">Amallar</th>
+            <th class="th">{{ t('common.product') }}</th><th class="th">{{ t('common.count') }}</th><th class="th">{{ t('saleOrderDetail.selling') }}</th><th class="th">{{ t('common.date') }}</th><th class="th text-right">{{ t('common.actions') }}</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-if="items.length === 0"><td colspan="5" class="empty">Qator yo‘q</td></tr>
+          <tr v-if="items.length === 0"><td colspan="5" class="empty">{{ t('saleOrderDetail.noItems') }}</td></tr>
           <tr v-for="it in items" :key="it.id" class="border-b border-gray-100 dark:border-gray-800">
             <td class="td">{{ it.goodsName || it.goodsId }}</td>
             <td class="td">{{ itemQtyText(it) }}</td>
@@ -84,24 +112,24 @@
     <div v-show="tab === 'discount'" class="card p-5 space-y-4">
       <form class="flex flex-wrap items-end gap-2" @submit.prevent="onDiscount">
         <div>
-          <label class="lbl">Tur</label>
+          <label class="lbl">{{ t('common.type') }}</label>
           <select v-model="discountType" class="field w-40">
-            <option value="PERCENTAGE">PERCENTAGE</option>
-            <option value="FIXED_AMOUNT">FIXED_AMOUNT</option>
+            <option value="PERCENTAGE">{{ discountTypeLabel('PERCENTAGE') }}</option>
+            <option value="FIXED_AMOUNT">{{ discountTypeLabel('FIXED_AMOUNT') }}</option>
           </select>
         </div>
         <div>
-          <label class="lbl">Qiymat</label>
+          <label class="lbl">{{ t('saleOrderDetail.value') }}</label>
           <input v-model.number="discountValue" type="number" min="0.01" step="0.01" class="field w-32" />
         </div>
-        <button type="submit" class="btn" :disabled="saving">Qo‘llash</button>
+        <button type="submit" class="btn" :disabled="saving">{{ t('common.apply') }}</button>
       </form>
       <table class="min-w-full">
-        <thead><tr class="border-b border-gray-100 dark:border-gray-800"><th class="th">Tur</th><th class="th">Qiymat</th><th class="th">Summa</th><th class="th">Sana</th></tr></thead>
+        <thead><tr class="border-b border-gray-100 dark:border-gray-800"><th class="th">{{ t('common.type') }}</th><th class="th">{{ t('saleOrderDetail.value') }}</th><th class="th">{{ t('common.sum') }}</th><th class="th">{{ t('common.date') }}</th></tr></thead>
         <tbody>
-          <tr v-if="discounts.length === 0"><td colspan="4" class="empty">Tarix yo‘q</td></tr>
+          <tr v-if="discounts.length === 0"><td colspan="4" class="empty">{{ t('saleOrderDetail.noHistory') }}</td></tr>
           <tr v-for="d in discounts" :key="d.id" class="border-b border-gray-100 dark:border-gray-800">
-            <td class="td">{{ d.discountType }}</td>
+            <td class="td">{{ d.discountType ? discountTypeLabel(d.discountType) : '—' }}</td>
             <td class="td">{{ d.discountValue }}</td>
             <td class="td">{{ money(d.discountAmount) }}</td>
             <td class="td">{{ formatDate(d.createdAt) }}</td>
@@ -112,9 +140,9 @@
 
     <div v-show="tab === 'history'" class="card">
       <table class="min-w-full">
-        <thead><tr class="border-b border-gray-100 dark:border-gray-800"><th class="th">Dan</th><th class="th">Ga</th><th class="th">Kim</th><th class="th">Sana</th></tr></thead>
+        <thead><tr class="border-b border-gray-100 dark:border-gray-800"><th class="th">{{ t('common.from') }}</th><th class="th">{{ t('saleOrderDetail.historyTo') }}</th><th class="th">{{ t('saleOrderDetail.who') }}</th><th class="th">{{ t('common.date') }}</th></tr></thead>
         <tbody>
-          <tr v-if="history.length === 0"><td colspan="4" class="empty">Tarix yo‘q</td></tr>
+          <tr v-if="history.length === 0"><td colspan="4" class="empty">{{ t('saleOrderDetail.noHistory') }}</td></tr>
           <tr v-for="h in history" :key="h.id" class="border-b border-gray-100 dark:border-gray-800">
             <td class="td"><SaleStatusBadge v-if="h.fromStatus" :status="h.fromStatus" /><span v-else>—</span></td>
             <td class="td"><SaleStatusBadge :status="h.toStatus" /></td>
@@ -129,7 +157,7 @@
       <div class="flex flex-wrap items-center gap-3">
         <label class="btn cursor-pointer" :class="{ 'pointer-events-none opacity-60': uploading || writeBlocked }">
           <ImagePlus :size="16" class="mr-2" />
-          {{ uploading ? 'Yuklanmoqda...' : 'Rasm yuklash' }}
+          {{ uploading ? t('common.loading') : t('saleOrderDetail.uploadImages') }}
           <input
             :key="fileInputKey"
             type="file"
@@ -140,7 +168,7 @@
             @change="onUploadImages"
           />
         </label>
-        <span class="text-xs text-gray-500 dark:text-gray-400">JPG, PNG, WEBP yoki GIF. Bir nechta rasm tanlash mumkin.</span>
+        <span class="text-xs text-gray-500 dark:text-gray-400">{{ t('saleOrderDetail.imagesHint') }}</span>
       </div>
       <div v-if="images.length" class="image-grid">
         <figure v-for="img in images" :key="img.id" class="image-card">
@@ -149,18 +177,18 @@
           </button>
           <figcaption class="image-meta">
             <span class="truncate" :title="img.originalFileName || ''">{{ img.originalFileName || img.fileName }}</span>
-            <button type="button" class="image-delete" title="O‘chirish" @click="onDeleteImage(img)">
+            <button type="button" class="image-delete" :title="t('common.delete')" @click="onDeleteImage(img)">
               <Trash2 :size="14" />
             </button>
           </figcaption>
         </figure>
       </div>
-      <p v-else class="text-sm text-gray-500 dark:text-gray-400">Rasm yo‘q</p>
+      <p v-else class="text-sm text-gray-500 dark:text-gray-400">{{ t('saleOrderDetail.noImages') }}</p>
     </div>
 
     <div v-if="preview" class="overlay" @click.self="preview = null">
       <div class="preview-box">
-        <button type="button" class="preview-close" aria-label="Yopish" @click="preview = null"><X :size="18" /></button>
+        <button type="button" class="preview-close" :aria-label="t('common.close')" @click="preview = null"><X :size="18" /></button>
         <AuthImage :src="imageSrc(preview)" :alt="preview.originalFileName || ''" class="preview-img" />
         <p class="preview-name">{{ preview.originalFileName || preview.fileName }}</p>
       </div>
@@ -168,23 +196,23 @@
 
     <div v-if="prodModal" class="overlay">
       <div class="modal">
-        <h3 class="title mb-4">Ishlab chiqarishga yuborish #{{ order?.id }}</h3>
+        <h3 class="title mb-4">{{ t('saleOrderDetail.sendToProductionTitle', { id: order?.id }) }}</h3>
         <div v-if="prodError" class="err mb-3">{{ prodError }}</div>
         <form class="space-y-3" @submit.prevent="onSendToProduction">
           <label class="lbl">
-            Birinchi sex *
+            {{ t('saleOrderDetail.firstWorkshop') }}
             <select v-model.number="prodWorkshopId" required class="field">
-              <option :value="0" disabled>Tanlang</option>
+              <option :value="0" disabled>{{ t('common.select') }}</option>
               <option v-for="w in activeWorkshops" :key="w.id" :value="w.id">{{ w.name }}</option>
             </select>
           </label>
           <label class="lbl">
-            Izoh
+            {{ t('common.note') }}
             <input v-model="prodNote" class="field" />
           </label>
           <div class="flex justify-end gap-2">
-            <button type="button" class="ghost" @click="prodModal = false">Bekor</button>
-            <button type="submit" class="btn" :disabled="prodSaving || !prodWorkshopId">{{ prodSaving ? '...' : 'Yuborish' }}</button>
+            <button type="button" class="ghost" @click="prodModal = false">{{ t('common.cancel') }}</button>
+            <button type="submit" class="btn" :disabled="prodSaving || !prodWorkshopId">{{ prodSaving ? '...' : t('common.send') }}</button>
           </div>
         </form>
       </div>
@@ -192,13 +220,13 @@
 
     <div v-show="tab === 'waste'" class="card">
       <div class="head">
-        <h3 class="title">Chiqindi</h3>
-        <button type="button" class="btn" :disabled="writeBlocked" @click="openWasteCreate">+ Chiqindi</button>
+        <h3 class="title">{{ t('saleOrderDetail.waste') }}</h3>
+        <button type="button" class="btn" :disabled="writeBlocked" @click="openWasteCreate">{{ t('saleOrderDetail.addWaste') }}</button>
       </div>
       <table class="min-w-full">
-        <thead><tr class="border-b border-gray-100 dark:border-gray-800"><th class="th">Mahsulot</th><th class="th">Miqdor</th><th class="th">Izoh</th><th class="th text-right">Amallar</th></tr></thead>
+        <thead><tr class="border-b border-gray-100 dark:border-gray-800"><th class="th">{{ t('common.product') }}</th><th class="th">{{ t('saleOrderDetail.quantity') }}</th><th class="th">{{ t('common.comment') }}</th><th class="th text-right">{{ t('common.actions') }}</th></tr></thead>
         <tbody>
-          <tr v-if="wastes.length === 0"><td colspan="4" class="empty">Yo‘q</td></tr>
+          <tr v-if="wastes.length === 0"><td colspan="4" class="empty">{{ t('saleOrderDetail.empty') }}</td></tr>
           <tr v-for="w in wastes" :key="w.id" class="border-b border-gray-100 dark:border-gray-800">
             <td class="td">{{ w.goodsName || w.goodsId }}</td>
             <td class="td">{{ w.quantity }}</td>
@@ -211,14 +239,14 @@
 
     <div v-if="orderModal" class="overlay">
       <div class="modal">
-        <h3 class="title mb-4">Savdoni tahrirlash</h3>
+        <h3 class="title mb-4">{{ t('saleOrderDetail.editOrder') }}</h3>
         <div v-if="formError" class="err mb-3">{{ formError }}</div>
         <form class="space-y-3" @submit.prevent="onOrderSave">
           <select v-model.number="orderForm.warehouseId" required class="field">
             <option v-for="w in warehouses" :key="w.id" :value="w.id">{{ w.name }}</option>
           </select>
           <select v-model.number="orderForm.clientId" class="field">
-            <option :value="0">— mijoz —</option>
+            <option :value="0">{{ t('saleOrderDetail.clientPlaceholder') }}</option>
             <option v-for="c in clients" :key="c.id" :value="c.id">{{ c.fullName }}</option>
           </select>
           <select v-model.number="orderForm.userId" required class="field">
@@ -226,10 +254,10 @@
           </select>
           <input v-model="orderForm.orderDate" type="datetime-local" required class="field" />
           <input v-model.number="orderForm.totalSum" type="number" min="0" step="0.01" required class="field" />
-          <input v-model="orderForm.comment" class="field" placeholder="Izoh" />
+          <input v-model="orderForm.comment" class="field" :placeholder="t('common.comment')" />
           <div class="flex justify-end gap-2">
-            <button type="button" class="ghost" @click="orderModal = false">Bekor</button>
-            <button type="submit" class="btn" :disabled="saving">Saqlash</button>
+            <button type="button" class="ghost" @click="orderModal = false">{{ t('common.cancel') }}</button>
+            <button type="submit" class="btn" :disabled="saving">{{ t('common.save') }}</button>
           </div>
         </form>
       </div>
@@ -237,47 +265,47 @@
 
     <div v-if="itemModal" class="overlay">
       <div class="modal">
-        <h3 class="title mb-4">{{ itemEditingId ? 'Qatorni tahrirlash' : 'Yangi qator' }}</h3>
+        <h3 class="title mb-4">{{ itemEditingId ? t('saleOrderDetail.editItem') : t('saleOrderDetail.newItem') }}</h3>
         <div v-if="formError" class="err mb-3">{{ formError }}</div>
         <form class="space-y-3" @submit.prevent="onItemSave">
           <select v-model.number="itemForm.goodsId" required class="field">
-            <option :value="0" disabled>Mahsulot</option>
+            <option :value="0" disabled>{{ t('common.product') }}</option>
             <option v-for="g in goods" :key="g.id" :value="g.id">{{ g.name }}</option>
           </select>
           <div v-if="itemIsWindow" class="grid grid-cols-2 gap-3">
             <label class="modal-lbl">
-              Eni (sm)
+              {{ t('saleOrderDetail.width') }}
               <input v-model.number="itemForm.width" type="number" min="1" step="1" required class="field" />
             </label>
             <label class="modal-lbl">
-              Bo‘yi (sm)
+              {{ t('saleOrderDetail.height') }}
               <input v-model.number="itemForm.height" type="number" min="1" step="1" required class="field" />
             </label>
           </div>
           <div class="grid grid-cols-2 gap-3">
             <label class="modal-lbl">
-              {{ itemIsWindow ? 'Soni (dona)' : 'Soni' }}
+              {{ itemIsWindow ? t('saleOrderDetail.countPcs') : t('common.count') }}
               <input v-model.number="itemForm.count" type="number" min="0.01" step="0.01" required class="field" />
             </label>
             <label class="modal-lbl">
-              {{ itemIsWindow ? 'Sotish (1 kv.m)' : 'Sotish' }}
+              {{ itemIsWindow ? t('saleOrderDetail.sellingKvm') : t('saleOrderDetail.selling') }}
               <input v-model.number="itemForm.priceSelling" type="number" min="0.01" step="0.01" required class="field" />
             </label>
           </div>
           <p v-if="itemIsWindow" class="modal-hint">
-            Kv.m: {{ formatQty(itemKvm) }} · Summa: {{ money(itemKvm * Number(itemForm.priceSelling || 0)) }}
+            {{ t('saleOrderDetail.kvmHint', { kvm: formatQty(itemKvm), sum: money(itemKvm * Number(itemForm.priceSelling || 0)) }) }}
           </p>
           <label class="modal-lbl">
-            Tannarx
+            {{ t('saleOrderDetail.costPrice') }}
             <input v-model.number="itemForm.priceCost" type="number" min="0" step="0.01" required class="field" />
           </label>
           <p v-if="itemEditingId" class="modal-hint">
-            Miqdor yoki mahsulot o‘zgarsa, eski miqdor omborga qaytariladi va yangisi ombordan ayiriladi.
+            {{ t('saleOrderDetail.editItemHint') }}
           </p>
           <input v-model="itemForm.arrivalDate" type="datetime-local" required class="field" />
           <div class="flex justify-end gap-2">
-            <button type="button" class="ghost" @click="itemModal = false">Bekor</button>
-            <button type="submit" class="btn" :disabled="saving">Saqlash</button>
+            <button type="button" class="ghost" @click="itemModal = false">{{ t('common.cancel') }}</button>
+            <button type="submit" class="btn" :disabled="saving">{{ t('common.save') }}</button>
           </div>
         </form>
       </div>
@@ -285,18 +313,18 @@
 
     <div v-if="wasteModal" class="overlay">
       <div class="modal">
-        <h3 class="title mb-4">Chiqindi</h3>
+        <h3 class="title mb-4">{{ t('saleOrderDetail.waste') }}</h3>
         <div v-if="formError" class="err mb-3">{{ formError }}</div>
         <form class="space-y-3" @submit.prevent="onWasteSave">
           <select v-model.number="wasteForm.goodsId" required class="field">
-            <option :value="0" disabled>Mahsulot</option>
+            <option :value="0" disabled>{{ t('common.product') }}</option>
             <option v-for="g in goods" :key="'w'+g.id" :value="g.id">{{ g.name }}</option>
           </select>
           <input v-model.number="wasteForm.quantity" type="number" min="0.01" step="0.01" required class="field" />
-          <input v-model="wasteForm.comment" class="field" placeholder="Izoh" />
+          <input v-model="wasteForm.comment" class="field" :placeholder="t('common.comment')" />
           <div class="flex justify-end gap-2">
-            <button type="button" class="ghost" @click="wasteModal = false">Bekor</button>
-            <button type="submit" class="btn" :disabled="saving">Saqlash</button>
+            <button type="button" class="ghost" @click="wasteModal = false">{{ t('common.cancel') }}</button>
+            <button type="submit" class="btn" :disabled="saving">{{ t('common.save') }}</button>
           </div>
         </form>
       </div>
@@ -313,9 +341,11 @@ import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import RowActions from '@/components/crm/RowActions.vue'
 import SaleStatusBadge from '@/components/crm/SaleStatusBadge.vue'
+import DeliveryStatusBadge from '@/components/crm/DeliveryStatusBadge.vue'
 import AuthImage from '@/components/crm/AuthImage.vue'
 import { nextSaleStatuses, type SaleStatus } from '@/utils/saleStatus'
 import { sendToProduction } from '@/api/production'
+import { fetchDeliveryBySaleOrder, type Delivery } from '@/api/transport'
 import { fetchActiveWorkshops, type Workshop } from '@/api/workshops'
 import {
   applyDiscount,
@@ -347,7 +377,7 @@ import {
 } from '@/api/saleOrderWastes'
 import { fetchWarehouses, type Warehouse } from '@/api/warehouses'
 import { fetchClients, type Client } from '@/api/clients'
-import { fetchUsers, type UserItem } from '@/api/users'
+import { fetchUserOptions, type UserItem } from '@/api/users'
 import { fetchGoods, type Goods } from '@/api/goods'
 import { formatApiError } from '@/api/http'
 import { useFilialScope } from '@/composables/useFilialScope'
@@ -357,14 +387,9 @@ const { writeBlocked } = useFilialScope()
 const { t, te } = useI18n()
 
 const route = useRoute()
-const tabs = [
-  { id: 'items', label: 'Qatorlar' },
-  { id: 'discount', label: 'Chegirma' },
-  { id: 'history', label: 'Tarix' },
-  { id: 'images', label: 'Rasmlar' },
-  { id: 'waste', label: 'Chiqindi' },
-] as const
-const tab = ref<(typeof tabs)[number]['id']>('items')
+const TAB_IDS = ['items', 'discount', 'history', 'images', 'waste'] as const
+const tabs = computed(() => TAB_IDS.map((id) => ({ id, label: t(`saleOrderDetail.tabs.${id}`) })))
+const tab = ref<(typeof TAB_IDS)[number]>('items')
 
 const order = ref<SaleOrder | null>(null)
 const items = ref<SaleOrderItem[]>([])
@@ -415,8 +440,8 @@ function windowPieces(it: SaleOrderItem) {
 function itemQtyText(it: SaleOrderItem) {
   if (!isWindowGoodsId(it.goodsId)) return formatQty(it.count)
   const pieces = windowPieces(it)
-  const kvm = `${formatQty(it.count)} kv.m`
-  return pieces == null ? kvm : `${kvm} (${formatQty(it.width)}×${formatQty(it.height)}, ${formatQty(pieces)} dona)`
+  const kvm = `${formatQty(it.count)} ${t('saleOrderDetail.kvm')}`
+  return pieces == null ? kvm : `${kvm} (${formatQty(it.width)}×${formatQty(it.height)}, ${formatQty(pieces)} ${t('saleOrderDetail.pcs')})`
 }
 
 watch(
@@ -441,9 +466,19 @@ const uploading = ref(false)
 const fileInputKey = ref(0)
 const preview = ref<SaleOrderImage | null>(null)
 
-const MAIN_FLOW: SaleStatus[] = ['NEW', 'CONFIRMED', 'PROCESSING', 'READY', 'DELIVERED', 'COMPLETED']
-const flowStatuses = computed<SaleStatus[]>(() =>
-  order.value?.orderStatus === 'CANCELLED' ? [...MAIN_FLOW, 'CANCELLED'] : MAIN_FLOW,
+const delivery = ref<Delivery | null>(null)
+
+const MAIN_FLOW: SaleStatus[] = ['NEW', 'CONFIRMED', 'PROCESSING', 'READY', 'IN_DELIVERY', 'DELIVERED', 'COMPLETED']
+const flowStatuses = computed<SaleStatus[]>(() => {
+  const status = order.value?.orderStatus
+  const selfPickup = !delivery.value && (status === 'DELIVERED' || status === 'COMPLETED')
+  const base = selfPickup ? MAIN_FLOW.filter((s) => s !== 'IN_DELIVERY') : MAIN_FLOW
+  return status === 'CANCELLED' ? [...base, 'CANCELLED'] : base
+})
+const deliveryConfirmBlocked = computed(
+  () =>
+    order.value?.orderStatus === 'IN_DELIVERY' &&
+    !(delivery.value && ['IN_TRANSIT', 'ARRIVED'].includes(delivery.value.deliveryStatus)),
 )
 const flowIndex = computed(() => flowStatuses.value.indexOf(order.value?.orderStatus as SaleStatus))
 const doneIndex = computed(() => (order.value?.orderStatus === 'CANCELLED' ? -1 : flowIndex.value))
@@ -452,6 +487,26 @@ const nextStatuses = computed(() => nextSaleStatuses(order.value?.orderStatus))
 function statusLabel(status: string) {
   const key = `saleStatus.${status}`
   return te(key) ? t(key) : status
+}
+
+function discountTypeLabel(type: string) {
+  const key = `saleOrderDetail.discountTypes.${type}`
+  return te(key) ? t(key) : type
+}
+
+function statusButtonLabel(st: SaleStatus) {
+  if (st === 'PROCESSING') return t('saleOrderDetail.sendToProduction')
+  if (st === 'IN_DELIVERY') return t('saleOrderDetail.sendToDelivery')
+  if (st === 'DELIVERED' && order.value?.orderStatus === 'IN_DELIVERY') return t('saleOrderDetail.confirmDelivered')
+  return t('saleOrderDetail.moveTo', { status: statusLabel(st) })
+}
+
+async function loadDelivery() {
+  try {
+    delivery.value = (await fetchDeliveryBySaleOrder(id())).data ?? null
+  } catch {
+    delivery.value = null
+  }
 }
 
 function imageSrc(img: SaleOrderImage) {
@@ -478,7 +533,7 @@ async function load() {
       fetchSaleOrderWastes(id()),
       fetchWarehouses(),
       fetchClients(),
-      fetchUsers(),
+      fetchUserOptions(),
       fetchGoods(),
     ])
     order.value = o.data
@@ -491,8 +546,9 @@ async function load() {
     clients.value = cl.data || []
     users.value = us.data || []
     goods.value = gs.data || []
+    await loadDelivery()
   } catch (e) {
-    error.value = formatApiError(e, 'Yuklashda xatolik')
+    error.value = formatApiError(e, t('common.loadError'))
   }
 }
 
@@ -586,14 +642,14 @@ async function onItemSave() {
     itemModal.value = false
     await load()
   } catch (e) {
-    formError.value = formatApiError(e, 'Stock yoki validatsiya xatosi')
+    formError.value = formatApiError(e, t('saleOrderDetail.itemSaveError'))
   } finally {
     saving.value = false
   }
 }
 
 async function onItemDelete(it: SaleOrderItem) {
-  if (!confirm('Qator o‘chirilsinmi?')) return
+  if (!confirm(t('saleOrderDetail.deleteItemConfirm'))) return
   try {
     await deleteSaleOrderItem(it.id)
     await load()
@@ -627,7 +683,7 @@ async function onUploadImages(e: Event) {
     await uploadSaleOrderImages(id(), files)
     await reloadImages()
   } catch (err) {
-    error.value = formatApiError(err, 'Rasm yuklashda xatolik')
+    error.value = formatApiError(err, t('saleOrderDetail.uploadError'))
   } finally {
     uploading.value = false
     fileInputKey.value += 1
@@ -635,7 +691,7 @@ async function onUploadImages(e: Event) {
 }
 
 async function onDeleteImage(img: SaleOrderImage) {
-  if (!confirm('Rasm o‘chirilsinmi?')) return
+  if (!confirm(t('saleOrderDetail.deleteImageConfirm'))) return
   try {
     await deleteSaleOrderImage(id(), img.id)
     if (preview.value?.id === img.id) preview.value = null
@@ -651,14 +707,21 @@ async function onStatus(status: SaleStatus) {
     await openProdModal()
     return
   }
-  if (status === 'CANCELLED' && !confirm(`Savdo #${order.value.id} bekor qilinsinmi? Tovarlar omborga qaytariladi.`)) return
+  if (status === 'CANCELLED' && !confirm(t('saleOrderDetail.cancelConfirm', { id: order.value.id }))) return
+  if (status === 'IN_DELIVERY' && !confirm(t('saleOrderDetail.deliveryConfirm', { id: order.value.id }))) return
+  if (
+    status === 'DELIVERED' &&
+    order.value.orderStatus === 'IN_DELIVERY' &&
+    !confirm(t('saleOrderDetail.deliveredConfirm'))
+  )
+    return
   statusSaving.value = true
   error.value = null
   try {
     await changeSaleOrderStatus(order.value.id, status)
     await load()
   } catch (e) {
-    error.value = formatApiError(e, 'Holat o‘zgartirishda xatolik')
+    error.value = formatApiError(e, t('saleOrderDetail.statusError'))
   } finally {
     statusSaving.value = false
   }
@@ -673,7 +736,7 @@ async function openProdModal() {
     activeWorkshops.value = (await fetchActiveWorkshops()).data || []
     if (activeWorkshops.value[0]) prodWorkshopId.value = activeWorkshops.value[0].id
   } catch (e) {
-    prodError.value = formatApiError(e, 'Sexlar yuklanmadi')
+    prodError.value = formatApiError(e, t('saleOrderDetail.workshopsLoadError'))
   }
 }
 
@@ -690,7 +753,7 @@ async function onSendToProduction() {
     prodModal.value = false
     await load()
   } catch (e) {
-    prodError.value = formatApiError(e, 'Yuborishda xatolik')
+    prodError.value = formatApiError(e, t('saleOrderDetail.sendError'))
   } finally {
     prodSaving.value = false
   }
@@ -724,7 +787,7 @@ async function onWasteSave() {
 }
 
 async function onWasteDelete(w: SaleOrderWaste) {
-  if (!confirm('Chiqindi o‘chirilsinmi?')) return
+  if (!confirm(t('saleOrderDetail.deleteWasteConfirm'))) return
   try {
     await deleteSaleOrderWaste(w.id)
     await load()

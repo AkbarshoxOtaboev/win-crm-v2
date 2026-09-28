@@ -1,20 +1,20 @@
 <template>
   <AdminLayout>
-    <PageBreadcrumb pageTitle="Mahsulotlar" />
+    <PageBreadcrumb :pageTitle="t('nav.goods')" />
     <div class="mb-4 flex gap-2">
-      <button type="button" class="tab" :class="{ active: tab === 'goods' }" @click="tab = 'goods'">Mahsulotlar</button>
-      <button type="button" class="tab" :class="{ active: tab === 'groups' }" @click="tab = 'groups'">Guruhlar</button>
-      <button type="button" class="tab" :class="{ active: tab === 'units' }" @click="tab = 'units'">Birliklar</button>
+      <button type="button" class="tab" :class="{ active: tab === 'goods' }" @click="tab = 'goods'">{{ t('goods.tabGoods') }}</button>
+      <button type="button" class="tab" :class="{ active: tab === 'groups' }" @click="tab = 'groups'">{{ t('goods.tabGroups') }}</button>
+      <button type="button" class="tab" :class="{ active: tab === 'units' }" @click="tab = 'units'">{{ t('goods.tabUnits') }}</button>
     </div>
 
     <div v-if="error" class="err mb-4">{{ error }}</div>
 
     <div v-show="tab === 'goods'" class="card">
       <div class="head">
-        <h3 class="title">Mahsulotlar</h3>
+        <h3 class="title">{{ t('goods.tabGoods') }}</h3>
         <div class="flex gap-2">
-          <input v-model="search" type="search" placeholder="Qidiruv..." class="field sm:w-56" />
-          <button type="button" class="btn" :disabled="writeBlocked" @click="openCreate">+ Yangi mahsulot</button>
+          <input v-model="search" type="search" :placeholder="t('common.search')" class="field sm:w-56" />
+          <button type="button" class="btn" :disabled="writeBlocked" @click="openCreate">{{ t('goods.newGoods') }}</button>
         </div>
       </div>
       <div class="overflow-x-auto">
@@ -22,17 +22,17 @@
           <thead>
             <tr class="border-b border-gray-100 dark:border-gray-800">
               <th class="th">#</th>
-              <th class="th">Nomi</th>
-              <th class="th">Guruh</th>
-              <th class="th">Birlik</th>
-              <th class="th">Turi</th>
-              <th class="th">Sotish</th>
-              <th class="th text-right">Amallar</th>
+              <th class="th">{{ t('common.name') }}</th>
+              <th class="th">{{ t('goods.group') }}</th>
+              <th class="th">{{ t('goods.unit') }}</th>
+              <th class="th">{{ t('goods.type') }}</th>
+              <th class="th">{{ t('goods.selling') }}</th>
+              <th class="th text-right">{{ t('common.actions') }}</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-if="loading"><td colspan="7" class="empty">Yuklanmoqda...</td></tr>
-            <tr v-else-if="filtered.length === 0"><td colspan="7" class="empty">Mahsulot yo‘q</td></tr>
+            <tr v-if="loading"><td colspan="7" class="empty">{{ t('common.loading') }}</td></tr>
+            <tr v-else-if="filtered.length === 0"><td colspan="7" class="empty">{{ t('goods.noGoods') }}</td></tr>
             <tr v-for="g in filtered" :key="g.id" class="border-b border-gray-100 dark:border-gray-800">
               <td class="td">{{ g.id }}</td>
               <td class="td font-medium text-gray-800 dark:text-white/90">{{ g.name }}</td>
@@ -49,21 +49,21 @@
 
     <div v-show="tab === 'groups'" class="card">
       <div class="head">
-        <h3 class="title">Guruhlar</h3>
-        <button type="button" class="btn" :disabled="writeBlocked" @click="openGroupCreate">+ Yangi guruh</button>
+        <h3 class="title">{{ t('goods.tabGroups') }}</h3>
+        <button type="button" class="btn" :disabled="writeBlocked" @click="openGroupCreate">{{ t('goods.newGroup') }}</button>
       </div>
       <table class="min-w-full">
         <thead>
           <tr class="border-b border-gray-100 dark:border-gray-800">
             <th class="th">#</th>
-            <th class="th">Nomi</th>
-            <th class="th">Status</th>
-            <th class="th">Yoqish / o‘chirish</th>
-            <th class="th text-right">Amallar</th>
+            <th class="th">{{ t('common.name') }}</th>
+            <th class="th">{{ t('goods.status') }}</th>
+            <th class="th">{{ t('goods.toggle') }}</th>
+            <th class="th text-right">{{ t('common.actions') }}</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-if="groups.length === 0"><td colspan="5" class="empty">Guruh yo‘q</td></tr>
+          <tr v-if="groups.length === 0"><td colspan="5" class="empty">{{ t('goods.noGroups') }}</td></tr>
           <tr v-for="gr in groups" :key="gr.id" class="border-b border-gray-100 dark:border-gray-800">
             <td class="td">{{ gr.id }}</td>
             <td class="td font-medium text-gray-800 dark:text-white/90">{{ gr.name }}</td>
@@ -72,7 +72,7 @@
                 class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium"
                 :class="isActiveStatus(gr.status) ? 'bg-success-50 text-success-600' : 'bg-gray-100 text-gray-500'"
               >
-                {{ isActiveStatus(gr.status) ? 'Active' : 'No active' }}
+                {{ isActiveStatus(gr.status) ? t('goods.statusActive') : t('goods.statusInactive') }}
               </span>
             </td>
             <td class="td">
@@ -81,7 +81,7 @@
                 class="status-toggle"
                 :class="isActiveStatus(gr.status) ? 'on' : 'off'"
                 :aria-pressed="isActiveStatus(gr.status)"
-                :title="isActiveStatus(gr.status) ? 'O‘chirish' : 'Yoqish'"
+                :title="isActiveStatus(gr.status) ? t('goods.turnOff') : t('goods.turnOn')"
                 @click="onGroupStatus(gr)"
               >
                 <span class="status-knob" />
@@ -95,21 +95,21 @@
 
     <div v-show="tab === 'units'" class="card">
       <div class="head">
-        <h3 class="title">Birliklar</h3>
-        <button type="button" class="btn" :disabled="writeBlocked" @click="openUnitCreate">+ Yangi birlik</button>
+        <h3 class="title">{{ t('goods.tabUnits') }}</h3>
+        <button type="button" class="btn" :disabled="writeBlocked" @click="openUnitCreate">{{ t('goods.newUnit') }}</button>
       </div>
       <table class="min-w-full">
         <thead>
           <tr class="border-b border-gray-100 dark:border-gray-800">
             <th class="th">#</th>
-            <th class="th">Nomi</th>
-            <th class="th">Status</th>
-            <th class="th">Yoqish / o‘chirish</th>
-            <th class="th text-right">Amallar</th>
+            <th class="th">{{ t('common.name') }}</th>
+            <th class="th">{{ t('goods.status') }}</th>
+            <th class="th">{{ t('goods.toggle') }}</th>
+            <th class="th text-right">{{ t('common.actions') }}</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-if="units.length === 0"><td colspan="5" class="empty">Birlik yo‘q</td></tr>
+          <tr v-if="units.length === 0"><td colspan="5" class="empty">{{ t('goods.noUnits') }}</td></tr>
           <tr v-for="u in units" :key="u.id" class="border-b border-gray-100 dark:border-gray-800">
             <td class="td">{{ u.id }}</td>
             <td class="td font-medium text-gray-800 dark:text-white/90">{{ u.name }}</td>
@@ -118,7 +118,7 @@
                 class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium"
                 :class="isActiveStatus(u.status) ? 'bg-success-50 text-success-600' : 'bg-gray-100 text-gray-500'"
               >
-                {{ isActiveStatus(u.status) ? 'Active' : 'No active' }}
+                {{ isActiveStatus(u.status) ? t('goods.statusActive') : t('goods.statusInactive') }}
               </span>
             </td>
             <td class="td">
@@ -127,7 +127,7 @@
                 class="status-toggle"
                 :class="isActiveStatus(u.status) ? 'on' : 'off'"
                 :aria-pressed="isActiveStatus(u.status)"
-                :title="isActiveStatus(u.status) ? 'O‘chirish' : 'Yoqish'"
+                :title="isActiveStatus(u.status) ? t('goods.turnOff') : t('goods.turnOn')"
                 @click="onUnitStatus(u)"
               >
                 <span class="status-knob" />
@@ -141,71 +141,71 @@
 
     <div v-if="modalOpen" class="overlay">
       <div class="modal">
-        <h3 class="title mb-4">{{ editingId ? 'Mahsulotni tahrirlash' : 'Yangi mahsulot' }}</h3>
+        <h3 class="title mb-4">{{ editingId ? t('goods.editGoods') : t('goods.createGoods') }}</h3>
         <div v-if="formError" class="err mb-3">{{ formError }}</div>
         <form class="space-y-3" @submit.prevent="onSubmit">
           <div>
-            <label class="lbl">Nomi *</label>
+            <label class="lbl">{{ t('common.name') }} *</label>
             <input v-model="form.name" required class="field" />
           </div>
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="lbl">Guruh *</label>
+              <label class="lbl">{{ t('goods.group') }} *</label>
               <select v-model.number="form.goodsGroupId" required class="field">
-                <option :value="0" disabled>Tanlang</option>
+                <option :value="0" disabled>{{ t('common.select') }}</option>
                 <option v-for="gr in groups" :key="gr.id" :value="gr.id">{{ gr.name }}</option>
               </select>
             </div>
             <div>
-              <label class="lbl">Birlik *</label>
+              <label class="lbl">{{ t('goods.unit') }} *</label>
               <select v-model.number="form.unitTypeId" required class="field">
-                <option :value="0" disabled>Tanlang</option>
+                <option :value="0" disabled>{{ t('common.select') }}</option>
                 <option v-for="u in units" :key="u.id" :value="u.id">{{ u.name }}</option>
               </select>
             </div>
           </div>
           <div class="grid grid-cols-3 gap-3">
             <div>
-              <label class="lbl">Turi *</label>
+              <label class="lbl">{{ t('goods.type') }} *</label>
               <select v-model="form.type" required class="field">
-                <option value="PRODUCT">PRODUCT</option>
-                <option value="SERVICE">SERVICE</option>
-                <option value="WINDOW">WINDOW</option>
+                <option value="PRODUCT">{{ t('goods.types.PRODUCT') }}</option>
+                <option value="SERVICE">{{ t('goods.types.SERVICE') }}</option>
+                <option value="WINDOW">{{ t('goods.types.WINDOW') }}</option>
               </select>
             </div>
             <div>
-              <label class="lbl">Tannarx *</label>
+              <label class="lbl">{{ t('goods.costPrice') }} *</label>
               <input v-model.number="form.priceCost" type="number" min="0" step="0.01" required class="field" />
             </div>
             <div>
-              <label class="lbl">Sotish *</label>
+              <label class="lbl">{{ t('goods.selling') }} *</label>
               <input v-model.number="form.priceSelling" type="number" min="0" step="0.01" required class="field" />
             </div>
           </div>
           <div v-if="form.type === 'WINDOW'" class="grid grid-cols-2 gap-3">
             <div>
-              <label class="lbl">Eni (sm) *</label>
+              <label class="lbl">{{ t('goods.widthCm') }} *</label>
               <input v-model.number="form.width" type="number" min="1" step="1" required class="field" placeholder="120" />
             </div>
             <div>
-              <label class="lbl">Bo‘yi (sm) *</label>
+              <label class="lbl">{{ t('goods.heightCm') }} *</label>
               <input v-model.number="form.height" type="number" min="1" step="1" required class="field" placeholder="150" />
             </div>
           </div>
           <div>
-            <label class="lbl">Barcode</label>
+            <label class="lbl">{{ t('goods.barcode') }}</label>
             <input v-model="form.barcode" class="field" />
           </div>
           <div>
-            <label class="lbl">Rasm</label>
+            <label class="lbl">{{ t('goods.photo') }}</label>
             <div v-if="previewUrl" class="photo-preview">
-              <img :src="previewUrl" alt="Mahsulot rasmi" />
+              <img :src="previewUrl" :alt="t('goods.photoAlt')" />
             </div>
             <input :key="fileInputKey" type="file" accept="image/*" class="field" @change="onFile" />
           </div>
           <div class="flex justify-end gap-2">
-            <button type="button" class="ghost" @click="modalOpen = false">Bekor</button>
-            <button type="submit" class="btn" :disabled="saving">{{ saving ? '...' : 'Saqlash' }}</button>
+            <button type="button" class="ghost" @click="modalOpen = false">{{ t('common.cancel') }}</button>
+            <button type="submit" class="btn" :disabled="saving">{{ saving ? '...' : t('common.save') }}</button>
           </div>
         </form>
       </div>
@@ -213,16 +213,16 @@
 
     <div v-if="nameModal" class="overlay">
       <div class="modal max-w-md">
-        <h3 class="title mb-4">{{ nameKind === 'group' ? 'Guruh' : 'Birlik' }}</h3>
+        <h3 class="title mb-4">{{ nameKind === 'group' ? t('goods.group') : t('goods.unit') }}</h3>
         <div v-if="formError" class="err mb-3">{{ formError }}</div>
         <form class="space-y-3" @submit.prevent="onNameSubmit">
           <div>
-            <label class="lbl">Nomi *</label>
+            <label class="lbl">{{ t('common.name') }} *</label>
             <input v-model="nameValue" required class="field" />
           </div>
           <div class="flex justify-end gap-2">
-            <button type="button" class="ghost" @click="nameModal = false">Bekor</button>
-            <button type="submit" class="btn" :disabled="saving">{{ saving ? '...' : 'Saqlash' }}</button>
+            <button type="button" class="ghost" @click="nameModal = false">{{ t('common.cancel') }}</button>
+            <button type="submit" class="btn" :disabled="saving">{{ saving ? '...' : t('common.save') }}</button>
           </div>
         </form>
       </div>
@@ -232,6 +232,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import RowActions from '@/components/crm/RowActions.vue'
@@ -258,6 +259,7 @@ import { formatApiError, getAccessToken } from '@/api/http'
 import { useFilialScope } from '@/composables/useFilialScope'
 import { money } from '@/utils/format'
 
+const { t } = useI18n()
 const { writeBlocked } = useFilialScope()
 
 const tab = ref<'goods' | 'groups' | 'units'>('goods')
@@ -360,7 +362,7 @@ async function load() {
     groups.value = byIdAsc(groupRes || [])
     units.value = byIdAsc(unitRes || [])
   } catch (e) {
-    error.value = formatApiError(e, 'Yuklashda xatolik')
+    error.value = formatApiError(e, t('common.loadError'))
   } finally {
     loading.value = false
   }
@@ -426,7 +428,7 @@ async function onSubmit() {
   formError.value = null
   try {
     if (form.type === 'WINDOW' && (Number(form.width) <= 0 || Number(form.height) <= 0)) {
-      formError.value = 'WINDOW uchun eni va bo‘yi majburiy'
+      formError.value = t('goods.windowSizeRequired')
       return
     }
     const fd = buildFormData()
@@ -435,19 +437,19 @@ async function onSubmit() {
     modalOpen.value = false
     await load()
   } catch (e) {
-    formError.value = formatApiError(e, 'Saqlashda xatolik')
+    formError.value = formatApiError(e, t('common.saveError'))
   } finally {
     saving.value = false
   }
 }
 
 async function onDelete(g: Goods) {
-  if (!confirm(`“${g.name}” o‘chirilsinmi?`)) return
+  if (!confirm(t('common.deleteConfirmNamed', { name: g.name }))) return
   try {
     await deleteGoods(g.id)
     await load()
   } catch (e) {
-    error.value = formatApiError(e, 'O‘chirishda xatolik')
+    error.value = formatApiError(e, t('common.deleteError'))
   }
 }
 
@@ -500,29 +502,29 @@ async function onNameSubmit() {
     nameModal.value = false
     await load()
   } catch (e) {
-    formError.value = formatApiError(e, 'Saqlashda xatolik')
+    formError.value = formatApiError(e, t('common.saveError'))
   } finally {
     saving.value = false
   }
 }
 
 async function onGroupDelete(gr: GoodsGroup) {
-  if (!confirm(`“${gr.name}” o‘chirilsinmi?`)) return
+  if (!confirm(t('common.deleteConfirmNamed', { name: gr.name }))) return
   try {
     await deleteGoodsGroup(gr.id)
     await load()
   } catch (e) {
-    error.value = formatApiError(e, 'O‘chirishda xatolik')
+    error.value = formatApiError(e, t('common.deleteError'))
   }
 }
 
 async function onUnitDelete(u: UnitType) {
-  if (!confirm(`“${u.name}” o‘chirilsinmi?`)) return
+  if (!confirm(t('common.deleteConfirmNamed', { name: u.name }))) return
   try {
     await deleteUnitType(u.id)
     await load()
   } catch (e) {
-    error.value = formatApiError(e, 'O‘chirishda xatolik')
+    error.value = formatApiError(e, t('common.deleteError'))
   }
 }
 
@@ -535,7 +537,7 @@ async function onGroupStatus(gr: GoodsGroup) {
     await changeGoodsGroupStatus(gr.id)
     await load()
   } catch (e) {
-    error.value = formatApiError(e, 'Statusni o‘zgartirishda xatolik')
+    error.value = formatApiError(e, t('goods.statusError'))
   }
 }
 
@@ -544,7 +546,7 @@ async function onUnitStatus(u: UnitType) {
     await changeUnitTypeStatus(u.id)
     await load()
   } catch (e) {
-    error.value = formatApiError(e, 'Statusni o‘zgartirishda xatolik')
+    error.value = formatApiError(e, t('goods.statusError'))
   }
 }
 

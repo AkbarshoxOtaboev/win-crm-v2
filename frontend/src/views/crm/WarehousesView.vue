@@ -1,12 +1,12 @@
 <template>
   <AdminLayout>
-    <PageBreadcrumb pageTitle="Omborlar" />
+    <PageBreadcrumb :pageTitle="t('nav.warehouses')" />
     <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
       <div class="flex flex-col gap-3 border-b border-gray-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-gray-800">
-        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Omborlar</h3>
+        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('nav.warehouses') }}</h3>
         <div class="flex gap-2">
-          <input v-model="search" type="search" placeholder="Qidiruv..." class="field sm:w-56" />
-          <button type="button" class="btn" :disabled="writeBlocked" @click="openCreate">+ Yangi ombor</button>
+          <input v-model="search" type="search" :placeholder="t('common.search')" class="field sm:w-56" />
+          <button type="button" class="btn" :disabled="writeBlocked" @click="openCreate">{{ t('warehouses.newWarehouse') }}</button>
         </div>
       </div>
       <div v-if="error" class="err mx-5 mt-4">{{ error }}</div>
@@ -15,15 +15,15 @@
           <thead>
             <tr class="border-b border-gray-100 dark:border-gray-800">
               <th class="th">#</th>
-              <th class="th">Nomi</th>
-              <th class="th">Status</th>
-              <th class="th">Yoqish / o‘chirish</th>
-              <th class="th text-right">Amallar</th>
+              <th class="th">{{ t('common.name') }}</th>
+              <th class="th">{{ t('warehouses.status') }}</th>
+              <th class="th">{{ t('warehouses.toggle') }}</th>
+              <th class="th text-right">{{ t('common.actions') }}</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-if="loading"><td colspan="5" class="empty">Yuklanmoqda...</td></tr>
-            <tr v-else-if="filtered.length === 0"><td colspan="5" class="empty">Ombor yo‘q</td></tr>
+            <tr v-if="loading"><td colspan="5" class="empty">{{ t('common.loading') }}</td></tr>
+            <tr v-else-if="filtered.length === 0"><td colspan="5" class="empty">{{ t('warehouses.empty') }}</td></tr>
             <tr v-for="w in filtered" :key="w.id" class="border-b border-gray-100 dark:border-gray-800">
               <td class="td">{{ w.id }}</td>
               <td class="td font-medium text-gray-800 dark:text-white/90">{{ w.name }}</td>
@@ -32,7 +32,7 @@
                   class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium"
                   :class="isActiveStatus(w.status) ? 'bg-success-50 text-success-600' : 'bg-gray-100 text-gray-500'"
                 >
-                  {{ isActiveStatus(w.status) ? 'Active' : 'No active' }}
+                  {{ isActiveStatus(w.status) ? t('warehouses.statusActive') : t('warehouses.statusInactive') }}
                 </span>
               </td>
               <td class="td">
@@ -41,7 +41,7 @@
                   class="status-toggle"
                   :class="isActiveStatus(w.status) ? 'on' : 'off'"
                   :aria-pressed="isActiveStatus(w.status)"
-                  :title="isActiveStatus(w.status) ? 'O‘chirish' : 'Yoqish'"
+                  :title="isActiveStatus(w.status) ? t('warehouses.turnOff') : t('warehouses.turnOn')"
                   @click="onStatus(w)"
                 >
                   <span class="status-knob" />
@@ -59,17 +59,17 @@
     <div v-if="modalOpen" class="fixed inset-0 z-99999 flex items-center justify-center bg-black/40 p-4">
       <div class="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
         <h3 class="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">
-          {{ editingId ? 'Omborni tahrirlash' : 'Yangi ombor' }}
+          {{ editingId ? t('warehouses.editTitle') : t('warehouses.createTitle') }}
         </h3>
         <div v-if="formError" class="err mb-3">{{ formError }}</div>
         <form class="space-y-3" @submit.prevent="onSubmit">
           <div>
-            <label class="mb-1 block text-sm text-gray-600 dark:text-gray-400">Nomi *</label>
+            <label class="mb-1 block text-sm text-gray-600 dark:text-gray-400">{{ t('common.name') }} *</label>
             <input v-model="name" required class="field" />
           </div>
           <div class="flex justify-end gap-2">
-            <button type="button" class="h-10 rounded-lg border border-gray-300 px-4 text-sm dark:border-gray-700" @click="modalOpen = false">Bekor</button>
-            <button type="submit" class="btn" :disabled="saving">{{ saving ? '...' : 'Saqlash' }}</button>
+            <button type="button" class="h-10 rounded-lg border border-gray-300 px-4 text-sm dark:border-gray-700" @click="modalOpen = false">{{ t('common.cancel') }}</button>
+            <button type="submit" class="btn" :disabled="saving">{{ saving ? '...' : t('common.save') }}</button>
           </div>
         </form>
       </div>
@@ -79,6 +79,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import RowActions from '@/components/crm/RowActions.vue'
@@ -93,6 +94,7 @@ import {
 import { ApiError } from '@/api/http'
 import { useFilialScope } from '@/composables/useFilialScope'
 
+const { t } = useI18n()
 const { writeBlocked } = useFilialScope()
 const items = ref<Warehouse[]>([])
 const loading = ref(false)
@@ -122,7 +124,7 @@ async function load() {
     const res = await fetchWarehouses()
     items.value = res.data || []
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Yuklashda xatolik'
+    error.value = e instanceof ApiError ? e.message : t('common.loadError')
   } finally {
     loading.value = false
   }
@@ -151,19 +153,19 @@ async function onSubmit() {
     modalOpen.value = false
     await load()
   } catch (e) {
-    formError.value = e instanceof ApiError ? e.message : 'Saqlashda xatolik'
+    formError.value = e instanceof ApiError ? e.message : t('common.saveError')
   } finally {
     saving.value = false
   }
 }
 
 async function onDelete(w: Warehouse) {
-  if (!confirm(`“${w.name}” o‘chirilsinmi?`)) return
+  if (!confirm(t('common.deleteConfirmNamed', { name: w.name }))) return
   try {
     await deleteWarehouse(w.id)
     await load()
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'O‘chirishda xatolik'
+    error.value = e instanceof ApiError ? e.message : t('common.deleteError')
   }
 }
 
@@ -172,7 +174,7 @@ async function onStatus(w: Warehouse) {
     await changeWarehouseStatus(w.id)
     await load()
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Statusni o‘zgartirishda xatolik'
+    error.value = e instanceof ApiError ? e.message : t('warehouses.statusError')
   }
 }
 

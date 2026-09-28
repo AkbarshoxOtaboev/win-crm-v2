@@ -1,6 +1,6 @@
 <template>
   <AdminLayout>
-    <PageBreadcrumb pageTitle="Umumiy sozlamalar" />
+    <PageBreadcrumb :pageTitle="t('nav.generalSettings')" />
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
       <router-link
         v-for="item in links"
@@ -23,6 +23,8 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import {
@@ -41,20 +43,31 @@ import {
   Files,
 } from 'lucide-vue-next'
 
-const links = [
-  { path: '/settings/filials', title: 'Filiallar', desc: 'Filiallar va direktorlar', icon: Building2 },
-  { path: '/settings/users', title: 'Foydalanuvchilar', desc: 'Login, rollar va status', icon: UserCircle },
-  { path: '/settings/sessions', title: 'Faol sessiyalar', desc: 'Kirishlar va qurilmalar', icon: Plug },
-  { path: '/settings/roles', title: 'Rollar', desc: 'Ruxsatlar boshqaruvi', icon: Shield },
-  { path: '/settings/company', title: 'Tashkilot rekvizitlari', desc: 'INN, bank, manzil', icon: Files },
-  { path: '/settings/telegram', title: 'Telegram bot', desc: 'Bot token va ulanish', icon: Plug },
-  { path: '/settings/eskiz', title: 'Eskiz.uz SMS', desc: 'SMS sozlamalari', icon: Send },
-  { path: '/settings/units', title: 'O‘lchov birliklari', desc: 'dona, m², kg…', icon: List },
-  { path: '/settings/warehouses', title: 'Omborlar', desc: 'Omborlar ro‘yxati', icon: Box },
-  { path: '/settings/workshops', title: 'Sexlar', desc: 'Ishlab chiqarish sexlari', icon: Factory },
-  { path: '/settings/payment-types', title: 'To‘lov turlari', desc: 'Naqd, karta…', icon: BarChart3 },
-  { path: '/settings/expense-categories', title: 'Xarajat kategoriyalari', desc: 'Xarajat turlari', icon: Folder },
-  { path: '/settings/audit', title: 'Audit loglar', desc: 'Tizim amallar tarixi', icon: ShieldCheck },
-  { path: '/profile', title: 'Profil', desc: 'Shaxsiy ma’lumotlar', icon: Settings },
+const { t } = useI18n()
+
+const linkDefs = [
+  { path: '/settings/filials', key: 'filials', icon: Building2 },
+  { path: '/settings/users', key: 'users', icon: UserCircle },
+  { path: '/settings/sessions', key: 'sessions', icon: Plug },
+  { path: '/settings/roles', key: 'roles', icon: Shield },
+  { path: '/settings/company', key: 'company', icon: Files },
+  { path: '/settings/telegram', key: 'telegram', icon: Plug },
+  { path: '/settings/eskiz', key: 'eskiz', icon: Send },
+  { path: '/settings/units', key: 'units', icon: List },
+  { path: '/settings/warehouses', key: 'warehouses', icon: Box },
+  { path: '/settings/workshops', key: 'workshops', icon: Factory },
+  { path: '/settings/payment-types', key: 'paymentTypes', icon: BarChart3 },
+  { path: '/settings/expense-categories', key: 'expenseCategories', icon: Folder },
+  { path: '/settings/audit', key: 'audit', icon: ShieldCheck },
+  { path: '/profile', key: 'profile', icon: Settings },
 ]
+
+const links = computed(() =>
+  linkDefs.map((l) => ({
+    path: l.path,
+    title: t(`nav.${l.key}`),
+    desc: t(`settings.general.desc.${l.key}`),
+    icon: l.icon,
+  })),
+)
 </script>

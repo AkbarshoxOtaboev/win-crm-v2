@@ -1,19 +1,19 @@
 <template>
   <AdminLayout>
-    <PageBreadcrumb pageTitle="O‘lchov birliklari" />
+    <PageBreadcrumb :pageTitle="t('nav.units')" />
     <div v-if="error" class="err mb-4">{{ error }}</div>
     <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
       <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-800">
-        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Birliklar</h3>
-        <button type="button" class="btn" :disabled="writeBlocked" @click="openCreate">+ Yangi</button>
+        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('settings.units.title') }}</h3>
+        <button type="button" class="btn" :disabled="writeBlocked" @click="openCreate">{{ t('common.new') }}</button>
       </div>
       <table class="min-w-full">
         <thead>
           <tr class="border-b border-gray-100 dark:border-gray-800">
             <th class="th">#</th>
-            <th class="th">Nomi</th>
-            <th class="th">Status</th>
-            <th class="th text-right">Amallar</th>
+            <th class="th">{{ t('common.name') }}</th>
+            <th class="th">{{ t('shared.status') }}</th>
+            <th class="th text-right">{{ t('common.actions') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -23,7 +23,7 @@
             <td class="td">{{ u.status || 'ACTIVE' }}</td>
             <td class="td text-right"><RowActions @edit="openEdit(u)" @delete="onDelete(u)" /></td>
           </tr>
-          <tr v-if="units.length === 0"><td colspan="4" class="empty">Birlik yo‘q</td></tr>
+          <tr v-if="units.length === 0"><td colspan="4" class="empty">{{ t('settings.units.empty') }}</td></tr>
         </tbody>
       </table>
     </div>
@@ -31,10 +31,10 @@
     <div v-if="modal" class="overlay">
       <div class="modal">
         <form class="space-y-3" @submit.prevent="onSave">
-          <input v-model="name" required class="field" placeholder="Nomi *" />
+          <input v-model="name" required class="field" :placeholder="t('shared.nameRequired')" />
           <div class="flex justify-end gap-2">
-            <button type="button" class="ghost" @click="modal = false">Bekor</button>
-            <button type="submit" class="btn">Saqlash</button>
+            <button type="button" class="ghost" @click="modal = false">{{ t('common.cancel') }}</button>
+            <button type="submit" class="btn">{{ t('common.save') }}</button>
           </div>
         </form>
       </div>
@@ -44,6 +44,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import RowActions from '@/components/crm/RowActions.vue'
@@ -51,6 +52,7 @@ import { createUnitType, deleteUnitType, fetchUnitTypes, updateUnitType, type Un
 import { formatApiError } from '@/api/http'
 import { useFilialScope } from '@/composables/useFilialScope'
 
+const { t } = useI18n()
 const { writeBlocked } = useFilialScope()
 const units = ref<UnitType[]>([])
 const error = ref<string | null>(null)
@@ -90,7 +92,7 @@ async function onSave() {
 }
 
 async function onDelete(u: UnitType) {
-  if (!confirm(`“${u.name}” o‘chirilsinmi?`)) return
+  if (!confirm(t('common.deleteConfirmNamed', { name: u.name }))) return
   try {
     await deleteUnitType(u.id)
     await load()

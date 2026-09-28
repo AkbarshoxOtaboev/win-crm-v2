@@ -1,0 +1,32 @@
+export default {
+  uz: {
+    subtitle: 'Login qiling — username va parolni kiriting',
+    username: 'Username',
+    password: 'Password',
+    passwordPlaceholder: 'Parol',
+    signingIn: 'Kirilmoqda...',
+    signIn: 'Kirish',
+    tagline: 'WinCRM — savdo, ombor va mijozlar boshqaruvi',
+    loginFailed: 'Login amalga oshmadi. Backend ishlayotganini tekshiring.',
+  },
+  ru: {
+    subtitle: 'Войдите — введите имя пользователя и пароль',
+    username: 'Имя пользователя',
+    password: 'Пароль',
+    passwordPlaceholder: 'Пароль',
+    signingIn: 'Вход...',
+    signIn: 'Войти',
+    tagline: 'WinCRM — управление продажами, складом и клиентами',
+    loginFailed: 'Не удалось войти. Проверьте, что сервер работает.',
+  },
+  en: {
+    subtitle: 'Sign in — enter your username and password',
+    username: 'Username',
+    password: 'Password',
+    passwordPlaceholder: 'Password',
+    signingIn: 'Signing in...',
+    signIn: 'Sign in',
+    tagline: 'WinCRM — sales, warehouse and client management',
+    loginFailed: 'Sign-in failed. Please check that the backend is running.',
+  },
+}

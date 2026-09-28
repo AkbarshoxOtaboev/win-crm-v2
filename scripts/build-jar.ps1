@@ -4,7 +4,7 @@ $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
 Write-Host "==> Building WinCRM (Vue + Spring Boot JAR)"
-& .\mvnw.cmd -DskipTests package
+& .\mvnw.cmd -Pprod -DskipTests clean package
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 $Jar = Get-ChildItem -Path "target" -Filter "win-crm-*.jar" |

@@ -27,7 +27,7 @@ import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
-import { fetchUsers, updateUser, type UserItem } from '@/api/users'
+import { fetchUser, fetchUserOptions, updateUser, type UserItem } from '@/api/users'
 import { useAuthStore } from '@/stores/auth'
 import { formatApiError } from '@/api/http'
 
@@ -42,8 +42,9 @@ const saving = ref(false)
 
 onMounted(async () => {
   try {
-    const list = await fetchUsers()
-    me.value = (list.data || []).find((u) => u.username === auth.username) || null
+    const list = await fetchUserOptions()
+    const found = (list.data || []).find((u) => u.username === auth.username)
+    me.value = found ? (await fetchUser(found.id)).data : null
   } catch (e) {
     error.value = formatApiError(e)
   }
@@ -71,8 +72,8 @@ async function onSave() {
     fd.append('fullName', me.value.fullName || me.value.username)
     fd.append('phone', me.value.phone || '000')
     fd.append('password', password.value)
-    const roleId = me.value.role?.[0]?.id
-    if (roleId) fd.append('roleIds', String(roleId))
+    for (const r of me.value.role || []) fd.append('roleIds', String(r.id))
+    if (me.value.filialId) fd.append('filialId', String(me.value.filialId))
     await updateUser(me.value.id, fd)
     ok.value = t('password.success')
     password.value = ''

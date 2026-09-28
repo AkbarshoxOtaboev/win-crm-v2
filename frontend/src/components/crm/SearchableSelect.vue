@@ -11,7 +11,7 @@
         class="truncate"
         :class="selectedLabel ? 'text-gray-800 dark:text-white/90' : 'text-gray-400 dark:text-gray-500'"
       >
-        {{ selectedLabel || placeholder }}
+        {{ selectedLabel || placeholder || t('shared.selectPlaceholder') }}
       </span>
       <svg class="h-4 w-4 shrink-0 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
         <path
@@ -28,12 +28,12 @@
         v-model="query"
         type="search"
         class="search"
-        :placeholder="searchPlaceholder"
+        :placeholder="searchPlaceholder || t('shared.searchPlaceholder')"
         @keydown.esc.prevent="close"
         @keydown.enter.prevent="pickFirst"
       />
       <ul class="options">
-        <li v-if="filtered.length === 0" class="empty">Topilmadi</li>
+        <li v-if="filtered.length === 0" class="empty">{{ t('common.notFound') }}</li>
         <li
           v-for="opt in filtered"
           :key="opt.value"
@@ -50,6 +50,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 export interface SearchableOption {
   value: number
@@ -67,8 +68,8 @@ const props = withDefaults(
     disabled?: boolean
   }>(),
   {
-    placeholder: 'Tanlang...',
-    searchPlaceholder: 'Qidirish...',
+    placeholder: '',
+    searchPlaceholder: '',
     disabled: false,
   },
 )
@@ -76,6 +77,8 @@ const props = withDefaults(
 const emit = defineEmits<{
   'update:modelValue': [value: number]
 }>()
+
+const { t } = useI18n()
 
 const open = ref(false)
 const query = ref('')

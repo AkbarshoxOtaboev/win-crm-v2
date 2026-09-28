@@ -1,6 +1,6 @@
 <template>
   <AdminLayout>
-    <PageBreadcrumb pageTitle="Sotuv dashboard" />
+    <PageBreadcrumb :pageTitle="t('nav.salesDashboard')" />
 
     <div v-if="error" class="err mb-4">{{ error }}</div>
 
@@ -8,9 +8,9 @@
     <div class="card mb-4 p-5">
       <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Sotuv dashboard</h3>
+          <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('nav.salesDashboard') }}</h3>
           <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Buyurtmalar holati va sotuvchilar bo‘yicha statistika
+            {{ t('salesDashboard.subtitle') }}
           </p>
         </div>
       </div>
@@ -21,16 +21,16 @@
           <span class="text-gray-400">—</span>
           <input v-model="endDate" type="date" class="date-input" />
         </label>
-        <button type="button" class="icon-btn" title="Filter" @click="showFilters = !showFilters">
+        <button type="button" class="icon-btn" :title="t('salesDashboard.filter')" @click="showFilters = !showFilters">
           <ListFilter class="h-4 w-4" />
         </button>
-        <button type="button" class="icon-btn" title="Tozalash" @click="clearFilters">
+        <button type="button" class="icon-btn" :title="t('salesDashboard.clear')" @click="clearFilters">
           <X class="h-4 w-4" />
         </button>
         <button
           type="button"
           class="icon-btn ms-auto"
-          title="Yangilash"
+          :title="t('common.refresh')"
           :disabled="loading"
           @click="load"
         >
@@ -39,7 +39,7 @@
       </div>
       <div v-if="showFilters" class="mt-3 flex flex-wrap gap-2 border-t border-gray-100 pt-3 dark:border-gray-800">
         <select v-model="statusFilter" class="field sm:w-48" @change="load">
-          <option value="">Barcha holatlar</option>
+          <option value="">{{ t('salesDashboard.allStatuses') }}</option>
           <option v-for="s in STATUS_DEFS" :key="s.key" :value="s.key">{{ s.label }}</option>
         </select>
       </div>
@@ -48,9 +48,9 @@
     <!-- Buyurtmalar holati -->
     <div class="card mb-4 p-5">
       <div class="mb-4">
-        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Buyurtmalar holati</h3>
+        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('salesDashboard.ordersStatus') }}</h3>
         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          Har bir holat bo‘yicha buyurtmalar soni, summa va ulushi
+          {{ t('salesDashboard.ordersStatusHint') }}
         </p>
       </div>
 
@@ -63,12 +63,12 @@
         >
           <p class="text-sm font-medium text-gray-600 dark:text-gray-300">{{ s.label }}</p>
           <p class="mt-2 text-2xl font-bold text-gray-800 dark:text-white/90">{{ s.count }}</p>
-          <p class="mt-0.5 text-xs text-gray-500">Buyurtmalar</p>
+          <p class="mt-0.5 text-xs text-gray-500">{{ t('salesDashboard.orders') }}</p>
           <p class="mt-3 text-sm font-semibold text-gray-800 dark:text-white/90">
-            {{ money(s.sum) }} <span class="font-normal text-gray-500">so‘m</span>
+            {{ money(s.sum) }} <span class="font-normal text-gray-500">{{ t('common.currency') }}</span>
           </p>
           <div class="mt-3 flex items-center justify-between text-xs text-gray-500">
-            <span>Ulushi</span>
+            <span>{{ t('salesDashboard.share') }}</span>
             <span class="font-medium text-gray-700 dark:text-gray-200">{{ s.share }}%</span>
           </div>
           <div class="mt-1.5 h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
@@ -79,7 +79,7 @@
 
       <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <div>
-          <h4 class="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-200">Holat bo‘yicha summa</h4>
+          <h4 class="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-200">{{ t('salesDashboard.sumByStatus') }}</h4>
           <VueApexCharts
             v-if="chartMounted"
             :key="`status-bar-${chartThemeKey}`"
@@ -90,7 +90,7 @@
           />
         </div>
         <div>
-          <h4 class="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-200">Holat bo‘yicha taqsimot</h4>
+          <h4 class="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-200">{{ t('salesDashboard.distByStatus') }}</h4>
           <VueApexCharts
             v-if="chartMounted"
             :key="`status-donut-${chartThemeKey}`"
@@ -108,42 +108,42 @@
       <article class="kpi-card" style="--accent: #3b82f6">
         <div class="flex items-center gap-2">
           <span class="kpi-dot" />
-          <p class="text-sm text-gray-500">Umumiy jami</p>
+          <p class="text-sm text-gray-500">{{ t('salesDashboard.grandTotal') }}</p>
         </div>
         <p class="mt-3 text-xl font-bold" style="color: #3b82f6">{{ compactSom(kpi.total) }}</p>
-        <p class="mt-1 text-xs text-gray-500">{{ kpi.count }} ta buyurtma</p>
+        <p class="mt-1 text-xs text-gray-500">{{ t('salesDashboard.ordersCount', { n: kpi.count }) }}</p>
       </article>
       <article class="kpi-card" style="--accent: #ef4444">
         <div class="flex items-center gap-2">
           <span class="kpi-dot" />
-          <p class="text-sm text-gray-500">Jami qarz</p>
+          <p class="text-sm text-gray-500">{{ t('salesDashboard.totalDebt') }}</p>
         </div>
         <p class="mt-3 text-xl font-bold" style="color: #ef4444">{{ compactSom(kpi.debt) }}</p>
-        <p class="mt-1 text-xs text-gray-500">Tanlangan davrdagi barcha qarzlar</p>
+        <p class="mt-1 text-xs text-gray-500">{{ t('salesDashboard.totalDebtHint') }}</p>
       </article>
       <article class="kpi-card" style="--accent: #22c55e">
         <div class="flex items-center gap-2">
           <span class="kpi-dot" />
-          <p class="text-sm text-gray-500">Yakunlangan sotuv</p>
+          <p class="text-sm text-gray-500">{{ t('salesDashboard.completedSales') }}</p>
         </div>
         <p class="mt-3 text-xl font-bold" style="color: #22c55e">{{ compactSom(kpi.completedSum) }}</p>
-        <p class="mt-1 text-xs text-gray-500">{{ kpi.completedCount }} ta buyurtma</p>
+        <p class="mt-1 text-xs text-gray-500">{{ t('salesDashboard.ordersCount', { n: kpi.completedCount }) }}</p>
       </article>
       <article class="kpi-card" style="--accent: #f59e0b">
         <div class="flex items-center gap-2">
           <span class="kpi-dot" />
-          <p class="text-sm text-gray-500">Jarayondagi buyurtmalar</p>
+          <p class="text-sm text-gray-500">{{ t('salesDashboard.inProgressOrders') }}</p>
         </div>
         <p class="mt-3 text-xl font-bold" style="color: #f59e0b">{{ kpi.inProgress }}</p>
-        <p class="mt-1 text-xs text-gray-500">Yakunlanmagan buyurtmalar</p>
+        <p class="mt-1 text-xs text-gray-500">{{ t('salesDashboard.unfinishedOrders') }}</p>
       </article>
     </div>
 
     <!-- Sotuv dinamikasi -->
     <div class="card mb-4 p-5">
       <div class="mb-4">
-        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Sotuv dinamikasi</h3>
-        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Kunlik sotuv va qarz o‘sishi</p>
+        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('salesDashboard.dynamics') }}</h3>
+        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ t('salesDashboard.dynamicsHint') }}</p>
       </div>
       <VueApexCharts
         v-if="chartMounted"
@@ -159,16 +159,16 @@
     <div class="card p-5">
       <div class="mb-4">
         <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">
-          Foydalanuvchilar bo‘yicha buyurtmalar
+          {{ t('salesDashboard.byUsers') }}
         </h3>
         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          Har bir sotuvchiga tegishli buyurtmalar soni va summasi
+          {{ t('salesDashboard.byUsersHint') }}
         </p>
       </div>
       <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <div>
-          <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-200">Sotuvchilar: sotuv va qarz</h4>
-          <p class="mb-2 text-xs text-gray-500">Har bir sotuvchi bo‘yicha solishtirma</p>
+          <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-200">{{ t('salesDashboard.sellersSalesDebt') }}</h4>
+          <p class="mb-2 text-xs text-gray-500">{{ t('salesDashboard.sellersCompare') }}</p>
           <VueApexCharts
             v-if="chartMounted"
             :key="`seller-scatter-${chartThemeKey}`"
@@ -179,8 +179,8 @@
           />
         </div>
         <div>
-          <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-200">Buyurtmalar soni bo‘yicha</h4>
-          <p class="mb-2 text-xs text-gray-500">Sotuvchilar kesimida buyurtmalar taqsimoti</p>
+          <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-200">{{ t('salesDashboard.byOrderCount') }}</h4>
+          <p class="mb-2 text-xs text-gray-500">{{ t('salesDashboard.byOrderCountHint') }}</p>
           <VueApexCharts
             v-if="chartMounted"
             :key="`seller-pie-${chartThemeKey}`"
@@ -221,12 +221,13 @@ const chartUi = computed(() => {
   }
 })
 
-const STATUS_KEYS = ['NEW', 'CONFIRMED', 'PROCESSING', 'READY', 'DELIVERED', 'COMPLETED', 'CANCELLED'] as const
+const STATUS_KEYS = ['NEW', 'CONFIRMED', 'PROCESSING', 'READY', 'IN_DELIVERY', 'DELIVERED', 'COMPLETED', 'CANCELLED'] as const
 const STATUS_COLORS: Record<(typeof STATUS_KEYS)[number], string> = {
   NEW: '#3b82f6',
   CONFIRMED: '#fbbf24',
   PROCESSING: '#f97316',
   READY: '#8b5cf6',
+  IN_DELIVERY: '#06b6d4',
   DELIVERED: '#34d399',
   COMPLETED: '#059669',
   CANCELLED: '#ef4444',
@@ -240,7 +241,7 @@ const STATUS_DEFS = computed(() =>
   })),
 )
 
-const IN_PROGRESS = new Set(['NEW', 'CONFIRMED', 'PROCESSING', 'READY', 'DELIVERED'])
+const IN_PROGRESS = new Set(['NEW', 'CONFIRMED', 'PROCESSING', 'READY', 'IN_DELIVERY', 'DELIVERED'])
 
 const error = ref<string | null>(null)
 const loading = ref(false)
@@ -283,7 +284,7 @@ const kpi = computed(() => {
 })
 
 const statusBarSeries = computed(() => [
-  { name: 'Summa', data: statusStats.value.map((s) => s.sum) },
+  { name: t('common.sum'), data: statusStats.value.map((s) => s.sum) },
 ])
 
 const statusBarOptions = computed(() => ({
@@ -308,7 +309,7 @@ const statusBarOptions = computed(() => ({
   },
   yaxis: { labels: { style: { colors: chartUi.value.fore, fontSize: '12px' } } },
   grid: { borderColor: chartUi.value.grid, xaxis: { lines: { show: true } }, yaxis: { lines: { show: false } } },
-  tooltip: { theme: chartUi.value.mode, y: { formatter: (v: number) => `${money(v)} so‘m` } },
+  tooltip: { theme: chartUi.value.mode, y: { formatter: (v: number) => `${money(v)} ${t('common.currency')}` } },
 }))
 
 const statusDonutSeries = computed(() => statusStats.value.map((s) => s.sum))
@@ -342,7 +343,7 @@ const statusDonutOptions = computed(() => ({
           },
           total: {
             show: true,
-            label: 'Umumiy jami',
+            label: t('salesDashboard.grandTotal'),
             fontSize: '12px',
             color: chartUi.value.fore,
             formatter: () => compactNum(grandTotal.value),
@@ -351,7 +352,7 @@ const statusDonutOptions = computed(() => ({
       },
     },
   },
-  tooltip: { theme: chartUi.value.mode, y: { formatter: (v: number) => `${money(v)} so‘m` } },
+  tooltip: { theme: chartUi.value.mode, y: { formatter: (v: number) => `${money(v)} ${t('common.currency')}` } },
 }))
 
 const dailyBuckets = computed(() => {
@@ -384,8 +385,8 @@ const dailyBuckets = computed(() => {
 })
 
 const dynamicsSeries = computed(() => [
-  { name: 'Sotilgan summa', data: dailyBuckets.value.sales },
-  { name: 'Qarz summasi', data: dailyBuckets.value.debt },
+  { name: t('salesDashboard.soldSum'), data: dailyBuckets.value.sales },
+  { name: t('salesDashboard.debtSum'), data: dailyBuckets.value.debt },
 ])
 
 const dynamicsOptions = computed(() => ({
@@ -412,13 +413,13 @@ const dynamicsOptions = computed(() => ({
   },
   yaxis: { labels: { style: { colors: chartUi.value.fore }, formatter: (v: number) => compactNum(v) } },
   grid: { borderColor: chartUi.value.grid },
-  tooltip: { theme: chartUi.value.mode, y: { formatter: (v: number) => `${money(v)} so‘m` } },
+  tooltip: { theme: chartUi.value.mode, y: { formatter: (v: number) => `${money(v)} ${t('common.currency')}` } },
 }))
 
 const sellerStats = computed(() => {
   const map = new Map<string, { name: string; count: number; sales: number; debt: number }>()
   for (const o of filteredOrders.value) {
-    const name = o.userFullName || `User #${o.userId || '?'}`
+    const name = o.userFullName || t('salesDashboard.userFallback', { id: o.userId || '?' })
     const cur = map.get(name) || { name, count: 0, sales: 0, debt: 0 }
     cur.count += 1
     cur.sales += amt(o.totalSum)
@@ -430,11 +431,11 @@ const sellerStats = computed(() => {
 
 const sellerScatterSeries = computed(() => [
   {
-    name: 'Sotilgan summa',
+    name: t('salesDashboard.soldSum'),
     data: sellerStats.value.map((s, i) => ({ x: i + 1, y: s.sales })),
   },
   {
-    name: 'Qarz summasi',
+    name: t('salesDashboard.debtSum'),
     data: sellerStats.value.map((s, i) => ({ x: i + 1, y: s.debt })),
   },
 ])
@@ -472,12 +473,12 @@ const sellerScatterOptions = computed(() => ({
     custom: ({ seriesIndex, dataPointIndex }: { seriesIndex: number; dataPointIndex: number }) => {
       const s = sellerStats.value[dataPointIndex]
       if (!s) return ''
-      const label = seriesIndex === 0 ? 'Sotilgan summa' : 'Qarz summasi'
+      const label = seriesIndex === 0 ? t('salesDashboard.soldSum') : t('salesDashboard.debtSum')
       const val = seriesIndex === 0 ? s.sales : s.debt
       const bg = isDarkMode.value ? '#111827' : '#ffffff'
       const fg = isDarkMode.value ? '#f3f4f6' : '#111827'
       const border = isDarkMode.value ? '#374151' : '#e5e7eb'
-      return `<div style="padding:8px 10px;background:${bg};color:${fg};border:1px solid ${border};border-radius:8px"><b>${s.name}</b><br/>${label}: ${money(val)} so‘m</div>`
+      return `<div style="padding:8px 10px;background:${bg};color:${fg};border:1px solid ${border};border-radius:8px"><b>${s.name}</b><br/>${label}: ${money(val)} ${t('common.currency')}</div>`
     },
   },
 }))
@@ -495,7 +496,7 @@ const sellerPieOptions = computed(() => ({
     foreColor: chartUi.value.fore,
   },
   theme: { mode: chartUi.value.mode },
-  labels: sellerStats.value.length ? sellerStats.value.map((s) => s.name) : ['Ma’lumot yo‘q'],
+  labels: sellerStats.value.length ? sellerStats.value.map((s) => s.name) : [t('common.noData')],
   colors: sellerStats.value.length
     ? ['#3b82f6', '#22c55e', '#f59e0b', '#8b5cf6', '#06b6d4', '#ef4444', '#84cc16']
     : ['#e5e7eb'],
@@ -509,7 +510,7 @@ const sellerPieOptions = computed(() => ({
   tooltip: {
     theme: chartUi.value.mode,
     y: {
-      formatter: (v: number) => `${v} ta buyurtma`,
+      formatter: (v: number) => t('salesDashboard.ordersCount', { n: v }),
     },
   },
 }))
@@ -556,7 +557,7 @@ function compactNum(v: number) {
 }
 
 function compactSom(v: number) {
-  return `${compactNum(v)} so‘m`
+  return `${compactNum(v)} ${t('common.currency')}`
 }
 
 function clearFilters() {
@@ -577,7 +578,7 @@ async function load() {
     )
     orders.value = res.data || []
   } catch (e) {
-    error.value = formatApiError(e, 'Dashboard yuklanmadi')
+    error.value = formatApiError(e, t('salesDashboard.loadError'))
     orders.value = []
   } finally {
     loading.value = false

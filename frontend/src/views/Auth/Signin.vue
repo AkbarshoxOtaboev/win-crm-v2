@@ -14,7 +14,7 @@
                   WinCRM
                 </h1>
                 <p class="text-sm text-gray-500 dark:text-gray-400">
-                  Login qiling — username va parolni kiriting
+                  {{ t('auth.subtitle') }}
                 </p>
               </div>
 
@@ -32,7 +32,7 @@
                       for="username"
                       class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400"
                     >
-                      Username<span class="text-error-500">*</span>
+                      {{ t('auth.username') }}<span class="text-error-500">*</span>
                     </label>
                     <input
                       v-model="username"
@@ -51,7 +51,7 @@
                       for="password"
                       class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400"
                     >
-                      Password<span class="text-error-500">*</span>
+                      {{ t('auth.password') }}<span class="text-error-500">*</span>
                     </label>
                     <div class="relative">
                       <input
@@ -59,7 +59,7 @@
                         :type="showPassword ? 'text' : 'password'"
                         id="password"
                         autocomplete="current-password"
-                        placeholder="Parol"
+                        :placeholder="t('auth.passwordPlaceholder')"
                         required
                         class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent py-2.5 px-4 ltr:pr-11 rtl:pl-11 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
                       />
@@ -109,7 +109,7 @@
                       :disabled="auth.loading"
                       class="flex items-center justify-center w-full px-4 py-3 text-sm font-medium text-white transition rounded-lg bg-brand-500 shadow-theme-xs hover:bg-brand-600 disabled:opacity-60"
                     >
-                      {{ auth.loading ? 'Kirilmoqda...' : 'Kirish' }}
+                      {{ auth.loading ? t('auth.signingIn') : t('auth.signIn') }}
                     </button>
                   </div>
                 </div>
@@ -127,7 +127,7 @@
                 <img width="231" height="48" src="/images/logo/auth-logo.svg" alt="WinCRM" />
               </router-link>
               <p class="text-center text-gray-400 dark:text-white/60">
-                WinCRM — savdo, ombor va mijozlar boshqaruvi
+                {{ t('auth.tagline') }}
               </p>
             </div>
           </div>
@@ -143,8 +143,10 @@ import FullScreenLayout from '@/components/layout/FullScreenLayout.vue'
 import { useAuthStore } from '@/stores/auth'
 import { ApiError } from '@/api/http'
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 
+const { t } = useI18n()
 const auth = useAuthStore()
 const router = useRouter()
 const route = useRoute()
@@ -164,7 +166,7 @@ const handleSubmit = async () => {
     if (e instanceof ApiError) {
       errorMessage.value = e.message
     } else {
-      errorMessage.value = 'Login amalga oshmadi. Backend ishlayotganini tekshiring.'
+      errorMessage.value = t('auth.loginFailed')
     }
   }
 }

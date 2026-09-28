@@ -1,20 +1,20 @@
 <template>
   <AdminLayout>
-    <PageBreadcrumb pageTitle="Xarajat kategoriyalari" />
+    <PageBreadcrumb :pageTitle="t('nav.expenseCategories')" />
     <div v-if="error" class="err mb-4">{{ error }}</div>
     <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
       <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-800">
-        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Kategoriyalar</h3>
-        <button type="button" class="btn" :disabled="writeBlocked" @click="openCreate">+ Yangi</button>
+        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('settings.expenseCategories.title') }}</h3>
+        <button type="button" class="btn" :disabled="writeBlocked" @click="openCreate">{{ t('common.new') }}</button>
       </div>
       <table class="min-w-full">
         <thead>
           <tr class="border-b border-gray-100 dark:border-gray-800">
             <th class="th">#</th>
-            <th class="th">Nomi</th>
-            <th class="th">Izoh</th>
-            <th class="th">Status</th>
-            <th class="th text-right">Amallar</th>
+            <th class="th">{{ t('common.name') }}</th>
+            <th class="th">{{ t('common.note') }}</th>
+            <th class="th">{{ t('shared.status') }}</th>
+            <th class="th text-right">{{ t('common.actions') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -25,7 +25,7 @@
             <td class="td">{{ c.status || 'ACTIVE' }}</td>
             <td class="td text-right"><RowActions @edit="openEdit(c)" @delete="onDelete(c)" /></td>
           </tr>
-          <tr v-if="items.length === 0"><td colspan="5" class="empty">Kategoriya yo‘q</td></tr>
+          <tr v-if="items.length === 0"><td colspan="5" class="empty">{{ t('settings.expenseCategories.empty') }}</td></tr>
         </tbody>
       </table>
     </div>
@@ -33,11 +33,11 @@
     <div v-if="modal" class="overlay">
       <div class="modal">
         <form class="space-y-3" @submit.prevent="onSave">
-          <input v-model="form.name" required class="field" placeholder="Nomi *" />
-          <input v-model="form.description" class="field" placeholder="Izoh" />
+          <input v-model="form.name" required class="field" :placeholder="t('shared.nameRequired')" />
+          <input v-model="form.description" class="field" :placeholder="t('common.note')" />
           <div class="flex justify-end gap-2">
-            <button type="button" class="ghost" @click="modal = false">Bekor</button>
-            <button type="submit" class="btn">Saqlash</button>
+            <button type="button" class="ghost" @click="modal = false">{{ t('common.cancel') }}</button>
+            <button type="submit" class="btn">{{ t('common.save') }}</button>
           </div>
         </form>
       </div>
@@ -47,6 +47,7 @@
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import RowActions from '@/components/crm/RowActions.vue'
@@ -60,6 +61,7 @@ import {
 import { formatApiError } from '@/api/http'
 import { useFilialScope } from '@/composables/useFilialScope'
 
+const { t } = useI18n()
 const { writeBlocked } = useFilialScope()
 const items = ref<ExpenseCategory[]>([])
 const error = ref<string | null>(null)
@@ -101,7 +103,7 @@ async function onSave() {
 }
 
 async function onDelete(c: ExpenseCategory) {
-  if (!confirm(`“${c.name}” o‘chirilsinmi?`)) return
+  if (!confirm(t('common.deleteConfirmNamed', { name: c.name }))) return
   try {
     await deleteExpenseCategory(c.id)
     await load()

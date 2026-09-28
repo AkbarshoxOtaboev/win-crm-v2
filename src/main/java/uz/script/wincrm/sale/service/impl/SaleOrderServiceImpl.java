@@ -34,6 +34,7 @@ import uz.script.wincrm.sale.service.SaleOrderHistoryService;
 import uz.script.wincrm.sale.service.SaleOrderItemService;
 import uz.script.wincrm.sale.service.SaleOrderService;
 import uz.script.wincrm.production.service.ProductionOrderService;
+import uz.script.wincrm.transport.service.TransportDeliveryService;
 import uz.script.wincrm.users.User;
 import uz.script.wincrm.users.repository.UserRepository;
 import uz.script.wincrm.utils.Status;
@@ -61,6 +62,7 @@ public class SaleOrderServiceImpl implements SaleOrderService {
     private final SaleOrderHistoryService saleOrderHistoryService;
     private final SaleOrderItemService saleOrderItemService;
     private final ProductionOrderService productionOrderService;
+    private final TransportDeliveryService transportDeliveryService;
 
     // --- chegirma uchun qo'shilgan bog'liqliklar ---
     private final DiscountCalculator discountCalculator;
@@ -281,6 +283,7 @@ public class SaleOrderServiceImpl implements SaleOrderService {
                 && current != SalesOrderStatus.COMPLETED) {
             saleOrderItemService.returnItemsToStock(id);
             productionOrderService.cancelForSaleOrder(id);
+            transportDeliveryService.cancelForSaleOrder(id);
         }
 
         entity.setStatus(Status.DELETED);
@@ -314,7 +317,9 @@ public class SaleOrderServiceImpl implements SaleOrderService {
                     "Ishlab chiqarishga yuborish uchun sex tanlang (send-to-production)");
         }
 
-        if (salesOrderStatus == SalesOrderStatus.READY || salesOrderStatus == SalesOrderStatus.DELIVERED) {
+        if (salesOrderStatus == SalesOrderStatus.READY
+                || salesOrderStatus == SalesOrderStatus.IN_DELIVERY
+                || salesOrderStatus == SalesOrderStatus.DELIVERED) {
             productionOrderRepository.findBySaleOrder_Id(id).ifPresent(po -> {
                 if (po.getProductionStatus() != uz.script.wincrm.production.enums.ProductionOrderStatus.DONE) {
                     throw new BadRequestException(
@@ -323,9 +328,18 @@ public class SaleOrderServiceImpl implements SaleOrderService {
             });
         }
 
+        if (salesOrderStatus == SalesOrderStatus.IN_DELIVERY) {
+            transportDeliveryService.createForSaleOrder(entity);
+        }
+
+        if (currentStatus == SalesOrderStatus.IN_DELIVERY && salesOrderStatus == SalesOrderStatus.DELIVERED) {
+            transportDeliveryService.confirmForSaleOrder(entity);
+        }
+
         if (salesOrderStatus == SalesOrderStatus.CANCELLED) {
             saleOrderItemService.returnItemsToStock(id);
             productionOrderService.cancelForSaleOrder(id);
+            transportDeliveryService.cancelForSaleOrder(id);
         }
 
         entity.setSalesOrderStatus(salesOrderStatus);

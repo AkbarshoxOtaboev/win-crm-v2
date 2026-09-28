@@ -28,6 +28,11 @@ export function fetchUsers() {
   return apiRequest<RestApiResponse<UserItem[]>>('/api/users')
 }
 
+/** Minimal active users (id, username, fullName) for selects; no USER_VIEW needed. */
+export function fetchUserOptions() {
+  return apiRequest<RestApiResponse<UserItem[]>>('/api/users/lookup')
+}
+
 export function fetchUser(id: number) {
   return apiRequest<RestApiResponse<UserItem>>(`/api/users/${id}`)
 }

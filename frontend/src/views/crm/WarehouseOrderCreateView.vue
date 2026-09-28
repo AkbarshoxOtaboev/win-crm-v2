@@ -6,9 +6,9 @@
       <div class="head">
         <div>
           <h3 class="title">{{ pageHeading }}</h3>
-          <p class="sub">Yetkazuvchi, ombor, sana va izoh — keyin pozitsiyalar qo‘shing</p>
+          <p class="sub">{{ t('warehouseOrders.headerHint') }}</p>
         </div>
-        <router-link to="/warehouse-orders" class="ghost">Orqaga</router-link>
+        <router-link to="/warehouse-orders" class="ghost">{{ t('common.back') }}</router-link>
       </div>
 
       <div v-if="error" class="err mx-5 mb-4">{{ error }}</div>
@@ -16,42 +16,42 @@
       <div class="p-5">
         <div class="form-row">
           <label class="lbl min-w-0 flex-[1.4]">
-            Yetkazib beruvchi
+            {{ t('common.supplier') }}
             <SearchableSelect
               v-model="form.supplierId"
               :options="supplierOptions"
-              placeholder="Yetkazuvchini tanlang..."
-              search-placeholder="Nom bo‘yicha qidirish..."
+              :placeholder="t('warehouseOrders.selectSupplier')"
+              :search-placeholder="t('warehouseOrders.searchByName')"
               :disabled="headerLocked"
             />
           </label>
 
           <label class="lbl min-w-0 flex-1">
-            Ombor
+            {{ t('common.warehouse') }}
             <select v-model.number="form.warehouseId" required class="field" :disabled="headerLocked">
-              <option :value="0" disabled>Omborni tanlang</option>
+              <option :value="0" disabled>{{ t('warehouseOrders.selectWarehouse') }}</option>
               <option v-for="w in activeWarehouses" :key="w.id" :value="w.id">{{ w.name }}</option>
             </select>
           </label>
 
           <label class="lbl min-w-0 w-full sm:w-44 sm:flex-none">
-            Sana
+            {{ t('common.date') }}
             <input v-model="form.arrivalDate" type="date" required class="field" :disabled="headerLocked" />
           </label>
 
           <label class="lbl min-w-0 flex-1">
-            Izoh
+            {{ t('common.comment') }}
             <input
               v-model="form.comment"
               type="text"
               class="field"
-              placeholder="Izoh (ixtiyoriy)"
+              :placeholder="t('warehouseOrders.commentOptional')"
               :disabled="headerLocked"
             />
           </label>
         </div>
         <p v-if="isTransferred" class="mt-3 text-xs text-amber-600">
-          Bu kirim omborga o‘tkazilgan — tahrirlash mumkin emas
+          {{ t('warehouseOrders.transferredLocked') }}
         </p>
       </div>
     </div>
@@ -59,9 +59,9 @@
     <div class="card mt-4">
       <div class="head">
         <div>
-          <h3 class="title">Pozitsiyalar</h3>
+          <h3 class="title">{{ t('warehouseOrders.items') }}</h3>
           <p class="sub">
-            WINDOW mahsulotlarda kv.m = (eni×bo‘yi×soni)/10000 (eni/bo‘yi sm da), summa = kv.m × sotish
+            {{ t('warehouseOrders.kvmHint') }}
           </p>
         </div>
       </div>
@@ -69,70 +69,70 @@
       <div class="p-5 border-b border-gray-100">
         <div class="form-row">
           <label class="lbl min-w-0 flex-[1.4]">
-            Mahsulot
+            {{ t('common.product') }}
             <SearchableSelect
               v-model="itemForm.goodsId"
               :options="goodsOptions"
-              placeholder="Mahsulotni tanlang..."
-              search-placeholder="Mahsulot qidirish..."
+              :placeholder="t('warehouseOrders.selectGoods')"
+              :search-placeholder="t('warehouseOrders.searchGoods')"
               :disabled="isTransferred"
             />
           </label>
 
           <template v-if="isWindowGoods">
             <label class="lbl min-w-0 w-28 sm:flex-none">
-              Eni (sm)
+              {{ t('warehouseOrders.widthCm') }}
               <input v-model.number="itemForm.width" type="number" min="1" step="1" class="field" />
             </label>
             <label class="lbl min-w-0 w-28 sm:flex-none">
-              Bo‘yi (sm)
+              {{ t('warehouseOrders.heightCm') }}
               <input v-model.number="itemForm.height" type="number" min="1" step="1" class="field" />
             </label>
             <label class="lbl min-w-0 w-24 sm:flex-none">
-              Soni
+              {{ t('common.count') }}
               <input v-model.number="itemForm.count" type="number" min="0.01" step="0.01" class="field" />
             </label>
             <label class="lbl min-w-0 w-28 sm:flex-none">
-              Kv.m
+              {{ t('warehouseOrders.kvm') }}
               <input :value="formatNum(computedKvm)" class="field" readonly />
             </label>
             <label class="lbl min-w-0 w-36 sm:flex-none">
-              Sotish narxi
+              {{ t('warehouseOrders.sellingPrice') }}
               <input v-model.number="itemForm.priceSelling" type="number" min="0" step="0.01" class="field" />
             </label>
             <label class="lbl min-w-0 w-40 sm:flex-none">
-              Umumiy summa
+              {{ t('warehouseOrders.totalSum') }}
               <input :value="money(computedSum)" class="field" readonly />
             </label>
           </template>
 
           <template v-else>
             <label class="lbl min-w-0 w-28 sm:flex-none">
-              Soni
+              {{ t('common.count') }}
               <input v-model.number="itemForm.count" type="number" min="0.01" step="0.01" class="field" />
             </label>
             <label class="lbl min-w-0 w-36 sm:flex-none">
-              Tannarx
+              {{ t('warehouseOrders.costPrice') }}
               <input v-model.number="itemForm.priceCost" type="number" min="0" step="0.01" class="field" />
             </label>
             <label class="lbl min-w-0 w-36 sm:flex-none">
-              Sotish
+              {{ t('warehouseOrders.selling') }}
               <input v-model.number="itemForm.priceSelling" type="number" min="0" step="0.01" class="field" />
             </label>
             <label class="lbl min-w-0 w-40 sm:flex-none">
-              Umumiy summa
+              {{ t('warehouseOrders.totalSum') }}
               <input :value="money(computedSum)" class="field" readonly />
             </label>
           </template>
 
           <div v-if="!isTransferred" class="flex items-end">
             <button type="button" class="btn" :disabled="saving || !canAddItem" @click="onAddItem">
-              {{ saving ? '...' : '+ Qo‘shish' }}
+              {{ saving ? '...' : t('warehouseOrders.addItem') }}
             </button>
           </div>
         </div>
         <p v-if="!headerReady" class="mt-2 text-xs text-amber-600">
-          Avval yetkazuvchi, ombor va sanani tanlang
+          {{ t('warehouseOrders.headerRequiredHint') }}
         </p>
       </div>
 
@@ -141,19 +141,19 @@
           <thead>
             <tr class="border-b border-gray-100">
               <th class="th">#</th>
-              <th class="th">Mahsulot</th>
-              <th class="th">Eni (sm)</th>
-              <th class="th">Bo‘yi (sm)</th>
-              <th class="th">Soni</th>
-              <th class="th">Kv.m</th>
-              <th class="th">Sotish</th>
-              <th class="th">Summa</th>
-              <th class="th text-right">Amallar</th>
+              <th class="th">{{ t('common.product') }}</th>
+              <th class="th">{{ t('warehouseOrders.widthCm') }}</th>
+              <th class="th">{{ t('warehouseOrders.heightCm') }}</th>
+              <th class="th">{{ t('common.count') }}</th>
+              <th class="th">{{ t('warehouseOrders.kvm') }}</th>
+              <th class="th">{{ t('warehouseOrders.selling') }}</th>
+              <th class="th">{{ t('common.sum') }}</th>
+              <th class="th text-right">{{ t('common.actions') }}</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="displayItems.length === 0">
-              <td colspan="9" class="empty">Hali pozitsiya yo‘q</td>
+              <td colspan="9" class="empty">{{ t('warehouseOrders.noItemsYet') }}</td>
             </tr>
             <tr v-for="(row, idx) in displayItems" :key="row.id" class="border-b border-gray-100">
               <td class="td">{{ idx + 1 }}</td>
@@ -171,7 +171,7 @@
                   class="danger"
                   @click="onRemoveItem(row.id)"
                 >
-                  O‘chirish
+                  {{ t('common.delete') }}
                 </button>
                 <span v-else class="text-gray-400">—</span>
               </td>
@@ -179,7 +179,7 @@
           </tbody>
           <tfoot v-if="displayItems.length">
             <tr class="border-t border-gray-200 bg-gray-50">
-              <td class="td font-semibold" colspan="7">Jami</td>
+              <td class="td font-semibold" colspan="7">{{ t('common.total') }}</td>
               <td class="td font-semibold">{{ money(itemsTotalSum) }}</td>
               <td class="td" />
             </tr>
@@ -188,14 +188,14 @@
       </div>
 
       <div class="flex justify-end gap-2 border-t border-gray-100 p-5">
-        <router-link to="/warehouse-orders" class="ghost">Bekor</router-link>
+        <router-link to="/warehouse-orders" class="ghost">{{ t('common.cancel') }}</router-link>
         <button
           type="button"
           class="btn"
           :disabled="saving || !orderId || isTransferred || displayItems.length === 0"
           @click="onSave"
         >
-          {{ saving ? '...' : 'Saqlash' }}
+          {{ saving ? '...' : t('common.save') }}
         </button>
       </div>
     </div>
@@ -204,6 +204,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
@@ -223,6 +224,7 @@ import { fetchGoods, type Goods } from '@/api/goods'
 import { formatApiError } from '@/api/http'
 import { money } from '@/utils/format'
 
+const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const warehouses = ref<Warehouse[]>([])
@@ -241,9 +243,13 @@ const editOrderId = computed(() => {
 const isEditMode = computed(() => editOrderId.value != null)
 const isTransferred = computed(() => orderStatus.value === 'TRANSFERRED')
 const headerLocked = computed(() => isTransferred.value || (!!orderId.value && !isEditMode.value))
-const pageTitle = computed(() => (isEditMode.value ? 'Kirimni tahrirlash' : 'Yangi kirim'))
+const pageTitle = computed(() =>
+  isEditMode.value ? t('warehouseOrders.editPageTitle') : t('warehouseOrders.createPageTitle'),
+)
 const pageHeading = computed(() =>
-  isEditMode.value ? `Kirim buyurtmasi #${editOrderId.value}` : 'Yangi kirim buyurtmasi',
+  isEditMode.value
+    ? t('warehouseOrders.editHeading', { id: editOrderId.value })
+    : t('warehouseOrders.createHeading'),
 )
 
 const form = reactive({
@@ -419,7 +425,7 @@ async function load() {
     }
     if (editOrderId.value) {
       const res = await fetchWarehouseOrder(editOrderId.value)
-      if (!res.data) throw new Error('Kirim topilmadi')
+      if (!res.data) throw new Error(t('warehouseOrders.notFound'))
       applyOrderToForm(res.data)
       await reloadItems()
     }
@@ -430,10 +436,10 @@ async function load() {
 
 async function ensureOrder(): Promise<number> {
   if (orderId.value) return orderId.value
-  if (!headerReady.value) throw new Error('Yetkazuvchi, ombor va sana majburiy')
+  if (!headerReady.value) throw new Error(t('warehouseOrders.headerRequired'))
   const res = await createWarehouseOrder(buildOrderPayload())
   const id = res.data?.id
-  if (!id) throw new Error('Buyurtma yaratilmadi')
+  if (!id) throw new Error(t('warehouseOrders.orderNotCreated'))
   orderId.value = id
   return id
 }
@@ -482,7 +488,7 @@ async function onAddItem() {
 }
 
 async function onRemoveItem(id: number) {
-  if (!confirm('Pozitsiya o‘chirilsinmi?')) return
+  if (!confirm(t('warehouseOrders.removeItemConfirm'))) return
   try {
     await deleteWarehouseOrderItem(id)
     await reloadItems()

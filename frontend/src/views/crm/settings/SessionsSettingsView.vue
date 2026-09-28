@@ -1,23 +1,23 @@
 <template>
   <AdminLayout>
-    <PageBreadcrumb pageTitle="Faol sessiyalar" />
+    <PageBreadcrumb :pageTitle="t('nav.sessions')" />
     <div v-if="error" class="err mb-4">{{ error }}</div>
     <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
       <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-800">
         <p class="text-sm text-gray-600 dark:text-gray-400">
-          Faol: {{ summary?.active ?? '—' }} / {{ summary?.total ?? '—' }}
+          {{ t('settings.sessions.activeSummary', { active: summary?.active ?? '—', total: summary?.total ?? '—' }) }}
         </p>
-        <button type="button" class="ghost" @click="onRevokeOthers">Boshqalarni yopish</button>
+        <button type="button" class="ghost" @click="onRevokeOthers">{{ t('settings.sessions.revokeOthers') }}</button>
       </div>
       <div class="overflow-x-auto">
         <table class="min-w-full">
           <thead>
             <tr class="border-b border-gray-100 dark:border-gray-800">
               <th class="th">#</th>
-              <th class="th">User</th>
-              <th class="th">Status</th>
+              <th class="th">{{ t('shared.colUser') }}</th>
+              <th class="th">{{ t('shared.status') }}</th>
               <th class="th">IP</th>
-              <th class="th text-right">Amallar</th>
+              <th class="th text-right">{{ t('common.actions') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -27,11 +27,11 @@
               <td class="td">{{ s.status }}</td>
               <td class="td">{{ s.ipAddress || '—' }}</td>
               <td class="td text-right">
-                <button type="button" class="text-error-500" @click="onRevoke(s.id)">Yopish</button>
+                <button type="button" class="text-error-500" @click="onRevoke(s.id)">{{ t('common.close') }}</button>
               </td>
             </tr>
             <tr v-if="sessions.length === 0">
-              <td colspan="5" class="empty">Sessiya yo‘q</td>
+              <td colspan="5" class="empty">{{ t('settings.sessions.empty') }}</td>
             </tr>
           </tbody>
         </table>
@@ -42,6 +42,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import {
@@ -55,6 +56,7 @@ import {
 } from '@/api/sessions'
 import { formatApiError } from '@/api/http'
 
+const { t } = useI18n()
 const error = ref<string | null>(null)
 const sessions = ref<SessionItem[]>([])
 const summary = ref<SessionSummary | null>(null)

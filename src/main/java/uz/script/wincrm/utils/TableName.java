@@ -48,4 +48,10 @@ public interface TableName {
     String PRODUCTION_ORDERS = "production_orders";
     String PRODUCTION_ASSIGNMENTS = "production_assignments";
     String PRODUCTION_EVENTS = "production_events";
+    String TRANSPORT_DRIVERS = "transport_drivers";
+    String TRANSPORT_WORKERS = "transport_workers";
+    String TRANSPORT_SETTINGS = "transport_settings";
+    String TRANSPORT_DELIVERIES = "transport_deliveries";
+    String TRANSPORT_DELIVERY_WORKERS = "transport_delivery_workers";
+    String TRANSPORT_WORKER_SALARIES = "transport_worker_salaries";
 }

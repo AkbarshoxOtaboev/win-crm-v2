@@ -1,24 +1,24 @@
 <template>
   <AdminLayout>
-    <PageBreadcrumb pageTitle="Ortiqcha material" />
+    <PageBreadcrumb :pageTitle="t('nav.salesWaste')" />
 
     <div v-if="error" class="err mb-4">{{ error }}</div>
 
     <div class="card mb-4">
       <div class="border-b border-gray-100 px-5 py-4 dark:border-gray-800">
-        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Mahsulot bo‘yicha jami</h3>
+        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('salesWastes.totalByProduct') }}</h3>
       </div>
       <div class="overflow-x-auto">
         <table class="min-w-full">
           <thead>
             <tr class="border-b border-gray-100 dark:border-gray-800">
-              <th class="th">Mahsulot</th>
-              <th class="th">Jami miqdor</th>
+              <th class="th">{{ t('common.product') }}</th>
+              <th class="th">{{ t('salesWastes.totalQuantity') }}</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-if="loading"><td colspan="2" class="empty">Yuklanmoqda...</td></tr>
-            <tr v-else-if="summary.length === 0"><td colspan="2" class="empty">Ortiqcha material yo‘q</td></tr>
+            <tr v-if="loading"><td colspan="2" class="empty">{{ t('common.loading') }}</td></tr>
+            <tr v-else-if="summary.length === 0"><td colspan="2" class="empty">{{ t('salesWastes.noWaste') }}</td></tr>
             <tr v-for="row in summary" :key="row.goodsId || row.goodsName" class="border-b border-gray-100 dark:border-gray-800">
               <td class="td font-medium text-gray-800 dark:text-white/90">{{ row.goodsName || row.goodsId || '—' }}</td>
               <td class="td">{{ formatQty(row.totalQuantity) }}</td>
@@ -30,24 +30,24 @@
 
     <div class="card">
       <div class="border-b border-gray-100 px-5 py-4 dark:border-gray-800">
-        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Yozuvlar</h3>
+        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('salesWastes.records') }}</h3>
       </div>
       <div class="overflow-x-auto">
         <table class="min-w-full">
           <thead>
             <tr class="border-b border-gray-100 dark:border-gray-800">
               <th class="th">#</th>
-              <th class="th">Buyurtma</th>
-              <th class="th">Mahsulot</th>
-              <th class="th">Miqdor</th>
-              <th class="th">O‘lcham</th>
-              <th class="th">Izoh</th>
-              <th class="th">Sana</th>
+              <th class="th">{{ t('salesWastes.order') }}</th>
+              <th class="th">{{ t('common.product') }}</th>
+              <th class="th">{{ t('salesWastes.quantity') }}</th>
+              <th class="th">{{ t('salesWastes.size') }}</th>
+              <th class="th">{{ t('common.comment') }}</th>
+              <th class="th">{{ t('common.date') }}</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-if="loading"><td colspan="7" class="empty">Yuklanmoqda...</td></tr>
-            <tr v-else-if="items.length === 0"><td colspan="7" class="empty">Yozuv yo‘q</td></tr>
+            <tr v-if="loading"><td colspan="7" class="empty">{{ t('common.loading') }}</td></tr>
+            <tr v-else-if="items.length === 0"><td colspan="7" class="empty">{{ t('salesWastes.noRecords') }}</td></tr>
             <tr v-for="w in items" :key="w.id" class="border-b border-gray-100 dark:border-gray-800">
               <td class="td">{{ w.id }}</td>
               <td class="td">
@@ -71,6 +71,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import {
@@ -82,6 +83,7 @@ import {
 import { formatApiError } from '@/api/http'
 import { formatDate } from '@/utils/format'
 
+const { t } = useI18n()
 const loading = ref(false)
 const error = ref<string | null>(null)
 const summary = ref<SaleOrderWasteSummary[]>([])
@@ -108,7 +110,7 @@ async function load() {
     summary.value = sumRes.data || []
     items.value = pageRes.data?.content || []
   } catch (e) {
-    error.value = formatApiError(e, 'Ortiqcha materialni yuklab bo‘lmadi')
+    error.value = formatApiError(e, t('salesWastes.loadError'))
   } finally {
     loading.value = false
   }

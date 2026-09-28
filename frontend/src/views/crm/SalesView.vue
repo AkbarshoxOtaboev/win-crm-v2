@@ -1,14 +1,14 @@
 <template>
   <AdminLayout>
-    <PageBreadcrumb pageTitle="Sotuv buyurtmalari" />
+    <PageBreadcrumb :pageTitle="t('nav.salesOrders')" />
     <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
       <div class="border-b border-gray-100 px-5 py-4 dark:border-gray-800">
-        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Sotuv buyurtmalari</h3>
+        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('nav.salesOrders') }}</h3>
         <div class="toolbar mt-3">
-          <input v-model="search" type="search" placeholder="Qidiruv..." class="field search" />
-          <input v-model="dateFrom" type="date" class="field date" title="Dan" />
-          <input v-model="dateTo" type="date" class="field date" title="Gacha" />
-          <button type="button" class="btn create-btn" :disabled="writeBlocked" @click="goCreate">+ Yangi savdo</button>
+          <input v-model="search" type="search" :placeholder="t('common.search')" class="field search" />
+          <input v-model="dateFrom" type="date" class="field date" :title="t('common.from')" />
+          <input v-model="dateTo" type="date" class="field date" :title="t('common.to')" />
+          <button type="button" class="btn create-btn" :disabled="writeBlocked" @click="goCreate">{{ t('sales.newSale') }}</button>
         </div>
       </div>
       <div v-if="error" class="err mx-5 mt-4">{{ error }}</div>
@@ -17,18 +17,18 @@
           <thead>
             <tr class="border-b border-gray-100 dark:border-gray-800">
               <th class="th">#</th>
-              <th class="th">Mijoz</th>
-              <th class="th">Sana</th>
-              <th class="th">Jami</th>
-              <th class="th">To‘langan</th>
-              <th class="th">Qarz</th>
-              <th class="th">Holat</th>
-              <th class="th text-right">Amallar</th>
+              <th class="th">{{ t('common.client') }}</th>
+              <th class="th">{{ t('common.date') }}</th>
+              <th class="th">{{ t('common.total') }}</th>
+              <th class="th">{{ t('sales.paid') }}</th>
+              <th class="th">{{ t('sales.debt') }}</th>
+              <th class="th">{{ t('common.status') }}</th>
+              <th class="th text-right">{{ t('common.actions') }}</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-if="loading"><td colspan="8" class="empty">Yuklanmoqda...</td></tr>
-            <tr v-else-if="filtered.length === 0"><td colspan="8" class="empty">Savdo yo‘q</td></tr>
+            <tr v-if="loading"><td colspan="8" class="empty">{{ t('common.loading') }}</td></tr>
+            <tr v-else-if="filtered.length === 0"><td colspan="8" class="empty">{{ t('sales.noSales') }}</td></tr>
             <tr v-for="o in filtered" :key="o.id" class="border-b border-gray-100 dark:border-gray-800">
               <td class="td">
                 <router-link :to="`/sales/${o.id}`" class="text-brand-500 hover:underline">#{{ o.id }}</router-link>
@@ -44,8 +44,8 @@
                   <button
                     type="button"
                     class="view-btn"
-                    title="Ko‘rish"
-                    aria-label="Ko‘rish"
+                    :title="t('common.view')"
+                    :aria-label="t('common.view')"
                     @click="goDetail(o)"
                   >
                     <Eye :size="16" />
@@ -60,47 +60,47 @@
 
     <div v-if="modalOpen" class="fixed inset-0 z-99999 flex items-center justify-center bg-black/40 p-4">
       <div class="w-full max-w-lg rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-        <h3 class="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">Savdoni tahrirlash</h3>
+        <h3 class="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('sales.editOrder') }}</h3>
         <div v-if="formError" class="err mb-3">{{ formError }}</div>
         <form class="space-y-3" @submit.prevent="onSubmit">
           <div>
-            <label class="lbl">Ombor *</label>
+            <label class="lbl">{{ t('common.warehouse') }} *</label>
             <select v-model.number="form.warehouseId" required class="field">
-              <option :value="0" disabled>Tanlang</option>
+              <option :value="0" disabled>{{ t('common.select') }}</option>
               <option v-for="w in warehouses" :key="w.id" :value="w.id">{{ w.name }}</option>
             </select>
           </div>
           <div>
-            <label class="lbl">Mijoz</label>
+            <label class="lbl">{{ t('common.client') }}</label>
             <select v-model.number="form.clientId" class="field">
-              <option :value="0">— ixtiyoriy —</option>
+              <option :value="0">{{ t('sales.optional') }}</option>
               <option v-for="c in clients" :key="c.id" :value="c.id">{{ c.fullName }}</option>
             </select>
           </div>
           <div>
-            <label class="lbl">Sotuvchi *</label>
+            <label class="lbl">{{ t('sales.seller') }} *</label>
             <select v-model.number="form.userId" required class="field">
-              <option :value="0" disabled>Tanlang</option>
+              <option :value="0" disabled>{{ t('common.select') }}</option>
               <option v-for="u in users" :key="u.id" :value="u.id">{{ u.fullName || u.username }}</option>
             </select>
           </div>
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="lbl">Sana *</label>
+              <label class="lbl">{{ t('common.date') }} *</label>
               <input v-model="form.orderDate" type="datetime-local" required class="field" />
             </div>
             <div>
-              <label class="lbl">Jami summa *</label>
+              <label class="lbl">{{ t('sales.totalSum') }} *</label>
               <input v-model.number="form.totalSum" type="number" min="0" step="0.01" required class="field" />
             </div>
           </div>
           <div>
-            <label class="lbl">Izoh</label>
+            <label class="lbl">{{ t('common.comment') }}</label>
             <input v-model="form.comment" class="field" />
           </div>
           <div class="flex justify-end gap-2">
-            <button type="button" class="h-10 rounded-lg border border-gray-300 px-4 text-sm" @click="modalOpen = false">Bekor</button>
-            <button type="submit" class="btn" :disabled="saving">{{ saving ? '...' : 'Saqlash' }}</button>
+            <button type="button" class="h-10 rounded-lg border border-gray-300 px-4 text-sm" @click="modalOpen = false">{{ t('common.cancel') }}</button>
+            <button type="submit" class="btn" :disabled="saving">{{ saving ? '...' : t('common.save') }}</button>
           </div>
         </form>
       </div>
@@ -125,7 +125,7 @@ import {
 } from '@/api/sales'
 import { fetchWarehouses, type Warehouse } from '@/api/warehouses'
 import { fetchClients, type Client } from '@/api/clients'
-import { fetchUsers, type UserItem } from '@/api/users'
+import { fetchUserOptions, type UserItem } from '@/api/users'
 import { formatApiError } from '@/api/http'
 import { useFilialScope } from '@/composables/useFilialScope'
 import { formatDate, money, toApiDate } from '@/utils/format'
@@ -187,14 +187,14 @@ async function load() {
       fetchSaleOrders(),
       fetchWarehouses(),
       fetchClients(),
-      fetchUsers(),
+      fetchUserOptions(),
     ])
     items.value = salesRes.data?.content || []
     warehouses.value = whRes.data || []
     clients.value = clientsRes.data || []
     users.value = usersRes.data || []
   } catch (e) {
-    error.value = formatApiError(e, 'Yuklashda xatolik')
+    error.value = formatApiError(e, t('common.loadError'))
   } finally {
     loading.value = false
   }
@@ -233,7 +233,7 @@ async function onSubmit() {
     modalOpen.value = false
     await load()
   } catch (e) {
-    formError.value = formatApiError(e, 'Saqlashda xatolik')
+    formError.value = formatApiError(e, t('common.saveError'))
   } finally {
     saving.value = false
   }
@@ -244,12 +244,12 @@ function goDetail(o: SaleOrder) {
 }
 
 async function onDelete(o: SaleOrder) {
-  if (!confirm(`Savdo #${o.id} o‘chirilsinmi?`)) return
+  if (!confirm(t('sales.deleteConfirm', { id: o.id }))) return
   try {
     await deleteSaleOrder(o.id)
     await load()
   } catch (e) {
-    error.value = formatApiError(e, 'O‘chirishda xatolik')
+    error.value = formatApiError(e, t('common.deleteError'))
   }
 }
 

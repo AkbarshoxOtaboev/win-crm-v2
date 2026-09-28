@@ -5,7 +5,7 @@
       <div class="flex flex-col gap-3 border-b border-gray-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-gray-800">
         <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('nav.productionBoard') }}</h3>
         <select v-model.number="workshopId" class="field sm:w-64" @change="loadBoard">
-          <option :value="0" disabled>Sex tanlang</option>
+          <option :value="0" disabled>{{ t('productionDashboard.selectWorkshop') }}</option>
           <option v-for="w in workshops" :key="w.id" :value="w.id">{{ w.name }}</option>
         </select>
       </div>
@@ -14,20 +14,20 @@
         <table class="min-w-full">
           <thead>
             <tr class="border-b border-gray-100 dark:border-gray-800">
-              <th class="th">PO #</th>
-              <th class="th">Savdo</th>
-              <th class="th">Mijoz</th>
+              <th class="th">{{ t('productionBoard.poNumber') }}</th>
+              <th class="th">{{ t('productionDashboard.sale') }}</th>
+              <th class="th">{{ t('common.client') }}</th>
               <th class="th">{{ t('production.assignment') }}</th>
               <th class="th">{{ t('production.status') }}</th>
               <th class="th">{{ t('production.acceptedAt') }}</th>
               <th class="th">{{ t('production.submittedAt') }}</th>
-              <th class="th text-right">Amallar</th>
+              <th class="th text-right">{{ t('common.actions') }}</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-if="loading"><td colspan="8" class="empty">Yuklanmoqda...</td></tr>
-            <tr v-else-if="!workshopId"><td colspan="8" class="empty">Sex tanlang</td></tr>
-            <tr v-else-if="items.length === 0"><td colspan="8" class="empty">Navbat bo‘sh</td></tr>
+            <tr v-if="loading"><td colspan="8" class="empty">{{ t('common.loading') }}</td></tr>
+            <tr v-else-if="!workshopId"><td colspan="8" class="empty">{{ t('productionDashboard.selectWorkshop') }}</td></tr>
+            <tr v-else-if="items.length === 0"><td colspan="8" class="empty">{{ t('productionBoard.emptyQueue') }}</td></tr>
             <tr v-for="o in items" :key="o.id" class="border-b border-gray-100 dark:border-gray-800">
               <td class="td">{{ o.id }}</td>
               <td class="td">#{{ o.saleOrderId }}</td>
@@ -44,10 +44,10 @@
                     class="btn-sm"
                     @click="onStart(o)"
                   >
-                    Boshlash
+                    {{ t('productionBoard.start') }}
                   </button>
-                  <button type="button" class="btn-sm alt" @click="openRedirect(o)">Yo‘naltirish</button>
-                  <button type="button" class="btn-sm ok" @click="onComplete(o)">Yakunlash</button>
+                  <button type="button" class="btn-sm alt" @click="openRedirect(o)">{{ t('productionBoard.redirect') }}</button>
+                  <button type="button" class="btn-sm ok" @click="onComplete(o)">{{ t('productionBoard.complete') }}</button>
                 </div>
               </td>
             </tr>
@@ -58,13 +58,13 @@
 
     <div v-if="redirectOpen" class="fixed inset-0 z-99999 flex items-center justify-center bg-black/40 p-4">
       <div class="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-        <h3 class="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">Keyingi sexga yo‘naltirish</h3>
+        <h3 class="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('productionBoard.redirectTitle') }}</h3>
         <div v-if="formError" class="err mb-3">{{ formError }}</div>
         <form class="space-y-3" @submit.prevent="onRedirect">
           <div>
-            <label class="mb-1 block text-sm text-gray-600 dark:text-gray-400">Keyingi sex *</label>
+            <label class="mb-1 block text-sm text-gray-600 dark:text-gray-400">{{ t('productionBoard.nextWorkshop') }} *</label>
             <select v-model.number="nextWorkshopId" required class="field">
-              <option :value="0" disabled>Tanlang</option>
+              <option :value="0" disabled>{{ t('common.select') }}</option>
               <option
                 v-for="w in redirectWorkshops"
                 :key="w.id"
@@ -75,12 +75,12 @@
             </select>
           </div>
           <div>
-            <label class="mb-1 block text-sm text-gray-600 dark:text-gray-400">Izoh</label>
+            <label class="mb-1 block text-sm text-gray-600 dark:text-gray-400">{{ t('common.note') }}</label>
             <input v-model="note" class="field" />
           </div>
           <div class="flex justify-end gap-2">
-            <button type="button" class="h-10 rounded-lg border border-gray-300 px-4 text-sm" @click="redirectOpen = false">Bekor</button>
-            <button type="submit" class="btn" :disabled="saving">{{ saving ? '...' : 'Yo‘naltirish' }}</button>
+            <button type="button" class="h-10 rounded-lg border border-gray-300 px-4 text-sm" @click="redirectOpen = false">{{ t('common.cancel') }}</button>
+            <button type="submit" class="btn" :disabled="saving">{{ saving ? '...' : t('productionBoard.redirect') }}</button>
           </div>
         </form>
       </div>
@@ -154,7 +154,7 @@ async function loadBoard() {
     const res = await fetchProductionBoard(workshopId.value)
     items.value = res.data || []
   } catch (e) {
-    error.value = formatApiError(e, 'Yuklashda xatolik')
+    error.value = formatApiError(e, t('common.loadError'))
   } finally {
     loading.value = false
   }
@@ -165,7 +165,7 @@ async function onStart(o: ProductionOrder) {
     await startProduction(o.id)
     await loadBoard()
   } catch (e) {
-    error.value = formatApiError(e, 'Boshlashda xatolik')
+    error.value = formatApiError(e, t('productionBoard.startError'))
   }
 }
 
@@ -186,19 +186,19 @@ async function onRedirect() {
     redirectOpen.value = false
     await loadBoard()
   } catch (e) {
-    formError.value = formatApiError(e, 'Yo‘naltirishda xatolik')
+    formError.value = formatApiError(e, t('productionBoard.redirectError'))
   } finally {
     saving.value = false
   }
 }
 
 async function onComplete(o: ProductionOrder) {
-  if (!confirm(`#${o.id} ishlab chiqarish yakunlansinmi?`)) return
+  if (!confirm(t('productionBoard.completeConfirm', { id: o.id }))) return
   try {
     await completeProduction(o.id)
     await loadBoard()
   } catch (e) {
-    error.value = formatApiError(e, 'Yakunlashda xatolik')
+    error.value = formatApiError(e, t('productionBoard.completeError'))
   }
 }
 
@@ -207,7 +207,7 @@ onMounted(async () => {
     await loadWorkshops()
     await loadBoard()
   } catch (e) {
-    error.value = formatApiError(e, 'Yuklashda xatolik')
+    error.value = formatApiError(e, t('common.loadError'))
   }
 })
 </script>

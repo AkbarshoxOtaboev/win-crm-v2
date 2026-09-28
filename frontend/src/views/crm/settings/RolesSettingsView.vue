@@ -1,22 +1,22 @@
 <template>
   <AdminLayout>
-    <PageBreadcrumb pageTitle="Rollar" />
+    <PageBreadcrumb :pageTitle="t('nav.roles')" />
     <div v-if="error" class="err mb-4">{{ error }}</div>
     <div v-if="ok" class="ok mb-4">{{ ok }}</div>
 
     <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
       <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-800">
-        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Rollar</h3>
-        <button type="button" class="btn" @click="openCreate">+ Rol</button>
+        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('nav.roles') }}</h3>
+        <button type="button" class="btn" @click="openCreate">{{ t('settings.roles.addRole') }}</button>
       </div>
       <div class="overflow-x-auto">
         <table class="min-w-full">
           <thead>
             <tr class="border-b border-gray-100 dark:border-gray-800">
               <th class="th">#</th>
-              <th class="th">Nomi</th>
-              <th class="th">Status</th>
-              <th class="th text-right">Amallar</th>
+              <th class="th">{{ t('common.name') }}</th>
+              <th class="th">{{ t('shared.status') }}</th>
+              <th class="th text-right">{{ t('common.actions') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -29,17 +29,17 @@
                   <button
                     type="button"
                     class="inline-flex h-8 items-center gap-1 rounded-lg px-2 text-xs font-medium text-brand-500 transition hover:bg-brand-50 dark:hover:bg-brand-500/10"
-                    title="Ruxsatlar"
+                    :title="t('settings.roles.permissions')"
                     @click="openPerms(r)"
                   >
                     <Shield class="h-4 w-4" />
-                    Ruxsatlar
+                    {{ t('settings.roles.permissions') }}
                   </button>
                 </RowActions>
               </td>
             </tr>
             <tr v-if="roles.length === 0">
-              <td colspan="4" class="empty">Rol yo‘q</td>
+              <td colspan="4" class="empty">{{ t('settings.roles.empty') }}</td>
             </tr>
           </tbody>
         </table>
@@ -50,15 +50,15 @@
     <div v-if="nameModal" class="overlay">
       <div class="modal">
         <h3 class="mb-4 text-lg font-semibold text-gray-800">
-          {{ editingId ? 'Rolni tahrirlash' : 'Yangi rol' }}
+          {{ editingId ? t('settings.roles.editTitle') : t('settings.roles.createTitle') }}
         </h3>
         <div v-if="formError" class="err mb-3">{{ formError }}</div>
         <form class="space-y-3" @submit.prevent="onSaveName">
-          <input v-model="roleName" required class="field" placeholder="Masalan: MANAGER" />
+          <input v-model="roleName" required class="field" :placeholder="t('settings.roles.namePlaceholder')" />
           <div class="flex justify-end gap-2">
-            <button type="button" class="ghost" @click="nameModal = false">Bekor</button>
+            <button type="button" class="ghost" @click="nameModal = false">{{ t('common.cancel') }}</button>
             <button type="submit" class="btn" :disabled="saving">
-              {{ saving ? '...' : 'Saqlash' }}
+              {{ saving ? '...' : t('common.save') }}
             </button>
           </div>
         </form>
@@ -70,18 +70,19 @@
       <div class="modal modal-lg">
         <div class="mb-4 flex items-start justify-between gap-3">
           <div>
-            <h3 class="text-lg font-semibold text-gray-800">Ruxsatlar</h3>
-            <p class="mt-1 text-sm text-gray-500">
-              <span class="font-medium text-brand-500">{{ permRole.name }}</span> roli uchun
-              ruxsatlarni belgilang, so‘ng Saqlash ni bosing.
-            </p>
+            <h3 class="text-lg font-semibold text-gray-800">{{ t('settings.roles.permissions') }}</h3>
+            <i18n-t keypath="settings.roles.permsHint" tag="p" class="mt-1 text-sm text-gray-500">
+              <template #name>
+                <span class="font-medium text-brand-500">{{ permRole.name }}</span>
+              </template>
+            </i18n-t>
           </div>
           <button type="button" class="ghost !h-8 !px-2 text-sm" @click="closePerms">✕</button>
         </div>
         <div v-if="formError" class="err mb-3">{{ formError }}</div>
         <div class="mb-3 flex flex-wrap items-center gap-2">
-          <button type="button" class="ghost !h-8 text-xs" @click="selectAll">Hammasini belgilash</button>
-          <button type="button" class="ghost !h-8 text-xs" @click="clearAll">Tozalash</button>
+          <button type="button" class="ghost !h-8 text-xs" @click="selectAll">{{ t('settings.roles.selectAll') }}</button>
+          <button type="button" class="ghost !h-8 text-xs" @click="clearAll">{{ t('settings.roles.clearAll') }}</button>
           <span class="ms-auto text-xs text-gray-500">{{ selectedIds.size }} / {{ allPerms.length }}</span>
         </div>
         <div class="max-h-[50vh] overflow-y-auto rounded-xl border border-gray-100 p-3">
@@ -103,12 +104,12 @@
               </span>
             </label>
           </div>
-          <p v-if="allPerms.length === 0" class="py-8 text-center text-sm text-gray-500">Ruxsatlar yo‘q</p>
+          <p v-if="allPerms.length === 0" class="py-8 text-center text-sm text-gray-500">{{ t('settings.roles.noPerms') }}</p>
         </div>
         <div class="mt-4 flex justify-end gap-2">
-          <button type="button" class="ghost" @click="closePerms">Bekor</button>
+          <button type="button" class="ghost" @click="closePerms">{{ t('common.cancel') }}</button>
           <button type="button" class="btn" :disabled="saving" @click="onSavePerms">
-            {{ saving ? 'Saqlanmoqda...' : 'Saqlash' }}
+            {{ saving ? t('common.saving') : t('common.save') }}
           </button>
         </div>
       </div>
@@ -185,12 +186,12 @@ async function onSaveName() {
     if (editingId.value) {
       await updateRole(editingId.value, name)
       nameModal.value = false
-      ok.value = 'Rol yangilandi'
+      ok.value = t('settings.roles.updated')
       await load()
     } else {
       const res = await createRole(name)
       nameModal.value = false
-      ok.value = 'Rol yaratildi — endi ruxsatlarni belgilang'
+      ok.value = t('settings.roles.created')
       await load()
       const created = res.data || roles.value.find((x) => x.name === name)
       if (created) await openPerms(created)
@@ -203,11 +204,11 @@ async function onSaveName() {
 }
 
 async function onDelete(r: RoleItem) {
-  if (!confirm(`“${r.name}” o‘chirilsinmi?`)) return
+  if (!confirm(t('common.deleteConfirmNamed', { name: r.name }))) return
   try {
     await deleteRole(r.id)
     if (permRole.value?.id === r.id) closePerms()
-    ok.value = 'Rol o‘chirildi'
+    ok.value = t('settings.roles.deleted')
     await load()
   } catch (e) {
     error.value = formatApiError(e)
@@ -260,7 +261,7 @@ async function onSavePerms() {
   try {
     for (const id of toAdd) await assignPermission(roleId, id)
     for (const id of toRemove) await removePermission(roleId, id)
-    ok.value = `“${permRole.value.name}” ruxsatlari saqlandi`
+    ok.value = t('settings.roles.permsSaved', { name: permRole.value.name })
     closePerms()
   } catch (e) {
     formError.value = formatApiError(e)

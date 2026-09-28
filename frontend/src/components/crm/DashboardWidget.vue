@@ -25,7 +25,7 @@
             class="inline-flex items-center gap-1 text-xs font-medium text-gray-500 transition hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400"
             @click="toggleSort('name')"
           >
-            {{ nameLabel }}
+            {{ nameLabel || t('home.name') }}
             <ChevronDown
               class="h-3.5 w-3.5 transition"
               :class="sortKey === 'name' ? 'text-brand-500' : 'text-gray-400'"
@@ -37,7 +37,7 @@
             class="inline-flex items-center gap-1 text-xs font-medium text-gray-500 transition hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400"
             @click="toggleSort('value')"
           >
-            {{ valueLabel }}
+            {{ valueLabel || t('home.netRevenue') }}
             <ChevronDown
               class="h-3.5 w-3.5 transition"
               :class="sortKey === 'value' ? 'text-brand-500' : 'text-gray-400'"
@@ -95,8 +95,8 @@ const props = withDefaults(
     tone?: 'blue' | 'indigo' | 'violet' | 'green' | 'teal' | 'orange'
   }>(),
   {
-    nameLabel: 'Nomi',
-    valueLabel: 'Sof tushum',
+    nameLabel: '',
+    valueLabel: '',
     formatAs: 'money',
     tone: 'blue',
   },

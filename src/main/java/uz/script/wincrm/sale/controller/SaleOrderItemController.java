@@ -69,7 +69,7 @@ public class SaleOrderItemController {
                     Example error response:
                     {
                       "error": "INSUFFICIENT_STOCK",
-                      "message": "Ombareda yetarli mahsulot yo'q! Mavjud: 10, Talabalar: 12, Kamiy: 2"
+                      "message": "Omborda yetarli mahsulot yo'q! Mavjud: 10, so'ralgan: 12, yetishmaydi: 2"
                     }
                     """
     )

@@ -1,18 +1,18 @@
 <template>
   <AdminLayout>
-    <PageBreadcrumb pageTitle="Yetkazib beruvchilar balansi" />
+    <PageBreadcrumb :pageTitle="t('suppliersBalance.title')" />
 
     <div class="card">
       <div class="head">
         <div>
-          <h3 class="title">Yetkazib beruvchilar balansi</h3>
-          <p class="sub">Xarid, to‘lov va qarzdorlik bo‘yicha umumiy holat</p>
+          <h3 class="title">{{ t('suppliersBalance.title') }}</h3>
+          <p class="sub">{{ t('suppliersBalance.subtitle') }}</p>
         </div>
         <div class="flex items-center gap-2">
-          <button type="button" class="icon-btn" title="Filter" @click="showFilters = !showFilters">
+          <button type="button" class="icon-btn" :title="t('common.filter')" @click="showFilters = !showFilters">
             <ListFilter class="h-4 w-4" />
           </button>
-          <button type="button" class="icon-btn" title="Yangilash" :disabled="loading" @click="load">
+          <button type="button" class="icon-btn" :title="t('common.refresh')" :disabled="loading" @click="load">
             <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': loading }" />
           </button>
         </div>
@@ -21,32 +21,32 @@
       <div v-if="showFilters" class="filters">
         <div class="flex flex-wrap items-end gap-3">
           <label class="lbl min-w-[16rem] flex-1">
-            Qidirish
+            {{ t('suppliersBalance.search') }}
             <input
               v-model="search"
               type="search"
               class="field"
-              placeholder="Nom yoki ID bo‘yicha qidirish..."
+              :placeholder="t('suppliersBalance.searchPlaceholder')"
             />
           </label>
           <label class="check">
             <input v-model="onlyDebtors" type="checkbox" class="h-4 w-4 rounded border-gray-300" />
-            Faqat qarzdorlar
+            {{ t('suppliersBalance.onlyDebtors') }}
           </label>
         </div>
       </div>
 
       <div class="stats">
         <div class="stat stat-blue">
-          <div class="stat-label">Xarid summasi</div>
+          <div class="stat-label">{{ t('suppliersBalance.purchaseSum') }}</div>
           <div class="stat-value">{{ moneySom(totals.purchase) }}</div>
         </div>
         <div class="stat stat-green">
-          <div class="stat-label">To‘langan</div>
+          <div class="stat-label">{{ t('suppliersBalance.paid') }}</div>
           <div class="stat-value paid">{{ moneySom(totals.paid) }}</div>
         </div>
         <div class="stat stat-red">
-          <div class="stat-label">Qarz</div>
+          <div class="stat-label">{{ t('suppliersBalance.debt') }}</div>
           <div class="stat-value debt">{{ moneySom(totals.debt) }}</div>
         </div>
       </div>
@@ -58,17 +58,17 @@
           <thead>
             <tr class="border-b border-gray-100 dark:border-gray-800">
               <th class="th">ID</th>
-              <th class="th">Yetkazib beruvchi</th>
-              <th class="th">Xarid summasi</th>
-              <th class="th">To‘langan</th>
-              <th class="th">Qarz</th>
-              <th class="th">Oxirgi yangilanish</th>
-              <th class="th text-right">Amallar</th>
+              <th class="th">{{ t('common.supplier') }}</th>
+              <th class="th">{{ t('suppliersBalance.purchaseSum') }}</th>
+              <th class="th">{{ t('suppliersBalance.paid') }}</th>
+              <th class="th">{{ t('suppliersBalance.debt') }}</th>
+              <th class="th">{{ t('suppliersBalance.lastUpdated') }}</th>
+              <th class="th text-right">{{ t('common.actions') }}</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-if="loading"><td colspan="7" class="empty">Yuklanmoqda...</td></tr>
-            <tr v-else-if="filtered.length === 0"><td colspan="7" class="empty">Balans yo‘q</td></tr>
+            <tr v-if="loading"><td colspan="7" class="empty">{{ t('common.loading') }}</td></tr>
+            <tr v-else-if="filtered.length === 0"><td colspan="7" class="empty">{{ t('suppliersBalance.empty') }}</td></tr>
             <tr v-for="b in filtered" :key="b.supplierId || b.id" class="border-b border-gray-100 dark:border-gray-800">
               <td class="td">{{ b.supplierId || b.id }}</td>
               <td class="td">
@@ -82,7 +82,7 @@
               <td class="td">{{ formatDateTime(b.lastUpdated || b.updatedAt) }}</td>
               <td class="td text-right">
                 <router-link class="link" :to="{ path: '/suppliers', query: { id: String(b.supplierId || '') } }">
-                  Ochish
+                  {{ t('suppliersBalance.open') }}
                 </router-link>
               </td>
             </tr>
@@ -95,6 +95,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ListFilter, RefreshCw } from 'lucide-vue-next'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
@@ -102,6 +103,7 @@ import { fetchSupplierBalances, type SupplierBalance } from '@/api/suppliers'
 import { formatApiError } from '@/api/http'
 import { money } from '@/utils/format'
 
+const { t } = useI18n()
 const items = ref<SupplierBalance[]>([])
 const loading = ref(false)
 const error = ref<string | null>(null)
@@ -116,7 +118,7 @@ function debtOf(b: SupplierBalance) {
 }
 
 function moneySom(v?: number | null) {
-  return `${money(Number(v || 0))} so‘m`
+  return `${money(Number(v || 0))} ${t('common.currency')}`
 }
 
 function formatDateTime(v?: string | null) {

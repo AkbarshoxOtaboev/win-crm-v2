@@ -34,12 +34,23 @@ public class RoleDataLoader implements CommandLineRunner {
             "SALE_ORDER_VIEW", "SALE_ORDER_CREATE", "SALE_ORDER_EDIT",
             "SALE_ORDER_ITEM_VIEW", "SALE_ORDER_ITEM_CREATE", "SALE_ORDER_ITEM_EDIT", "SALE_ORDER_ITEM_DELETE",
             "SALE_ORDER_WASTE_VIEW", "SALE_ORDER_WASTE_CREATE",
-            "WAREHOUSE_VIEW",
+            "WAREHOUSE_VIEW", "STOCK_VIEW",
             "GOODS_VIEW", "GOODS_GROUP_VIEW", "UNIT_TYPE_VIEW",
             "PAYMENT_VIEW", "PAYMENT_CREATE", "PAYMENT_TYPE_VIEW",
             "WORKSHOP_VIEW",
             "PRODUCTION_ORDER_VIEW", "PRODUCTION_ORDER_CREATE",
+            "TRANSPORT_DELIVERY_VIEW",
             "DASHBOARD_VIEW"
+    );
+
+    /** Transport bo'limi menejeri — yetkazishlar, haydovchilar, ishchilar va ularning oyligi (tasdiqlashsiz) */
+    private static final Set<String> TRANSPORT_MANAGER_PERMISSIONS = Set.of(
+            "TRANSPORT_DELIVERY_VIEW", "TRANSPORT_DELIVERY_EDIT",
+            "TRANSPORT_DRIVER_VIEW", "TRANSPORT_DRIVER_CREATE", "TRANSPORT_DRIVER_EDIT", "TRANSPORT_DRIVER_DELETE",
+            "TRANSPORT_WORKER_VIEW", "TRANSPORT_WORKER_CREATE", "TRANSPORT_WORKER_EDIT", "TRANSPORT_WORKER_DELETE",
+            "TRANSPORT_SALARY_VIEW",
+            "SALE_ORDER_VIEW", "SALE_ORDER_ITEM_VIEW",
+            "CLIENT_VIEW"
     );
 
     /** Ishlab chiqarish boshlig‘i — sexlar + barcha production */
@@ -103,6 +114,7 @@ public class RoleDataLoader implements CommandLineRunner {
         // Operational roles for CRM / ERP workshop flow
         ensureRoleWithPermissions("SELLER", SELLER_PERMISSIONS, byName);
         ensureRoleWithPermissions("PRODUCTION_MANAGER", PRODUCTION_MANAGER_PERMISSIONS, byName);
+        ensureRoleWithPermissions("TRANSPORT_MANAGER", TRANSPORT_MANAGER_PERMISSIONS, byName);
         retireRole("WORKSHOP_MANAGER");
     }
 

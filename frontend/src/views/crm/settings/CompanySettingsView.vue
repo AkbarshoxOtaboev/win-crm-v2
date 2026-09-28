@@ -1,34 +1,34 @@
 <template>
   <AdminLayout>
-    <PageBreadcrumb pageTitle="Tashkilot rekvizitlari" />
+    <PageBreadcrumb :pageTitle="t('nav.company')" />
     <div v-if="error" class="err mb-4">{{ error }}</div>
     <div v-if="ok" class="ok mb-4">{{ ok }}</div>
 
     <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
       <div class="mb-5">
-        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Kompaniya ma’lumotlari</h3>
+        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('settings.company.title') }}</h3>
         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          Hisob-faktura va hujjatlar uchun tashkilot rekvizitlari
+          {{ t('settings.company.subtitle') }}
         </p>
       </div>
 
       <form class="grid gap-4 md:grid-cols-2" @submit.prevent="onSave">
         <div>
-          <label for="company-name" class="lbl">Kompaniya nomi <span class="req">*</span></label>
+          <label for="company-name" class="lbl">{{ t('settings.company.companyName') }} <span class="req">*</span></label>
           <div class="relative">
             <Building2 class="field-icon" />
             <input
               id="company-name"
               v-model="company.companyName"
               required
-              placeholder="Masalan: WinCRM LLC"
+              :placeholder="t('settings.company.companyNamePlaceholder')"
               class="field"
             />
           </div>
         </div>
 
         <div>
-          <label for="company-inn" class="lbl">INN <span class="req">*</span></label>
+          <label for="company-inn" class="lbl">{{ t('common.inn') }} <span class="req">*</span></label>
           <div class="relative">
             <Hash class="field-icon" />
             <input id="company-inn" v-model="company.inn" required placeholder="123456789" class="field" />
@@ -39,7 +39,7 @@
           <label for="company-oked" class="lbl">OKED</label>
           <div class="relative">
             <FileText class="field-icon" />
-            <input id="company-oked" v-model="company.oked" placeholder="OKED kodi" class="field" />
+            <input id="company-oked" v-model="company.oked" :placeholder="t('settings.company.okedPlaceholder')" class="field" />
           </div>
         </div>
 
@@ -52,7 +52,7 @@
         </div>
 
         <div>
-          <label for="company-account" class="lbl">Hisob raqami</label>
+          <label for="company-account" class="lbl">{{ t('settings.company.accountNumber') }}</label>
           <div class="relative">
             <CreditCard class="field-icon" />
             <input
@@ -65,28 +65,28 @@
         </div>
 
         <div>
-          <label for="company-bank" class="lbl">Bank</label>
+          <label for="company-bank" class="lbl">{{ t('settings.company.bank') }}</label>
           <div class="relative">
             <Landmark class="field-icon" />
-            <input id="company-bank" v-model="company.bankName" placeholder="Bank nomi" class="field" />
+            <input id="company-bank" v-model="company.bankName" :placeholder="t('settings.company.bankPlaceholder')" class="field" />
           </div>
         </div>
 
         <div>
-          <label for="company-director" class="lbl">Direktor</label>
+          <label for="company-director" class="lbl">{{ t('shared.director') }}</label>
           <div class="relative">
             <User class="field-icon" />
             <input
               id="company-director"
               v-model="company.director"
-              placeholder="F.I.Sh"
+              :placeholder="t('common.fullName')"
               class="field"
             />
           </div>
         </div>
 
         <div>
-          <label for="company-phone" class="lbl">Telefon</label>
+          <label for="company-phone" class="lbl">{{ t('common.phone') }}</label>
           <div class="relative">
             <Phone class="field-icon" />
             <input
@@ -101,11 +101,11 @@
               @input="onPhoneInput"
             />
           </div>
-          <p class="mt-1 text-xs text-gray-400">Format: +998-(12)-345-67-89</p>
+          <p class="mt-1 text-xs text-gray-400">{{ t('shared.phoneFormat') }}</p>
         </div>
 
         <div>
-          <label for="company-email" class="lbl">Email</label>
+          <label for="company-email" class="lbl">{{ t('shared.email') }}</label>
           <div class="relative">
             <Mail class="field-icon" />
             <input
@@ -119,27 +119,27 @@
         </div>
 
         <div class="md:col-span-2">
-          <label for="company-address" class="lbl">Manzil</label>
+          <label for="company-address" class="lbl">{{ t('common.address') }}</label>
           <div class="relative">
             <MapPin class="field-icon" />
             <input
               id="company-address"
               v-model="company.address"
-              placeholder="Ko‘cha, tuman, shahar"
+              :placeholder="t('shared.addressPlaceholder')"
               class="field"
             />
           </div>
         </div>
 
         <div class="md:col-span-2">
-          <label for="company-desc" class="lbl">Izoh</label>
+          <label for="company-desc" class="lbl">{{ t('common.note') }}</label>
           <div class="relative">
             <AlignLeft class="field-icon field-icon-top" />
             <textarea
               id="company-desc"
               v-model="company.description"
               rows="3"
-              placeholder="Qo‘shimcha ma’lumot"
+              :placeholder="t('settings.company.descriptionPlaceholder')"
               class="field field-textarea"
             />
           </div>
@@ -147,7 +147,7 @@
 
         <div class="md:col-span-2 flex justify-end pt-1">
           <button type="submit" class="btn" :disabled="saving">
-            {{ saving ? 'Saqlanmoqda...' : 'Saqlash' }}
+            {{ saving ? t('common.saving') : t('common.save') }}
           </button>
         </div>
       </form>
@@ -157,6 +157,7 @@
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import {
   AlignLeft,
   Building2,
@@ -180,6 +181,7 @@ import {
 import { ApiError, formatApiError } from '@/api/http'
 import { formatUzPhone, isCompleteUzPhone, phoneDigits } from '@/utils/phone'
 
+const { t } = useI18n()
 const error = ref<string | null>(null)
 const ok = ref<string | null>(null)
 const saving = ref(false)
@@ -246,7 +248,7 @@ async function onSave() {
   ok.value = null
   const digits = phoneDigits(company.phone)
   if (digits.length > 3 && !isCompleteUzPhone(company.phone)) {
-    error.value = 'Telefon +998-(12)-345-67-89 formatida to‘liq bo‘lishi kerak'
+    error.value = t('shared.phoneInvalid')
     return
   }
   saving.value = true
@@ -262,7 +264,7 @@ async function onSave() {
       const res = await createCompanyDetail(payload)
       companyId.value = res.data?.id || null
     }
-    ok.value = 'Kompaniya saqlandi'
+    ok.value = t('settings.company.saved')
   } catch (e) {
     error.value = formatApiError(e)
   } finally {

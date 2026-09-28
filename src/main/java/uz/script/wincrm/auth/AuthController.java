@@ -29,6 +29,7 @@ import uz.script.wincrm.security.blacklist.TokenBlacklistService;
 import uz.script.wincrm.security.jwt.JwtService;
 import uz.script.wincrm.security.refreshToken.RefreshToken;
 import uz.script.wincrm.security.refreshToken.SessionService;
+import uz.script.wincrm.permissions.Permissions;
 import uz.script.wincrm.roles.Role;
 import uz.script.wincrm.users.User;
 import uz.script.wincrm.users.repository.UserRepository;
@@ -234,12 +235,21 @@ public class AuthController {
                 ? List.of()
                 : user.getRoles().stream().map(Role::getName).toList();
         boolean superAdmin = roles.contains("SUPER_ADMIN");
+        List<String> permissions = user.getRoles() == null
+                ? List.of()
+                : user.getRoles().stream()
+                        .flatMap(r -> r.getPermissions().stream())
+                        .map(Permissions::getName)
+                        .distinct()
+                        .sorted()
+                        .toList();
         return AuthResponse.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .tokenType("Bearer")
                 .sessionId(sessionId)
                 .roles(roles)
+                .permissions(permissions)
                 .superAdmin(superAdmin)
                 .filialId(user.getFilial() != null ? user.getFilial().getId() : null)
                 .filialName(user.getFilial() != null ? user.getFilial().getName() : null)

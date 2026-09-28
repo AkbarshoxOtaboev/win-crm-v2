@@ -6,6 +6,7 @@ export interface AuthResponse {
   tokenType: string
   sessionId: number
   roles?: string[]
+  permissions?: string[]
   superAdmin?: boolean
   filialId?: number | null
   filialName?: string | null

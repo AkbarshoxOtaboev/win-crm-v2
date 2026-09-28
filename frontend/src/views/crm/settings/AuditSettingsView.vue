@@ -1,18 +1,18 @@
 <template>
   <AdminLayout>
-    <PageBreadcrumb pageTitle="Audit loglar" />
+    <PageBreadcrumb :pageTitle="t('nav.audit')" />
 
     <div class="card">
       <div class="head">
         <div>
-          <h3 class="title">Audit loglar</h3>
-          <p class="sub">Tizim amallarini filtrlash va sahifalash</p>
+          <h3 class="title">{{ t('nav.audit') }}</h3>
+          <p class="sub">{{ t('settings.audit.subtitle') }}</p>
         </div>
         <div class="flex items-center gap-2">
-          <button type="button" class="icon-btn" title="Filter" @click="showFilters = !showFilters">
+          <button type="button" class="icon-btn" :title="t('common.filter')" @click="showFilters = !showFilters">
             <ListFilter class="h-4 w-4" />
           </button>
-          <button type="button" class="icon-btn" title="Yangilash" :disabled="loading" @click="load">
+          <button type="button" class="icon-btn" :title="t('common.refresh')" :disabled="loading" @click="load">
             <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': loading }" />
           </button>
         </div>
@@ -21,46 +21,46 @@
       <div v-if="showFilters" class="filters">
         <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <label class="lbl">
-            Foydalanuvchi
+            {{ t('common.user') }}
             <select v-model="filters.username" class="field">
-              <option value="">Barchasi</option>
+              <option value="">{{ t('common.all') }}</option>
               <option v-for="u in users" :key="u.id" :value="u.username">
                 {{ u.fullName || u.username }}
               </option>
             </select>
           </label>
           <label class="lbl">
-            Sana (dan)
+            {{ t('settings.audit.fromDate') }}
             <input v-model="filters.fromDate" type="date" class="field" />
           </label>
           <label class="lbl">
-            Sana (gacha)
+            {{ t('settings.audit.toDate') }}
             <input v-model="filters.toDate" type="date" class="field" />
           </label>
           <label class="lbl">
-            Sahifada
+            {{ t('common.perPage') }}
             <select v-model.number="pageSizePreset" class="field" @change="onPresetChange">
-              <option v-for="n in PAGE_SIZE_OPTIONS" :key="n" :value="n">{{ n }} ta</option>
-              <option :value="-1">Boshqa...</option>
+              <option v-for="n in PAGE_SIZE_OPTIONS" :key="n" :value="n">{{ t('common.perPageN', { n }) }}</option>
+              <option :value="-1">{{ t('settings.audit.other') }}</option>
             </select>
           </label>
           <label class="lbl">
-            Son (qo‘lda)
+            {{ t('settings.audit.customSize') }}
             <input
               v-model.number="customPageSize"
               type="number"
               min="1"
               max="500"
               class="field"
-              placeholder="Masalan: 75"
+              :placeholder="t('settings.audit.customSizePlaceholder')"
               @change="onCustomSizeChange"
             />
           </label>
         </div>
         <div class="mt-3 flex flex-wrap items-center gap-2">
-          <button type="button" class="btn" :disabled="loading" @click="applyFilters">Filtrlash</button>
-          <button type="button" class="ghost" @click="clearFilters">Filterni tozalash</button>
-          <span class="text-sm text-gray-500">Jami: {{ totalElements }} ta</span>
+          <button type="button" class="btn" :disabled="loading" @click="applyFilters">{{ t('settings.audit.applyFilter') }}</button>
+          <button type="button" class="ghost" @click="clearFilters">{{ t('common.clearFilter') }}</button>
+          <span class="text-sm text-gray-500">{{ t('common.totalCount', { n: totalElements }) }}</span>
         </div>
       </div>
 
@@ -71,21 +71,21 @@
           <thead>
             <tr class="border-b border-gray-100 dark:border-gray-800">
               <th class="th">#</th>
-              <th class="th">User</th>
-              <th class="th">Method</th>
-              <th class="th">Action</th>
-              <th class="th">Entity</th>
+              <th class="th">{{ t('shared.colUser') }}</th>
+              <th class="th">{{ t('settings.audit.colMethod') }}</th>
+              <th class="th">{{ t('settings.audit.colAction') }}</th>
+              <th class="th">{{ t('settings.audit.colEntity') }}</th>
               <th class="th">URL</th>
               <th class="th">IP</th>
-              <th class="th">Sana</th>
+              <th class="th">{{ t('common.date') }}</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="loading">
-              <td colspan="8" class="empty">Yuklanmoqda...</td>
+              <td colspan="8" class="empty">{{ t('common.loading') }}</td>
             </tr>
             <tr v-else-if="audits.length === 0">
-              <td colspan="8" class="empty">Log yo‘q</td>
+              <td colspan="8" class="empty">{{ t('settings.audit.empty') }}</td>
             </tr>
             <template v-else>
               <tr
@@ -100,7 +100,7 @@
                     {{ a.httpMethod || '—' }}
                   </span>
                 </td>
-                <td class="td">{{ a.action || '—' }}</td>
+                <td class="td">{{ actionLabel(a.action) }}</td>
                 <td class="td">{{ a.entity || '—' }}</td>
                 <td class="td url-cell" :title="a.requestUrl">{{ a.requestUrl || '—' }}</td>
                 <td class="td">{{ a.ipAddress || '—' }}</td>
@@ -113,11 +113,11 @@
 
       <div v-if="totalPages > 0" class="pager">
         <button type="button" class="ghost" :disabled="page <= 0 || loading" @click="goPage(page - 1)">
-          Oldingi
+          {{ t('common.prev') }}
         </button>
         <span class="pager-info">
-          Sahifa {{ page + 1 }} / {{ totalPages }}
-          <span class="text-gray-400">({{ pageSize }} ta)</span>
+          {{ t('settings.audit.pageOf', { page: page + 1, total: totalPages }) }}
+          <span class="text-gray-400">({{ t('common.perPageN', { n: pageSize }) }})</span>
         </span>
         <button
           type="button"
@@ -125,7 +125,7 @@
           :disabled="page >= totalPages - 1 || loading"
           @click="goPage(page + 1)"
         >
-          Keyingi
+          {{ t('common.next') }}
         </button>
       </div>
     </div>
@@ -134,6 +134,7 @@
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ListFilter, RefreshCw } from 'lucide-vue-next'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
@@ -143,6 +144,8 @@ import { formatApiError } from '@/api/http'
 import { formatDate } from '@/utils/format'
 
 const PAGE_SIZE_OPTIONS = [50, 100, 150, 200, 250] as const
+
+const { t, te } = useI18n()
 
 const error = ref<string | null>(null)
 const loading = ref(false)
@@ -177,6 +180,12 @@ function methodClass(method?: string) {
     default:
       return 'method-other'
   }
+}
+
+function actionLabel(action?: string) {
+  if (!action) return '—'
+  const key = `settings.audit.actions.${action}`
+  return te(key) ? t(key) : action
 }
 
 function toFromDateIso(date: string) {

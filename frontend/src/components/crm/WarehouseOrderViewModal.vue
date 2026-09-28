@@ -4,50 +4,50 @@
       <div class="modal">
         <div class="modal-head no-print">
           <div>
-            <h3 class="title">Kirim #{{ order?.id }}</h3>
-            <p class="sub">Buyurtma ma'lumotlari va pozitsiyalar</p>
+            <h3 class="title">{{ t('warehouseOrders.orderNo', { id: order?.id }) }}</h3>
+            <p class="sub">{{ t('warehouseOrders.orderSubtitle') }}</p>
           </div>
-          <button type="button" class="ghost" @click="close">Yopish</button>
+          <button type="button" class="ghost" @click="close">{{ t('common.close') }}</button>
         </div>
 
-        <div v-if="loading" class="empty">Yuklanmoqda...</div>
+        <div v-if="loading" class="empty">{{ t('common.loading') }}</div>
         <div v-else-if="order" ref="printAreaRef" class="wo-print-area">
           <div class="print-only-title">
-            <h3 class="title">Kirim #{{ order.id }}</h3>
-            <p class="sub">Buyurtma ma'lumotlari va pozitsiyalar</p>
+            <h3 class="title">{{ t('warehouseOrders.orderNo', { id: order.id }) }}</h3>
+            <p class="sub">{{ t('warehouseOrders.orderSubtitle') }}</p>
           </div>
 
           <div class="info-grid">
-            <div><span class="lbl">Yetkazuvchi</span>{{ order.supplierName || '—' }}</div>
-            <div><span class="lbl">Telefon</span>{{ supplierPhone || '—' }}</div>
-            <div><span class="lbl">Ombor</span>{{ order.warehouseName || '—' }}</div>
-            <div><span class="lbl">Sana</span>{{ formatDate(order.arrivalDate) }}</div>
-            <div><span class="lbl">Holat</span>{{ statusLabel }}</div>
-            <div><span class="lbl">Jami summa</span>{{ money(orderTotal) }}</div>
+            <div><span class="lbl">{{ t('warehouseOrders.supplier') }}</span>{{ order.supplierName || '—' }}</div>
+            <div><span class="lbl">{{ t('common.phone') }}</span>{{ supplierPhone || '—' }}</div>
+            <div><span class="lbl">{{ t('common.warehouse') }}</span>{{ order.warehouseName || '—' }}</div>
+            <div><span class="lbl">{{ t('common.date') }}</span>{{ formatDate(order.arrivalDate) }}</div>
+            <div><span class="lbl">{{ t('common.status') }}</span>{{ statusLabel }}</div>
+            <div><span class="lbl">{{ t('warehouseOrders.grandTotal') }}</span>{{ money(orderTotal) }}</div>
             <div v-if="Number(order.serviceFee) > 0">
-              <span class="lbl">Xizmat haqi</span>{{ money(order.serviceFee) }}
+              <span class="lbl">{{ t('warehouseOrders.serviceFee') }}</span>{{ money(order.serviceFee) }}
             </div>
-            <div v-if="order.comment"><span class="lbl">Izoh</span>{{ order.comment }}</div>
+            <div v-if="order.comment"><span class="lbl">{{ t('common.comment') }}</span>{{ order.comment }}</div>
           </div>
 
-          <h4 class="section-title">Pozitsiyalar</h4>
+          <h4 class="section-title">{{ t('warehouseOrders.items') }}</h4>
           <div class="overflow-x-auto">
             <table class="min-w-full">
               <thead>
                 <tr class="border-b border-gray-100">
                   <th class="th">#</th>
-                  <th class="th">Mahsulot</th>
-                  <th class="th">Eni (sm)</th>
-                  <th class="th">Bo‘yi (sm)</th>
-                  <th class="th">Soni</th>
-                  <th class="th">Kv.m</th>
-                  <th class="th">Sotish</th>
-                  <th class="th">Summa</th>
+                  <th class="th">{{ t('common.product') }}</th>
+                  <th class="th">{{ t('warehouseOrders.widthCm') }}</th>
+                  <th class="th">{{ t('warehouseOrders.heightCm') }}</th>
+                  <th class="th">{{ t('common.count') }}</th>
+                  <th class="th">{{ t('warehouseOrders.kvm') }}</th>
+                  <th class="th">{{ t('warehouseOrders.selling') }}</th>
+                  <th class="th">{{ t('common.sum') }}</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-if="displayItems.length === 0">
-                  <td colspan="8" class="empty">Pozitsiya yo‘q</td>
+                  <td colspan="8" class="empty">{{ t('warehouseOrders.noItems') }}</td>
                 </tr>
                 <tr v-for="(row, idx) in displayItems" :key="row.id" class="border-b border-gray-100">
                   <td class="td">{{ idx + 1 }}</td>
@@ -62,15 +62,15 @@
               </tbody>
               <tfoot v-if="displayItems.length || Number(order.serviceFee) > 0">
                 <tr v-if="displayItems.length" class="border-t border-gray-200 bg-gray-50">
-                  <td class="td font-medium" colspan="7">Pozitsiyalar jami</td>
+                  <td class="td font-medium" colspan="7">{{ t('warehouseOrders.itemsTotal') }}</td>
                   <td class="td font-medium">{{ money(itemsTotalSum) }}</td>
                 </tr>
                 <tr v-if="Number(order.serviceFee) > 0" class="border-t border-gray-100 bg-gray-50">
-                  <td class="td font-medium" colspan="7">Xizmat haqi</td>
+                  <td class="td font-medium" colspan="7">{{ t('warehouseOrders.serviceFee') }}</td>
                   <td class="td font-medium">{{ money(order.serviceFee) }}</td>
                 </tr>
                 <tr class="border-t border-gray-200 bg-gray-50">
-                  <td class="td font-semibold" colspan="7">Jami</td>
+                  <td class="td font-semibold" colspan="7">{{ t('common.total') }}</td>
                   <td class="td font-semibold">{{ money(orderTotal) }}</td>
                 </tr>
               </tfoot>
@@ -78,19 +78,19 @@
           </div>
 
           <div class="notify-block no-print">
-            <h4 class="section-title">Yetkazuvchiga xabar</h4>
+            <h4 class="section-title">{{ t('warehouseOrders.messageToSupplier') }}</h4>
             <p v-if="notifyError" class="err mb-2">{{ notifyError }}</p>
             <p v-if="notifySuccess" class="ok mb-2">{{ notifySuccess }}</p>
             <textarea
               v-model="messageText"
               rows="5"
               class="textarea"
-              placeholder="SMS / Telegram xabari..."
+              :placeholder="t('warehouseOrders.messagePlaceholder')"
             />
             <div class="action-row">
               <button type="button" class="btn sms-btn" :disabled="sending || !messageText.trim()" @click="onSendSms">
                 <MailIcon class="btn-icon" />
-                {{ sending === 'sms' ? '...' : 'SMS yuborish' }}
+                {{ sending === 'sms' ? '...' : t('warehouseOrders.sendSms') }}
               </button>
               <button
                 type="button"
@@ -99,11 +99,11 @@
                 @click="onSendTelegram"
               >
                 <SendIcon class="btn-icon" />
-                {{ sending === 'telegram' ? '...' : 'Telegram bot' }}
+                {{ sending === 'telegram' ? '...' : t('warehouseOrders.telegramBot') }}
               </button>
               <button type="button" class="ghost" @click="onPrint">
                 <DocsIcon class="btn-icon" />
-                Chop etish
+                {{ t('common.print') }}
               </button>
             </div>
           </div>
@@ -115,6 +115,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import {
   fetchWarehouseOrder,
   fetchWarehouseOrderItems,
@@ -141,6 +142,7 @@ const emit = defineEmits<{
   close: []
 }>()
 
+const { t } = useI18n()
 const order = ref<WarehouseOrder | null>(null)
 const items = ref<WarehouseOrderItem[]>([])
 const goods = ref<Goods[]>([])
@@ -154,8 +156,8 @@ const printAreaRef = ref<HTMLElement | null>(null)
 const supplierPhone = computed(() => props.supplier?.phone || '')
 const orderTotal = computed(() => Number(order.value?.totalSum || 0))
 const statusLabel = computed(() => {
-  if (order.value?.orderStatus === 'TRANSFERRED') return 'Omborga o‘tkazilgan'
-  return order.value?.orderStatus || 'Yangi'
+  if (order.value?.orderStatus === 'TRANSFERRED') return t('warehouseOrders.statusTransferred')
+  return order.value?.orderStatus || t('warehouseOrders.statusNew')
 })
 
 function isWindowItem(it: WarehouseOrderItem) {
@@ -198,22 +200,22 @@ function formatNum(v?: number | null) {
 
 function buildDefaultMessage(o: WarehouseOrder, rows: typeof displayItems.value) {
   const lines = [
-    `Kirim buyurtmasi #${o.id}`,
-    `Yetkazuvchi: ${o.supplierName || '—'}`,
-    `Ombor: ${o.warehouseName || '—'}`,
-    `Sana: ${formatDate(o.arrivalDate)}`,
+    t('warehouseOrders.msgHeader', { id: o.id }),
+    t('warehouseOrders.msgSupplier', { value: o.supplierName || '—' }),
+    t('warehouseOrders.msgWarehouse', { value: o.warehouseName || '—' }),
+    t('warehouseOrders.msgDate', { value: formatDate(o.arrivalDate) }),
     '',
-    'Pozitsiyalar:',
+    t('warehouseOrders.msgItems'),
   ]
   rows.forEach((row, idx) => {
     lines.push(
-      `${idx + 1}. ${row.goodsName} — ${row.isWindow ? `${formatNum(row.count)} kv.m` : `${formatNum(row.count)} dona`} — ${money(row.sum)}`,
+      `${idx + 1}. ${row.goodsName} — ${row.isWindow ? `${formatNum(row.count)} ${t('warehouseOrders.kvmUnit')}` : `${formatNum(row.count)} ${t('common.pcs')}`} — ${money(row.sum)}`,
     )
   })
   if (Number(o.serviceFee) > 0) {
-    lines.push(`Xizmat haqi: ${money(o.serviceFee)}`)
+    lines.push(t('warehouseOrders.msgServiceFee', { value: money(o.serviceFee) }))
   }
-  lines.push(`Jami: ${money(o.totalSum)}`)
+  lines.push(t('warehouseOrders.msgTotal', { value: money(o.totalSum) }))
   return lines.join('\n')
 }
 
@@ -252,7 +254,7 @@ async function onSendSms() {
   notifySuccess.value = null
   try {
     await sendWarehouseOrderSms(props.orderId, messageText.value.trim())
-    notifySuccess.value = 'SMS yetkazuvchiga yuborildi'
+    notifySuccess.value = t('warehouseOrders.smsSent')
   } catch (e) {
     notifyError.value = formatApiError(e)
   } finally {
@@ -267,7 +269,7 @@ async function onSendTelegram() {
   notifySuccess.value = null
   try {
     await sendWarehouseOrderTelegram(props.orderId, messageText.value.trim())
-    notifySuccess.value = 'Telegram orqali xabar yuborildi'
+    notifySuccess.value = t('warehouseOrders.telegramSent')
   } catch (e) {
     notifyError.value = formatApiError(e)
   } finally {

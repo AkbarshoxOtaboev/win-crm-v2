@@ -17,7 +17,7 @@
             <option :value="0" disabled>{{ t('productionDashboard.selectWorkshop') }}</option>
             <option v-for="w in workshops" :key="w.id" :value="w.id">{{ w.name }}</option>
           </select>
-          <button type="button" class="icon-btn" :disabled="loading" :title="t('common.loading')" @click="load">
+          <button type="button" class="icon-btn" :disabled="loading" :title="t('common.refresh')" @click="load">
             <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': loading }" />
           </button>
         </div>
@@ -31,17 +31,17 @@
         <article class="stat-card" style="--accent: #3b82f6">
           <p class="label">{{ t('productionDashboard.queued') }}</p>
           <p class="count">{{ dash.queuedCount }}</p>
-          <p class="sum">{{ money(dash.queuedSum) }} <span>so‘m</span></p>
+          <p class="sum">{{ money(dash.queuedSum) }} <span>{{ t('common.currency') }}</span></p>
         </article>
         <article class="stat-card" style="--accent: #f97316">
           <p class="label">{{ t('productionDashboard.inProgress') }}</p>
           <p class="count">{{ dash.inProgressCount }}</p>
-          <p class="sum">{{ money(dash.inProgressSum) }} <span>so‘m</span></p>
+          <p class="sum">{{ money(dash.inProgressSum) }} <span>{{ t('common.currency') }}</span></p>
         </article>
         <article class="stat-card" style="--accent: #059669">
           <p class="label">{{ t('productionDashboard.doneSum') }}</p>
           <p class="count">{{ dash.doneCount }}</p>
-          <p class="sum">{{ money(dash.doneSum) }} <span>so‘m</span></p>
+          <p class="sum">{{ money(dash.doneSum) }} <span>{{ t('common.currency') }}</span></p>
         </article>
         <article class="stat-card" style="--accent: #7c3aed">
           <p class="label">{{ t('productionDashboard.balance') }}</p>

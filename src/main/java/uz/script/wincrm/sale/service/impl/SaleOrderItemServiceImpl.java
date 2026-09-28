@@ -394,10 +394,10 @@ public class SaleOrderItemServiceImpl implements SaleOrderItemService {
         if (availableStock.compareTo(requestedCount) < 0) {
             BigDecimal shortage = requestedCount.subtract(availableStock);
             String errorMsg = String.format(
-                    "Ombareda yetarli mahsulot yo'q! Mavjud: %s, Talabalar: %s, Kamiy: %s",
-                    availableStock,
-                    requestedCount,
-                    shortage
+                    "Omborda yetarli mahsulot yo'q! Mavjud: %s, so'ralgan: %s, yetishmaydi: %s",
+                    availableStock.stripTrailingZeros().toPlainString(),
+                    requestedCount.stripTrailingZeros().toPlainString(),
+                    shortage.stripTrailingZeros().toPlainString()
             );
             log.error(errorMsg);
             throw new InsufficientStockException(

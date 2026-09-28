@@ -64,8 +64,20 @@ public class UserController {
         );
     }
 
+    @GetMapping("/lookup")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Users lookup", description = "Minimal active users list (id, username, fullName) for selects.")
+    public ResponseEntity<?> lookupUsers() {
+        return ResponseEntity.ok().body(
+                RestApiResponse.<List<UserResponse>>builder()
+                        .message("Users lookup fetched")
+                        .data(service.lookupUsers())
+                        .build()
+        );
+    }
+
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('USER_VIEW')")
+    @PreAuthorize("hasAuthority('USER_VIEW') or principal.user.id == #id")
     @Operation(summary = "Fetch user by id", description = "Only users with USER_VIEW permission can use it.")
     @ApiResponse(responseCode = "200",
             content = @Content(
@@ -85,7 +97,7 @@ public class UserController {
             value = "/update/{id}",
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE
     )
-    @PreAuthorize("hasAuthority('USER_EDIT')")
+    @PreAuthorize("hasAuthority('USER_EDIT') or principal.user.id == #id")
     @Operation(
             summary = "Update user",
             description = "Only users with USER_EDIT permission can use it."
@@ -132,7 +144,7 @@ public class UserController {
     }
 
     @GetMapping("/{id}/stats")
-    @PreAuthorize("hasAuthority('USER_VIEW')")
+    @PreAuthorize("hasAuthority('USER_VIEW') or principal.user.id == #id")
     @Operation(
             summary = "Fetch user statistics",
             description = "Foydalanuvchi (sotuvchi) bo'yicha umumiy buyurtmalar soni, buyurtmalar summasi, " +

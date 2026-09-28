@@ -1,6 +1,6 @@
 <template>
   <AdminLayout>
-    <PageBreadcrumb pageTitle="To‘lovlar" />
+    <PageBreadcrumb :pageTitle="t('nav.payments')" />
 
     <div class="mb-4 flex flex-wrap gap-2">
       <button
@@ -10,7 +10,7 @@
         @click="tab = 'payments'"
       >
         <Wallet class="h-4 w-4" />
-        To‘lovlar
+        {{ t('nav.payments') }}
         <span class="tab-count">{{ items.length }}</span>
       </button>
       <button
@@ -20,7 +20,7 @@
         @click="tab = 'types'"
       >
         <CreditCard class="h-4 w-4" />
-        To‘lov turlari
+        {{ t('nav.paymentTypes') }}
         <span class="tab-count">{{ paymentTypes.length }}</span>
       </button>
     </div>
@@ -36,16 +36,16 @@
         class="flex flex-col gap-3 border-b border-gray-100 px-5 py-4 dark:border-gray-800 lg:flex-row lg:items-center lg:justify-between"
       >
         <div>
-          <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">To‘lovlar</h3>
+          <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('nav.payments') }}</h3>
           <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Mijoz to‘lovlarini qo‘shish, filtrlash va kuzatish
+            {{ t('payments.subtitle') }}
           </p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
           <button
             type="button"
             class="icon-btn"
-            title="Filtrlar"
+            :title="t('payments.filters')"
             @click="showFilters = !showFilters"
           >
             <ListFilter class="h-4 w-4" />
@@ -53,15 +53,21 @@
           <button
             type="button"
             class="icon-btn"
-            title="Yangilash"
+            :title="t('common.refresh')"
             :disabled="loading"
             @click="load"
           >
             <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': loading }" />
           </button>
-          <button type="button" class="btn btn-with-icon" :disabled="writeBlocked" @click="openCreate">
+          <button
+            v-if="auth.can('PAYMENT_CREATE')"
+            type="button"
+            class="btn btn-with-icon"
+            :disabled="writeBlocked"
+            @click="openCreate"
+          >
             <Plus class="h-4 w-4" />
-            Yangi to‘lov
+            {{ t('payments.newPayment') }}
           </button>
         </div>
       </div>
@@ -69,32 +75,32 @@
       <div v-if="showFilters" class="filters border-b border-gray-100 px-5 py-4 dark:border-gray-800">
         <div class="grid gap-3 sm:grid-cols-2">
           <label class="lbl-block">
-            Mijoz
+            {{ t('common.client') }}
             <SearchableSelect
               :model-value="filterClientId"
               :options="filterClientOptions"
-              placeholder="Barcha mijozlar"
-              search-placeholder="FIO yoki telefon..."
+              :placeholder="t('payments.allClients')"
+              :search-placeholder="t('payments.clientSearchPlaceholder')"
               @update:model-value="onFilterClientChange"
             />
           </label>
           <label class="lbl-block">
-            Qidiruv
+            {{ t('payments.search') }}
             <div class="relative">
               <Search class="field-icon" />
               <input
                 v-model="search"
                 type="search"
-                placeholder="Tur, buyurtma yoki izoh..."
+                :placeholder="t('payments.searchPlaceholder')"
                 class="field"
               />
             </div>
           </label>
         </div>
         <div class="mt-3 flex flex-wrap items-center gap-2">
-          <button type="button" class="ghost" @click="clearFilters">Filterni tozalash</button>
+          <button type="button" class="ghost" @click="clearFilters">{{ t('common.clearFilter') }}</button>
           <span class="text-sm text-gray-500 dark:text-gray-400">
-            Ko‘rsatilmoqda: {{ filtered.length }} ta
+            {{ t('payments.showing', { n: filtered.length }) }}
           </span>
         </div>
       </div>
@@ -104,23 +110,23 @@
           <thead>
             <tr class="border-b border-gray-100 dark:border-gray-800">
               <th class="th">#</th>
-              <th class="th">Mijoz</th>
-              <th class="th">Tur</th>
-              <th class="th">Summa</th>
-              <th class="th">Sana</th>
-              <th class="th">Buyurtma</th>
-              <th class="th th-actions">Amallar</th>
+              <th class="th">{{ t('common.client') }}</th>
+              <th class="th">{{ t('common.type') }}</th>
+              <th class="th">{{ t('common.sum') }}</th>
+              <th class="th">{{ t('common.date') }}</th>
+              <th class="th">{{ t('payments.order') }}</th>
+              <th class="th th-actions">{{ t('common.actions') }}</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="loading">
-              <td colspan="7" class="empty">Yuklanmoqda...</td>
+              <td colspan="7" class="empty">{{ t('common.loading') }}</td>
             </tr>
             <tr v-else-if="filtered.length === 0">
               <td colspan="7" class="empty">
                 <div class="flex flex-col items-center gap-2 py-2">
                   <Wallet class="h-8 w-8 text-gray-300 dark:text-gray-600" />
-                  <span>To‘lov topilmadi</span>
+                  <span>{{ t('payments.notFound') }}</span>
                 </div>
               </td>
             </tr>
@@ -157,10 +163,15 @@
                 >
                   #{{ p.saleOrderId }}
                 </span>
-                <span v-else class="text-xs text-gray-400">Avans</span>
+                <span v-else class="text-xs text-gray-400">{{ t('payments.advance') }}</span>
               </td>
               <td class="td td-actions">
-                <RowActions @edit="openEdit(p)" @delete="onDelete(p)" />
+                <RowActions
+                  :edit="auth.can('PAYMENT_EDIT')"
+                  :remove="auth.can('PAYMENT_DELETE')"
+                  @edit="openEdit(p)"
+                  @delete="onDelete(p)"
+                />
               </td>
             </tr>
           </tbody>
@@ -177,14 +188,14 @@
         class="flex flex-col gap-3 border-b border-gray-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-gray-800"
       >
         <div>
-          <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">To‘lov turlari</h3>
+          <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('nav.paymentTypes') }}</h3>
           <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Naqd, plastik, o‘tkazma va boshqa to‘lov usullari
+            {{ t('payments.typesSubtitle') }}
           </p>
         </div>
         <button type="button" class="btn btn-with-icon" :disabled="writeBlocked" @click="openTypeCreate">
           <Plus class="h-4 w-4" />
-          Yangi tur
+          {{ t('payments.newType') }}
         </button>
       </div>
       <div class="overflow-x-auto">
@@ -192,28 +203,28 @@
           <thead>
             <tr class="border-b border-gray-100 dark:border-gray-800">
               <th class="th">#</th>
-              <th class="th">Nomi</th>
-              <th class="th th-actions">Amallar</th>
+              <th class="th">{{ t('common.name') }}</th>
+              <th class="th th-actions">{{ t('common.actions') }}</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="loading">
-              <td colspan="3" class="empty">Yuklanmoqda...</td>
+              <td colspan="3" class="empty">{{ t('common.loading') }}</td>
             </tr>
             <tr v-else-if="paymentTypes.length === 0">
               <td colspan="3" class="empty">
                 <div class="flex flex-col items-center gap-2 py-2">
                   <CreditCard class="h-8 w-8 text-gray-300 dark:text-gray-600" />
-                  <span>To‘lov turi yo‘q</span>
+                  <span>{{ t('payments.noTypes') }}</span>
                 </div>
               </td>
             </tr>
             <tr
-              v-for="t in paymentTypes"
-              :key="t.id"
+              v-for="pt in paymentTypes"
+              :key="pt.id"
               class="border-b border-gray-100 transition-colors hover:bg-gray-50/80 dark:border-gray-800 dark:hover:bg-white/[0.02]"
             >
-              <td class="td text-gray-400">{{ t.id }}</td>
+              <td class="td text-gray-400">{{ pt.id }}</td>
               <td class="td">
                 <div class="flex items-center gap-3">
                   <span
@@ -221,11 +232,16 @@
                   >
                     <CreditCard class="h-4 w-4" />
                   </span>
-                  <span class="font-medium text-gray-800 dark:text-white/90">{{ t.name }}</span>
+                  <span class="font-medium text-gray-800 dark:text-white/90">{{ pt.name }}</span>
                 </div>
               </td>
               <td class="td td-actions">
-                <RowActions @edit="openTypeEdit(t)" @delete="onTypeDelete(t)" />
+                <RowActions
+                  :edit="auth.can('PAYMENT_TYPE_EDIT')"
+                  :remove="auth.can('PAYMENT_TYPE_DELETE')"
+                  @edit="openTypeEdit(pt)"
+                  @delete="onTypeDelete(pt)"
+                />
               </td>
             </tr>
           </tbody>
@@ -253,17 +269,17 @@
                 id="payment-modal-title"
                 class="text-lg font-semibold text-gray-800 dark:text-white/90"
               >
-                {{ editingId ? 'To‘lovni tahrirlash' : 'Yangi to‘lov' }}
+                {{ editingId ? t('payments.editPayment') : t('payments.newPayment') }}
               </h3>
               <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                Mijoz, summa va to‘lov turini kiriting
+                {{ t('payments.modalSubtitle') }}
               </p>
             </div>
           </div>
           <button
             type="button"
             class="close-btn"
-            aria-label="Yopish"
+            :aria-label="t('common.close')"
             @click="closePaymentModal"
           >
             <X class="h-5 w-5" />
@@ -274,37 +290,37 @@
 
         <form class="space-y-4" @submit.prevent="onSubmit">
           <div>
-            <label class="lbl">Mijoz <span class="req">*</span></label>
+            <label class="lbl">{{ t('common.client') }} <span class="req">*</span></label>
             <SearchableSelect
               :model-value="form.clientId"
               :options="clientOptions"
-              placeholder="Mijozni tanlang..."
-              search-placeholder="FIO yoki telefon..."
+              :placeholder="t('payments.selectClientPlaceholder')"
+              :search-placeholder="t('payments.clientSearchPlaceholder')"
               @update:model-value="onFormClientChange"
             />
           </div>
 
           <div v-if="form.clientId && (clientSummaryLoading || clientBalance)" class="debt-card">
-            <div v-if="clientSummaryLoading" class="debt-loading">Qarz ma’lumoti yuklanmoqda...</div>
+            <div v-if="clientSummaryLoading" class="debt-loading">{{ t('payments.debtLoading') }}</div>
             <template v-else-if="clientBalance">
               <div class="debt-head">
-                <span class="debt-title">Mijoz balansi</span>
-                <span class="debt-orders">{{ clientSaleOrders.length }} ta buyurtma</span>
+                <span class="debt-title">{{ t('payments.clientBalance') }}</span>
+                <span class="debt-orders">{{ t('payments.ordersCount', { n: clientSaleOrders.length }) }}</span>
               </div>
               <div class="debt-grid">
                 <div class="debt-item">
-                  <span class="debt-lbl">Jami savdo</span>
+                  <span class="debt-lbl">{{ t('payments.totalSales') }}</span>
                   <span class="debt-val">{{ money(clientBalance.totalPurchase) }}</span>
                 </div>
                 <div class="debt-item">
-                  <span class="debt-lbl">Jami to‘lovlar</span>
+                  <span class="debt-lbl">{{ t('payments.totalPayments') }}</span>
                   <span class="debt-val text-success-600 dark:text-success-400">
                     {{ money(clientBalance.totalPaid) }}
-                    <span v-if="clientPaymentsCount" class="debt-sub">({{ clientPaymentsCount }} ta)</span>
+                    <span v-if="clientPaymentsCount" class="debt-sub">{{ t('payments.paymentsCount', { n: clientPaymentsCount }) }}</span>
                   </span>
                 </div>
                 <div class="debt-item debt-item-accent">
-                  <span class="debt-lbl">Umumiy qarz</span>
+                  <span class="debt-lbl">{{ t('payments.totalDebt') }}</span>
                   <span
                     class="debt-val"
                     :class="Number(clientBalance.totalDebt) > 0 ? 'text-error-600 dark:text-error-400' : 'text-success-600'"
@@ -327,18 +343,18 @@
                   <span>#{{ o.id }}</span>
                   <span class="text-gray-400">{{ money(o.totalSum) }}</span>
                   <span class="font-medium text-error-600 dark:text-error-400">
-                    qarz: {{ money(o.debtSum) }}
+                    {{ t('payments.debtLabel', { sum: money(o.debtSum) }) }}
                   </span>
                 </div>
               </div>
               <p v-else-if="clientSaleOrders.length" class="debt-hint">
-                Barcha buyurtmalar bo‘yicha qarz yo‘q
+                {{ t('payments.noDebtOrders') }}
               </p>
             </template>
           </div>
 
           <div>
-            <label for="pay-user" class="lbl">Qabul qiluvchi <span class="req">*</span></label>
+            <label for="pay-user" class="lbl">{{ t('payments.receiver') }} <span class="req">*</span></label>
             <div class="relative">
               <UserCog class="field-icon" />
               <select id="pay-user" v-model.number="form.userId" required class="field field-select">
@@ -352,7 +368,7 @@
 
           <div class="grid gap-4 sm:grid-cols-2">
             <div>
-              <label for="pay-type" class="lbl">To‘lov turi <span class="req">*</span></label>
+              <label for="pay-type" class="lbl">{{ t('payments.paymentType') }} <span class="req">*</span></label>
               <div class="relative">
                 <CreditCard class="field-icon" />
                 <select
@@ -361,14 +377,14 @@
                   required
                   class="field field-select"
                 >
-                  <option v-for="t in paymentTypes" :key="t.id" :value="t.id">{{ t.name }}</option>
+                  <option v-for="pt in paymentTypes" :key="pt.id" :value="pt.id">{{ pt.name }}</option>
                 </select>
                 <ChevronDown class="select-chevron" />
               </div>
             </div>
 
             <div>
-              <label for="pay-amount" class="lbl">Summa <span class="req">*</span></label>
+              <label for="pay-amount" class="lbl">{{ t('common.sum') }} <span class="req">*</span></label>
               <div class="relative">
                 <Banknote class="field-icon" />
                 <input
@@ -387,7 +403,7 @@
 
           <div class="grid gap-4 sm:grid-cols-2">
             <div>
-              <label for="pay-date" class="lbl">Sana <span class="req">*</span></label>
+              <label for="pay-date" class="lbl">{{ t('common.date') }} <span class="req">*</span></label>
               <div class="relative">
                 <CalendarDays class="field-icon" />
                 <input
@@ -401,7 +417,7 @@
             </div>
 
             <div>
-              <label for="pay-order" class="lbl">Savdo buyurtmasi</label>
+              <label for="pay-order" class="lbl">{{ t('payments.saleOrder') }}</label>
               <div class="relative">
                 <ShoppingCart class="field-icon" />
                 <select
@@ -410,36 +426,36 @@
                   class="field field-select"
                   :disabled="!form.clientId"
                 >
-                  <option :value="0">— Avans (buyurtmasiz) —</option>
+                  <option :value="0">{{ t('payments.advanceOption') }}</option>
                   <option v-for="o in clientSaleOrders" :key="o.id" :value="o.id">
                     {{ formatOrderOption(o) }}
                   </option>
                 </select>
                 <ChevronDown class="select-chevron" />
               </div>
-              <p v-if="!form.clientId" class="mt-1 text-xs text-gray-400">Avval mijozni tanlang</p>
+              <p v-if="!form.clientId" class="mt-1 text-xs text-gray-400">{{ t('payments.selectClientFirst') }}</p>
             </div>
           </div>
 
           <div>
-            <label for="pay-comment" class="lbl">Izoh</label>
+            <label for="pay-comment" class="lbl">{{ t('common.note') }}</label>
             <div class="relative">
               <MessageSquare class="field-icon field-icon-top" />
               <textarea
                 id="pay-comment"
                 v-model="form.comment"
                 rows="2"
-                placeholder="Ixtiyoriy izoh..."
+                :placeholder="t('payments.commentPlaceholder')"
                 class="field field-textarea"
               />
             </div>
           </div>
 
           <div class="flex justify-end gap-2 pt-1">
-            <button type="button" class="ghost" @click="closePaymentModal">Bekor</button>
+            <button type="button" class="ghost" @click="closePaymentModal">{{ t('common.cancel') }}</button>
             <button type="submit" class="btn btn-with-icon" :disabled="saving">
               <Check class="h-4 w-4" />
-              {{ saving ? 'Saqlanmoqda...' : 'Saqlash' }}
+              {{ saving ? t('common.saving') : t('common.save') }}
             </button>
           </div>
         </form>
@@ -466,14 +482,14 @@
                 id="type-modal-title"
                 class="text-lg font-semibold text-gray-800 dark:text-white/90"
               >
-                {{ typeEditingId ? 'Turni tahrirlash' : 'Yangi to‘lov turi' }}
+                {{ typeEditingId ? t('payments.editType') : t('payments.newPaymentType') }}
               </h3>
               <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                Masalan: Naqd, Plastik, O‘tkazma
+                {{ t('payments.typeExample') }}
               </p>
             </div>
           </div>
-          <button type="button" class="close-btn" aria-label="Yopish" @click="closeTypeModal">
+          <button type="button" class="close-btn" :aria-label="t('common.close')" @click="closeTypeModal">
             <X class="h-5 w-5" />
           </button>
         </div>
@@ -482,23 +498,23 @@
 
         <form class="space-y-4" @submit.prevent="onTypeSubmit">
           <div>
-            <label for="type-name" class="lbl">Tur nomi <span class="req">*</span></label>
+            <label for="type-name" class="lbl">{{ t('payments.typeName') }} <span class="req">*</span></label>
             <div class="relative">
               <Tag class="field-icon" />
               <input
                 id="type-name"
                 v-model="typeName"
                 required
-                placeholder="Masalan: Naqd pul"
+                :placeholder="t('payments.typeNamePlaceholder')"
                 class="field"
               />
             </div>
           </div>
           <div class="flex justify-end gap-2 pt-1">
-            <button type="button" class="ghost" @click="closeTypeModal">Bekor</button>
+            <button type="button" class="ghost" @click="closeTypeModal">{{ t('common.cancel') }}</button>
             <button type="submit" class="btn btn-with-icon" :disabled="typeSaving">
               <Check class="h-4 w-4" />
-              {{ typeSaving ? 'Saqlanmoqda...' : 'Saqlash' }}
+              {{ typeSaving ? t('common.saving') : t('common.save') }}
             </button>
           </div>
         </form>
@@ -509,6 +525,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import {
   Banknote,
   CalendarDays,
@@ -545,7 +562,7 @@ import {
 } from '@/api/payments'
 import { fetchClients, type Client } from '@/api/clients'
 import { fetchClientBalance, type ClientBalance } from '@/api/clientBalances'
-import { fetchUsers, type UserItem } from '@/api/users'
+import { fetchUserOptions, type UserItem } from '@/api/users'
 import { fetchSaleOrdersByClient, type SaleOrder } from '@/api/sales'
 import { useAuthStore } from '@/stores/auth'
 import { formatApiError } from '@/api/http'
@@ -553,6 +570,7 @@ import { useFilialScope } from '@/composables/useFilialScope'
 import { formatDate, money, nowLocal, toApiDate, today } from '@/utils/format'
 import { formatUzPhone } from '@/utils/phone'
 
+const { t } = useI18n()
 const { writeBlocked } = useFilialScope()
 const tab = ref<'payments' | 'types'>('payments')
 const items = ref<Payment[]>([])
@@ -596,7 +614,7 @@ function clientLabel(c: Client) {
 function formatOrderOption(o: SaleOrder) {
   const debt = Number(o.debtSum || 0)
   const base = `#${o.id} · ${money(o.totalSum)}`
-  return debt > 0 ? `${base} (qarz: ${money(debt)})` : base
+  return debt > 0 ? `${base} (${t('payments.debtLabel', { sum: money(debt) })})` : base
 }
 
 const clientOptions = computed(() =>
@@ -608,7 +626,7 @@ const clientOptions = computed(() =>
 )
 
 const filterClientOptions = computed(() => [
-  { value: 0, label: 'Barcha mijozlar', searchText: '' },
+  { value: 0, label: t('payments.allClients'), searchText: '' },
   ...clientOptions.value,
 ])
 
@@ -689,7 +707,7 @@ async function load() {
   try {
     const [clientsRes, usersRes, typesRes] = await Promise.all([
       fetchClients(),
-      fetchUsers(),
+      fetchUserOptions(),
       fetchPaymentTypes(),
     ])
     clients.value = clientsRes.data || []
@@ -741,7 +759,7 @@ function openEdit(p: Payment) {
 
 async function onSubmit() {
   if (!form.clientId) {
-    formError.value = 'Mijozni tanlang'
+    formError.value = t('payments.selectClient')
     return
   }
   saving.value = true
@@ -769,7 +787,7 @@ async function onSubmit() {
 }
 
 async function onDelete(p: Payment) {
-  if (!confirm(`To‘lov #${p.id} o‘chirilsinmi?`)) return
+  if (!confirm(t('payments.deleteConfirm', { id: p.id }))) return
   try {
     await deletePayment(p.id)
     await load()
@@ -811,10 +829,10 @@ async function onTypeSubmit() {
   }
 }
 
-async function onTypeDelete(t: PaymentType) {
-  if (!confirm(`“${t.name}” o‘chirilsinmi?`)) return
+async function onTypeDelete(pt: PaymentType) {
+  if (!confirm(t('common.deleteConfirmNamed', { name: pt.name }))) return
   try {
-    await deletePaymentType(t.id)
+    await deletePaymentType(pt.id)
     await load()
   } catch (e) {
     error.value = formatApiError(e)

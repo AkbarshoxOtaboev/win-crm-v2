@@ -1,22 +1,22 @@
 <template>
   <AdminLayout>
-    <PageBreadcrumb pageTitle="Kirim" />
+    <PageBreadcrumb :pageTitle="t('warehouseOrders.breadcrumb')" />
 
     <div class="mb-4 flex flex-wrap items-center gap-2">
       <input
         v-model="search"
         type="search"
-        placeholder="Yetkazuvchi nomi..."
+        :placeholder="t('warehouseOrders.supplierSearch')"
         class="field sm:w-48"
       />
       <select v-model.number="warehouseFilter" class="field sm:w-44">
-        <option :value="0">Barcha omborlar</option>
+        <option :value="0">{{ t('warehouseOrders.allWarehouses') }}</option>
         <option v-for="w in warehouses" :key="w.id" :value="w.id">{{ w.name }}</option>
       </select>
-      <input v-model="dateFrom" type="date" class="field sm:w-40" title="Dan" />
-      <input v-model="dateTo" type="date" class="field sm:w-40" title="Gacha" />
-      <button type="button" class="ghost" @click="clearFilters">Filterni tozalash</button>
-      <button type="button" class="btn ms-auto" :disabled="writeBlocked" @click="goCreate">+ Yangi kirim</button>
+      <input v-model="dateFrom" type="date" class="field sm:w-40" :title="t('common.from')" />
+      <input v-model="dateTo" type="date" class="field sm:w-40" :title="t('common.to')" />
+      <button type="button" class="ghost" @click="clearFilters">{{ t('common.clearFilter') }}</button>
+      <button type="button" class="btn ms-auto" :disabled="writeBlocked" @click="goCreate">{{ t('warehouseOrders.newInbound') }}</button>
     </div>
 
     <div v-if="error" class="err mb-4">{{ error }}</div>
@@ -26,19 +26,19 @@
           <thead>
             <tr class="border-b border-gray-100 dark:border-gray-800">
               <th class="th">#</th>
-              <th class="th">Yetkazuvchi</th>
-              <th class="th">Ombor</th>
-              <th class="th">Sana</th>
-              <th class="th">Summa</th>
-              <th class="th">To‘lov</th>
-              <th class="th">Qarz</th>
-              <th class="th text-center">Ko‘rish</th>
-              <th class="th text-right">Amallar</th>
+              <th class="th">{{ t('warehouseOrders.supplier') }}</th>
+              <th class="th">{{ t('common.warehouse') }}</th>
+              <th class="th">{{ t('common.date') }}</th>
+              <th class="th">{{ t('common.sum') }}</th>
+              <th class="th">{{ t('warehouseOrders.payment') }}</th>
+              <th class="th">{{ t('warehouseOrders.debt') }}</th>
+              <th class="th text-center">{{ t('common.view') }}</th>
+              <th class="th text-right">{{ t('common.actions') }}</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-if="loading"><td colspan="9" class="empty">Yuklanmoqda...</td></tr>
-            <tr v-else-if="filtered.length === 0"><td colspan="9" class="empty">Kirim yo‘q</td></tr>
+            <tr v-if="loading"><td colspan="9" class="empty">{{ t('common.loading') }}</td></tr>
+            <tr v-else-if="filtered.length === 0"><td colspan="9" class="empty">{{ t('warehouseOrders.empty') }}</td></tr>
             <tr v-for="o in filtered" :key="o.id" class="border-b border-gray-100 dark:border-gray-800">
               <td class="td">#{{ o.id }}</td>
               <td class="td">{{ o.supplierName || o.supplierId }}</td>
@@ -50,7 +50,7 @@
               <td class="td text-center">
                 <button type="button" class="view-btn" @click="openView(o)">
                   <EyeIcon :size="16" />
-                  <span>Ko‘rish</span>
+                  <span>{{ t('common.view') }}</span>
                 </button>
               </td>
               <td class="td text-right">
@@ -61,9 +61,9 @@
                     class="transfer-btn"
                     @click="onTransfer(o)"
                   >
-                    Omborga o‘tkazish
+                    {{ t('warehouseOrders.transfer') }}
                   </button>
-                  <span v-else class="transferred-badge">Omborga o‘tkazildi</span>
+                  <span v-else class="transferred-badge">{{ t('warehouseOrders.transferred') }}</span>
                   <RowActions
                     :edit="!isTransferred(o)"
                     @edit="openEdit(o)"
@@ -88,6 +88,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
@@ -107,6 +108,7 @@ import { useFilialScope } from '@/composables/useFilialScope'
 import { formatDate, money } from '@/utils/format'
 import Swal from 'sweetalert2'
 
+const { t } = useI18n()
 const { writeBlocked } = useFilialScope()
 const route = useRoute()
 const router = useRouter()
@@ -218,7 +220,7 @@ function openEdit(o: WarehouseOrder) {
 }
 
 async function onDelete(o: WarehouseOrder) {
-  if (!confirm(`Kirim #${o.id} o‘chirilsinmi?`)) return
+  if (!confirm(t('warehouseOrders.deleteConfirm', { id: o.id }))) return
   try {
     await deleteWarehouseOrder(o.id)
     if (viewOrderId.value === o.id) closeView()
@@ -230,12 +232,12 @@ async function onDelete(o: WarehouseOrder) {
 
 async function onTransfer(o: WarehouseOrder) {
   const result = await Swal.fire({
-    title: 'Omborga o‘tkazish',
-    text: `Kirim #${o.id} omborga o‘tkazilsinmi?`,
+    title: t('warehouseOrders.transfer'),
+    text: t('warehouseOrders.transferConfirm', { id: o.id }),
     icon: 'question',
     showCancelButton: true,
-    confirmButtonText: 'Ha, o‘tkazish',
-    cancelButtonText: 'Bekor qilish',
+    confirmButtonText: t('warehouseOrders.transferYes'),
+    cancelButtonText: t('warehouseOrders.cancelAction'),
     confirmButtonColor: '#465fff',
     cancelButtonColor: '#98a2b3',
   })
@@ -245,8 +247,8 @@ async function onTransfer(o: WarehouseOrder) {
     await transferWarehouseOrder(o.id)
     await load()
     await Swal.fire({
-      title: 'Muvaffaqiyatli',
-      text: 'Kirim omborga o‘tkazildi',
+      title: t('warehouseOrders.success'),
+      text: t('warehouseOrders.transferSuccess'),
       icon: 'success',
       confirmButtonColor: '#465fff',
       timer: 2000,
@@ -255,7 +257,7 @@ async function onTransfer(o: WarehouseOrder) {
   } catch (e) {
     error.value = formatApiError(e)
     await Swal.fire({
-      title: 'Xatolik',
+      title: t('warehouseOrders.error'),
       text: formatApiError(e),
       icon: 'error',
       confirmButtonColor: '#465fff',

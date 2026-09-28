@@ -1,16 +1,16 @@
 <template>
   <AdminLayout>
-    <PageBreadcrumb pageTitle="Eskiz.uz SMS" />
+    <PageBreadcrumb :pageTitle="t('nav.eskiz')" />
     <div v-if="error" class="err mb-4">{{ error }}</div>
     <div v-if="ok" class="ok mb-4">{{ ok }}</div>
     <div class="space-y-3 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
       <p class="text-sm text-gray-500">
-        Eskiz: {{ eskiz?.email || (eskiz?.configured ? 'sozlangan' : 'sozlanmagan') }}
+        Eskiz: {{ eskiz?.email || (eskiz?.configured ? t('settings.eskiz.configured') : t('settings.eskiz.notConfigured')) }}
       </p>
       <form class="grid gap-3 md:grid-cols-2" @submit.prevent="onSave">
-        <input v-model="form.email" type="email" required class="field" placeholder="Email" />
-        <input v-model="form.password" type="password" required class="field" placeholder="Parol" />
-        <button type="submit" class="btn">Saqlash</button>
+        <input v-model="form.email" type="email" required class="field" :placeholder="t('shared.email')" />
+        <input v-model="form.password" type="password" required class="field" :placeholder="t('shared.password')" />
+        <button type="submit" class="btn">{{ t('common.save') }}</button>
       </form>
     </div>
   </AdminLayout>
@@ -18,11 +18,13 @@
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import { fetchEskizSettings, saveEskizSettings, type EskizSettings } from '@/api/eskiz'
 import { formatApiError } from '@/api/http'
 
+const { t } = useI18n()
 const error = ref<string | null>(null)
 const ok = ref<string | null>(null)
 const eskiz = ref<EskizSettings | null>(null)
@@ -39,7 +41,7 @@ async function load() {
 async function onSave() {
   try {
     eskiz.value = (await saveEskizSettings(form.email, form.password)).data
-    ok.value = 'Eskiz saqlandi'
+    ok.value = t('settings.eskiz.saved')
     error.value = null
   } catch (e) {
     error.value = formatApiError(e)

@@ -24,17 +24,19 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 
+const { t } = useI18n()
 const route = useRoute()
 
-const title = computed(() => (route.meta.title as string) || 'Modul')
+const title = computed(() => (route.meta.title as string) || t('shared.moduleTitle'))
 const description = computed(
   () =>
     (route.meta.description as string) ||
-    'Bu modul keyingi qadamda API ga ulanadi. Hozircha sahifa skeleton.',
+    t('shared.modulePlaceholder'),
 )
 const apiHint = computed(() => (route.meta.api as string) || '')
 </script>

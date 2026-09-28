@@ -1,13 +1,13 @@
 <template>
   <AdminLayout>
-    <PageBreadcrumb pageTitle="Qoldiq" />
+    <PageBreadcrumb :pageTitle="t('stock.breadcrumb')" />
     <div class="mb-4 flex flex-wrap gap-2">
       <select v-model.number="warehouseFilter" class="field w-48" @change="load">
-        <option :value="0">Barcha omborlar</option>
+        <option :value="0">{{ t('stock.allWarehouses') }}</option>
         <option v-for="w in warehouses" :key="w.id" :value="w.id">{{ w.name }}</option>
       </select>
       <select v-model.number="goodsFilter" class="field w-48" @change="load">
-        <option :value="0">Barcha mahsulotlar</option>
+        <option :value="0">{{ t('stock.allGoods') }}</option>
         <option v-for="g in goodsOptions" :key="g.id" :value="g.id">{{ g.name }}</option>
       </select>
     </div>
@@ -19,24 +19,24 @@
           <thead>
             <tr class="border-b border-gray-100 dark:border-gray-800">
               <th class="th">#</th>
-              <th class="th">Mahsulot</th>
-              <th class="th">Mahsulot turi</th>
-              <th class="th">Ombor</th>
-              <th class="th">O‘lchov birligi</th>
-              <th class="th">Miqdor</th>
-              <th class="th">Kv.m</th>
-              <th class="th text-right">Amallar</th>
+              <th class="th">{{ t('common.product') }}</th>
+              <th class="th">{{ t('stock.goodsType') }}</th>
+              <th class="th">{{ t('common.warehouse') }}</th>
+              <th class="th">{{ t('stock.unit') }}</th>
+              <th class="th">{{ t('stock.quantity') }}</th>
+              <th class="th">{{ t('stock.kvm') }}</th>
+              <th class="th text-right">{{ t('common.actions') }}</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-if="loading"><td colspan="8" class="empty">Yuklanmoqda...</td></tr>
-            <tr v-else-if="items.length === 0"><td colspan="8" class="empty">Qoldiq yo‘q</td></tr>
+            <tr v-if="loading"><td colspan="8" class="empty">{{ t('common.loading') }}</td></tr>
+            <tr v-else-if="items.length === 0"><td colspan="8" class="empty">{{ t('stock.empty') }}</td></tr>
             <tr v-for="s in items" :key="s.id" class="border-b border-gray-100 dark:border-gray-800">
               <td class="td">{{ s.id }}</td>
               <td class="td">
                 <div>{{ s.goodsName || s.goodsId }}</div>
                 <div v-if="isWindow(s) && s.width && s.height" class="hint">
-                  {{ formatNum(s.width) }}×{{ formatNum(s.height) }} sm
+                  {{ formatNum(s.width) }}×{{ formatNum(s.height) }} {{ t('stock.cm') }}
                 </div>
               </td>
               <td class="td">{{ goodsTypeLabel(s) }}</td>
@@ -55,6 +55,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import RowActions from '@/components/crm/RowActions.vue'
@@ -70,6 +71,7 @@ import { fetchGoods, type Goods } from '@/api/goods'
 import { formatApiError } from '@/api/http'
 import Swal from 'sweetalert2'
 
+const { t } = useI18n()
 const items = ref<Stock[]>([])
 const warehouses = ref<Warehouse[]>([])
 const goodsOptions = ref<Goods[]>([])
@@ -83,15 +85,15 @@ function isWindow(s: Stock) {
 }
 
 function goodsTypeLabel(s: Stock) {
-  const t = (s.goodsType || '').toUpperCase()
-  if (t === 'WINDOW') return 'Oyna'
-  if (t === 'SERVICE') return 'Xizmat'
-  if (t === 'PRODUCT') return 'Tovar'
+  const type = (s.goodsType || '').toUpperCase()
+  if (type === 'WINDOW') return t('goods.types.WINDOW')
+  if (type === 'SERVICE') return t('goods.types.SERVICE')
+  if (type === 'PRODUCT') return t('goods.types.PRODUCT')
   return s.goodsType || '—'
 }
 
 function unitLabel(s: Stock) {
-  return s.unitTypeName || 'dona'
+  return s.unitTypeName || t('common.pcs')
 }
 
 function pieceQty(s: Stock) {
@@ -126,12 +128,12 @@ async function load() {
 
 async function onDelete(s: Stock) {
   const result = await Swal.fire({
-    title: 'Qoldiqni o‘chirish',
-    text: `"${s.goodsName || s.goodsId}" qoldiq yozuvi o‘chirilsinmi?`,
+    title: t('stock.deleteTitle'),
+    text: t('stock.deleteText', { name: s.goodsName || s.goodsId }),
     icon: 'warning',
     showCancelButton: true,
-    confirmButtonText: 'Ha, o‘chirish',
-    cancelButtonText: 'Bekor qilish',
+    confirmButtonText: t('stock.confirmDelete'),
+    cancelButtonText: t('stock.cancel'),
     confirmButtonColor: '#dc2626',
     cancelButtonColor: '#98a2b3',
   })
@@ -141,8 +143,8 @@ async function onDelete(s: Stock) {
     await deleteStock(s.id)
     await load()
     await Swal.fire({
-      title: 'O‘chirildi',
-      text: 'Qoldiq yozuvi muvaffaqiyatli o‘chirildi',
+      title: t('common.deleted'),
+      text: t('stock.deletedText'),
       icon: 'success',
       confirmButtonColor: '#465fff',
       timer: 2000,
@@ -151,7 +153,7 @@ async function onDelete(s: Stock) {
   } catch (e) {
     error.value = formatApiError(e)
     await Swal.fire({
-      title: 'Xatolik',
+      title: t('stock.error'),
       text: formatApiError(e),
       icon: 'error',
       confirmButtonColor: '#465fff',

@@ -1,18 +1,18 @@
 <template>
   <AdminLayout>
     <PageBreadcrumb
-      :pageTitle="client?.fullName || 'Mijoz'"
+      :pageTitle="client?.fullName || t('common.client')"
       :items="breadcrumbItems"
     />
 
     <div class="mb-4">
       <router-link to="/clients" class="text-sm text-brand-500 hover:underline">
-        ← Mijozlar ro'yxati
+        {{ t('clientDetail.backToClients') }}
       </router-link>
     </div>
 
     <div v-if="error" class="err mb-4">{{ error }}</div>
-    <div v-if="loading" class="empty-block">Yuklanmoqda...</div>
+    <div v-if="loading" class="empty-block">{{ t('common.loading') }}</div>
 
     <template v-else-if="client">
       <!-- Profile header -->
@@ -24,29 +24,29 @@
                 {{ client.fullName }}
               </h3>
               <span v-if="client.clientGroupName" class="group-badge">{{ client.clientGroupName }}</span>
-              <span v-else class="group-badge">Oddiy</span>
+              <span v-else class="group-badge">{{ t('clientDetail.groupDefault') }}</span>
             </div>
             <p class="mt-1 text-sm text-gray-500">
               <span :class="client.status === 'DISABLED' ? 'text-warning-600' : 'text-success-600'">
-                {{ client.status === 'DISABLED' ? 'Nofaol' : 'Faol' }}
+                {{ client.status === 'DISABLED' ? t('common.inactive') : t('common.active') }}
               </span>
               <span class="mx-1.5 text-gray-300">·</span>
-              Oxirgi faollik: {{ lastActivityLabel }}
+              {{ t('clientDetail.lastActivity', { date: lastActivityLabel }) }}
             </p>
           </div>
 
           <div class="flex flex-wrap items-center gap-2">
             <router-link :to="`/sales/create?clientId=${client.id}`" class="btn">
               <Plus class="h-4 w-4" />
-              Yangi buyurtma
+              {{ t('clientDetail.newOrder') }}
             </router-link>
             <router-link :to="`/payments?clientId=${client.id}`" class="ghost-btn">
               <Wallet class="h-4 w-4" />
-              To'lov qilish
+              {{ t('clientDetail.makePayment') }}
             </router-link>
             <button type="button" class="ghost-btn" :disabled="smsSending" @click="onSendSms">
               <MessageSquare class="h-4 w-4" />
-              Qarz haqida SMS yuborish
+              {{ t('clientDetail.sendDebtSms') }}
             </button>
             <a
               v-if="client.phone"
@@ -56,26 +56,26 @@
               rel="noopener"
             >
               <Send class="h-4 w-4" />
-              Telegram yuborish
+              {{ t('clientDetail.sendTelegram') }}
             </a>
             <a v-if="client.phone" class="ghost-btn" :href="`tel:${client.phone}`">
               <Phone class="h-4 w-4" />
-              Qo'ng'iroq
+              {{ t('clientDetail.call') }}
             </a>
           </div>
         </div>
 
         <div class="mt-6 grid grid-cols-1 gap-4 border-t border-gray-100 pt-5 sm:grid-cols-3 dark:border-gray-800">
           <div>
-            <p class="text-sm text-gray-500">Jami sotuv</p>
+            <p class="text-sm text-gray-500">{{ t('clientDetail.totalSales') }}</p>
             <p class="mt-1 text-2xl font-bold text-brand-500">{{ moneySom(totalSales) }}</p>
           </div>
           <div>
-            <p class="text-sm text-gray-500">Jami to'langan</p>
+            <p class="text-sm text-gray-500">{{ t('clientDetail.totalPaid') }}</p>
             <p class="mt-1 text-2xl font-bold text-success-600">{{ moneySom(totalPaid) }}</p>
           </div>
           <div>
-            <p class="text-sm text-gray-500">Jami qarz</p>
+            <p class="text-sm text-gray-500">{{ t('clientDetail.totalDebt') }}</p>
             <p class="mt-1 text-2xl font-bold text-error-600">{{ moneySom(totalDebt) }}</p>
           </div>
         </div>
@@ -84,14 +84,14 @@
       <!-- Tabs -->
       <div class="tabs-bar mb-4">
         <button
-          v-for="t in tabs"
-          :key="t.key"
+          v-for="item in tabs"
+          :key="item.key"
           type="button"
           class="tab-pill"
-          :class="{ active: tab === t.key }"
-          @click="tab = t.key"
+          :class="{ active: tab === item.key }"
+          @click="tab = item.key"
         >
-          {{ t.label }}
+          {{ item.label }}
         </button>
       </div>
 
@@ -101,7 +101,7 @@
           <article class="kpi-card kpi-red">
             <div class="flex items-start justify-between">
               <div>
-                <p class="kpi-label">Jami qarz</p>
+                <p class="kpi-label">{{ t('clientDetail.totalDebt') }}</p>
                 <p class="kpi-value text-error-600">{{ moneySom(totalDebt) }}</p>
                 <p class="kpi-sub">{{ debtAgeLabel }}</p>
               </div>
@@ -111,7 +111,7 @@
           <article class="kpi-card kpi-green">
             <div class="flex items-start justify-between">
               <div>
-                <p class="kpi-label">Marja</p>
+                <p class="kpi-label">{{ t('clientDetail.margin') }}</p>
                 <p class="kpi-value text-brand-500">{{ marginPct.toFixed(1) }}%</p>
                 <p class="kpi-sub">{{ moneySom(totalProfit) }}</p>
               </div>
@@ -121,7 +121,7 @@
           <article class="kpi-card kpi-blue">
             <div class="flex items-start justify-between">
               <div>
-                <p class="kpi-label">Buyurtmalar</p>
+                <p class="kpi-label">{{ t('clientDetail.orders') }}</p>
                 <p class="kpi-value">{{ sales.length }}</p>
                 <p class="kpi-sub">{{ lastActivityRelative }}</p>
               </div>
@@ -131,7 +131,7 @@
           <article class="kpi-card kpi-yellow">
             <div class="flex items-start justify-between">
               <div>
-                <p class="kpi-label">O'rtacha chek</p>
+                <p class="kpi-label">{{ t('clientDetail.avgCheck') }}</p>
                 <p class="kpi-value">{{ moneySom(avgCheck) }}</p>
                 <p class="kpi-sub">{{ moneySom(totalSales) }}</p>
               </div>
@@ -144,11 +144,11 @@
         <div class="card p-5">
           <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h4 class="text-lg font-semibold text-gray-800 dark:text-white/90">Qarz yoshi</h4>
-              <p class="mt-0.5 text-sm text-gray-500">Kechikkan qarz segmentlari bo'yicha taqsimot</p>
+              <h4 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('clientDetail.debtAge') }}</h4>
+              <p class="mt-0.5 text-sm text-gray-500">{{ t('clientDetail.debtAgeSubtitle') }}</p>
             </div>
             <div class="text-right">
-              <p class="text-sm text-gray-500">Jami qarz</p>
+              <p class="text-sm text-gray-500">{{ t('clientDetail.totalDebt') }}</p>
               <p class="text-xl font-bold text-error-600">{{ moneySom(totalDebt) }}</p>
             </div>
           </div>
@@ -183,7 +183,7 @@
               <p class="text-xs text-gray-500">{{ seg.label }}</p>
               <p class="mt-2 text-lg font-bold text-gray-800 dark:text-white/90">{{ moneySom(seg.amount) }}</p>
               <div class="mt-3 flex items-center justify-between text-xs">
-                <span class="text-gray-500">{{ seg.count }} ta</span>
+                <span class="text-gray-500">{{ t('clientDetail.segmentCount', { n: seg.count }) }}</span>
                 <span class="font-medium" :style="{ color: seg.color }">{{ seg.pct }}%</span>
               </div>
               <div class="mt-2 h-1 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
@@ -196,37 +196,37 @@
         <!-- Foyda / Oyna -->
         <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
           <div class="card p-5">
-            <h4 class="text-lg font-semibold text-gray-800 dark:text-white/90">Foyda va marja</h4>
-            <p class="mt-0.5 text-sm text-gray-500">Tannarx va sotuv narxi bo'yicha foyda tahlili</p>
+            <h4 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('clientDetail.profitTitle') }}</h4>
+            <p class="mt-0.5 text-sm text-gray-500">{{ t('clientDetail.profitSubtitle') }}</p>
             <div class="mt-4 grid grid-cols-2 gap-3">
               <div class="metric-box">
-                <p class="text-xs text-gray-500">Jami sotuv</p>
+                <p class="text-xs text-gray-500">{{ t('clientDetail.totalSales') }}</p>
                 <p class="mt-1 font-semibold text-brand-500">{{ moneySom(itemsSales) }}</p>
               </div>
               <div class="metric-box">
-                <p class="text-xs text-gray-500">Jami tannarx</p>
+                <p class="text-xs text-gray-500">{{ t('clientDetail.totalCost') }}</p>
                 <p class="mt-1 font-semibold text-gray-800 dark:text-white/90">{{ moneySom(itemsCost) }}</p>
               </div>
               <div class="metric-box">
-                <p class="text-xs text-gray-500">Jami foyda</p>
+                <p class="text-xs text-gray-500">{{ t('clientDetail.totalProfit') }}</p>
                 <p class="mt-1 font-semibold text-success-600">{{ moneySom(totalProfit) }}</p>
               </div>
               <div class="metric-box">
-                <p class="text-xs text-gray-500">Marja</p>
+                <p class="text-xs text-gray-500">{{ t('clientDetail.margin') }}</p>
                 <p class="mt-1 font-semibold text-gray-800 dark:text-white/90">{{ marginPct.toFixed(1) }}%</p>
               </div>
             </div>
-            <div v-if="items.length === 0" class="mt-6 py-8 text-center text-sm text-gray-400">Topilmadi</div>
+            <div v-if="items.length === 0" class="mt-6 py-8 text-center text-sm text-gray-400">{{ t('common.notFound') }}</div>
           </div>
 
           <div class="card flex flex-col items-center justify-center p-8 text-center">
             <LayoutGrid class="mb-3 h-10 w-10 text-gray-300" />
-            <h4 class="text-base font-semibold text-gray-800 dark:text-white/90">Oyna statistikasi</h4>
+            <h4 class="text-base font-semibold text-gray-800 dark:text-white/90">{{ t('clientDetail.windowStats') }}</h4>
             <p class="mt-1 text-sm text-gray-500">
               {{
                 windowItemsCount > 0
-                  ? `${windowItemsCount} ta oyna pozitsiyasi`
-                  : "Bu mijozda hali oyna buyurtmalari yo'q"
+                  ? t('clientDetail.windowItems', { n: windowItemsCount })
+                  : t('clientDetail.noWindowOrders')
               }}
             </p>
           </div>
@@ -240,18 +240,18 @@
                 <CalendarClock class="h-5 w-5" />
               </span>
               <div>
-                <h4 class="text-lg font-semibold text-gray-800 dark:text-white/90">Keyingi to'lov sanasi</h4>
-                <p class="mt-0.5 text-sm text-gray-500">Keyingi to'lov sanasini belgilang va kuzatib boring</p>
+                <h4 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('clientDetail.nextPaymentDate') }}</h4>
+                <p class="mt-0.5 text-sm text-gray-500">{{ t('clientDetail.nextPaymentSubtitle') }}</p>
               </div>
             </div>
             <span class="status-pill" :class="nextPaymentDate ? 'status-set' : ''">
-              {{ nextPaymentDate ? formatDate(nextPaymentDate) : 'Belgilanmagan' }}
+              {{ nextPaymentDate ? formatDate(nextPaymentDate) : t('clientDetail.notSet') }}
             </span>
           </div>
-          <label class="lbl">Keyingi to'lov sanasi</label>
+          <label class="lbl">{{ t('clientDetail.nextPaymentDate') }}</label>
           <div class="mt-1 flex flex-wrap gap-2">
             <input v-model="nextPaymentDate" type="date" class="field max-w-xs" @change="saveNextPayment" />
-            <button type="button" class="ghost-btn" @click="clearNextPayment">Tozalash</button>
+            <button type="button" class="ghost-btn" @click="clearNextPayment">{{ t('clientDetail.clear') }}</button>
           </div>
         </div>
 
@@ -260,25 +260,25 @@
           <div class="card p-5">
             <div class="mb-4 flex items-start justify-between gap-2">
               <div>
-                <h4 class="text-lg font-semibold text-gray-800 dark:text-white/90">Sotuvchilar bo'yicha</h4>
-                <p class="mt-0.5 text-sm text-gray-500">Mijoz bilan ishlagan sotuvchilar va ularning ulushi</p>
+                <h4 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('clientDetail.bySellers') }}</h4>
+                <p class="mt-0.5 text-sm text-gray-500">{{ t('clientDetail.sellersSubtitle') }}</p>
               </div>
-              <span class="count-pill">{{ sellers.length }} ta sotuvchi</span>
+              <span class="count-pill">{{ t('clientDetail.sellersCount', { n: sellers.length }) }}</span>
             </div>
             <div class="overflow-x-auto">
               <table class="min-w-full">
                 <thead>
                   <tr class="border-b border-gray-100 dark:border-gray-800">
                     <th class="th">#</th>
-                    <th class="th">Sotuvchi</th>
-                    <th class="th">Buyurtmalar</th>
-                    <th class="th">Jami sotuv</th>
-                    <th class="th">Ulush</th>
+                    <th class="th">{{ t('clientDetail.seller') }}</th>
+                    <th class="th">{{ t('clientDetail.orders') }}</th>
+                    <th class="th">{{ t('clientDetail.totalSales') }}</th>
+                    <th class="th">{{ t('clientDetail.share') }}</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr v-if="sellers.length === 0">
-                    <td colspan="5" class="empty">Sotuvchi yo'q</td>
+                    <td colspan="5" class="empty">{{ t('clientDetail.noSellers') }}</td>
                   </tr>
                   <tr
                     v-for="(s, i) in sellers"
@@ -302,10 +302,10 @@
           </div>
 
           <div class="card p-5">
-            <h4 class="text-lg font-semibold text-gray-800 dark:text-white/90">Ombor bo'yicha taqsimot</h4>
-            <p class="mt-0.5 text-sm text-gray-500">Qaysi ombordan ko'proq sotib olingan</p>
+            <h4 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('clientDetail.byWarehouse') }}</h4>
+            <p class="mt-0.5 text-sm text-gray-500">{{ t('clientDetail.warehouseSubtitle') }}</p>
             <div v-if="warehouseSeries.length === 0" class="py-12 text-center text-sm text-gray-400">
-              Ma'lumot yo'q
+              {{ t('clientDetail.noData') }}
             </div>
             <template v-else>
               <VueApexCharts
@@ -338,27 +338,27 @@
 
       <!-- Tahlil -->
       <div v-show="tab === 'analysis'" class="card p-5">
-        <h4 class="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">Tahlil</h4>
+        <h4 class="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('clientDetail.tabs.analysis') }}</h4>
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div class="metric-box">
-            <p class="text-xs text-gray-500">Jami sotuv</p>
+            <p class="text-xs text-gray-500">{{ t('clientDetail.totalSales') }}</p>
             <p class="mt-1 text-lg font-bold text-brand-500">{{ moneySom(totalSales) }}</p>
           </div>
           <div class="metric-box">
-            <p class="text-xs text-gray-500">To'langan</p>
+            <p class="text-xs text-gray-500">{{ t('clientDetail.paid') }}</p>
             <p class="mt-1 text-lg font-bold text-success-600">{{ moneySom(totalPaid) }}</p>
           </div>
           <div class="metric-box">
-            <p class="text-xs text-gray-500">Qarz</p>
+            <p class="text-xs text-gray-500">{{ t('clientDetail.debt') }}</p>
             <p class="mt-1 text-lg font-bold text-error-600">{{ moneySom(totalDebt) }}</p>
           </div>
           <div class="metric-box">
-            <p class="text-xs text-gray-500">Marja</p>
+            <p class="text-xs text-gray-500">{{ t('clientDetail.margin') }}</p>
             <p class="mt-1 text-lg font-bold">{{ marginPct.toFixed(1) }}%</p>
           </div>
         </div>
         <div class="mt-5">
-          <h5 class="mb-3 font-medium text-gray-700 dark:text-gray-200">Qarz yoshi</h5>
+          <h5 class="mb-3 font-medium text-gray-700 dark:text-gray-200">{{ t('clientDetail.debtAge') }}</h5>
           <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <div v-for="seg in debtSegments" :key="`a-${seg.key}`" class="metric-box">
               <p class="text-xs text-gray-500">{{ seg.label }}</p>
@@ -375,17 +375,17 @@
             <thead>
               <tr class="border-b border-gray-100 dark:border-gray-800">
                 <th class="th">#</th>
-                <th class="th">Sana</th>
-                <th class="th">Ombor</th>
-                <th class="th">Sotuvchi</th>
-                <th class="th">Jami</th>
-                <th class="th">To'langan</th>
-                <th class="th">Qarz</th>
-                <th class="th">Holat</th>
+                <th class="th">{{ t('common.date') }}</th>
+                <th class="th">{{ t('common.warehouse') }}</th>
+                <th class="th">{{ t('clientDetail.seller') }}</th>
+                <th class="th">{{ t('common.total') }}</th>
+                <th class="th">{{ t('clientDetail.paid') }}</th>
+                <th class="th">{{ t('clientDetail.debt') }}</th>
+                <th class="th">{{ t('common.status') }}</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-if="sales.length === 0"><td colspan="8" class="empty">Buyurtma yo'q</td></tr>
+              <tr v-if="sales.length === 0"><td colspan="8" class="empty">{{ t('clientDetail.noOrders') }}</td></tr>
               <tr
                 v-for="o in sales"
                 :key="o.id"
@@ -402,7 +402,7 @@
                 <td class="td">{{ moneySom(o.totalSum) }}</td>
                 <td class="td">{{ moneySom(o.paidSum) }}</td>
                 <td class="td text-error-600">{{ moneySom(o.debtSum) }}</td>
-                <td class="td">{{ o.orderStatus || '—' }}</td>
+                <td class="td">{{ o.orderStatus ? enumLabel('saleStatus', o.orderStatus) : '—' }}</td>
               </tr>
             </tbody>
           </table>
@@ -416,16 +416,16 @@
             <thead>
               <tr class="border-b border-gray-100 dark:border-gray-800">
                 <th class="th">#</th>
-                <th class="th">Tovar</th>
-                <th class="th">Ombor</th>
-                <th class="th">Soni</th>
-                <th class="th">Tannarx</th>
-                <th class="th">Sotuv</th>
-                <th class="th">Buyurtma</th>
+                <th class="th">{{ t('clientDetail.goods') }}</th>
+                <th class="th">{{ t('common.warehouse') }}</th>
+                <th class="th">{{ t('common.count') }}</th>
+                <th class="th">{{ t('clientDetail.cost') }}</th>
+                <th class="th">{{ t('clientDetail.sale') }}</th>
+                <th class="th">{{ t('clientDetail.order') }}</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-if="items.length === 0"><td colspan="7" class="empty">Pozitsiya yo'q</td></tr>
+              <tr v-if="items.length === 0"><td colspan="7" class="empty">{{ t('clientDetail.noItems') }}</td></tr>
               <tr
                 v-for="it in items"
                 :key="it.id"
@@ -455,19 +455,19 @@
 
       <!-- Akt / Hisob-kitob -->
       <div v-show="tab === 'act'" class="card p-5">
-        <h4 class="mb-1 text-lg font-semibold text-gray-800 dark:text-white/90">Akt sverka (Hisob-kitob)</h4>
-        <p class="mb-4 text-sm text-gray-500">Sotuv va to'lovlar bo'yicha qisqa hisobot</p>
+        <h4 class="mb-1 text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('clientDetail.tabs.act') }}</h4>
+        <p class="mb-4 text-sm text-gray-500">{{ t('clientDetail.actSubtitle') }}</p>
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div class="metric-box">
-            <p class="text-xs text-gray-500">Debet (sotuv)</p>
+            <p class="text-xs text-gray-500">{{ t('clientDetail.debit') }}</p>
             <p class="mt-1 text-lg font-bold text-brand-500">{{ moneySom(totalSales) }}</p>
           </div>
           <div class="metric-box">
-            <p class="text-xs text-gray-500">Kredit (to'lov)</p>
+            <p class="text-xs text-gray-500">{{ t('clientDetail.credit') }}</p>
             <p class="mt-1 text-lg font-bold text-success-600">{{ moneySom(totalPaid) }}</p>
           </div>
           <div class="metric-box">
-            <p class="text-xs text-gray-500">Qoldiq (qarz)</p>
+            <p class="text-xs text-gray-500">{{ t('clientDetail.balanceRest') }}</p>
             <p class="mt-1 text-lg font-bold text-error-600">{{ moneySom(totalDebt) }}</p>
           </div>
         </div>
@@ -480,14 +480,14 @@
             <thead>
               <tr class="border-b border-gray-100 dark:border-gray-800">
                 <th class="th">#</th>
-                <th class="th">Summa</th>
-                <th class="th">Tur</th>
-                <th class="th">Buyurtma</th>
-                <th class="th">Sana</th>
+                <th class="th">{{ t('common.sum') }}</th>
+                <th class="th">{{ t('common.type') }}</th>
+                <th class="th">{{ t('clientDetail.order') }}</th>
+                <th class="th">{{ t('common.date') }}</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-if="payments.length === 0"><td colspan="5" class="empty">To'lov yo'q</td></tr>
+              <tr v-if="payments.length === 0"><td colspan="5" class="empty">{{ t('clientDetail.noPayments') }}</td></tr>
               <tr
                 v-for="p in payments"
                 :key="p.id"
@@ -515,7 +515,7 @@
 
       <!-- Faollik -->
       <div v-show="tab === 'activity'" class="card p-5">
-        <h4 class="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">Faollik</h4>
+        <h4 class="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('clientDetail.tabs.activity') }}</h4>
         <ul class="space-y-3">
           <li v-for="ev in activityEvents" :key="ev.key" class="flex gap-3 text-sm">
             <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full" :style="{ background: ev.color }" />
@@ -524,7 +524,7 @@
               <p class="text-gray-500">{{ ev.meta }}</p>
             </div>
           </li>
-          <li v-if="activityEvents.length === 0" class="text-sm text-gray-400">Faollik yo'q</li>
+          <li v-if="activityEvents.length === 0" class="text-sm text-gray-400">{{ t('clientDetail.noActivity') }}</li>
         </ul>
       </div>
 
@@ -533,34 +533,30 @@
         <div class="border-b border-gray-100 p-4 dark:border-gray-800">
           <form class="grid gap-2 md:grid-cols-4" @submit.prevent="onNoteSave">
             <select v-model="noteForm.type" class="field">
-              <option>CALL</option>
-              <option>MEETING</option>
-              <option>SMS</option>
-              <option>PAYMENT_PROMISE</option>
-              <option>OTHER</option>
+              <option v-for="nt in noteTypes" :key="nt" :value="nt">{{ enumLabel('clientDetail.noteTypes', nt) }}</option>
             </select>
-            <input v-model="noteForm.content" required class="field md:col-span-2" placeholder="Mazmun" />
-            <button type="submit" class="btn justify-center">Qo'shish</button>
+            <input v-model="noteForm.content" required class="field md:col-span-2" :placeholder="t('clientDetail.content')" />
+            <button type="submit" class="btn justify-center">{{ t('clientDetail.add') }}</button>
           </form>
         </div>
         <div class="overflow-x-auto">
           <table class="min-w-full">
             <thead>
               <tr class="border-b border-gray-100 dark:border-gray-800">
-                <th class="th">Tur</th>
-                <th class="th">Mazmun</th>
-                <th class="th">Status</th>
-                <th class="th text-right">Amallar</th>
+                <th class="th">{{ t('common.type') }}</th>
+                <th class="th">{{ t('clientDetail.content') }}</th>
+                <th class="th">{{ t('clientDetail.status') }}</th>
+                <th class="th text-right">{{ t('common.actions') }}</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-if="notes.length === 0"><td colspan="4" class="empty">Izoh yo'q</td></tr>
+              <tr v-if="notes.length === 0"><td colspan="4" class="empty">{{ t('clientDetail.noNotes') }}</td></tr>
               <tr
                 v-for="n in notes"
                 :key="n.id"
                 class="border-b border-gray-100 dark:border-gray-800"
               >
-                <td class="td">{{ n.type }}</td>
+                <td class="td">{{ n.type ? enumLabel('clientDetail.noteTypes', n.type) : '' }}</td>
                 <td class="td">{{ n.content }}</td>
                 <td class="td">
                   <select
@@ -568,10 +564,9 @@
                     class="field"
                     @change="onReminder(n.id, ($event.target as HTMLSelectElement).value)"
                   >
-                    <option>NONE</option>
-                    <option>PENDING</option>
-                    <option>DONE</option>
-                    <option>BROKEN</option>
+                    <option v-for="rs in reminderStatuses" :key="rs" :value="rs">
+                      {{ enumLabel('clientDetail.reminderStatuses', rs) }}
+                    </option>
                   </select>
                 </td>
                 <td class="td text-right">
@@ -586,33 +581,33 @@
       <!-- Mijoz ma'lumotlari -->
       <div v-show="tab === 'info'" class="card p-5">
         <div class="mb-4 flex items-center justify-between">
-          <h4 class="text-lg font-semibold text-gray-800 dark:text-white/90">Mijoz ma'lumotlari</h4>
-          <button type="button" class="ghost-btn" @click="openEdit">Tahrirlash</button>
+          <h4 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('clientDetail.tabs.info') }}</h4>
+          <button type="button" class="ghost-btn" @click="openEdit">{{ t('common.edit') }}</button>
         </div>
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <div><p class="lbl">F.I.Sh</p><p class="info-val">{{ client.fullName }}</p></div>
-          <div><p class="lbl">Telefon</p><p class="info-val">{{ client.phone || '—' }}</p></div>
-          <div><p class="lbl">Qo'shimcha tel</p><p class="info-val">{{ client.additionalPhone || '—' }}</p></div>
-          <div><p class="lbl">Manzil</p><p class="info-val">{{ client.address || '—' }}</p></div>
-          <div><p class="lbl">Guruh</p><p class="info-val">{{ client.clientGroupName || '—' }}</p></div>
-          <div><p class="lbl">INN</p><p class="info-val">{{ client.inn || '—' }}</p></div>
-          <div><p class="lbl">Bank</p><p class="info-val">{{ client.bankName || '—' }}</p></div>
-          <div><p class="lbl">MFO</p><p class="info-val">{{ client.mfo || '—' }}</p></div>
-          <div><p class="lbl">Hisob raqam</p><p class="info-val">{{ client.accountNumber || '—' }}</p></div>
+          <div><p class="lbl">{{ t('common.fullName') }}</p><p class="info-val">{{ client.fullName }}</p></div>
+          <div><p class="lbl">{{ t('common.phone') }}</p><p class="info-val">{{ client.phone || '—' }}</p></div>
+          <div><p class="lbl">{{ t('clientDetail.additionalPhone') }}</p><p class="info-val">{{ client.additionalPhone || '—' }}</p></div>
+          <div><p class="lbl">{{ t('common.address') }}</p><p class="info-val">{{ client.address || '—' }}</p></div>
+          <div><p class="lbl">{{ t('clientDetail.group') }}</p><p class="info-val">{{ client.clientGroupName || '—' }}</p></div>
+          <div><p class="lbl">{{ t('common.inn') }}</p><p class="info-val">{{ client.inn || '—' }}</p></div>
+          <div><p class="lbl">{{ t('clientDetail.bank') }}</p><p class="info-val">{{ client.bankName || '—' }}</p></div>
+          <div><p class="lbl">{{ t('clientDetail.mfo') }}</p><p class="info-val">{{ client.mfo || '—' }}</p></div>
+          <div><p class="lbl">{{ t('clientDetail.accountNumber') }}</p><p class="info-val">{{ client.accountNumber || '—' }}</p></div>
           <div class="sm:col-span-2 lg:col-span-3">
-            <p class="lbl">Izoh</p>
+            <p class="lbl">{{ t('common.note') }}</p>
             <p class="info-val">{{ client.description || '—' }}</p>
           </div>
         </div>
 
         <div class="mt-6 border-t border-gray-100 pt-4 dark:border-gray-800">
-          <h5 class="mb-3 font-medium text-gray-700">Balansni sozlash</h5>
+          <h5 class="mb-3 font-medium text-gray-700">{{ t('clientDetail.balanceSettings') }}</h5>
           <div class="flex flex-wrap items-end gap-2">
-            <button type="button" class="btn" @click="onRecalc">Qayta hisoblash</button>
+            <button type="button" class="btn" @click="onRecalc">{{ t('clientDetail.recalc') }}</button>
             <form class="flex flex-wrap gap-2" @submit.prevent="onAdjust">
-              <input v-model.number="adjPurchase" type="number" class="field w-32" placeholder="Sotuv" />
-              <input v-model.number="adjPaid" type="number" class="field w-32" placeholder="To'lov" />
-              <button type="submit" class="ghost-btn">Adjust</button>
+              <input v-model.number="adjPurchase" type="number" class="field w-32" :placeholder="t('clientDetail.salePlaceholder')" />
+              <input v-model.number="adjPaid" type="number" class="field w-32" :placeholder="t('clientDetail.paymentPlaceholder')" />
+              <button type="submit" class="ghost-btn">{{ t('clientDetail.adjust') }}</button>
             </form>
           </div>
         </div>
@@ -625,13 +620,13 @@
             <thead>
               <tr class="border-b border-gray-100 dark:border-gray-800">
                 <th class="th">#</th>
-                <th class="th">Status</th>
-                <th class="th">Xabar</th>
-                <th class="th">Sana</th>
+                <th class="th">{{ t('clientDetail.status') }}</th>
+                <th class="th">{{ t('clientDetail.message') }}</th>
+                <th class="th">{{ t('common.date') }}</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-if="sms.length === 0"><td colspan="4" class="empty">SMS yo'q</td></tr>
+              <tr v-if="sms.length === 0"><td colspan="4" class="empty">{{ t('clientDetail.noSms') }}</td></tr>
               <tr
                 v-for="h in sms"
                 :key="h.id"
@@ -651,54 +646,54 @@
     <!-- Edit modal -->
     <div v-if="editOpen" class="overlay">
       <div class="modal">
-        <h3 class="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">Mijozni tahrirlash</h3>
+        <h3 class="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('clientDetail.editTitle') }}</h3>
         <div v-if="formError" class="err mb-3">{{ formError }}</div>
         <form class="space-y-3" @submit.prevent="onEditSave">
           <div>
-            <label class="lbl">F.I.Sh *</label>
+            <label class="lbl">{{ t('common.fullName') }} *</label>
             <input v-model="editForm.fullName" required class="field" />
           </div>
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="lbl">Telefon *</label>
+              <label class="lbl">{{ t('common.phone') }} *</label>
               <input v-model="editForm.phone" required class="field" />
             </div>
             <div>
-              <label class="lbl">Qo'shimcha tel</label>
+              <label class="lbl">{{ t('clientDetail.additionalPhone') }}</label>
               <input v-model="editForm.additionalPhone" class="field" />
             </div>
           </div>
           <div>
-            <label class="lbl">Manzil *</label>
+            <label class="lbl">{{ t('common.address') }} *</label>
             <input v-model="editForm.address" required class="field" />
           </div>
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="lbl">INN</label>
+              <label class="lbl">{{ t('common.inn') }}</label>
               <input v-model="editForm.inn" class="field" />
             </div>
             <div>
-              <label class="lbl">Bank</label>
+              <label class="lbl">{{ t('clientDetail.bank') }}</label>
               <input v-model="editForm.bankName" class="field" />
             </div>
           </div>
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="lbl">MFO</label>
+              <label class="lbl">{{ t('clientDetail.mfo') }}</label>
               <input v-model="editForm.mfo" class="field" />
             </div>
             <div>
-              <label class="lbl">Hisob raqam</label>
+              <label class="lbl">{{ t('clientDetail.accountNumber') }}</label>
               <input v-model="editForm.accountNumber" class="field" />
             </div>
           </div>
           <div>
-            <label class="lbl">Izoh</label>
+            <label class="lbl">{{ t('common.note') }}</label>
             <textarea v-model="editForm.description" rows="3" class="field !h-auto py-2" />
           </div>
           <div class="flex justify-end gap-2 pt-2">
-            <button type="button" class="ghost-btn" @click="editOpen = false">Bekor</button>
-            <button type="submit" class="btn" :disabled="saving">{{ saving ? '...' : 'Saqlash' }}</button>
+            <button type="button" class="ghost-btn" @click="editOpen = false">{{ t('common.cancel') }}</button>
+            <button type="submit" class="btn" :disabled="saving">{{ saving ? '...' : t('common.save') }}</button>
           </div>
         </form>
       </div>
@@ -762,20 +757,30 @@ type TabKey =
   | 'sms'
 
 const route = useRoute()
-const { t } = useI18n()
+const { t, te } = useI18n()
 
-const tabs: { key: TabKey; label: string }[] = [
-  { key: 'overview', label: 'Umumiy' },
-  { key: 'analysis', label: 'Tahlil' },
-  { key: 'orders', label: 'Buyurtmalar' },
-  { key: 'items', label: 'Pozitsiyalar' },
-  { key: 'act', label: 'Akt sverka (Hisob-kitob)' },
-  { key: 'payments', label: "To'lovlar" },
-  { key: 'activity', label: 'Faollik' },
-  { key: 'notes', label: 'Eslatmalar' },
-  { key: 'info', label: "Mijoz ma'lumotlari" },
-  { key: 'sms', label: 'SMS tarixi' },
+const tabKeys: TabKey[] = [
+  'overview',
+  'analysis',
+  'orders',
+  'items',
+  'act',
+  'payments',
+  'activity',
+  'notes',
+  'info',
+  'sms',
 ]
+const tabs = computed(() =>
+  tabKeys.map((key) => ({ key, label: t(`clientDetail.tabs.${key}`) })),
+)
+const noteTypes = ['CALL', 'MEETING', 'SMS', 'PAYMENT_PROMISE', 'OTHER']
+const reminderStatuses = ['NONE', 'PENDING', 'DONE', 'BROKEN']
+
+function enumLabel(prefix: string, value: string) {
+  const key = `${prefix}.${value}`
+  return te(key) ? t(key) : value
+}
 
 const tab = ref<TabKey>('overview')
 const loading = ref(true)
@@ -815,7 +820,7 @@ function clientId() {
 }
 
 function moneySom(v?: number | null) {
-  return `${money(v)} so'm`
+  return `${money(v)} ${t('clientDetail.currency')}`
 }
 
 function initials(name: string) {
@@ -841,7 +846,7 @@ function paymentKey() {
 const breadcrumbItems = computed(() => [
   { label: t('nav.home'), to: '/' },
   { label: t('nav.clients'), to: '/clients' },
-  { label: client.value?.fullName || 'Mijoz' },
+  { label: client.value?.fullName || t('common.client') },
 ])
 
 const totalSales = computed(() => Number(balance.value?.totalPurchase ?? 0))
@@ -885,26 +890,26 @@ const lastActivityLabel = computed(() => {
 
 const lastActivityRelative = computed(() => {
   const days = daysAgo(lastActivityDate.value)
-  if (days == null) return 'Faollik yo\'q'
-  if (days === 0) return 'Bugun faol'
-  if (days === 1) return '1 kun oldin faol'
-  return `${days} kun oldin faol`
+  if (days == null) return t('clientDetail.noActivity')
+  if (days === 0) return t('clientDetail.activeToday')
+  if (days === 1) return t('clientDetail.activeDaysAgo', { n: 1 })
+  return t('clientDetail.activeDaysAgo', { n: days })
 })
 
 const debtAgeLabel = computed(() => {
   const debtOrders = sales.value.filter((o) => Number(o.debtSum || 0) > 0)
-  if (!debtOrders.length) return 'Qarz yo\'q'
+  if (!debtOrders.length) return t('clientDetail.noDebt')
   const ages = debtOrders.map((o) => daysAgo(o.orderDate)).filter((d): d is number => d != null)
-  if (!ages.length) return 'Qarz yoshi'
-  return `Qarz yoshi: ${Math.max(...ages)} kun`
+  if (!ages.length) return t('clientDetail.debtAge')
+  return t('clientDetail.debtAgeDays', { n: Math.max(...ages) })
 })
 
 const debtSegments = computed(() => {
   const buckets = [
-    { key: '0-30', label: '0-30 kun', color: '#12b76a', min: 0, max: 30 },
-    { key: '31-60', label: '31-60 kun', color: '#f79009', min: 31, max: 60 },
-    { key: '61-90', label: '61-90 kun', color: '#fb6514', min: 61, max: 90 },
-    { key: '90+', label: '90+ kun', color: '#f04438', min: 91, max: Infinity },
+    { key: '0-30', label: t('clientDetail.daysRange', { range: '0-30' }), color: '#12b76a', min: 0, max: 30 },
+    { key: '31-60', label: t('clientDetail.daysRange', { range: '31-60' }), color: '#f79009', min: 31, max: 60 },
+    { key: '61-90', label: t('clientDetail.daysRange', { range: '61-90' }), color: '#fb6514', min: 61, max: 90 },
+    { key: '90+', label: t('clientDetail.daysRange', { range: '90+' }), color: '#f04438', min: 91, max: Infinity },
   ]
   const result = buckets.map((b) => ({ ...b, amount: 0, count: 0, pct: 0 }))
   for (const o of sales.value) {
@@ -926,7 +931,7 @@ const sellers = computed(() => {
   const map = new Map<string, { key: string; name: string; count: number; sum: number }>()
   for (const o of sales.value) {
     const key = String(o.userId ?? o.userFullName ?? 'unknown')
-    const name = o.userFullName || `User #${o.userId || '?'}`
+    const name = o.userFullName || t('clientDetail.userFallback', { id: o.userId || '?' })
     const cur = map.get(key) || { key, name, count: 0, sum: 0 }
     cur.count += 1
     cur.sum += Number(o.totalSum || 0)
@@ -943,7 +948,7 @@ const sellers = computed(() => {
 const warehouses = computed(() => {
   const map = new Map<string, { name: string; sum: number }>()
   for (const o of sales.value) {
-    const name = o.warehouseName || 'Noma\'lum'
+    const name = o.warehouseName || t('clientDetail.unknown')
     const cur = map.get(name) || { name, sum: 0 }
     cur.sum += Number(o.totalSum || 0)
     map.set(name, cur)
@@ -983,7 +988,7 @@ const activityEvents = computed(() => {
   for (const o of sales.value) {
     events.push({
       key: `o-${o.id}`,
-      title: `Buyurtma #${o.id}`,
+      title: t('clientDetail.orderN', { id: o.id }),
       meta: `${moneySom(o.totalSum)} · ${formatDate(o.orderDate)}`,
       color: '#465fff',
       at: o.orderDate || '',
@@ -992,7 +997,7 @@ const activityEvents = computed(() => {
   for (const p of payments.value) {
     events.push({
       key: `p-${p.id}`,
-      title: `To'lov #${p.id}`,
+      title: t('clientDetail.paymentN', { id: p.id }),
       meta: `${moneySom(p.paymentAmount)} · ${formatDate(p.paymentDate)}`,
       color: '#12b76a',
       at: p.paymentDate || '',
@@ -1001,7 +1006,7 @@ const activityEvents = computed(() => {
   for (const n of notes.value) {
     events.push({
       key: `n-${n.id}`,
-      title: `Eslatma: ${n.type}`,
+      title: t('clientDetail.noteN', { type: n.type ? enumLabel('clientDetail.noteTypes', n.type) : '' }),
       meta: n.content || '',
       color: '#f79009',
       at: n.interactionDate || n.reminderDate || '',
@@ -1059,7 +1064,7 @@ function clearNextPayment() {
 }
 
 async function onSendSms() {
-  if (!confirm('Qarz haqida SMS yuborilsinmi?')) return
+  if (!confirm(t('clientDetail.sendSmsConfirm'))) return
   smsSending.value = true
   try {
     await sendDebtSmsToClient(clientId())
@@ -1117,7 +1122,7 @@ async function onReminder(noteId: number, status: string) {
 }
 
 async function onNoteDelete(noteId: number) {
-  if (!confirm("Izoh o'chirilsinmi?")) return
+  if (!confirm(t('clientDetail.deleteNoteConfirm'))) return
   try {
     await deleteClientNote(noteId)
     notes.value = (await fetchClientNotes(clientId())).data || []

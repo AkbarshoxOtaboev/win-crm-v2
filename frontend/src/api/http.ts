@@ -29,6 +29,7 @@ const SELECTED_FILIAL_KEY = 'wincrm_selected_filial_id'
 const ASSIGNED_FILIAL_KEY = 'wincrm_assigned_filial_id'
 const ASSIGNED_FILIAL_NAME_KEY = 'wincrm_assigned_filial_name'
 const ROLES_KEY = 'wincrm_roles'
+const PERMISSIONS_KEY = 'wincrm_permissions'
 
 export function getAccessToken(): string | null {
   return localStorage.getItem(ACCESS_KEY)
@@ -60,6 +61,7 @@ export function clearTokens() {
   localStorage.removeItem(ASSIGNED_FILIAL_KEY)
   localStorage.removeItem(ASSIGNED_FILIAL_NAME_KEY)
   localStorage.removeItem(ROLES_KEY)
+  localStorage.removeItem(PERMISSIONS_KEY)
 }
 
 export function isStoredSuperAdmin(): boolean {
@@ -81,11 +83,13 @@ export function setSelectedFilialId(id: number | string | null) {
 export function persistAuthProfile(profile: {
   superAdmin?: boolean
   roles?: string[]
+  permissions?: string[]
   filialId?: number | null
   filialName?: string | null
 }) {
   localStorage.setItem(SUPER_ADMIN_KEY, profile.superAdmin ? 'true' : 'false')
   localStorage.setItem(ROLES_KEY, JSON.stringify(profile.roles || []))
+  localStorage.setItem(PERMISSIONS_KEY, JSON.stringify(profile.permissions || []))
   if (profile.filialId != null) {
     localStorage.setItem(ASSIGNED_FILIAL_KEY, String(profile.filialId))
   } else {
@@ -173,6 +177,7 @@ async function tryRefreshToken(): Promise<boolean> {
       refreshToken: string
       sessionId?: number
       roles?: string[]
+      permissions?: string[]
       superAdmin?: boolean
       filialId?: number | null
       filialName?: string | null
@@ -181,6 +186,7 @@ async function tryRefreshToken(): Promise<boolean> {
     persistAuthProfile({
       superAdmin: data.superAdmin,
       roles: data.roles,
+      permissions: data.permissions,
       filialId: data.filialId,
       filialName: data.filialName,
     })
@@ -272,7 +278,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
       response = await doFetch()
     } else {
       redirectToSignin()
-      throw new ApiError('Sessiya tugadi. Qayta kiring.', 401)
+      throw new ApiError(String(i18n.global.t('errors.unauthorized')), 401)
     }
   }
 

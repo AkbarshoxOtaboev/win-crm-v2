@@ -18,6 +18,7 @@ public class AuthResponse {
     @Schema(description = "Session id", example = "42")
     private Long sessionId;
     private List<String> roles;
+    private List<String> permissions;
     private boolean superAdmin;
     private Long filialId;
     private String filialName;

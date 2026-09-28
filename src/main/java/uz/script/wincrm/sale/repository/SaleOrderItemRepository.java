@@ -69,13 +69,14 @@ public interface SaleOrderItemRepository extends JpaRepository<SaleOrderItem, Lo
     /**
      * Berilgan sana oralig'ida eng ko'p miqdorda sotilgan mahsulotlar (kamayish tartibida).
      * TOP N olish uchun Pageable ishlatiladi, masalan PageRequest.of(0, 10).
-     * O'chirilgan (DELETED) buyurtmalar chiqarib tashlanadi.
+     * O'chirilgan (DELETED) va bekor qilingan (CANCELLED) buyurtmalar chiqarib tashlanadi.
      */
     @Query("SELECT new uz.script.wincrm.dashboard.responses.TopGoodsResponse(" +
             "soi.goods.id, soi.goods.name, SUM(soi.count), SUM(soi.count * soi.priceSelling)) " +
             "FROM SaleOrderItem soi " +
             "WHERE soi.arrivalDate BETWEEN :startDate AND :endDate " +
             "AND soi.saleOrder.status <> 'DELETED' " +
+            "AND soi.saleOrder.salesOrderStatus <> uz.script.wincrm.sale.enums.SalesOrderStatus.CANCELLED " +
             "GROUP BY soi.goods.id, soi.goods.name " +
             "ORDER BY SUM(soi.count) DESC")
     List<TopGoodsResponse> findTopGoodsByQuantity(
@@ -86,13 +87,14 @@ public interface SaleOrderItemRepository extends JpaRepository<SaleOrderItem, Lo
 
     /**
      * Berilgan sana oralig'ida eng ko'p summada sotilgan mahsulotlar (kamayish tartibida).
-     * O'chirilgan (DELETED) buyurtmalar chiqarib tashlanadi.
+     * O'chirilgan (DELETED) va bekor qilingan (CANCELLED) buyurtmalar chiqarib tashlanadi.
      */
     @Query("SELECT new uz.script.wincrm.dashboard.responses.TopGoodsResponse(" +
             "soi.goods.id, soi.goods.name, SUM(soi.count), SUM(soi.count * soi.priceSelling)) " +
             "FROM SaleOrderItem soi " +
             "WHERE soi.arrivalDate BETWEEN :startDate AND :endDate " +
             "AND soi.saleOrder.status <> 'DELETED' " +
+            "AND soi.saleOrder.salesOrderStatus <> uz.script.wincrm.sale.enums.SalesOrderStatus.CANCELLED " +
             "GROUP BY soi.goods.id, soi.goods.name " +
             "ORDER BY SUM(soi.count * soi.priceSelling) DESC")
     List<TopGoodsResponse> findTopGoodsByAmount(
@@ -103,13 +105,14 @@ public interface SaleOrderItemRepository extends JpaRepository<SaleOrderItem, Lo
 
     /**
      * Berilgan sana oralig'ida GoodsGroup bo'yicha jamlangan miqdor va summa (kamayish tartibida).
-     * O'chirilgan (DELETED) buyurtmalar chiqarib tashlanadi.
+     * O'chirilgan (DELETED) va bekor qilingan (CANCELLED) buyurtmalar chiqarib tashlanadi.
      */
     @Query("SELECT new uz.script.wincrm.dashboard.responses.GoodsGroupSummaryResponse(" +
             "soi.goods.goodsGroup.id, soi.goods.goodsGroup.name, SUM(soi.count), SUM(soi.count * soi.priceSelling)) " +
             "FROM SaleOrderItem soi " +
             "WHERE soi.arrivalDate BETWEEN :startDate AND :endDate " +
             "AND soi.saleOrder.status <> 'DELETED' " +
+            "AND soi.saleOrder.salesOrderStatus <> uz.script.wincrm.sale.enums.SalesOrderStatus.CANCELLED " +
             "GROUP BY soi.goods.goodsGroup.id, soi.goods.goodsGroup.name " +
             "ORDER BY SUM(soi.count * soi.priceSelling) DESC")
     List<GoodsGroupSummaryResponse> findGoodsGroupSummary(

@@ -1,0 +1,32 @@
+export default {
+  uz: {
+    breadcrumb: 'Transferlar',
+    newTransfer: '+ Transfer',
+    to: 'Ga',
+    empty: 'Transfer yo‘q',
+    modalTitle: 'Stock transfer',
+    fromPlaceholder: 'Qayerdan',
+    toPlaceholder: 'Qayerga',
+    submit: 'Transfer',
+  },
+  ru: {
+    breadcrumb: 'Перемещения',
+    newTransfer: '+ Перемещение',
+    to: 'Куда',
+    empty: 'Нет перемещений',
+    modalTitle: 'Перемещение товара',
+    fromPlaceholder: 'Откуда',
+    toPlaceholder: 'Куда',
+    submit: 'Переместить',
+  },
+  en: {
+    breadcrumb: 'Transfers',
+    newTransfer: '+ Transfer',
+    to: 'To',
+    empty: 'No transfers',
+    modalTitle: 'Stock transfer',
+    fromPlaceholder: 'From',
+    toPlaceholder: 'To',
+    submit: 'Transfer',
+  },
+}

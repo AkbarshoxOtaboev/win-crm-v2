@@ -6,7 +6,7 @@
       class="h-10 max-w-[220px] rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-200"
       @change="onChange"
     >
-      <option value="all">Barcha filiallar</option>
+      <option value="all">{{ t('shared.allFilials') }}</option>
       <option v-for="item in filials" :key="item.id" :value="item.id">{{ item.name }}</option>
     </select>
     <div
@@ -20,9 +20,11 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { fetchFilials, type FilialItem } from '@/api/filials'
 import { useAuthStore } from '@/stores/auth'
 
+const { t } = useI18n()
 const auth = useAuthStore()
 const filials = ref<FilialItem[]>([])
 

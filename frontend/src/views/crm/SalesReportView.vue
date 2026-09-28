@@ -1,6 +1,6 @@
 <template>
   <AdminLayout>
-    <PageBreadcrumb pageTitle="Sotuv hisoboti" />
+    <PageBreadcrumb :pageTitle="t('nav.salesReport')" />
 
     <div class="mb-4 flex flex-wrap items-center gap-2">
       <input v-model="startDate" type="date" class="field" @change="load" />
@@ -11,44 +11,44 @@
 
     <div class="mb-4 grid grid-cols-1 gap-4 md:grid-cols-4">
       <article class="stat">
-        <p class="stat-label">Buyurtmalar</p>
+        <p class="stat-label">{{ t('salesReport.orders') }}</p>
         <h4 class="stat-value">{{ activeOrders.length }}</h4>
       </article>
       <article class="stat">
-        <p class="stat-label">Jami sotuv</p>
+        <p class="stat-label">{{ t('salesReport.totalSales') }}</p>
         <h4 class="stat-value">{{ money(totals.sales) }}</h4>
       </article>
       <article class="stat">
-        <p class="stat-label">To‘langan</p>
+        <p class="stat-label">{{ t('salesReport.paid') }}</p>
         <h4 class="stat-value paid">{{ money(totals.paid) }}</h4>
       </article>
       <article class="stat">
-        <p class="stat-label">Qarz</p>
+        <p class="stat-label">{{ t('salesReport.debt') }}</p>
         <h4 class="stat-value debt">{{ money(totals.debt) }}</h4>
       </article>
     </div>
 
     <div class="card mb-4">
       <div class="border-b border-gray-100 px-5 py-4 dark:border-gray-800">
-        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Buyurtmalar</h3>
+        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('salesReport.orders') }}</h3>
       </div>
       <div class="overflow-x-auto">
         <table class="min-w-full">
           <thead>
             <tr class="border-b border-gray-100 dark:border-gray-800">
               <th class="th">#</th>
-              <th class="th">Sana</th>
-              <th class="th">Mijoz</th>
-              <th class="th">Sotuvchi</th>
-              <th class="th">Jami</th>
-              <th class="th">To‘langan</th>
-              <th class="th">Qarz</th>
-              <th class="th">Holat</th>
+              <th class="th">{{ t('common.date') }}</th>
+              <th class="th">{{ t('common.client') }}</th>
+              <th class="th">{{ t('salesReport.seller') }}</th>
+              <th class="th">{{ t('common.total') }}</th>
+              <th class="th">{{ t('salesReport.paid') }}</th>
+              <th class="th">{{ t('salesReport.debt') }}</th>
+              <th class="th">{{ t('common.status') }}</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-if="loading"><td colspan="8" class="empty">Yuklanmoqda...</td></tr>
-            <tr v-else-if="orders.length === 0"><td colspan="8" class="empty">Hisobot uchun savdo yo‘q</td></tr>
+            <tr v-if="loading"><td colspan="8" class="empty">{{ t('common.loading') }}</td></tr>
+            <tr v-else-if="orders.length === 0"><td colspan="8" class="empty">{{ t('salesReport.noOrders') }}</td></tr>
             <tr v-for="o in orders" :key="o.id" class="border-b border-gray-100 dark:border-gray-800">
               <td class="td">
                 <router-link :to="`/sales/${o.id}`" class="text-brand-500 hover:underline">#{{ o.id }}</router-link>
@@ -69,19 +69,19 @@
     <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
       <div class="card">
         <div class="border-b border-gray-100 px-5 py-4 dark:border-gray-800">
-          <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Sotuvchi bo‘yicha</h3>
+          <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('salesReport.bySeller') }}</h3>
         </div>
         <div class="overflow-x-auto">
           <table class="min-w-full">
             <thead>
               <tr class="border-b border-gray-100 dark:border-gray-800">
-                <th class="th">Sotuvchi</th>
-                <th class="th">Soni</th>
-                <th class="th">Jami</th>
+                <th class="th">{{ t('salesReport.seller') }}</th>
+                <th class="th">{{ t('common.count') }}</th>
+                <th class="th">{{ t('common.total') }}</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-if="bySeller.length === 0"><td colspan="3" class="empty">Yo‘q</td></tr>
+              <tr v-if="bySeller.length === 0"><td colspan="3" class="empty">{{ t('salesReport.empty') }}</td></tr>
               <tr v-for="row in bySeller" :key="row.name" class="border-b border-gray-100 dark:border-gray-800">
                 <td class="td">{{ row.name }}</td>
                 <td class="td">{{ row.count }}</td>
@@ -93,19 +93,19 @@
       </div>
       <div class="card">
         <div class="border-b border-gray-100 px-5 py-4 dark:border-gray-800">
-          <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Mijoz bo‘yicha</h3>
+          <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('salesReport.byClient') }}</h3>
         </div>
         <div class="overflow-x-auto">
           <table class="min-w-full">
             <thead>
               <tr class="border-b border-gray-100 dark:border-gray-800">
-                <th class="th">Mijoz</th>
-                <th class="th">Soni</th>
-                <th class="th">Jami</th>
+                <th class="th">{{ t('common.client') }}</th>
+                <th class="th">{{ t('common.count') }}</th>
+                <th class="th">{{ t('common.total') }}</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-if="byClient.length === 0"><td colspan="3" class="empty">Yo‘q</td></tr>
+              <tr v-if="byClient.length === 0"><td colspan="3" class="empty">{{ t('salesReport.empty') }}</td></tr>
               <tr v-for="row in byClient" :key="row.name" class="border-b border-gray-100 dark:border-gray-800">
                 <td class="td">{{ row.name }}</td>
                 <td class="td">{{ row.count }}</td>
@@ -121,6 +121,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import SaleStatusBadge from '@/components/crm/SaleStatusBadge.vue'
@@ -134,6 +135,7 @@ interface GroupRow {
   sum: number
 }
 
+const { t } = useI18n()
 const startDate = ref(monthStart())
 const endDate = ref(today())
 const loading = ref(false)
@@ -175,7 +177,7 @@ async function load() {
     const res = await fetchSaleOrdersByDateRange(`${startDate.value}T00:00:00`, `${endDate.value}T23:59:59`)
     orders.value = [...(res.data || [])].sort((a, b) => String(b.orderDate || '').localeCompare(String(a.orderDate || '')))
   } catch (e) {
-    error.value = formatApiError(e, 'Hisobotni yuklab bo‘lmadi')
+    error.value = formatApiError(e, t('salesReport.loadError'))
   } finally {
     loading.value = false
   }

@@ -1,11 +1,11 @@
 <template>
   <AdminLayout>
-    <PageBreadcrumb pageTitle="Maosh" />
+    <PageBreadcrumb :pageTitle="t('nav.salary')" />
 
     <div class="mb-4 flex flex-wrap gap-2">
-      <button type="button" class="tab" :class="{ active: tab === 'configs' }" @click="tab = 'configs'">Konfiguratsiya</button>
-      <button type="button" class="tab" :class="{ active: tab === 'adjust' }" @click="tab = 'adjust'">Tuzatish</button>
-      <button type="button" class="tab" :class="{ active: tab === 'slip' }" @click="tab = 'slip'">Oylik hisob</button>
+      <button type="button" class="tab" :class="{ active: tab === 'configs' }" @click="tab = 'configs'">{{ t('salary.tabConfigs') }}</button>
+      <button type="button" class="tab" :class="{ active: tab === 'adjust' }" @click="tab = 'adjust'">{{ t('salary.tabAdjust') }}</button>
+      <button type="button" class="tab" :class="{ active: tab === 'slip' }" @click="tab = 'slip'">{{ t('salary.tabSlip') }}</button>
     </div>
 
     <div v-if="error" class="err mb-4">{{ error }}</div>
@@ -13,30 +13,30 @@
     <!-- Configs -->
     <div v-show="tab === 'configs'" class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
       <div class="flex flex-col gap-3 border-b border-gray-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-gray-800">
-        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Oylik konfiguratsiyalar</h3>
-        <button type="button" class="btn" :disabled="writeBlocked" @click="openConfigCreate">+ Yangi config</button>
+        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('salary.configsTitle') }}</h3>
+        <button type="button" class="btn" :disabled="writeBlocked" @click="openConfigCreate">{{ t('salary.newConfig') }}</button>
       </div>
       <div class="overflow-x-auto">
         <table class="min-w-full">
           <thead>
             <tr class="border-b border-gray-100 dark:border-gray-800">
               <th class="th">#</th>
-              <th class="th">Xodim</th>
-              <th class="th">Fiksa</th>
-              <th class="th">Komissiya</th>
-              <th class="th">Dan</th>
-              <th class="th">Gacha</th>
-              <th class="th text-right">Amallar</th>
+              <th class="th">{{ t('salary.employee') }}</th>
+              <th class="th">{{ t('salary.baseSalary') }}</th>
+              <th class="th">{{ t('salary.commission') }}</th>
+              <th class="th">{{ t('common.from') }}</th>
+              <th class="th">{{ t('common.to') }}</th>
+              <th class="th text-right">{{ t('common.actions') }}</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-if="loading"><td colspan="7" class="empty">Yuklanmoqda...</td></tr>
-            <tr v-else-if="configs.length === 0"><td colspan="7" class="empty">Config yo‘q</td></tr>
+            <tr v-if="loading"><td colspan="7" class="empty">{{ t('common.loading') }}</td></tr>
+            <tr v-else-if="configs.length === 0"><td colspan="7" class="empty">{{ t('salary.noConfigs') }}</td></tr>
             <tr v-for="c in configs" :key="c.id" class="border-b border-gray-100 dark:border-gray-800">
               <td class="td">{{ c.id }}</td>
               <td class="td font-medium text-gray-800 dark:text-white/90">{{ c.userFullName || c.userId }}</td>
               <td class="td">{{ money(c.baseSalary) }}</td>
-              <td class="td">{{ c.commissionType }} {{ c.commissionValue }}</td>
+              <td class="td">{{ enumLabel('salary.commissionTypes', c.commissionType) }} {{ c.commissionValue }}</td>
               <td class="td">{{ c.effectiveFrom }}</td>
               <td class="td">{{ c.effectiveTo || '—' }}</td>
               <td class="td text-right">
@@ -50,78 +50,78 @@
 
     <!-- Adjustment -->
     <div v-show="tab === 'adjust'" class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
-      <h3 class="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">Qo‘lda tuzatish</h3>
+      <h3 class="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('salary.manualAdjust') }}</h3>
       <div v-if="formError" class="err mb-3">{{ formError }}</div>
       <form class="max-w-lg space-y-3" @submit.prevent="onAdjustSubmit">
         <div>
-          <label class="lbl">Xodim *</label>
+          <label class="lbl">{{ t('salary.employee') }} *</label>
           <select v-model.number="adjustForm.userId" required class="field">
-            <option :value="0" disabled>Tanlang</option>
+            <option :value="0" disabled>{{ t('common.select') }}</option>
             <option v-for="u in users" :key="u.id" :value="u.id">{{ u.fullName || u.username }}</option>
           </select>
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="lbl">Tur *</label>
+            <label class="lbl">{{ t('common.type') }} *</label>
             <select v-model="adjustForm.entryType" required class="field">
-              <option value="BONUS">BONUS</option>
-              <option value="DEDUCTION">DEDUCTION</option>
-              <option value="ADVANCE">ADVANCE</option>
+              <option value="BONUS">{{ t('salary.entryTypes.BONUS') }}</option>
+              <option value="DEDUCTION">{{ t('salary.entryTypes.DEDUCTION') }}</option>
+              <option value="ADVANCE">{{ t('salary.entryTypes.ADVANCE') }}</option>
             </select>
           </div>
           <div>
-            <label class="lbl">Summa *</label>
+            <label class="lbl">{{ t('common.sum') }} *</label>
             <input v-model.number="adjustForm.amount" type="number" min="0.01" step="0.01" required class="field" />
           </div>
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="lbl">Yil</label>
+            <label class="lbl">{{ t('common.year') }}</label>
             <input v-model.number="adjustForm.periodYear" type="number" min="2000" class="field" />
           </div>
           <div>
-            <label class="lbl">Oy</label>
+            <label class="lbl">{{ t('common.month') }}</label>
             <input v-model.number="adjustForm.periodMonth" type="number" min="1" max="12" class="field" />
           </div>
         </div>
         <div>
-          <label class="lbl">Izoh</label>
+          <label class="lbl">{{ t('common.note') }}</label>
           <input v-model="adjustForm.comment" class="field" />
         </div>
-        <button type="submit" class="btn" :disabled="saving">{{ saving ? '...' : 'Qo‘shish' }}</button>
+        <button type="submit" class="btn" :disabled="saving">{{ saving ? '...' : t('common.add') }}</button>
       </form>
 
       <div v-if="adjustForm.userId" class="mt-8">
         <div class="mb-3 flex items-center justify-between">
-          <h4 class="font-medium text-gray-800 dark:text-white/90">Ledger yozuvlari</h4>
-          <button type="button" class="text-sm text-brand-500" @click="loadTx">Yangilash</button>
+          <h4 class="font-medium text-gray-800 dark:text-white/90">{{ t('salary.ledgerTitle') }}</h4>
+          <button type="button" class="text-sm text-brand-500" @click="loadTx">{{ t('common.refresh') }}</button>
         </div>
         <div class="overflow-x-auto">
           <table class="min-w-full">
             <thead>
               <tr class="border-b border-gray-100 dark:border-gray-800">
                 <th class="th">#</th>
-                <th class="th">Tur</th>
-                <th class="th">Summa</th>
-                <th class="th">Davr</th>
-                <th class="th">Izoh</th>
-                <th class="th text-right">Amallar</th>
+                <th class="th">{{ t('common.type') }}</th>
+                <th class="th">{{ t('common.sum') }}</th>
+                <th class="th">{{ t('common.period') }}</th>
+                <th class="th">{{ t('common.note') }}</th>
+                <th class="th text-right">{{ t('common.actions') }}</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-if="txLoading"><td colspan="6" class="empty">Yuklanmoqda...</td></tr>
-              <tr v-else-if="transactions.length === 0"><td colspan="6" class="empty">Yozuv yo‘q</td></tr>
-              <tr v-for="t in transactions" :key="t.id" class="border-b border-gray-100 dark:border-gray-800">
-                <td class="td">{{ t.id }}</td>
-                <td class="td">{{ t.entryType }}</td>
-                <td class="td">{{ money(t.amount) }}</td>
-                <td class="td">{{ t.periodYear }}-{{ t.periodMonth }}</td>
-                <td class="td">{{ t.comment || '—' }}</td>
+              <tr v-if="txLoading"><td colspan="6" class="empty">{{ t('common.loading') }}</td></tr>
+              <tr v-else-if="transactions.length === 0"><td colspan="6" class="empty">{{ t('salary.noEntries') }}</td></tr>
+              <tr v-for="tx in transactions" :key="tx.id" class="border-b border-gray-100 dark:border-gray-800">
+                <td class="td">{{ tx.id }}</td>
+                <td class="td">{{ enumLabel('salary.entryTypes', tx.entryType) }}</td>
+                <td class="td">{{ money(tx.amount) }}</td>
+                <td class="td">{{ tx.periodYear }}-{{ tx.periodMonth }}</td>
+                <td class="td">{{ tx.comment || '—' }}</td>
                 <td class="td text-right">
                   <RowActions
-                    v-if="isManualTx(t.entryType)"
+                    v-if="isManualTx(tx.entryType)"
                     :edit="false"
-                    @delete="onTxDelete(t)"
+                    @delete="onTxDelete(tx)"
                   />
                 </td>
               </tr>
@@ -133,54 +133,54 @@
 
     <!-- Slip -->
     <div v-show="tab === 'slip'" class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
-      <h3 class="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">Oylik hisob-kitob</h3>
+      <h3 class="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('salary.slipTitle') }}</h3>
       <div class="mb-4 flex flex-wrap gap-3">
         <div class="w-48">
-          <label class="lbl">Xodim</label>
+          <label class="lbl">{{ t('salary.employee') }}</label>
           <select v-model.number="slipForm.userId" class="field">
-            <option :value="0" disabled>Tanlang</option>
+            <option :value="0" disabled>{{ t('common.select') }}</option>
             <option v-for="u in users" :key="u.id" :value="u.id">{{ u.fullName || u.username }}</option>
           </select>
         </div>
         <div class="w-28">
-          <label class="lbl">Yil</label>
+          <label class="lbl">{{ t('common.year') }}</label>
           <input v-model.number="slipForm.year" type="number" class="field" />
         </div>
         <div class="w-24">
-          <label class="lbl">Oy</label>
+          <label class="lbl">{{ t('common.month') }}</label>
           <input v-model.number="slipForm.month" type="number" min="1" max="12" class="field" />
         </div>
         <div class="flex items-end">
-          <button type="button" class="btn" :disabled="slipLoading" @click="loadSlip">{{ slipLoading ? '...' : 'Ko‘rish' }}</button>
+          <button type="button" class="btn" :disabled="slipLoading" @click="loadSlip">{{ slipLoading ? '...' : t('common.view') }}</button>
         </div>
       </div>
       <div v-if="slip" class="grid max-w-lg gap-2 text-sm text-gray-700 dark:text-gray-300">
         <div class="flex justify-between border-b border-gray-100 py-2 dark:border-gray-800">
-          <span>Xodim</span><strong>{{ slip.userFullName || slip.userId }}</strong>
+          <span>{{ t('salary.employee') }}</span><strong>{{ slip.userFullName || slip.userId }}</strong>
         </div>
         <div class="flex justify-between border-b border-gray-100 py-2 dark:border-gray-800">
-          <span>Davr</span><strong>{{ slip.periodYear }}-{{ String(slip.periodMonth).padStart(2, '0') }}</strong>
+          <span>{{ t('common.period') }}</span><strong>{{ slip.periodYear }}-{{ String(slip.periodMonth).padStart(2, '0') }}</strong>
         </div>
         <div class="flex justify-between border-b border-gray-100 py-2 dark:border-gray-800">
-          <span>Fiksa</span><span>{{ money(slip.baseSalary) }}</span>
+          <span>{{ t('salary.baseSalary') }}</span><span>{{ money(slip.baseSalary) }}</span>
         </div>
         <div class="flex justify-between border-b border-gray-100 py-2 dark:border-gray-800">
-          <span>Komissiya</span><span>{{ money(slip.totalCommission) }}</span>
+          <span>{{ t('salary.commission') }}</span><span>{{ money(slip.totalCommission) }}</span>
         </div>
         <div class="flex justify-between border-b border-gray-100 py-2 dark:border-gray-800">
-          <span>Qaytarilgan komissiya</span><span>{{ money(slip.totalCommissionReversal) }}</span>
+          <span>{{ t('salary.commissionReversal') }}</span><span>{{ money(slip.totalCommissionReversal) }}</span>
         </div>
         <div class="flex justify-between border-b border-gray-100 py-2 dark:border-gray-800">
-          <span>Bonus</span><span>{{ money(slip.totalBonus) }}</span>
+          <span>{{ t('salary.bonus') }}</span><span>{{ money(slip.totalBonus) }}</span>
         </div>
         <div class="flex justify-between border-b border-gray-100 py-2 dark:border-gray-800">
-          <span>Ushlanma</span><span>{{ money(slip.totalDeduction) }}</span>
+          <span>{{ t('salary.deduction') }}</span><span>{{ money(slip.totalDeduction) }}</span>
         </div>
         <div class="flex justify-between border-b border-gray-100 py-2 dark:border-gray-800">
-          <span>Avans</span><span>{{ money(slip.totalAdvance) }}</span>
+          <span>{{ t('salary.advance') }}</span><span>{{ money(slip.totalAdvance) }}</span>
         </div>
         <div class="flex justify-between py-2 text-base font-semibold text-gray-800 dark:text-white/90">
-          <span>Netto</span><span>{{ money(slip.netSalary) }}</span>
+          <span>{{ t('salary.net') }}</span><span>{{ money(slip.netSalary) }}</span>
         </div>
       </div>
     </div>
@@ -188,40 +188,40 @@
     <!-- Config modal -->
     <div v-if="configModal" class="fixed inset-0 z-99999 flex items-center justify-center bg-black/40 p-4">
       <div class="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-        <h3 class="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">Yangi oylik config</h3>
+        <h3 class="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('salary.newConfigTitle') }}</h3>
         <div v-if="formError" class="err mb-3">{{ formError }}</div>
         <form class="space-y-3" @submit.prevent="onConfigSubmit">
           <div>
-            <label class="lbl">Xodim *</label>
+            <label class="lbl">{{ t('salary.employee') }} *</label>
             <select v-model.number="configForm.userId" required class="field">
-              <option :value="0" disabled>Tanlang</option>
+              <option :value="0" disabled>{{ t('common.select') }}</option>
               <option v-for="u in users" :key="u.id" :value="u.id">{{ u.fullName || u.username }}</option>
             </select>
           </div>
           <div>
-            <label class="lbl">Fiksa *</label>
+            <label class="lbl">{{ t('salary.baseSalary') }} *</label>
             <input v-model.number="configForm.baseSalary" type="number" min="0" step="0.01" required class="field" />
           </div>
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="lbl">Komissiya turi *</label>
+              <label class="lbl">{{ t('salary.commissionType') }} *</label>
               <select v-model="configForm.commissionType" required class="field">
-                <option value="PERCENT">PERCENT</option>
-                <option value="FIXED">FIXED</option>
+                <option value="PERCENT">{{ t('salary.commissionTypes.PERCENT') }}</option>
+                <option value="FIXED">{{ t('salary.commissionTypes.FIXED') }}</option>
               </select>
             </div>
             <div>
-              <label class="lbl">Qiymat *</label>
+              <label class="lbl">{{ t('salary.value') }} *</label>
               <input v-model.number="configForm.commissionValue" type="number" min="0" step="0.01" required class="field" />
             </div>
           </div>
           <div>
-            <label class="lbl">Kuchga kirish *</label>
+            <label class="lbl">{{ t('salary.effectiveFrom') }} *</label>
             <input v-model="configForm.effectiveFrom" type="date" required class="field" />
           </div>
           <div class="flex justify-end gap-2">
-            <button type="button" class="h-10 rounded-lg border border-gray-300 px-4 text-sm" @click="configModal = false">Bekor</button>
-            <button type="submit" class="btn" :disabled="saving">{{ saving ? '...' : 'Saqlash' }}</button>
+            <button type="button" class="h-10 rounded-lg border border-gray-300 px-4 text-sm" @click="configModal = false">{{ t('common.cancel') }}</button>
+            <button type="submit" class="btn" :disabled="saving">{{ saving ? '...' : t('common.save') }}</button>
           </div>
         </form>
       </div>
@@ -231,6 +231,7 @@
 
 <script setup lang="ts">
 import { onMounted, reactive, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import RowActions from '@/components/crm/RowActions.vue'
@@ -246,10 +247,11 @@ import {
   type SalarySlip,
   type SalaryTransaction,
 } from '@/api/salary'
-import { fetchUsers, type UserItem } from '@/api/users'
+import { fetchUserOptions, type UserItem } from '@/api/users'
 import { ApiError } from '@/api/http'
 import { useFilialScope } from '@/composables/useFilialScope'
 
+const { t, te } = useI18n()
 const { writeBlocked } = useFilialScope()
 const tab = ref<'configs' | 'adjust' | 'slip'>('configs')
 const configs = ref<SalaryConfig[]>([])
@@ -293,6 +295,11 @@ function money(v?: number) {
   return new Intl.NumberFormat('uz-UZ').format(Number(v))
 }
 
+function enumLabel(prefix: string, value: string) {
+  const key = `${prefix}.${value}`
+  return te(key) ? t(key) : value
+}
+
 function isManualTx(type: string) {
   return type === 'BONUS' || type === 'DEDUCTION' || type === 'ADVANCE'
 }
@@ -305,11 +312,11 @@ async function load() {
   loading.value = true
   error.value = null
   try {
-    const [cfgRes, usersRes] = await Promise.all([fetchSalaryConfigs(), fetchUsers()])
+    const [cfgRes, usersRes] = await Promise.all([fetchSalaryConfigs(), fetchUserOptions()])
     configs.value = cfgRes.data?.content || []
     users.value = usersRes.data || []
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Yuklashda xatolik'
+    error.value = e instanceof ApiError ? e.message : t('common.loadError')
   } finally {
     loading.value = false
   }
@@ -333,19 +340,19 @@ async function onConfigSubmit() {
     configModal.value = false
     await load()
   } catch (e) {
-    formError.value = e instanceof ApiError ? e.message : 'Saqlashda xatolik'
+    formError.value = e instanceof ApiError ? e.message : t('common.saveError')
   } finally {
     saving.value = false
   }
 }
 
 async function onConfigDelete(c: SalaryConfig) {
-  if (!confirm(`Config #${c.id} o‘chirilsinmi?`)) return
+  if (!confirm(t('salary.configDeleteConfirm', { id: c.id }))) return
   try {
     await deleteSalaryConfig(c.id)
     await load()
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'O‘chirishda xatolik'
+    error.value = e instanceof ApiError ? e.message : t('common.deleteError')
   }
 }
 
@@ -356,7 +363,7 @@ async function loadTx() {
     const res = await fetchSalaryTransactions(adjustForm.userId)
     transactions.value = res.data?.content || []
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Ledger yuklashda xatolik'
+    error.value = e instanceof ApiError ? e.message : t('salary.ledgerLoadError')
   } finally {
     txLoading.value = false
   }
@@ -378,19 +385,19 @@ async function onAdjustSubmit() {
     adjustForm.comment = ''
     await loadTx()
   } catch (e) {
-    formError.value = e instanceof ApiError ? e.message : 'Saqlashda xatolik'
+    formError.value = e instanceof ApiError ? e.message : t('common.saveError')
   } finally {
     saving.value = false
   }
 }
 
-async function onTxDelete(t: SalaryTransaction) {
-  if (!confirm(`Yozuv #${t.id} o‘chirilsinmi?`)) return
+async function onTxDelete(tx: SalaryTransaction) {
+  if (!confirm(t('salary.txDeleteConfirm', { id: tx.id }))) return
   try {
-    await deleteSalaryTransaction(t.id)
+    await deleteSalaryTransaction(tx.id)
     await loadTx()
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'O‘chirishda xatolik'
+    error.value = e instanceof ApiError ? e.message : t('common.deleteError')
   }
 }
 
@@ -403,7 +410,7 @@ async function loadSlip() {
     slip.value = res.data
   } catch (e) {
     slip.value = null
-    error.value = e instanceof ApiError ? e.message : 'Slip yuklashda xatolik'
+    error.value = e instanceof ApiError ? e.message : t('salary.slipLoadError')
   } finally {
     slipLoading.value = false
   }

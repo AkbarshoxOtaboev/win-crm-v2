@@ -16,10 +16,11 @@ const SUPER_ADMIN_KEY = 'wincrm_is_super_admin'
 const ASSIGNED_FILIAL_KEY = 'wincrm_assigned_filial_id'
 const ASSIGNED_FILIAL_NAME_KEY = 'wincrm_assigned_filial_name'
 const ROLES_KEY = 'wincrm_roles'
+const PERMISSIONS_KEY = 'wincrm_permissions'
 
-function readRoles(): string[] {
+function readList(key: string): string[] {
   try {
-    const raw = localStorage.getItem(ROLES_KEY)
+    const raw = localStorage.getItem(key)
     return raw ? (JSON.parse(raw) as string[]) : []
   } catch {
     return []
@@ -33,7 +34,8 @@ export const useAuthStore = defineStore('auth', () => {
   const username = ref<string | null>(localStorage.getItem('wincrm_username'))
   const loading = ref(false)
   const error = ref<string | null>(null)
-  const roles = ref<string[]>(readRoles())
+  const roles = ref<string[]>(readList(ROLES_KEY))
+  const permissions = ref<string[]>(readList(PERMISSIONS_KEY))
   const superAdmin = ref(localStorage.getItem(SUPER_ADMIN_KEY) === 'true')
   const assignedFilialId = ref<number | null>(
     localStorage.getItem(ASSIGNED_FILIAL_KEY) ? Number(localStorage.getItem(ASSIGNED_FILIAL_KEY)) : null,
@@ -45,12 +47,29 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isAuthenticated = computed(() => Boolean(accessToken.value))
 
-  const isProductionManagerOnly = computed(() => {
-    if (superAdmin.value) return false
-    const elevated = new Set(['SUPER_ADMIN', 'ADMIN', 'DIRECTOR'])
-    if (roles.value.some((r) => elevated.has(r))) return false
-    return roles.value.includes('PRODUCTION_MANAGER')
-  })
+  const isElevated = computed(
+    () => superAdmin.value || roles.value.some((r) => ['SUPER_ADMIN', 'ADMIN', 'DIRECTOR'].includes(r)),
+  )
+
+  const isProductionManagerOnly = computed(
+    () => !isElevated.value && roles.value.includes('PRODUCTION_MANAGER'),
+  )
+
+  const isTransportManagerOnly = computed(
+    () =>
+      !isElevated.value &&
+      !roles.value.includes('PRODUCTION_MANAGER') &&
+      roles.value.includes('TRANSPORT_MANAGER'),
+  )
+
+  const canAccessTransport = computed(
+    () => isElevated.value || roles.value.includes('TRANSPORT_MANAGER'),
+  )
+
+  /** Transport ishchilari oyligini tasdiqlash: faqat SUPER_ADMIN va ADMIN */
+  const canApproveTransportSalary = computed(
+    () => superAdmin.value || roles.value.includes('ADMIN'),
+  )
 
   /** Sozlamalar menyusi: faqat SUPER_ADMIN va ADMIN */
   const canAccessSettings = computed(
@@ -66,14 +85,22 @@ export const useAuthStore = defineStore('auth', () => {
     return roles.value.includes(name)
   }
 
+  /** Any of the given permissions. Empty list = profile not loaded yet, so nothing is hidden. */
+  function can(...perms: string[]) {
+    if (superAdmin.value || permissions.value.length === 0) return true
+    return perms.some((p) => permissions.value.includes(p))
+  }
+
   function applyProfile(data: authApi.AuthResponse) {
     roles.value = data.roles || []
+    permissions.value = data.permissions || []
     superAdmin.value = Boolean(data.superAdmin)
     assignedFilialId.value = data.filialId ?? null
     assignedFilialName.value = data.filialName ?? null
     persistAuthProfile({
       superAdmin: data.superAdmin,
       roles: data.roles,
+      permissions: data.permissions,
       filialId: data.filialId,
       filialName: data.filialName,
     })
@@ -136,6 +163,7 @@ export const useAuthStore = defineStore('auth', () => {
       username.value = null
       error.value = null
       roles.value = []
+      permissions.value = []
       superAdmin.value = false
       assignedFilialId.value = null
       assignedFilialName.value = null
@@ -151,15 +179,20 @@ export const useAuthStore = defineStore('auth', () => {
     loading,
     error,
     roles,
+    permissions,
     superAdmin,
     assignedFilialId,
     assignedFilialName,
     selectedFilialId,
     isAuthenticated,
     isProductionManagerOnly,
+    isTransportManagerOnly,
+    canAccessTransport,
+    canApproveTransportSalary,
     canAccessSettings,
     canManageEmployees,
     hasRole,
+    can,
     login,
     logout,
     hydrateProfile,

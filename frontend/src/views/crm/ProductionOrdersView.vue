@@ -1,10 +1,10 @@
 <template>
   <AdminLayout>
-    <PageBreadcrumb pageTitle="Ishlab chiqarish" />
+    <PageBreadcrumb :pageTitle="t('nav.productionMenu')" />
     <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
       <div class="flex flex-col gap-3 border-b border-gray-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-gray-800">
-        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Ishlab chiqarish buyurtmalari</h3>
-        <input v-model="search" type="search" placeholder="Qidiruv..." class="field sm:w-56" />
+        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('nav.productionOrders') }}</h3>
+        <input v-model="search" type="search" :placeholder="t('common.search')" class="field sm:w-56" />
       </div>
       <div v-if="error" class="err mx-5 mt-4">{{ error }}</div>
       <div class="overflow-x-auto">
@@ -12,19 +12,19 @@
           <thead>
             <tr class="border-b border-gray-100 dark:border-gray-800">
               <th class="th">#</th>
-              <th class="th">Savdo</th>
-              <th class="th">Mijoz</th>
-              <th class="th">Joriy sex</th>
+              <th class="th">{{ t('productionDashboard.sale') }}</th>
+              <th class="th">{{ t('common.client') }}</th>
+              <th class="th">{{ t('productionOrders.currentWorkshop') }}</th>
               <th class="th">{{ t('production.assignment') }}</th>
               <th class="th">{{ t('production.status') }}</th>
               <th class="th">{{ t('production.acceptedAt') }}</th>
               <th class="th">{{ t('production.submittedAt') }}</th>
-              <th class="th text-right">Amallar</th>
+              <th class="th text-right">{{ t('common.actions') }}</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-if="loading"><td colspan="9" class="empty">Yuklanmoqda...</td></tr>
-            <tr v-else-if="filtered.length === 0"><td colspan="9" class="empty">Buyurtma yo‘q</td></tr>
+            <tr v-if="loading"><td colspan="9" class="empty">{{ t('common.loading') }}</td></tr>
+            <tr v-else-if="filtered.length === 0"><td colspan="9" class="empty">{{ t('productionOrders.empty') }}</td></tr>
             <tr v-for="o in filtered" :key="o.id" class="border-b border-gray-100 dark:border-gray-800">
               <td class="td">{{ o.id }}</td>
               <td class="td">
@@ -54,10 +54,10 @@
           <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">
             {{ t('production.timeline') }} #{{ selected?.id }}
           </h3>
-          <button type="button" class="text-sm text-gray-500" @click="detailOpen = false">Yopish</button>
+          <button type="button" class="text-sm text-gray-500" @click="detailOpen = false">{{ t('common.close') }}</button>
         </div>
         <div v-if="timelineError" class="err mb-3">{{ timelineError }}</div>
-        <div v-if="timelineLoading" class="empty">Yuklanmoqda...</div>
+        <div v-if="timelineLoading" class="empty">{{ t('common.loading') }}</div>
         <ol v-else class="space-y-3">
           <li
             v-for="ev in timeline"
@@ -151,7 +151,7 @@ async function load() {
     const res = await fetchProductionOrders()
     items.value = res.data || []
   } catch (e) {
-    error.value = formatApiError(e, 'Yuklashda xatolik')
+    error.value = formatApiError(e, t('common.loadError'))
   } finally {
     loading.value = false
   }
@@ -167,7 +167,7 @@ async function openDetail(o: ProductionOrder) {
     const res = await fetchProductionTimeline(o.id)
     timeline.value = res.data || []
   } catch (e) {
-    timelineError.value = formatApiError(e, 'Timeline xatolik')
+    timelineError.value = formatApiError(e, t('productionOrders.timelineError'))
   } finally {
     timelineLoading.value = false
   }

@@ -1,5 +1,7 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import { watch } from 'vue'
+import { createRouter, createWebHistory, type RouteLocationNormalized } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import i18n from '@/i18n'
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -12,8 +14,12 @@ declare module 'vue-router' {
     settingsAdmin?: boolean
     /** Faqat DIRECTOR (xodimlar) */
     employeesOnly?: boolean
+    /** SUPER_ADMIN / ADMIN / DIRECTOR yoki TRANSPORT_MANAGER */
+    transport?: boolean
   }
 }
+
+const TRANSPORT_HOME = '/transport/dashboard'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -88,6 +94,34 @@ const router = createRouter({
       name: 'ProductionBoard',
       component: () => import('../views/crm/ProductionBoardView.vue'),
       meta: { title: 'Ishlab chiqarish', requiresAuth: true },
+    },
+    {
+      path: '/transport',
+      redirect: TRANSPORT_HOME,
+    },
+    {
+      path: '/transport/dashboard',
+      name: 'TransportDashboard',
+      component: () => import('../views/crm/transport/TransportDashboardView.vue'),
+      meta: { title: 'Transport dashboard', requiresAuth: true, transport: true },
+    },
+    {
+      path: '/transport/orders',
+      name: 'TransportOrders',
+      component: () => import('../views/crm/transport/TransportOrdersView.vue'),
+      meta: { title: 'Transport buyurtmalari', requiresAuth: true, transport: true },
+    },
+    {
+      path: '/transport/drivers',
+      name: 'TransportDrivers',
+      component: () => import('../views/crm/transport/TransportDriversView.vue'),
+      meta: { title: 'Yetkazib beruvchilar', requiresAuth: true, transport: true },
+    },
+    {
+      path: '/transport/workers',
+      name: 'TransportWorkers',
+      component: () => import('../views/crm/transport/TransportWorkersView.vue'),
+      meta: { title: 'Ishchilar', requiresAuth: true, transport: true },
     },
     {
       path: '/warehouse-orders',
@@ -302,9 +336,16 @@ const router = createRouter({
   ],
 })
 
-router.beforeEach((to, _from, next) => {
-  const title = to.meta.title || 'WinCRM'
+function applyDocumentTitle(route: RouteLocationNormalized) {
+  const key = `routes.${String(route.name ?? '')}`
+  const title = route.name && i18n.global.te(key) ? i18n.global.t(key) : route.meta.title || 'WinCRM'
   document.title = `${title} | WinCRM`
+}
+
+watch(i18n.global.locale, () => applyDocumentTitle(router.currentRoute.value))
+
+router.beforeEach((to, _from, next) => {
+  applyDocumentTitle(to)
 
   const auth = useAuthStore()
   const requiresAuth = to.matched.some((r) => r.meta.requiresAuth)
@@ -338,6 +379,20 @@ router.beforeEach((to, _from, next) => {
       next({ path: '/production/dashboard' })
       return
     }
+  }
+
+  if (auth.isAuthenticated && auth.isTransportManagerOnly) {
+    const allowed =
+      to.path.startsWith('/transport/') || to.path === '/profile' || to.path.startsWith('/profile/')
+    if (!allowed) {
+      next({ path: TRANSPORT_HOME })
+      return
+    }
+  }
+
+  if (auth.isAuthenticated && to.matched.some((r) => r.meta.transport) && !auth.canAccessTransport) {
+    next({ path: '/' })
+    return
   }
 
   if (auth.isAuthenticated && to.matched.some((r) => r.meta.settingsAdmin) && !auth.canAccessSettings) {

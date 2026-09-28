@@ -115,20 +115,35 @@ public class UserServiceImplement implements UserService {
 
         log.info("Fetch all users");
 
-        List<User> users;
-        if (!filialAccess.isSuperAdmin()) {
-            Long filialId = filialAccess.currentFilialId();
-            if (filialId == null || filialId <= 0) {
-                return List.of();
-            }
-            users = repository.findAllByStatusNotAndFilial_Id(Status.DELETED, filialId);
-        } else {
-            users = repository.findAllByStatusNot(Status.DELETED);
-        }
-
-        return users.stream()
+        return scopedUsers().stream()
                 .map(this::mapUserToUserResponse)
                 .toList();
+    }
+
+    @Override
+    public List<UserResponse> lookupUsers() {
+        return scopedUsers().stream()
+                .filter(u -> u.getStatus() == Status.ACTIVE)
+                .map(u -> UserResponse.builder()
+                        .id(u.getId())
+                        .username(u.getUsername())
+                        .fullName(u.getFullName())
+                        .status(u.getStatus())
+                        .filialId(u.getFilial() != null ? u.getFilial().getId() : null)
+                        .filialName(u.getFilial() != null ? u.getFilial().getName() : null)
+                        .build())
+                .toList();
+    }
+
+    private List<User> scopedUsers() {
+        if (filialAccess.isSuperAdmin()) {
+            return repository.findAllByStatusNot(Status.DELETED);
+        }
+        Long filialId = filialAccess.currentFilialId();
+        if (filialId == null || filialId <= 0) {
+            return List.of();
+        }
+        return repository.findAllByStatusNotAndFilial_Id(Status.DELETED, filialId);
     }
 
     @Override
@@ -148,18 +163,28 @@ public class UserServiceImplement implements UserService {
                 .orElseThrow(() ->
                         new ResourceNotFoundException("User not found with id " + id));
 
-        Set<Role> roles = new HashSet<>(roleRepository.findAllById(dto.getRoleIds()));
-
-        if (roles.size() != dto.getRoleIds().size()) {
-            throw new BadRequestException("One or more roles not found");
+        if (canManageUsers()) {
+            if (dto.getRoleIds() == null || dto.getRoleIds().isEmpty()) {
+                throw new BadRequestException("Role IDs cannot be empty");
+            }
+            Set<Role> roles = new HashSet<>(roleRepository.findAllById(dto.getRoleIds()));
+            if (roles.size() != dto.getRoleIds().size()) {
+                throw new BadRequestException("One or more roles not found");
+            }
+            assertAssignableRoles(roles);
+            assertCanManageUser(user);
+            user.setRoles(roles);
+            user.setFilial(resolveFilial(dto.getFilialId()));
+        } else if (!isCurrentUser(user)) {
+            throw new ForbiddenException("Ruxsat yo'q");
         }
-        assertAssignableRoles(roles);
-        assertCanManageUser(user);
 
-        user.setFullName(dto.getFullName());
-        user.setPhone(dto.getPhone());
-        user.setRoles(roles);
-        user.setFilial(resolveFilial(dto.getFilialId()));
+        if (dto.getFullName() != null && !dto.getFullName().isBlank()) {
+            user.setFullName(dto.getFullName());
+        }
+        if (dto.getPhone() != null && !dto.getPhone().isBlank()) {
+            user.setPhone(dto.getPhone());
+        }
 
         if (dto.getPassword() != null && !dto.getPassword().isBlank()) {
             user.setPassword(passwordEncoder.encode(dto.getPassword()));
@@ -296,6 +321,17 @@ public class UserServiceImplement implements UserService {
         }
         return filialRepository.findByIdAndStatusNot(filialId, Status.DELETED)
                 .orElseThrow(() -> new ResourceNotFoundException("Filial not found with id: " + filialId));
+    }
+
+    private boolean canManageUsers() {
+        var current = filialAccess.currentUser();
+        return current != null && current.getAuthorities().stream()
+                .anyMatch(a -> "USER_EDIT".equals(a.getAuthority()));
+    }
+
+    private boolean isCurrentUser(User target) {
+        var current = filialAccess.currentUser();
+        return current != null && current.getUser().getId().equals(target.getId());
     }
 
     private boolean isElevatedAdmin() {

@@ -28,7 +28,6 @@
     </scm>
     <properties>
         <java.version>21</java.version>
-        <skip.frontend>false</skip.frontend>
     </properties>
     <dependencies>
         <dependency>
@@ -201,73 +200,82 @@
                     </execution>
                 </executions>
             </plugin>
-
-            <!-- Build Vue (TailAdmin) frontend and pack into the JAR -->
-            <plugin>
-                <groupId>com.github.eirslett</groupId>
-                <artifactId>frontend-maven-plugin</artifactId>
-                <version>1.15.1</version>
-                <configuration>
-                    <workingDirectory>frontend</workingDirectory>
-                    <installDirectory>target</installDirectory>
-                    <skip>${skip.frontend}</skip>
-                </configuration>
-                <executions>
-                    <execution>
-                        <id>install-node-and-npm</id>
-                        <goals>
-                            <goal>install-node-and-npm</goal>
-                        </goals>
-                        <configuration>
-                            <nodeVersion>v22.14.0</nodeVersion>
-                            <npmVersion>10.9.2</npmVersion>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>npm-ci</id>
-                        <goals>
-                            <goal>npm</goal>
-                        </goals>
-                        <configuration>
-                            <arguments>ci</arguments>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>npm-build</id>
-                        <goals>
-                            <goal>npm</goal>
-                        </goals>
-                        <phase>generate-resources</phase>
-                        <configuration>
-                            <arguments>run build</arguments>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-resources-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>copy-frontend-dist</id>
-                        <phase>process-resources</phase>
-                        <goals>
-                            <goal>copy-resources</goal>
-                        </goals>
-                        <configuration>
-                            <outputDirectory>${project.build.outputDirectory}/static</outputDirectory>
-                            <resources>
-                                <resource>
-                                    <directory>${project.basedir}/frontend/dist</directory>
-                                    <filtering>false</filtering>
-                                </resource>
-                            </resources>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!-- Dev: no frontend build; run Vite (frontend) and spring-boot:run separately.
+             Prod: ./mvnw -Pprod package builds Vue and packs it into a single JAR. -->
+        <profile>
+            <id>prod</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>com.github.eirslett</groupId>
+                        <artifactId>frontend-maven-plugin</artifactId>
+                        <version>1.15.1</version>
+                        <configuration>
+                            <workingDirectory>frontend</workingDirectory>
+                            <installDirectory>target</installDirectory>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>install-node-and-npm</id>
+                                <goals>
+                                    <goal>install-node-and-npm</goal>
+                                </goals>
+                                <configuration>
+                                    <nodeVersion>v22.14.0</nodeVersion>
+                                    <npmVersion>10.9.2</npmVersion>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>npm-ci</id>
+                                <goals>
+                                    <goal>npm</goal>
+                                </goals>
+                                <configuration>
+                                    <arguments>ci</arguments>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>npm-build</id>
+                                <goals>
+                                    <goal>npm</goal>
+                                </goals>
+                                <phase>generate-resources</phase>
+                                <configuration>
+                                    <arguments>run build</arguments>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-resources-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>copy-frontend-dist</id>
+                                <phase>process-resources</phase>
+                                <goals>
+                                    <goal>copy-resources</goal>
+                                </goals>
+                                <configuration>
+                                    <outputDirectory>${project.build.outputDirectory}/static</outputDirectory>
+                                    <resources>
+                                        <resource>
+                                            <directory>${project.basedir}/frontend/dist</directory>
+                                            <filtering>false</filtering>
+                                        </resource>
+                                    </resources>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 
 </project>

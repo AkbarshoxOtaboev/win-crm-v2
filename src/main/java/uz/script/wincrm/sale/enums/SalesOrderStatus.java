@@ -10,6 +10,8 @@ public enum SalesOrderStatus {
     CONFIRMED,
     PROCESSING,
     READY,
+    /** Transport bo'limiga yuborilgan: qabul, yo'lga chiqish, sotuv menejeri tasdig'i kutilmoqda. */
+    IN_DELIVERY,
     DELIVERED,
     COMPLETED,
     CANCELLED;
@@ -20,7 +22,9 @@ public enum SalesOrderStatus {
         TRANSITIONS.put(NEW, EnumSet.of(CONFIRMED, CANCELLED));
         TRANSITIONS.put(CONFIRMED, EnumSet.of(PROCESSING, READY, CANCELLED));
         TRANSITIONS.put(PROCESSING, EnumSet.of(READY, CANCELLED));
-        TRANSITIONS.put(READY, EnumSet.of(DELIVERED, CANCELLED));
+        // READY -> DELIVERED: mijoz o'zi olib ketganda (transportsiz)
+        TRANSITIONS.put(READY, EnumSet.of(IN_DELIVERY, DELIVERED, CANCELLED));
+        TRANSITIONS.put(IN_DELIVERY, EnumSet.of(DELIVERED, CANCELLED));
         TRANSITIONS.put(DELIVERED, EnumSet.of(COMPLETED, CANCELLED));
         TRANSITIONS.put(COMPLETED, EnumSet.noneOf(SalesOrderStatus.class));
         TRANSITIONS.put(CANCELLED, EnumSet.noneOf(SalesOrderStatus.class));

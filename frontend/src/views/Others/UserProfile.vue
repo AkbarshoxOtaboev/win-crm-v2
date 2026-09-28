@@ -1,13 +1,13 @@
 <template>
   <AdminLayout>
-    <PageBreadcrumb pageTitle="Profil" />
+    <PageBreadcrumb :pageTitle="t('nav.profile')" />
 
     <div v-if="error" class="err mb-4">{{ error }}</div>
 
     <div
       class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] sm:p-6"
     >
-      <div v-if="!user" class="text-sm text-gray-500">Yuklanmoqda...</div>
+      <div v-if="!user" class="text-sm text-gray-500">{{ t('common.loading') }}</div>
 
       <div v-else class="flex flex-col gap-6 sm:flex-row sm:items-start">
         <!-- Left: avatar + picker -->
@@ -19,7 +19,7 @@
           <p class="text-center text-xs text-gray-500">@{{ user.username }}</p>
 
           <div class="mt-5 w-full">
-            <p class="mb-2 text-center text-xs font-medium text-gray-500">Default ikonka</p>
+            <p class="mb-2 text-center text-xs font-medium text-gray-500">{{ t('profile.defaultIcon') }}</p>
             <div class="flex flex-wrap justify-center gap-2">
               <button
                 v-for="icon in AVATAR_ICONS"
@@ -29,7 +29,7 @@
                 :class="{
                   active: avatarPref.mode === 'icon' && avatarPref.iconId === icon.id,
                 }"
-                :title="icon.label"
+                :title="t(`profile.icons.${icon.id}`)"
                 @click="selectIcon(icon.id)"
               >
                 <span
@@ -50,7 +50,7 @@
           <div class="mt-4 flex w-full flex-col gap-2">
             <label class="upload-btn">
               <Upload class="h-4 w-4" />
-              Rasm yuklash
+              {{ t('profile.uploadPhoto') }}
               <input
                 ref="fileInput"
                 type="file"
@@ -66,7 +66,7 @@
               :disabled="saving"
               @click="clearUpload"
             >
-              Rasmni olib tashlash
+              {{ t('profile.removePhoto') }}
             </button>
             <p v-if="avatarMsg" class="text-center text-xs" :class="avatarMsgError ? 'text-error-500' : 'text-success-600'">
               {{ avatarMsg }}
@@ -77,44 +77,44 @@
         <!-- Right: profile info -->
         <div class="min-w-0 flex-1 space-y-4 border-t border-gray-100 pt-5 sm:border-t-0 sm:border-s sm:ps-6 sm:pt-0 dark:border-gray-800">
           <div>
-            <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Shaxsiy ma’lumotlar</h3>
-            <p class="mt-1 text-sm text-gray-500">Hisob ma’lumotlari va statistika</p>
+            <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('profile.personalInfo') }}</h3>
+            <p class="mt-1 text-sm text-gray-500">{{ t('profile.personalInfoSub') }}</p>
           </div>
 
           <dl class="grid gap-3 sm:grid-cols-2">
             <div class="info-cell">
-              <dt>Login</dt>
+              <dt>{{ t('profile.login') }}</dt>
               <dd>{{ user.username }}</dd>
             </div>
             <div class="info-cell">
-              <dt>F.I.Sh</dt>
+              <dt>{{ t('common.fullName') }}</dt>
               <dd>{{ user.fullName || '—' }}</dd>
             </div>
             <div class="info-cell">
-              <dt>Telefon</dt>
+              <dt>{{ t('common.phone') }}</dt>
               <dd>{{ user.phone || '—' }}</dd>
             </div>
             <div class="info-cell">
-              <dt>Status</dt>
+              <dt>{{ t('shared.status') }}</dt>
               <dd>{{ user.status || '—' }}</dd>
             </div>
             <div class="info-cell sm:col-span-2">
-              <dt>Rollar</dt>
+              <dt>{{ t('nav.roles') }}</dt>
               <dd>{{ (user.role || []).map((r) => r.name).join(', ') || '—' }}</dd>
             </div>
           </dl>
 
           <div v-if="stats" class="grid grid-cols-3 gap-3 pt-1">
             <div class="stat-cell">
-              <span class="stat-lbl">Savdolar</span>
+              <span class="stat-lbl">{{ t('profile.sales') }}</span>
               <span class="stat-val">{{ stats.totalOrdersCount ?? '—' }}</span>
             </div>
             <div class="stat-cell">
-              <span class="stat-lbl">To‘lovlar</span>
+              <span class="stat-lbl">{{ t('profile.payments') }}</span>
               <span class="stat-val">{{ stats.totalPaidSum ?? '—' }}</span>
             </div>
             <div class="stat-cell">
-              <span class="stat-lbl">Qarz</span>
+              <span class="stat-lbl">{{ t('profile.debt') }}</span>
               <span class="stat-val">{{ stats.totalDebt ?? '—' }}</span>
             </div>
           </div>
@@ -124,7 +124,7 @@
               <h4 class="text-base font-semibold text-gray-800 dark:text-white/90">
                 {{ t('password.title') }}
               </h4>
-              <p class="mt-0.5 text-sm text-gray-500">Yangi parol kiriting yoki generatsiya qiling</p>
+              <p class="mt-0.5 text-sm text-gray-500">{{ t('profile.passwordHint') }}</p>
             </div>
             <div v-if="pwdError" class="err mb-3">{{ pwdError }}</div>
             <div v-if="pwdOk" class="ok mb-3">{{ pwdOk }}</div>
@@ -143,7 +143,7 @@
                     autocomplete="new-password"
                   />
                   <button type="button" class="ghost-btn !w-auto px-3" @click="showPassword = !showPassword">
-                    {{ showPassword ? 'Yashirish' : 'Ko‘rsatish' }}
+                    {{ showPassword ? t('profile.hide') : t('profile.show') }}
                   </button>
                   <button type="button" class="gen-btn" @click="generatePassword">
                     <Sparkles class="h-4 w-4" />
@@ -197,7 +197,7 @@ import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import {
   fetchUser,
-  fetchUsers,
+  fetchUserOptions,
   fetchUserStats,
   updateUser,
   type UserItem,
@@ -273,7 +273,7 @@ async function onChangePassword() {
     return
   }
   if (!user.value) {
-    pwdError.value = 'Foydalanuvchi topilmadi'
+    pwdError.value = t('profile.userNotFound')
     return
   }
   pwdSaving.value = true
@@ -318,7 +318,7 @@ function selectIcon(id: AvatarIconId) {
   }
   saveAvatarPreference(auth.username, next)
   avatarPref.value = next
-  avatarMsg.value = 'Ikonka tanlandi'
+  avatarMsg.value = t('profile.iconSelected')
   avatarMsgError.value = false
 }
 
@@ -329,12 +329,12 @@ async function onFileChange(e: Event) {
   if (!file || !auth.username || !user.value) return
 
   if (!file.type.startsWith('image/')) {
-    avatarMsg.value = 'Faqat rasm fayli yuklang'
+    avatarMsg.value = t('profile.imageOnly')
     avatarMsgError.value = true
     return
   }
   if (file.size > 5 * 1024 * 1024) {
-    avatarMsg.value = 'Rasm 5 MB dan oshmasin'
+    avatarMsg.value = t('profile.imageTooLarge')
     avatarMsgError.value = true
     return
   }
@@ -371,10 +371,10 @@ async function onFileChange(e: Event) {
     }
     saveAvatarPreference(auth.username, next)
     avatarPref.value = next
-    avatarMsg.value = 'Rasm saqlandi'
+    avatarMsg.value = t('profile.imageSaved')
     avatarMsgError.value = false
   } catch (err) {
-    avatarMsg.value = formatApiError(err, 'Rasm yuklanmadi')
+    avatarMsg.value = formatApiError(err, t('profile.imageUploadFailed'))
     avatarMsgError.value = true
   } finally {
     saving.value = false
@@ -391,7 +391,7 @@ function clearUpload() {
   }
   saveAvatarPreference(auth.username, next)
   avatarPref.value = next
-  avatarMsg.value = 'Default ikonkaga qaytildi'
+  avatarMsg.value = t('profile.resetToDefault')
   avatarMsgError.value = false
 }
 
@@ -399,7 +399,7 @@ onMounted(async () => {
   window.addEventListener('wincrm-avatar-changed', onAvatarEvent)
   reloadAvatar()
   try {
-    const list = await fetchUsers()
+    const list = await fetchUserOptions()
     const me = (list.data || []).find((u) => u.username === auth.username)
     if (!me) return
     user.value = (await fetchUser(me.id)).data

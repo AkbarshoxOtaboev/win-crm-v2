@@ -6,20 +6,20 @@
     <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
       <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-800">
         <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ pageTitle }}</h3>
-        <button type="button" class="btn" :disabled="writeBlocked" @click="openCreate">+ Yangi</button>
+        <button type="button" class="btn" :disabled="writeBlocked" @click="openCreate">{{ t('common.new') }}</button>
       </div>
       <div class="overflow-x-auto">
         <table class="min-w-full">
           <thead>
             <tr class="border-b border-gray-100 dark:border-gray-800">
               <th class="th">#</th>
-              <th class="th">Login</th>
-              <th class="th">F.I.Sh</th>
-              <th class="th">Telefon</th>
-              <th class="th">Status</th>
-              <th class="th">Role</th>
-              <th v-if="showFilialColumn" class="th">Filial</th>
-              <th class="th text-right whitespace-nowrap">Amallar</th>
+              <th class="th">{{ t('users.login') }}</th>
+              <th class="th">{{ t('common.fullName') }}</th>
+              <th class="th">{{ t('common.phone') }}</th>
+              <th class="th">{{ t('users.status') }}</th>
+              <th class="th">{{ t('users.role') }}</th>
+              <th v-if="showFilialColumn" class="th">{{ t('users.filial') }}</th>
+              <th class="th text-right whitespace-nowrap">{{ t('common.actions') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -29,7 +29,7 @@
               <td class="td">{{ u.fullName }}</td>
               <td class="td whitespace-nowrap">{{ u.phone ? formatUzPhone(u.phone) : '—' }}</td>
               <td class="td">
-                <button type="button" class="text-brand-500" @click="onToggle(u)">{{ u.status }}</button>
+                <button type="button" class="text-brand-500" @click="onToggle(u)">{{ statusLabel(u.status) }}</button>
               </td>
               <td class="td">{{ formatRoles(u.role) }}</td>
               <td v-if="showFilialColumn" class="td">{{ u.filialName || '—' }}</td>
@@ -53,13 +53,13 @@
               {{ editingId ? editModalTitle : createModalTitle }}
             </h3>
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              Login, telefon va rolni to‘ldiring
+              {{ t('users.modalSubtitle') }}
             </p>
           </div>
           <button
             type="button"
             class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-white/5 dark:hover:text-white/80"
-            aria-label="Yopish"
+            :aria-label="t('common.close')"
             @click="closeModal"
           >
             <X class="h-5 w-5" />
@@ -70,7 +70,7 @@
 
         <form class="space-y-4" @submit.prevent="onSave">
           <div>
-            <label for="user-username" class="lbl">Login <span class="req">*</span></label>
+            <label for="user-username" class="lbl">{{ t('users.login') }} <span class="req">*</span></label>
             <div class="relative">
               <AtSign class="field-icon" />
               <input
@@ -85,7 +85,7 @@
           </div>
 
           <div>
-            <label for="user-fullname" class="lbl">F.I.Sh <span class="req">*</span></label>
+            <label for="user-fullname" class="lbl">{{ t('common.fullName') }} <span class="req">*</span></label>
             <div class="relative">
               <User class="field-icon" />
               <input
@@ -93,14 +93,14 @@
                 v-model="form.fullName"
                 required
                 autocomplete="name"
-                placeholder="Ism familiya"
+                :placeholder="t('users.fullNamePlaceholder')"
                 class="field"
               />
             </div>
           </div>
 
           <div>
-            <label for="user-phone" class="lbl">Telefon <span class="req">*</span></label>
+            <label for="user-phone" class="lbl">{{ t('common.phone') }} <span class="req">*</span></label>
             <div class="relative">
               <Phone class="field-icon" />
               <input
@@ -116,13 +116,13 @@
                 @input="onPhoneInput"
               />
             </div>
-            <p class="mt-1 text-xs text-gray-400">Format: +998-(12)-345-67-89</p>
+            <p class="mt-1 text-xs text-gray-400">{{ t('users.phoneFormatHint') }}</p>
           </div>
 
           <div>
             <label for="user-password" class="lbl">
-              Parol <span v-if="!editingId" class="req">*</span>
-              <span v-else class="font-normal text-gray-400">(ixtiyoriy)</span>
+              {{ t('users.password') }} <span v-if="!editingId" class="req">*</span>
+              <span v-else class="font-normal text-gray-400">{{ t('users.optional') }}</span>
             </label>
             <div class="relative">
               <Lock class="field-icon" />
@@ -132,13 +132,13 @@
                 :required="!editingId"
                 :type="showPassword ? 'text' : 'password'"
                 autocomplete="new-password"
-                :placeholder="editingId ? 'O‘zgartirish uchun yangi parol' : 'Parol'"
+                :placeholder="editingId ? t('users.newPasswordPlaceholder') : t('users.password')"
                 class="field field-password"
               />
               <button
                 type="button"
                 class="absolute top-1/2 right-3 z-10 -translate-y-1/2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-                :aria-label="showPassword ? 'Parolni yashirish' : 'Parolni ko‘rish'"
+                :aria-label="showPassword ? t('users.hidePassword') : t('users.showPassword')"
                 @click="showPassword = !showPassword"
               >
                 <EyeOff v-if="showPassword" class="h-5 w-5" />
@@ -148,11 +148,11 @@
           </div>
 
           <div>
-            <label for="user-role" class="lbl">Rol <span class="req">*</span></label>
+            <label for="user-role" class="lbl">{{ t('users.roleLabel') }} <span class="req">*</span></label>
             <div class="relative">
               <Shield class="field-icon" />
               <select id="user-role" v-model.number="form.roleId" required class="field field-select">
-                <option :value="0" disabled>Rolni tanlang</option>
+                <option :value="0" disabled>{{ t('users.selectRole') }}</option>
                 <option v-for="r in assignableRoles" :key="r.id" :value="r.id">{{ r.name }}</option>
               </select>
               <ChevronDown class="pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
@@ -160,11 +160,11 @@
           </div>
 
           <div v-if="auth.superAdmin">
-            <label for="user-filial" class="lbl">Filial</label>
+            <label for="user-filial" class="lbl">{{ t('users.filial') }}</label>
             <div class="relative">
               <Building2 class="field-icon" />
               <select id="user-filial" v-model.number="form.filialId" class="field field-select">
-                <option :value="0">Filial tanlanmagan</option>
+                <option :value="0">{{ t('users.noFilial') }}</option>
                 <option v-for="f in filials" :key="f.id" :value="f.id">{{ f.name }}</option>
               </select>
               <ChevronDown class="pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
@@ -172,9 +172,9 @@
           </div>
 
           <div class="flex justify-end gap-2 pt-1">
-            <button type="button" class="ghost" @click="closeModal">Bekor</button>
+            <button type="button" class="ghost" @click="closeModal">{{ t('common.cancel') }}</button>
             <button type="submit" class="btn" :disabled="saving">
-              {{ saving ? 'Saqlanmoqda...' : 'Saqlash' }}
+              {{ saving ? t('common.saving') : t('common.save') }}
             </button>
           </div>
         </form>
@@ -185,6 +185,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { AtSign, Building2, ChevronDown, Eye, EyeOff, Lock, Phone, Shield, User, X } from 'lucide-vue-next'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
@@ -207,15 +208,16 @@ import { formatUzPhone, isCompleteUzPhone } from '@/utils/phone'
 
 const DIRECTOR_BLOCKED_ROLES = new Set(['SUPER_ADMIN', 'ADMIN', 'DIRECTOR'])
 
+const { t } = useI18n()
 const { writeBlocked } = useFilialScope()
 const auth = useAuthStore()
 const route = useRoute()
 
 const isEmployeesPage = computed(() => route.path.startsWith('/employees'))
-const pageTitle = computed(() => (isEmployeesPage.value ? 'Xodimlar' : 'Foydalanuvchilar'))
-const createModalTitle = computed(() => (isEmployeesPage.value ? 'Yangi xodim' : 'Yangi foydalanuvchi'))
-const editModalTitle = computed(() => (isEmployeesPage.value ? 'Xodimni tahrirlash' : 'Foydalanuvchini tahrirlash'))
-const emptyLabel = computed(() => (isEmployeesPage.value ? 'Xodim yo‘q' : 'Foydalanuvchi yo‘q'))
+const pageTitle = computed(() => (isEmployeesPage.value ? t('nav.employees') : t('nav.users')))
+const createModalTitle = computed(() => (isEmployeesPage.value ? t('users.newEmployee') : t('users.newUser')))
+const editModalTitle = computed(() => (isEmployeesPage.value ? t('users.editEmployee') : t('users.editUser')))
+const emptyLabel = computed(() => (isEmployeesPage.value ? t('users.noEmployees') : t('users.noUsers')))
 const showFilialColumn = computed(() => auth.superAdmin || auth.canAccessSettings)
 const emptyColspan = computed(() => (showFilialColumn.value ? 8 : 7))
 
@@ -234,6 +236,12 @@ const assignableRoles = computed(() => {
   if (!isEmployeesPage.value && auth.canAccessSettings) return roles.value
   return roles.value.filter((r) => !DIRECTOR_BLOCKED_ROLES.has(r.name))
 })
+
+function statusLabel(status?: string) {
+  if (status === 'ACTIVE') return t('common.active')
+  if (status === 'DISABLED') return t('common.inactive')
+  return status
+}
 
 function formatRoles(role?: RoleItem[]) {
   if (!role?.length) return '—'
@@ -312,7 +320,7 @@ function fd() {
 async function onSave() {
   formError.value = null
   if (!isCompleteUzPhone(form.phone)) {
-    formError.value = 'Telefon +998-(12)-345-67-89 formatida to‘liq bo‘lishi kerak'
+    formError.value = t('users.phoneFormatError')
     return
   }
   saving.value = true
@@ -329,7 +337,7 @@ async function onSave() {
 }
 
 async function onDelete(u: UserItem) {
-  if (!confirm(`“${u.username}” o‘chirilsinmi?`)) return
+  if (!confirm(t('common.deleteConfirmNamed', { name: u.username }))) return
   try {
     await deleteUser(u.id)
     await load()

@@ -1,13 +1,13 @@
 <template>
   <AdminLayout>
-    <PageBreadcrumb pageTitle="Tarix" />
+    <PageBreadcrumb :pageTitle="t('stockHistory.breadcrumb')" />
     <div class="mb-4 flex flex-wrap gap-2">
       <select v-model.number="warehouseFilter" class="field w-48" @change="load">
-        <option :value="0">Barcha omborlar</option>
+        <option :value="0">{{ t('stockHistory.allWarehouses') }}</option>
         <option v-for="w in warehouses" :key="w.id" :value="w.id">{{ w.name }}</option>
       </select>
       <select v-model.number="goodsFilter" class="field w-48" @change="load">
-        <option :value="0">Barcha mahsulotlar</option>
+        <option :value="0">{{ t('stockHistory.allGoods') }}</option>
         <option v-for="g in goodsOptions" :key="g.id" :value="g.id">{{ g.name }}</option>
       </select>
     </div>
@@ -18,16 +18,16 @@
         <thead>
           <tr class="border-b border-gray-100 dark:border-gray-800">
             <th class="th">#</th>
-            <th class="th">Mahsulot</th>
-            <th class="th">Ombor</th>
-            <th class="th">Tur</th>
-            <th class="th">Soni</th>
-            <th class="th">Sana</th>
+            <th class="th">{{ t('common.product') }}</th>
+            <th class="th">{{ t('common.warehouse') }}</th>
+            <th class="th">{{ t('common.type') }}</th>
+            <th class="th">{{ t('common.count') }}</th>
+            <th class="th">{{ t('common.date') }}</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-if="loading"><td colspan="6" class="empty">Yuklanmoqda...</td></tr>
-          <tr v-else-if="histories.length === 0"><td colspan="6" class="empty">Tarix yo‘q</td></tr>
+          <tr v-if="loading"><td colspan="6" class="empty">{{ t('common.loading') }}</td></tr>
+          <tr v-else-if="histories.length === 0"><td colspan="6" class="empty">{{ t('stockHistory.empty') }}</td></tr>
           <tr v-for="h in histories" :key="h.id" class="border-b border-gray-100 dark:border-gray-800">
             <td class="td">{{ h.id }}</td>
             <td class="td">{{ h.goodsName || h.goodsId }}</td>
@@ -44,6 +44,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import {
@@ -57,6 +58,7 @@ import { fetchGoods, type Goods } from '@/api/goods'
 import { formatApiError } from '@/api/http'
 import { formatDate } from '@/utils/format'
 
+const { t } = useI18n()
 const histories = ref<StockHistory[]>([])
 const warehouses = ref<Warehouse[]>([])
 const goodsOptions = ref<Goods[]>([])

@@ -1,24 +1,24 @@
 <template>
   <AdminLayout>
-    <PageBreadcrumb pageTitle="Inventarizatsiya" />
+    <PageBreadcrumb :pageTitle="t('nav.inventory')" />
     <div class="mb-4 flex gap-2">
       <select v-model.number="startWarehouseId" class="field w-56">
-        <option :value="0" disabled>Ombor</option>
+        <option :value="0" disabled>{{ t('common.warehouse') }}</option>
         <option v-for="w in warehouses" :key="w.id" :value="w.id">{{ w.name }}</option>
       </select>
-      <input v-model="startComment" class="field w-56" placeholder="Izoh" />
-      <button type="button" class="btn" :disabled="writeBlocked" @click="onStart">Boshlash</button>
+      <input v-model="startComment" class="field w-56" :placeholder="t('common.comment')" />
+      <button type="button" class="btn" :disabled="writeBlocked" @click="onStart">{{ t('inventory.start') }}</button>
     </div>
     <div v-if="error" class="err mb-4">{{ error }}</div>
     <div class="card mb-4">
       <table class="min-w-full">
         <thead>
           <tr class="border-b border-gray-100">
-            <th class="th">#</th><th class="th">Ombor</th><th class="th">Holat</th><th class="th">Sana</th><th class="th text-right">Amallar</th>
+            <th class="th">#</th><th class="th">{{ t('common.warehouse') }}</th><th class="th">{{ t('common.status') }}</th><th class="th">{{ t('common.date') }}</th><th class="th text-right">{{ t('common.actions') }}</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-if="loading"><td colspan="5" class="empty">Yuklanmoqda...</td></tr>
+          <tr v-if="loading"><td colspan="5" class="empty">{{ t('common.loading') }}</td></tr>
           <tr v-for="c in checks" :key="c.id" class="border-b border-gray-100">
             <td class="td"><button type="button" class="text-brand-500" @click="openCheck(c.id)">#{{ c.id }}</button></td>
             <td class="td">{{ c.warehouseName || c.warehouseId }}</td>
@@ -26,8 +26,8 @@
             <td class="td">{{ formatDate(c.createdAt) }}</td>
             <td class="td text-right">
               <div class="inline-flex items-center justify-end gap-1.5">
-                <button v-if="c.checkStatus === 'IN_PROGRESS'" type="button" class="ghost" @click="onConfirm(c.id)">Tasdiqlash</button>
-                <button v-if="c.checkStatus === 'IN_PROGRESS'" type="button" class="ghost" @click="onCancel(c.id)">Bekor</button>
+                <button v-if="c.checkStatus === 'IN_PROGRESS'" type="button" class="ghost" @click="onConfirm(c.id)">{{ t('common.confirm') }}</button>
+                <button v-if="c.checkStatus === 'IN_PROGRESS'" type="button" class="ghost" @click="onCancel(c.id)">{{ t('common.cancel') }}</button>
                 <RowActions :edit="false" @delete="onDelete(c.id)" />
               </div>
             </td>
@@ -37,9 +37,9 @@
     </div>
 
     <div v-if="current" class="card">
-      <div class="head"><h3 class="title">Inventar #{{ current.id }} — {{ current.checkStatus }}</h3></div>
+      <div class="head"><h3 class="title">{{ t('inventory.checkTitle', { id: current.id, status: current.checkStatus }) }}</h3></div>
       <table class="min-w-full">
-        <thead><tr class="border-b border-gray-100"><th class="th">Mahsulot</th><th class="th">Tizim</th><th class="th">Haqiqiy</th><th class="th">Farq</th></tr></thead>
+        <thead><tr class="border-b border-gray-100"><th class="th">{{ t('common.product') }}</th><th class="th">{{ t('inventory.system') }}</th><th class="th">{{ t('inventory.actual') }}</th><th class="th">{{ t('inventory.difference') }}</th></tr></thead>
         <tbody>
           <tr v-for="it in current.items || []" :key="it.id" class="border-b border-gray-100">
             <td class="td">{{ it.goodsName || it.goodsId }}</td>
@@ -63,6 +63,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import RowActions from '@/components/crm/RowActions.vue'
@@ -81,6 +82,7 @@ import { formatApiError } from '@/api/http'
 import { useFilialScope } from '@/composables/useFilialScope'
 import { formatDate } from '@/utils/format'
 
+const { t } = useI18n()
 const { writeBlocked } = useFilialScope()
 const checks = ref<InventoryCheck[]>([])
 const current = ref<InventoryCheck | null>(null)
@@ -134,7 +136,7 @@ async function onActual(itemId: number, actualCount: number) {
 }
 
 async function onConfirm(id: number) {
-  if (!confirm('Farqlar qoldiqqa qo‘llansinmi?')) return
+  if (!confirm(t('inventory.confirmApply'))) return
   try {
     await confirmInventoryCheck(id)
     await load()
@@ -154,7 +156,7 @@ async function onCancel(id: number) {
 }
 
 async function onDelete(id: number) {
-  if (!confirm('O‘chirilsinmi?')) return
+  if (!confirm(t('common.deleteConfirm'))) return
   try {
     await deleteInventoryCheck(id)
     if (current.value?.id === id) current.value = null
