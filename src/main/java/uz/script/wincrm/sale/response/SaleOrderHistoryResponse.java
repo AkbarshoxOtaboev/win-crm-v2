@@ -32,6 +32,9 @@ public class SaleOrderHistoryResponse {
     @Schema(description = "Full name of the user who changed the status", example = "Ali Valiyev")
     private String changedByUserFullName;
 
+    @Schema(description = "Username of the user who changed the status", example = "ali")
+    private String changedByUsername;
+
     @Schema(description = "Optional comment about the status change")
     private String comment;
 

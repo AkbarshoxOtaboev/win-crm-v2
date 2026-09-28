@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
+import uz.script.wincrm.sale.enums.DeliveryType;
 import uz.script.wincrm.sale.enums.DiscountType;
 import uz.script.wincrm.sale.enums.SalesOrderStatus;
 import uz.script.wincrm.utils.Status;
@@ -62,8 +63,14 @@ public class SaleOrderResponse {
     @Schema(description = "Hisoblangan aniq chegirma summasi", example = "500.00")
     private BigDecimal discountAmount;
 
-    @Schema(description = "Chegirma qo'llangandan keyingi yakuniy summa", example = "4500.00")
+    @Schema(description = "Yakuniy summa: asl summa - chegirma + yetkazib berish haqi", example = "4500.00")
     private BigDecimal totalSum;
+
+    @Schema(description = "Yetkazib berish turi (null - belgilanmagan eski buyurtma)", example = "DELIVERY")
+    private DeliveryType deliveryType;
+
+    @Schema(description = "Yetkazib berish xizmati haqi", example = "150000")
+    private BigDecimal deliveryFee;
 
     @Schema(description = "Paid sum of the sale order", example = "3000.00")
     private BigDecimal paidSum;

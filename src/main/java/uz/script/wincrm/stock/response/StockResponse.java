@@ -52,6 +52,12 @@ public class StockResponse {
     @Schema(description = "Quantity in square meters (only for WINDOW)", example = "23.4")
     private BigDecimal kvm;
 
+    @Schema(description = "Average arrival (cost) price per unit (kv.m for WINDOW)", example = "85000")
+    private BigDecimal priceCost;
+
+    @Schema(description = "Stock value by arrival price: count × priceCost", example = "1989000")
+    private BigDecimal totalCost;
+
     @Schema(description = "Current stock status", example = "ACTIVE", implementation = Status.class)
     private Status status;
 

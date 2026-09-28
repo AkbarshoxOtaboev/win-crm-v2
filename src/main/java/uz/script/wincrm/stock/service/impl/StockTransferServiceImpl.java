@@ -60,11 +60,14 @@ public class StockTransferServiceImpl implements StockTransferService {
                     request.getCount());
         }
 
+        BigDecimal unitCost = stockService.getUnitCost(request.getGoodsId(), request.getFromWarehouseId());
+
         // Manba ombordan chiqim -> StockHistory OUT avtomatik yoziladi
         stockService.decreaseStock(request.getGoodsId(), request.getFromWarehouseId(), request.getCount());
 
         // Maqsad omborga kirim -> StockHistory IN avtomatik yoziladi
-        stockService.increaseStock(request.getGoodsId(), request.getToWarehouseId(), request.getCount());
+        stockService.increaseStock(request.getGoodsId(), request.getToWarehouseId(), request.getCount(),
+                request.getCount(), unitCost);
 
         StockTransfer transfer = StockTransfer.builder()
                 .goods(goods)

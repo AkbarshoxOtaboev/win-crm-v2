@@ -19,4 +19,7 @@ public class PaymentTypeDTO {
     @NotBlank(message = "Payment type name is required")
     @Schema(description = "Payment type name", example = "Naqd pul", requiredMode = Schema.RequiredMode.REQUIRED)
     private String name;
+
+    @Schema(description = "Icon key: CASH, CARD, ONLINE, BANK, TRANSFER, WALLET", example = "CASH")
+    private String icon;
 }

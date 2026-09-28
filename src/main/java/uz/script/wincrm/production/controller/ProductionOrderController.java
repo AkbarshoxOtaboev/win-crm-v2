@@ -57,6 +57,16 @@ public class ProductionOrderController {
                 .build());
     }
 
+    @GetMapping("/by-sale-order/{saleOrderId}")
+    @PreAuthorize("hasAuthority('PRODUCTION_ORDER_VIEW')")
+    @Operation(summary = "Get production order (with workshop route) of a sale order; data is null if not sent yet")
+    public ResponseEntity<?> findBySaleOrder(@PathVariable Long saleOrderId) {
+        return ResponseEntity.ok(RestApiResponse.<ProductionOrderResponse>builder()
+                .message("Production order fetched")
+                .data(service.findBySaleOrderId(saleOrderId))
+                .build());
+    }
+
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('PRODUCTION_ORDER_VIEW')")
     @Operation(summary = "Get production order")

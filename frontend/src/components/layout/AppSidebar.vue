@@ -353,6 +353,19 @@ const rawMenuGroups = computed<MenuGroup[]>(() => {
     ]
   }
 
+  if (auth.isCashierOnly) {
+    return [
+      {
+        title: t('nav.main'),
+        items: [
+          { icon: PieChartIcon, name: t('nav.payments'), path: '/payments' },
+          { icon: UserGroupIcon, name: t('nav.clients'), path: '/clients' },
+          { icon: UserCircleIcon, name: t('nav.profile'), path: '/profile' },
+        ],
+      },
+    ]
+  }
+
   return [
   {
     title: t('nav.main'),
@@ -379,6 +392,7 @@ const rawMenuGroups = computed<MenuGroup[]>(() => {
         name: t('nav.suppliers'),
         subItems: [
           { name: t('nav.suppliersList'), path: '/suppliers', icon: ClipboardList, exact: true, perm: ['SUPPLIER_VIEW'] },
+          { name: t('nav.inbound'), path: '/warehouse-orders', icon: ClipboardList, perm: ['WAREHOUSE_ORDER_VIEW'] },
           { name: t('nav.suppliersBalance'), path: '/suppliers/balances', icon: PieChartIcon, perm: ['SUPPLIER_BALANCE_VIEW'] },
         ],
       },
@@ -387,7 +401,6 @@ const rawMenuGroups = computed<MenuGroup[]>(() => {
         name: t('nav.warehouseMenu'),
         subItems: [
           { name: t('nav.goods'), path: '/goods', icon: BoxIcon, perm: ['GOODS_VIEW'] },
-          { name: t('nav.inbound'), path: '/warehouse-orders', icon: ClipboardList, perm: ['WAREHOUSE_ORDER_VIEW'] },
           { name: t('nav.stock'), path: '/stock', icon: Box, exact: true, perm: ['STOCK_VIEW'] },
           { name: t('nav.stockHistory'), path: '/stock/history', icon: History, perm: ['STOCK_HISTORIES_VIEW'] },
           { name: t('nav.inventory'), path: '/inventory', icon: Files, perm: ['INVENTORY_VIEW'] },

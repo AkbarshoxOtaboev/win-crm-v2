@@ -65,18 +65,6 @@
           </label>
 
           <label class="lbl min-w-0 flex-1">
-            {{ t('common.comment') }}
-            <input
-              v-model="form.comment"
-              type="text"
-              class="field"
-              :placeholder="t('saleOrderCreate.commentPlaceholder')"
-            />
-          </label>
-        </div>
-
-        <div class="form-row mt-3">
-          <label class="lbl min-w-0 w-full sm:w-72 sm:flex-none">
             {{ t('saleOrderCreate.orderSumRequired') }}
             <input
               :value="totalSumText"
@@ -86,10 +74,60 @@
               @input="onTotalSumInput"
             />
           </label>
-          <p class="total-hint">
-            {{ t('saleOrderCreate.orderSumHint') }}
-          </p>
         </div>
+        <p class="total-hint mt-1.5">{{ t('saleOrderCreate.orderSumHint') }}</p>
+
+        <div class="delivery-block mt-4">
+          <span class="lbl">{{ t('saleOrderCreate.deliveryTitle') }}</span>
+          <div class="delivery-row">
+            <div class="delivery-options">
+              <button
+                type="button"
+                class="delivery-opt"
+                :class="{ active: form.deliveryType === 'PICKUP' }"
+                @click="setDeliveryType('PICKUP')"
+              >
+                <PackageCheck class="h-5 w-5 flex-shrink-0" />
+                <span class="text-left">
+                  <span class="opt-title">{{ t('saleOrderCreate.pickup') }}</span>
+                  <span class="opt-sub">{{ t('saleOrderCreate.pickupHint') }}</span>
+                </span>
+              </button>
+              <button
+                type="button"
+                class="delivery-opt"
+                :class="{ active: form.deliveryType === 'DELIVERY' }"
+                @click="setDeliveryType('DELIVERY')"
+              >
+                <Truck class="h-5 w-5 flex-shrink-0" />
+                <span class="text-left">
+                  <span class="opt-title">{{ t('saleOrderCreate.delivery') }}</span>
+                  <span class="opt-sub">{{ t('saleOrderCreate.deliveryHint') }}</span>
+                </span>
+              </button>
+            </div>
+            <label v-if="form.deliveryType === 'DELIVERY'" class="lbl min-w-0 w-full sm:w-64 sm:flex-none">
+              {{ t('saleOrderCreate.deliveryFee') }}
+              <input
+                :value="deliveryFeeText"
+                inputmode="decimal"
+                class="field total-field"
+                placeholder="0"
+                @input="onDeliveryFeeInput"
+              />
+            </label>
+          </div>
+        </div>
+
+        <label class="lbl mt-4">
+          {{ t('common.comment') }}
+          <textarea
+            v-model="form.comment"
+            rows="2"
+            class="field textarea-field"
+            :placeholder="t('saleOrderCreate.commentPlaceholder')"
+          />
+        </label>
 
         <div v-if="form.clientId > 0" class="client-summary">
           <div class="summary-item">
@@ -241,8 +279,15 @@
         <div class="save-info">
           <span v-if="saveBlockReason" class="save-warn">{{ saveBlockReason }}</span>
           <template v-else>
-            <span class="save-label">{{ t('saleOrderCreate.orderSum') }}</span>
-            <span class="save-total">{{ money(form.totalSum) }}</span>
+            <template v-if="deliveryFeeValue > 0">
+              <span class="save-label">{{ t('saleOrderCreate.orderSum') }}</span>
+              <span class="save-part">{{ money(form.totalSum) }}</span>
+              <span class="save-label">+ {{ t('saleOrderCreate.deliveryFeeShort') }}</span>
+              <span class="save-part">{{ money(deliveryFeeValue) }}</span>
+              <span class="save-label">=</span>
+            </template>
+            <span v-else class="save-label">{{ t('saleOrderCreate.orderSum') }}</span>
+            <span class="save-total">{{ money(grandTotal) }}</span>
           </template>
         </div>
         <div class="flex gap-2">
@@ -309,7 +354,8 @@ import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import SearchableSelect from '@/components/crm/SearchableSelect.vue'
-import { createSaleOrder } from '@/api/sales'
+import { PackageCheck, Truck } from 'lucide-vue-next'
+import { createSaleOrder, type DeliveryType } from '@/api/sales'
 import { fetchWarehouses, type Warehouse } from '@/api/warehouses'
 import { createClient, fetchClients, type Client } from '@/api/clients'
 import { fetchClientBalance, type ClientBalance } from '@/api/clientBalances'
@@ -318,7 +364,7 @@ import { fetchGoods, type Goods } from '@/api/goods'
 import { fetchStocksByWarehouse, type Stock } from '@/api/stocks'
 import { useAuthStore } from '@/stores/auth'
 import { formatApiError } from '@/api/http'
-import { money } from '@/utils/format'
+import { formatAmountInput, money } from '@/utils/format'
 import { formatUzPhone, isCompleteUzPhone } from '@/utils/phone'
 
 const { t } = useI18n()
@@ -366,9 +412,26 @@ const form = reactive({
   orderDate: todayLocal(),
   comment: '',
   totalSum: 0,
+  deliveryType: 'PICKUP' as DeliveryType,
+  deliveryFee: 0,
 })
 
 const totalSumText = ref('')
+const deliveryFeeText = ref('')
+const deliveryFeeValue = computed(() => (form.deliveryType === 'DELIVERY' ? form.deliveryFee : 0))
+const grandTotal = computed(() => form.totalSum + deliveryFeeValue.value)
+
+function setDeliveryType(type: DeliveryType) {
+  form.deliveryType = type
+}
+
+function onDeliveryFeeInput(e: Event) {
+  const el = e.target as HTMLInputElement
+  const { text, value } = formatAmountInput(el.value)
+  deliveryFeeText.value = text
+  el.value = text
+  form.deliveryFee = value
+}
 
 function onTotalSumInput(e: Event) {
   const el = e.target as HTMLInputElement
@@ -682,6 +745,8 @@ async function onSave() {
       totalSum: form.totalSum,
       clientId: form.clientId,
       comment: form.comment.trim() || undefined,
+      deliveryType: form.deliveryType,
+      deliveryFee: deliveryFeeValue.value,
       items: draftItems.value.map((d) => ({
         goodsId: d.goodsId,
         priceCost: d.priceCost,
@@ -807,7 +872,24 @@ async function onCreateClient() {
 .dark .summary-value.debt { color: #f87171; }
 .dark .summary-note { color: #fbbf24; }
 .total-field { font-size: 1rem; font-weight: 600; }
-.total-hint { align-self: center; font-size: 0.75rem; color: #6b7280; }
+.total-hint { font-size: 0.75rem; color: #6b7280; }
+.textarea-field { height: auto; min-height: 4rem; padding: 0.6rem 0.75rem; resize: vertical; line-height: 1.4; }
+.delivery-block { display: flex; flex-direction: column; gap: 0.35rem; }
+.delivery-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.75rem; }
+.delivery-options { display: grid; flex: 1 1 28rem; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; }
+.delivery-opt { display: flex; align-items: center; gap: 0.75rem; min-height: 3.5rem; border-radius: 0.75rem; border: 1px solid #d1d5db; background: #fff; padding: 0.6rem 0.9rem; color: #6b7280; transition: border-color .15s, background-color .15s, color .15s; }
+.delivery-opt:hover { border-color: #9cb0ff; }
+.delivery-opt.active { border-color: #465fff; background: #eff4ff; color: #465fff; box-shadow: 0 0 0 3px rgb(70 95 255 / 10%); }
+.opt-title { display: block; font-size: 0.875rem; font-weight: 600; color: #1f2937; }
+.opt-sub { display: block; font-size: 0.75rem; color: #6b7280; }
+.delivery-opt.active .opt-title { color: #465fff; }
+.save-part { font-weight: 600; color: #374151; }
+.dark .delivery-opt { border-color: #344054; background: transparent; color: #9ca3af; }
+.dark .delivery-opt.active { border-color: #7592ff; background: rgb(70 95 255 / 12%); color: #9cb0ff; }
+.dark .opt-title { color: rgba(255, 255, 255, 0.9); }
+.dark .delivery-opt.active .opt-title { color: #9cb0ff; }
+.dark .opt-sub { color: #9ca3af; }
+.dark .save-part { color: rgba(255, 255, 255, 0.8); }
 .stock-hint { margin-top: 0.5rem; font-size: 0.75rem; color: #6b7280; }
 .save-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem; }
 .save-info { display: flex; align-items: baseline; gap: 0.5rem; font-size: 0.875rem; }
@@ -824,5 +906,6 @@ async function onCreateClient() {
   .form-row > * { flex: 1 1 100%; }
   .client-summary { grid-template-columns: 1fr; }
   .client-row { flex-direction: column; }
+  .delivery-options { grid-template-columns: 1fr; }
 }
 </style>

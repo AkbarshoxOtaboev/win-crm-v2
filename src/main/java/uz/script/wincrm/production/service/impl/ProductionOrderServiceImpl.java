@@ -39,6 +39,7 @@ import uz.script.wincrm.workshop.repository.WorkshopRepository;
 import uz.script.wincrm.workshop.service.WorkshopBalanceService;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -73,7 +74,8 @@ public class ProductionOrderServiceImpl implements ProductionOrderService {
             throw new BadRequestException("Bu buyurtma allaqachon ishlab chiqarishga yuborilgan");
         }
 
-        Workshop workshop = getActiveWorkshop(dto.getWorkshopId());
+        List<Workshop> route = resolveRoute(dto);
+        Workshop workshop = route.get(0);
         User actor = currentUser();
         LocalDateTime now = LocalDateTime.now();
 
@@ -87,6 +89,7 @@ public class ProductionOrderServiceImpl implements ProductionOrderService {
                 .productionStatus(ProductionOrderStatus.QUEUED)
                 .currentWorkshop(workshop)
                 .note(dto.getNote())
+                .route(route)
                 .status(Status.ACTIVE)
                 .build();
         order = productionOrderRepository.save(order);
@@ -110,6 +113,13 @@ public class ProductionOrderServiceImpl implements ProductionOrderService {
     @Override
     public ProductionOrderResponse findById(Long id) {
         return toResponse(getOrder(id));
+    }
+
+    @Override
+    public ProductionOrderResponse findBySaleOrderId(Long saleOrderId) {
+        return productionOrderRepository.findBySaleOrder_Id(saleOrderId)
+                .map(this::toResponse)
+                .orElse(null);
     }
 
     @Override
@@ -197,6 +207,11 @@ public class ProductionOrderServiceImpl implements ProductionOrderService {
             throw new BadRequestException("Keyingi sex joriydan farq qilishi kerak");
         }
 
+        moveToNextWorkshop(order, current, next, dto.getNote());
+        return toResponse(order);
+    }
+
+    private void moveToNextWorkshop(ProductionOrder order, ProductionAssignment current, Workshop next, String note) {
         LocalDateTime now = LocalDateTime.now();
         User actor = currentUser();
 
@@ -205,13 +220,13 @@ public class ProductionOrderServiceImpl implements ProductionOrderService {
         }
         current.setAssignmentStatus(ProductionAssignmentStatus.DONE);
         current.setFinishedAt(now);
-        if (dto.getNote() != null && !dto.getNote().isBlank()) {
-            current.setNote(dto.getNote());
+        if (note != null && !note.isBlank()) {
+            current.setNote(note);
         }
         assignmentRepository.save(current);
 
         recordEvent(order, ProductionEventType.FINISHED, null, current.getWorkshop(),
-                actor, now, dto.getNote());
+                actor, now, note);
 
         workshopBalanceService.creditForAssignment(current, WorkshopBalanceEventType.FINISH);
 
@@ -236,11 +251,9 @@ public class ProductionOrderServiceImpl implements ProductionOrderService {
         productionOrderRepository.save(order);
 
         recordEvent(order, ProductionEventType.REDIRECTED, current.getWorkshop(), next,
-                actor, now, dto.getNote());
+                actor, now, note);
         recordEvent(order, ProductionEventType.ASSIGNED, current.getWorkshop(), next,
                 actor, now, null);
-
-        return toResponse(order);
     }
 
     @Override
@@ -255,9 +268,16 @@ public class ProductionOrderServiceImpl implements ProductionOrderService {
         }
 
         ProductionAssignment current = getOpenAssignment(order.getId());
+        String note = dto != null ? dto.getNote() : null;
+
+        Workshop plannedNext = plannedNextWorkshop(order, current);
+        if (plannedNext != null) {
+            moveToNextWorkshop(order, current, getActiveWorkshop(plannedNext.getId()), note);
+            return toResponse(order);
+        }
+
         LocalDateTime now = LocalDateTime.now();
         User actor = currentUser();
-        String note = dto != null ? dto.getNote() : null;
 
         if (current.getAssignmentStatus() == ProductionAssignmentStatus.PENDING) {
             current.setStartedAt(now);
@@ -312,6 +332,86 @@ public class ProductionOrderServiceImpl implements ProductionOrderService {
             throw new BadRequestException("Sex faol emas: " + workshop.getName());
         }
         return workshop;
+    }
+
+    private List<Workshop> resolveRoute(SendToProductionDTO dto) {
+        List<Long> ids = dto.getWorkshopIds() != null && !dto.getWorkshopIds().isEmpty()
+                ? dto.getWorkshopIds()
+                : (dto.getWorkshopId() != null ? List.of(dto.getWorkshopId()) : List.of());
+        if (ids.isEmpty()) {
+            throw new BadRequestException("Kamida bitta sex tanlang");
+        }
+        List<Workshop> route = new ArrayList<>();
+        for (Long workshopId : ids) {
+            if (workshopId == null) {
+                throw new BadRequestException("Sexlar ketma-ketligida bo'sh qadam bor");
+            }
+            Workshop workshop = getActiveWorkshop(workshopId);
+            if (!route.isEmpty() && route.get(route.size() - 1).getId().equals(workshop.getId())) {
+                throw new BadRequestException("Bir xil sex ketma-ket ikki marta tanlanmasligi kerak: " + workshop.getName());
+            }
+            route.add(workshop);
+        }
+        return route;
+    }
+
+    /**
+     * Joriy sexdan keyingi rejalashtirilgan sex. Joriy assignment sequenceNo'si marshrutdagi
+     * keyingi qadam indeksiga teng (1-qadam tugasa - 2-qadam, ya'ni index 1).
+     */
+    private Workshop plannedNextWorkshop(ProductionOrder order, ProductionAssignment current) {
+        List<Workshop> route = order.getRoute();
+        if (route == null || route.isEmpty()) {
+            return null;
+        }
+        int idx = current.getSequenceNo() != null ? current.getSequenceNo() : route.size();
+        Long currentWorkshopId = current.getWorkshop().getId();
+        while (idx < route.size() && route.get(idx).getId().equals(currentWorkshopId)) {
+            idx++;
+        }
+        return idx < route.size() ? route.get(idx) : null;
+    }
+
+    private List<ProductionOrderResponse.RouteStep> buildRoute(ProductionOrder order, ProductionAssignment open) {
+        List<Workshop> route = order.getRoute();
+        if (route == null || route.isEmpty()) {
+            return List.of();
+        }
+        boolean done = order.getProductionStatus() == ProductionOrderStatus.DONE;
+        int currentIdx = -1;
+        int doneBefore;
+        if (open != null) {
+            int base = open.getSequenceNo() != null ? open.getSequenceNo() - 1 : 0;
+            for (int i = Math.max(base, 0); i < route.size(); i++) {
+                if (route.get(i).getId().equals(open.getWorkshop().getId())) {
+                    currentIdx = i;
+                    break;
+                }
+            }
+            doneBefore = currentIdx >= 0 ? currentIdx : base;
+        } else {
+            doneBefore = assignmentRepository.countByProductionOrder_Id(order.getId());
+        }
+
+        List<ProductionOrderResponse.RouteStep> steps = new ArrayList<>();
+        for (int i = 0; i < route.size(); i++) {
+            String state;
+            if (done || i < doneBefore) {
+                state = "DONE";
+            } else if (i == currentIdx) {
+                state = "CURRENT";
+            } else {
+                state = "PLANNED";
+            }
+            Workshop w = route.get(i);
+            steps.add(ProductionOrderResponse.RouteStep.builder()
+                    .stepNo(i + 1)
+                    .workshopId(w.getId())
+                    .workshopName(w.getName())
+                    .state(state)
+                    .build());
+        }
+        return steps;
     }
 
     private ProductionAssignment getOpenAssignment(Long productionOrderId) {
@@ -384,7 +484,11 @@ public class ProductionOrderServiceImpl implements ProductionOrderService {
                 .orElse(null);
 
         Workshop workshop = order.getCurrentWorkshop();
+        Workshop next = current != null ? plannedNextWorkshop(order, current) : null;
         return ProductionOrderResponse.builder()
+                .route(buildRoute(order, current))
+                .nextWorkshopId(next != null ? next.getId() : null)
+                .nextWorkshopName(next != null ? next.getName() : null)
                 .id(order.getId())
                 .saleOrderId(saleOrder != null ? saleOrder.getId() : null)
                 .clientFullName(clientName)

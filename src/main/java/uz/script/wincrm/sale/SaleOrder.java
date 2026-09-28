@@ -10,6 +10,7 @@ import org.hibernate.annotations.SQLRestriction;
 import uz.script.wincrm.clients.Client;
 import uz.script.wincrm.filial.FilialScopedEntity;
 import uz.script.wincrm.payment.Payment;
+import uz.script.wincrm.sale.enums.DeliveryType;
 import uz.script.wincrm.sale.enums.DiscountType;
 import uz.script.wincrm.sale.enums.SalesOrderStatus;
 import uz.script.wincrm.users.User;
@@ -102,6 +103,17 @@ public class SaleOrder extends FilialScopedEntity {
     @Column(nullable = false)
     private BigDecimal totalSum;
 
+    /** null - eski buyurtmalar (tur belgilanmagan, avvalgidek transport orqali ishlaydi). */
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private DeliveryType deliveryType;
+
+    /**
+     * Yetkazib berish xizmati haqi. totalSum'ga chegirmadan KEYIN qo'shiladi:
+     * totalSum = originalTotalSum - discountAmount + deliveryFee.
+     */
+    private BigDecimal deliveryFee;
+
     private BigDecimal paidSum;
 
     private BigDecimal debtSum;
@@ -125,4 +137,14 @@ public class SaleOrder extends FilialScopedEntity {
 
     @OneToMany(mappedBy = "saleOrder")
     private List<SaleOrderImage> saleOrderImages;
+
+    public BigDecimal deliveryFeeOrZero() {
+        return deliveryFee != null ? deliveryFee : BigDecimal.ZERO;
+    }
+
+    /** Sex haqi kabi foizli hisob-kitoblar uchun asos: yetkazib berish haqisiz yakuniy summa. */
+    public BigDecimal totalSumWithoutDelivery() {
+        BigDecimal total = totalSum != null ? totalSum : BigDecimal.ZERO;
+        return total.subtract(deliveryFeeOrZero());
+    }
 }

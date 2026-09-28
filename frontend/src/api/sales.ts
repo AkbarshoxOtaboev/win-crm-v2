@@ -16,11 +16,15 @@ export interface SaleOrder {
   discountValue?: number
   discountAmount?: number
   totalSum?: number
+  deliveryType?: DeliveryType | null
+  deliveryFee?: number | null
   paidSum?: number
   debtSum?: number
   status?: string
   orderStatus?: string
 }
+
+export type DeliveryType = 'DELIVERY' | 'PICKUP'
 
 export interface SaleOrderPayload {
   warehouseId: number
@@ -29,6 +33,8 @@ export interface SaleOrderPayload {
   totalSum: number
   clientId?: number | null
   comment?: string
+  deliveryType?: DeliveryType
+  deliveryFee?: number
 }
 
 export interface SaleOrderInitialItem {
@@ -104,8 +110,10 @@ export interface SaleOrderHistory {
   id: number
   fromStatus?: string
   toStatus?: string
-  createdAt?: string
-  createdUsername?: string
+  changedAt?: string
+  changedByUserId?: number | null
+  changedByUserFullName?: string | null
+  changedByUsername?: string | null
   comment?: string
 }
 

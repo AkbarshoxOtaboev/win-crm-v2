@@ -3,11 +3,13 @@ package uz.script.wincrm.sale.dto;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import uz.script.wincrm.sale.enums.DeliveryType;
 import uz.script.wincrm.sale.enums.DiscountType;
 
 import java.math.BigDecimal;
@@ -66,6 +68,14 @@ public class SaleOrderDTO {
 
     @Schema(description = "Boshlang'ich chegirma qiymati (ixtiyoriy)", example = "10")
     private BigDecimal discountValue;
+
+    @Schema(description = "Yetkazib berish turi: DELIVERY (yetkazib berish xizmati) yoki PICKUP (mijoz o'zi olib ketadi)",
+            example = "DELIVERY")
+    private DeliveryType deliveryType;
+
+    @Schema(description = "Yetkazib berish xizmati haqi (faqat DELIVERY uchun, totalSum'ga qo'shiladi)", example = "150000")
+    @PositiveOrZero(message = "Yetkazib berish haqi manfiy bo'lishi mumkin emas")
+    private BigDecimal deliveryFee;
 
     /**
      * Faqat create uchun: buyurtma bilan birga bitta tranzaksiyada yaratiladigan pozitsiyalar.

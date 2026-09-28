@@ -168,7 +168,7 @@ public class WarehouseOrderServiceImpl implements WarehouseOrderService {
         BigDecimal itemsTotal = warehouseOrderItemRepository.findAllByWarehouseOrderId(id)
                 .stream()
                 .filter(i -> i.getStatus() == Status.ACTIVE)
-                .map(i -> i.getPriceSelling().multiply(i.getCount()))
+                .map(i -> i.getPriceCost().multiply(i.getCount()))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal newServiceFee = order.getServiceFee() != null ? order.getServiceFee() : BigDecimal.ZERO;
         BigDecimal newTotalSum = itemsTotal.add(newServiceFee);
@@ -267,7 +267,8 @@ public class WarehouseOrderServiceImpl implements WarehouseOrderService {
                     item.getGoods().getId(),
                     item.getWarehouse().getId(),
                     item.getCount(),
-                    pieces);
+                    pieces,
+                    item.getPriceCost());
         }
 
         order.setOrderStatus(WarehouseOrderStatus.TRANSFERRED);

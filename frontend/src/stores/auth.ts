@@ -62,6 +62,14 @@ export const useAuthStore = defineStore('auth', () => {
       roles.value.includes('TRANSPORT_MANAGER'),
   )
 
+  /** Faqat to'lov kirituvchi (CASHIER) — boshqa ish rollari bo'lmasa */
+  const isCashierOnly = computed(
+    () =>
+      !isElevated.value &&
+      roles.value.includes('CASHIER') &&
+      !roles.value.some((r) => ['SELLER', 'PRODUCTION_MANAGER', 'TRANSPORT_MANAGER'].includes(r)),
+  )
+
   const canAccessTransport = computed(
     () => isElevated.value || roles.value.includes('TRANSPORT_MANAGER'),
   )
@@ -187,6 +195,7 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated,
     isProductionManagerOnly,
     isTransportManagerOnly,
+    isCashierOnly,
     canAccessTransport,
     canApproveTransportSalary,
     canAccessSettings,

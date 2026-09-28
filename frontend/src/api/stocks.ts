@@ -14,6 +14,8 @@ export interface Stock {
   count?: number
   pieceCount?: number
   kvm?: number
+  priceCost?: number | null
+  totalCost?: number | null
   status?: string
 }
 

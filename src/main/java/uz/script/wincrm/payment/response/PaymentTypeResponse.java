@@ -20,6 +20,9 @@ public class PaymentTypeResponse {
     @Schema(description = "Payment type name", example = "Naqd pul")
     private String name;
 
+    @Schema(description = "Icon key", example = "CASH")
+    private String icon;
+
     @Schema(description = "Current status", example = "ACTIVE")
     private Status status;
 

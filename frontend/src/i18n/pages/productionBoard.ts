@@ -11,6 +11,8 @@ export default {
     redirectError: 'Yo‘naltirishda xatolik',
     completeError: 'Yakunlashda xatolik',
     completeConfirm: '#{id} ishlab chiqarish yakunlansinmi?',
+    finishToNext: 'Tugatish → {name}',
+    finishToNextConfirm: '#{id}: shu sexdagi ish tugadimi? Buyurtma keyingi sexga — «{name}» ga o‘tadi.',
   },
   ru: {
     poNumber: 'ПЗ №',
@@ -24,6 +26,8 @@ export default {
     redirectError: 'Ошибка при перенаправлении',
     completeError: 'Ошибка при завершении',
     completeConfirm: 'Завершить производство #{id}?',
+    finishToNext: 'Завершить → {name}',
+    finishToNextConfirm: '#{id}: работа в этом цехе завершена? Заказ перейдёт в следующий цех — «{name}».',
   },
   en: {
     poNumber: 'PO #',
@@ -37,5 +41,7 @@ export default {
     redirectError: 'Failed to redirect',
     completeError: 'Failed to complete',
     completeConfirm: 'Complete production #{id}?',
+    finishToNext: 'Finish → {name}',
+    finishToNextConfirm: '#{id}: is the work in this workshop done? The order will move to the next workshop, “{name}”.',
   },
 }

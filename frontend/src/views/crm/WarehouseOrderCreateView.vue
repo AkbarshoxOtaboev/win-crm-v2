@@ -96,34 +96,28 @@
               {{ t('warehouseOrders.kvm') }}
               <input :value="formatNum(computedKvm)" class="field" readonly />
             </label>
-            <label class="lbl min-w-0 w-36 sm:flex-none">
-              {{ t('warehouseOrders.sellingPrice') }}
-              <input v-model.number="itemForm.priceSelling" type="number" min="0" step="0.01" class="field" />
-            </label>
-            <label class="lbl min-w-0 w-40 sm:flex-none">
-              {{ t('warehouseOrders.totalSum') }}
-              <input :value="money(computedSum)" class="field" readonly />
-            </label>
           </template>
 
-          <template v-else>
-            <label class="lbl min-w-0 w-28 sm:flex-none">
-              {{ t('common.count') }}
-              <input v-model.number="itemForm.count" type="number" min="0.01" step="0.01" class="field" />
-            </label>
-            <label class="lbl min-w-0 w-36 sm:flex-none">
-              {{ t('warehouseOrders.costPrice') }}
-              <input v-model.number="itemForm.priceCost" type="number" min="0" step="0.01" class="field" />
-            </label>
-            <label class="lbl min-w-0 w-36 sm:flex-none">
-              {{ t('warehouseOrders.selling') }}
-              <input v-model.number="itemForm.priceSelling" type="number" min="0" step="0.01" class="field" />
-            </label>
-            <label class="lbl min-w-0 w-40 sm:flex-none">
-              {{ t('warehouseOrders.totalSum') }}
-              <input :value="money(computedSum)" class="field" readonly />
-            </label>
-          </template>
+          <label v-else class="lbl min-w-0 w-28 sm:flex-none">
+            {{ t('common.count') }}
+            <input v-model.number="itemForm.count" type="number" min="0.01" step="0.01" class="field" />
+          </label>
+
+          <label class="lbl min-w-0 w-40 sm:flex-none">
+            {{ isWindowGoods ? t('warehouseOrders.arrivalPriceKvm') : t('warehouseOrders.arrivalPrice') }}
+            <input
+              :value="priceCostText"
+              inputmode="decimal"
+              autocomplete="off"
+              placeholder="0"
+              class="field"
+              @input="onPriceCostInput"
+            />
+          </label>
+          <label class="lbl min-w-0 w-40 sm:flex-none">
+            {{ t('warehouseOrders.totalSum') }}
+            <input :value="money(computedSum)" class="field" readonly />
+          </label>
 
           <div v-if="!isTransferred" class="flex items-end">
             <button type="button" class="btn" :disabled="saving || !canAddItem" @click="onAddItem">
@@ -146,7 +140,7 @@
               <th class="th">{{ t('warehouseOrders.heightCm') }}</th>
               <th class="th">{{ t('common.count') }}</th>
               <th class="th">{{ t('warehouseOrders.kvm') }}</th>
-              <th class="th">{{ t('warehouseOrders.selling') }}</th>
+              <th class="th">{{ t('warehouseOrders.arrivalPrice') }}</th>
               <th class="th">{{ t('common.sum') }}</th>
               <th class="th text-right">{{ t('common.actions') }}</th>
             </tr>
@@ -162,7 +156,7 @@
               <td class="td">{{ row.height != null ? formatNum(row.height) : '—' }}</td>
               <td class="td">{{ row.pieces != null ? formatNum(row.pieces) : formatNum(row.count) }}</td>
               <td class="td">{{ row.isWindow ? formatNum(row.count) : '—' }}</td>
-              <td class="td">{{ money(row.priceSelling) }}</td>
+              <td class="td">{{ money(row.priceCost) }}</td>
               <td class="td">{{ money(row.sum) }}</td>
               <td class="td text-right">
                 <button
@@ -222,7 +216,7 @@ import { fetchWarehouses, type Warehouse } from '@/api/warehouses'
 import { fetchSuppliers, type Supplier } from '@/api/suppliers'
 import { fetchGoods, type Goods } from '@/api/goods'
 import { formatApiError } from '@/api/http'
-import { money } from '@/utils/format'
+import { amountToText, formatAmountInput, money } from '@/utils/format'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -298,10 +292,20 @@ const computedKvm = computed(() => {
 
 const computedSum = computed(() => {
   if (isWindowGoods.value) {
-    return computedKvm.value * Number(itemForm.priceSelling || 0)
+    return computedKvm.value * Number(itemForm.priceCost || 0)
   }
-  return Number(itemForm.count || 0) * Number(itemForm.priceSelling || 0)
+  return Number(itemForm.count || 0) * Number(itemForm.priceCost || 0)
 })
+
+const priceCostText = ref('')
+
+function onPriceCostInput(e: Event) {
+  const el = e.target as HTMLInputElement
+  const { text, value } = formatAmountInput(el.value)
+  priceCostText.value = text
+  el.value = text
+  itemForm.priceCost = value
+}
 
 const activeWarehouses = computed(() =>
   warehouses.value.filter((w) => !w.status || w.status === 'ACTIVE'),
@@ -325,14 +329,11 @@ const headerReady = computed(
 
 const canAddItem = computed(() => {
   if (!headerReady.value || itemForm.goodsId <= 0 || Number(itemForm.count) <= 0) return false
+  if (!(Number(itemForm.priceCost) > 0)) return false
   if (isWindowGoods.value) {
-    return (
-      Number(itemForm.width) > 0 &&
-      Number(itemForm.height) > 0 &&
-      Number(itemForm.priceSelling) >= 0
-    )
+    return Number(itemForm.width) > 0 && Number(itemForm.height) > 0
   }
-  return Number(itemForm.priceCost) >= 0 && Number(itemForm.priceSelling) >= 0
+  return true
 })
 
 const displayItems = computed(() =>
@@ -342,7 +343,7 @@ const displayItems = computed(() =>
     const width = it.weight != null ? Number(it.weight) : null
     const height = it.height != null ? Number(it.height) : null
     const count = Number(it.count || 0)
-    const priceSelling = Number(it.priceSelling || 0)
+    const priceCost = Number(it.priceCost || 0)
     let pieces: number | null = it.pieceCount != null ? Number(it.pieceCount) : null
     if (pieces == null && windowItem && width && height && width > 0 && height > 0) {
       pieces = (count * 10000) / (width * height)
@@ -354,9 +355,9 @@ const displayItems = computed(() =>
       height,
       pieces,
       count,
-      priceSelling,
+      priceCost,
       isWindow: windowItem,
-      sum: count * priceSelling,
+      sum: count * priceCost,
     }
   }),
 )
@@ -380,12 +381,11 @@ watch(
     if (!g) return
     itemForm.priceCost = Number(g.priceCost || 0)
     itemForm.priceSelling = Number(g.priceSelling || 0)
+    priceCostText.value = amountToText(itemForm.priceCost)
     itemForm.count = 1
     if (isWindow(g)) {
       itemForm.width = Number(g.width || 0)
       itemForm.height = Number(g.height || 0)
-      // WINDOW: tannarx o‘rniga sotish narxi ishlatiladi
-      itemForm.priceCost = Number(g.priceSelling || 0)
     } else {
       itemForm.width = 0
       itemForm.height = 0
@@ -459,15 +459,13 @@ async function onAddItem() {
   try {
     const id = await ensureOrder()
     const windowMode = isWindowGoods.value
-    const selling = Number(itemForm.priceSelling)
     await createWarehouseOrderItem({
       warehouseId: form.warehouseId,
       warehouseOrderId: id,
       supplierId: form.supplierId,
       goodsId: itemForm.goodsId,
-      // WINDOW: tannarx = sotish narxi
-      priceCost: windowMode ? selling : Number(itemForm.priceCost),
-      priceSelling: selling,
+      priceCost: Number(itemForm.priceCost),
+      priceSelling: Number(itemForm.priceSelling || 0),
       count: Number(itemForm.count),
       weight: windowMode ? Number(itemForm.width) : undefined,
       height: windowMode ? Number(itemForm.height) : undefined,
@@ -479,6 +477,7 @@ async function onAddItem() {
     itemForm.height = 0
     itemForm.priceCost = 0
     itemForm.priceSelling = 0
+    priceCostText.value = ''
     await reloadItems()
   } catch (e) {
     error.value = formatApiError(e)

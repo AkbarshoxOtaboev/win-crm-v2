@@ -14,12 +14,16 @@ public class PaymentTypeMapper {
         }
         return PaymentType.builder()
                 .name(dto.getName())
+                .icon(dto.getIcon())
                 .build();
     }
 
     public void updateEntity(PaymentType entity, PaymentTypeDTO dto) {
         if (dto.getName() != null) {
             entity.setName(dto.getName());
+        }
+        if (dto.getIcon() != null) {
+            entity.setIcon(dto.getIcon());
         }
     }
 
@@ -30,6 +34,7 @@ public class PaymentTypeMapper {
         return PaymentTypeResponse.builder()
                 .id(entity.getId())
                 .name(entity.getName())
+                .icon(entity.getIcon())
                 .status(entity.getStatus())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())

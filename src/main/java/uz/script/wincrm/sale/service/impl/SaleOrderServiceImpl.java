@@ -21,6 +21,7 @@ import uz.script.wincrm.sale.dto.SaleOrderDTO;
 import uz.script.wincrm.sale.dto.SaleOrderDiscountHistoryDTO;
 import uz.script.wincrm.sale.dto.SaleOrderHistoryDTO;
 import uz.script.wincrm.sale.dto.SaleOrderItemDTO;
+import uz.script.wincrm.sale.enums.DeliveryType;
 import uz.script.wincrm.sale.enums.SalesOrderStatus;
 import uz.script.wincrm.sale.mapper.SaleOrderDiscountHistoryMapper;
 import uz.script.wincrm.sale.mapper.SaleOrderMapper;
@@ -103,11 +104,11 @@ public class SaleOrderServiceImpl implements SaleOrderService {
             throw new BadRequestException("Buyurtma summasi manfiy bo'lishi mumkin emas");
         }
         entity.setOriginalTotalSum(original);
+        applyDelivery(entity, dto.getDeliveryType(), dto.getDeliveryFee());
 
         // Boshlang'ich holatda chegirma yo'q. Agar create paytida chegirma kelsa, quyida qo'llanadi.
         entity.setDiscountAmount(BigDecimal.ZERO);
-        entity.setTotalSum(original);
-        entity.setDebtSum(original.subtract(paidOrZero(entity)));
+        recalculateTotals(entity);
 
         entity = repository.save(entity);
 
@@ -241,6 +242,7 @@ public class SaleOrderServiceImpl implements SaleOrderService {
             entity.setWarehouse(warehouse);
         }
 
+        Long previousClientId = entity.getClient() != null ? entity.getClient().getId() : null;
         if (dto.getClientId() != null && (entity.getClient() == null || !dto.getClientId().equals(entity.getClient().getId()))) {
             Client client = clientRepository.findById(dto.getClientId())
                     .orElseThrow(() -> new ResourceNotFoundException("Client not found with id: " + dto.getClientId()));
@@ -249,19 +251,33 @@ public class SaleOrderServiceImpl implements SaleOrderService {
 
         mapper.updateEntity(entity, dto);
 
+        if (dto.getDeliveryType() != null) {
+            applyDelivery(entity, dto.getDeliveryType(), dto.getDeliveryFee());
+        }
+
         // Agar update'da totalSum o'zgargan bo'lsa - u yangi ASL summa bo'ladi.
         // Mavjud chegirmani yangi asl summaga qayta qo'llaymiz, aks holda totalSum noto'g'ri qoladi.
         if (dto.getTotalSum() != null) {
-            entity.setOriginalTotalSum(dto.getTotalSum());
-            if (entity.getDiscountType() != null && entity.getDiscountValue() != null) {
-                applyDiscountInternal(entity, entity.getDiscountType(), entity.getDiscountValue());
-            } else {
-                entity.setTotalSum(dto.getTotalSum());
-                entity.setDebtSum(dto.getTotalSum().subtract(paidOrZero(entity)));
+            if (dto.getTotalSum().signum() < 0) {
+                throw new BadRequestException("Buyurtma summasi manfiy bo'lishi mumkin emas");
             }
+            entity.setOriginalTotalSum(dto.getTotalSum());
+        }
+        if (dto.getTotalSum() != null && entity.getDiscountType() != null && entity.getDiscountValue() != null) {
+            applyDiscountInternal(entity, entity.getDiscountType(), entity.getDiscountValue());
+        } else {
+            recalculateTotals(entity);
         }
 
         entity = repository.save(entity);
+
+        Long currentClientId = entity.getClient() != null ? entity.getClient().getId() : null;
+        if (currentClientId != null) {
+            clientBalanceService.recalculateClientBalance(currentClientId);
+        }
+        if (previousClientId != null && !previousClientId.equals(currentClientId)) {
+            clientBalanceService.recalculateClientBalance(previousClientId);
+        }
 
         return mapper.toResponse(entity);
     }
@@ -329,6 +345,10 @@ public class SaleOrderServiceImpl implements SaleOrderService {
         }
 
         if (salesOrderStatus == SalesOrderStatus.IN_DELIVERY) {
+            if (entity.getDeliveryType() == DeliveryType.PICKUP) {
+                throw new BadRequestException(
+                        "Mijoz buyurtmani o'zi olib ketadi - transportga yuborib bo'lmaydi. Buyurtmani tahrirlab yetkazib berish xizmatini tanlang.");
+            }
             transportDeliveryService.createForSaleOrder(entity);
         }
 
@@ -416,8 +436,7 @@ public class SaleOrderServiceImpl implements SaleOrderService {
         entity.setDiscountType(type);
         entity.setDiscountValue(value);
         entity.setDiscountAmount(discountAmount);
-        entity.setTotalSum(base.subtract(discountAmount));
-        entity.setDebtSum(entity.getTotalSum().subtract(paidOrZero(entity)));
+        recalculateTotals(entity);
 
         discountHistoryRecorder.record(
                 SaleOrderDiscountHistoryDTO.builder()
@@ -430,6 +449,22 @@ public class SaleOrderServiceImpl implements SaleOrderService {
                         .totalSumAfter(entity.getTotalSum())
                         .build()
         );
+    }
+
+    private void applyDelivery(SaleOrder entity, DeliveryType type, BigDecimal fee) {
+        if (fee != null && fee.signum() < 0) {
+            throw new BadRequestException("Yetkazib berish haqi manfiy bo'lishi mumkin emas");
+        }
+        entity.setDeliveryType(type);
+        entity.setDeliveryFee(type == DeliveryType.DELIVERY && fee != null ? fee : BigDecimal.ZERO);
+    }
+
+    /** totalSum = originalTotalSum - discountAmount + deliveryFee; debtSum = totalSum - paidSum. */
+    private void recalculateTotals(SaleOrder entity) {
+        BigDecimal discount = entity.getDiscountAmount() != null ? entity.getDiscountAmount() : BigDecimal.ZERO;
+        BigDecimal total = entity.getOriginalTotalSum().subtract(discount).add(entity.deliveryFeeOrZero());
+        entity.setTotalSum(total);
+        entity.setDebtSum(total.subtract(paidOrZero(entity)));
     }
 
     private BigDecimal paidOrZero(SaleOrder entity) {

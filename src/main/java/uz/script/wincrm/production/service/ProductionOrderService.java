@@ -13,6 +13,9 @@ public interface ProductionOrderService {
 
     ProductionOrderResponse findById(Long id);
 
+    /** Savdo buyurtmasiga tegishli ishlab chiqarish buyurtmasi; yuborilmagan bo'lsa null. */
+    ProductionOrderResponse findBySaleOrderId(Long saleOrderId);
+
     List<ProductionOrderResponse> fetchAll();
 
     List<ProductionOrderResponse> board(Long workshopId);

@@ -7,6 +7,7 @@ import uz.script.wincrm.production.enums.ProductionAssignmentStatus;
 import uz.script.wincrm.production.enums.ProductionOrderStatus;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Getter
 @Setter
@@ -24,4 +25,18 @@ public class ProductionOrderResponse {
     private LocalDateTime doneAt;
     private String note;
     private LocalDateTime createdAt;
+    private List<RouteStep> route;
+    private Long nextWorkshopId;
+    private String nextWorkshopName;
+
+    @Getter
+    @Setter
+    @Builder
+    public static class RouteStep {
+        private Integer stepNo;
+        private Long workshopId;
+        private String workshopName;
+        /** DONE, CURRENT yoki PLANNED */
+        private String state;
+    }
 }

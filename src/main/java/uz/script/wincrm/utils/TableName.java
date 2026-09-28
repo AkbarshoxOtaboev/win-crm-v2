@@ -47,6 +47,7 @@ public interface TableName {
     String WORKSHOP_BALANCE_ENTRIES = "workshop_balance_entries";
     String PRODUCTION_ORDERS = "production_orders";
     String PRODUCTION_ASSIGNMENTS = "production_assignments";
+    String PRODUCTION_ORDER_ROUTE = "production_order_route";
     String PRODUCTION_EVENTS = "production_events";
     String TRANSPORT_DRIVERS = "transport_drivers";
     String TRANSPORT_WORKERS = "transport_workers";

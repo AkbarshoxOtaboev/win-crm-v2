@@ -83,7 +83,8 @@ public class WarehouseOrderItemServiceImpl implements WarehouseOrderItemService 
                     dto.getGoodsId(),
                     dto.getWarehouseId(),
                     dto.getCount(),
-                    dto.getPieceCount());
+                    dto.getPieceCount(),
+                    dto.getPriceCost());
         }
         recalculateOrderTotalSum(warehouseOrder);
 
@@ -183,7 +184,8 @@ public class WarehouseOrderItemServiceImpl implements WarehouseOrderItemService 
                     dto.getGoodsId(),
                     dto.getWarehouseId(),
                     dto.getCount(),
-                    dto.getPieceCount());
+                    dto.getPieceCount(),
+                    dto.getPriceCost());
         }
 
         recalculateOrderTotalSum(warehouseOrder);
@@ -247,7 +249,7 @@ public class WarehouseOrderItemServiceImpl implements WarehouseOrderItemService 
 
         BigDecimal itemsTotal = items.stream()
                 .filter(i -> i.getStatus() == Status.ACTIVE)
-                .map(i -> i.getPriceSelling().multiply(i.getCount()))
+                .map(i -> i.getPriceCost().multiply(i.getCount()))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         BigDecimal serviceFee = warehouseOrder.getServiceFee() != null

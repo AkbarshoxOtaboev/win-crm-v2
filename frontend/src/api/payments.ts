@@ -29,6 +29,7 @@ export interface PaymentPayload {
 export interface PaymentType {
   id: number
   name: string
+  icon?: string | null
   status?: string
 }
 
@@ -64,17 +65,17 @@ export function fetchPaymentTypes() {
   )
 }
 
-export function createPaymentType(name: string) {
+export function createPaymentType(name: string, icon?: string) {
   return apiRequest<RestApiResponse<PaymentType>>('/api/payment-types/create', {
     method: 'POST',
-    body: { name },
+    body: { name, icon },
   })
 }
 
-export function updatePaymentType(id: number, name: string) {
+export function updatePaymentType(id: number, name: string, icon?: string) {
   return apiRequest<RestApiResponse<PaymentType>>(`/api/payment-types/update/${id}`, {
     method: 'PUT',
-    body: { name },
+    body: { name, icon },
   })
 }
 

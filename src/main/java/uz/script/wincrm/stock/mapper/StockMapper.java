@@ -8,6 +8,7 @@ import uz.script.wincrm.stock.StockPieces;
 import uz.script.wincrm.stock.response.StockResponse;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 
 @Component
 public class StockMapper {
@@ -24,6 +25,13 @@ public class StockMapper {
         if (pieceCount == null) {
             pieceCount = stock.getPieceCount() != null ? stock.getPieceCount() : count;
         }
+        BigDecimal priceCost = stock.getPriceCost();
+        if (priceCost == null && goods != null) {
+            priceCost = goods.getPriceCost();
+        }
+        BigDecimal totalCost = priceCost != null
+                ? count.multiply(priceCost).setScale(2, RoundingMode.HALF_UP)
+                : null;
 
         return StockResponse.builder()
                 .id(stock.getId())
@@ -40,6 +48,8 @@ public class StockMapper {
                 .count(count)
                 .pieceCount(pieceCount)
                 .kvm(kvm)
+                .priceCost(priceCost)
+                .totalCost(totalCost)
                 .status(stock.getStatus())
                 .createdAt(stock.getCreatedAt())
                 .updatedAt(stock.getUpdatedAt())

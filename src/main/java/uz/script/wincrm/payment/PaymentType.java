@@ -28,6 +28,9 @@ public class PaymentType extends FilialScopedEntity {
     @Column(nullable = false)
     private String name;
 
+    @Column(length = 30)
+    private String icon;
+
     @OneToMany(mappedBy = "paymentType")
     private List<Payment> payments;
 

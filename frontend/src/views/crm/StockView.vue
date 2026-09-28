@@ -25,12 +25,14 @@
               <th class="th">{{ t('stock.unit') }}</th>
               <th class="th">{{ t('stock.quantity') }}</th>
               <th class="th">{{ t('stock.kvm') }}</th>
+              <th class="th">{{ t('stock.arrivalPrice') }}</th>
+              <th class="th">{{ t('stock.arrivalTotal') }}</th>
               <th class="th text-right">{{ t('common.actions') }}</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-if="loading"><td colspan="8" class="empty">{{ t('common.loading') }}</td></tr>
-            <tr v-else-if="items.length === 0"><td colspan="8" class="empty">{{ t('stock.empty') }}</td></tr>
+            <tr v-if="loading"><td colspan="10" class="empty">{{ t('common.loading') }}</td></tr>
+            <tr v-else-if="items.length === 0"><td colspan="10" class="empty">{{ t('stock.empty') }}</td></tr>
             <tr v-for="s in items" :key="s.id" class="border-b border-gray-100 dark:border-gray-800">
               <td class="td">{{ s.id }}</td>
               <td class="td">
@@ -44,9 +46,23 @@
               <td class="td">{{ unitLabel(s) }}</td>
               <td class="td">{{ formatNum(pieceQty(s)) }}</td>
               <td class="td">{{ isWindow(s) ? formatNum(s.kvm ?? s.count) : '—' }}</td>
+              <td class="td whitespace-nowrap">
+                {{ s.priceCost != null ? money(s.priceCost) : '—' }}
+                <span v-if="s.priceCost != null" class="hint">/ {{ isWindow(s) ? t('stock.perKvm') : unitLabel(s) }}</span>
+              </td>
+              <td class="td whitespace-nowrap font-semibold text-gray-800 dark:text-white/90">
+                {{ s.totalCost != null ? money(s.totalCost) : '—' }}
+              </td>
               <td class="td text-right"><RowActions :edit="false" @delete="onDelete(s)" /></td>
             </tr>
           </tbody>
+          <tfoot v-if="items.length">
+            <tr class="border-t border-gray-200 dark:border-gray-700">
+              <td class="td font-semibold" colspan="8">{{ t('stock.arrivalGrandTotal') }}</td>
+              <td class="td whitespace-nowrap font-semibold text-gray-800 dark:text-white/90">{{ money(grandTotal) }}</td>
+              <td class="td" />
+            </tr>
+          </tfoot>
         </table>
       </div>
     </div>
@@ -54,7 +70,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
@@ -69,6 +85,7 @@ import {
 import { fetchWarehouses, type Warehouse } from '@/api/warehouses'
 import { fetchGoods, type Goods } from '@/api/goods'
 import { formatApiError } from '@/api/http'
+import { money } from '@/utils/format'
 import Swal from 'sweetalert2'
 
 const { t } = useI18n()
@@ -79,6 +96,7 @@ const warehouseFilter = ref(0)
 const goodsFilter = ref(0)
 const loading = ref(false)
 const error = ref<string | null>(null)
+const grandTotal = computed(() => items.value.reduce((acc, s) => acc + Number(s.totalCost || 0), 0))
 
 function isWindow(s: Stock) {
   return (s.goodsType || '').toUpperCase() === 'WINDOW'

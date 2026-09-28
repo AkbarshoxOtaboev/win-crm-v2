@@ -31,7 +31,14 @@
             <tr v-for="o in items" :key="o.id" class="border-b border-gray-100 dark:border-gray-800">
               <td class="td">{{ o.id }}</td>
               <td class="td">#{{ o.saleOrderId }}</td>
-              <td class="td font-medium text-gray-800 dark:text-white/90">{{ o.clientFullName || '—' }}</td>
+              <td class="td font-medium text-gray-800 dark:text-white/90">
+                {{ o.clientFullName || '—' }}
+                <span v-if="o.route && o.route.length > 1" class="route-mini">
+                  <span v-for="s in o.route" :key="s.stepNo" :class="['route-chip', s.state.toLowerCase()]">
+                    {{ s.stepNo }}. {{ s.workshopName }}
+                  </span>
+                </span>
+              </td>
               <td class="td">{{ assignmentLabel(o.currentAssignmentStatus) }}</td>
               <td class="td">{{ productionStatusLabel(o.productionStatus) }}</td>
               <td class="td whitespace-nowrap">{{ formatDate(o.startedAt) }}</td>
@@ -47,7 +54,9 @@
                     {{ t('productionBoard.start') }}
                   </button>
                   <button type="button" class="btn-sm alt" @click="openRedirect(o)">{{ t('productionBoard.redirect') }}</button>
-                  <button type="button" class="btn-sm ok" @click="onComplete(o)">{{ t('productionBoard.complete') }}</button>
+                  <button type="button" class="btn-sm ok" @click="onComplete(o)">
+                    {{ o.nextWorkshopName ? t('productionBoard.finishToNext', { name: o.nextWorkshopName }) : t('productionBoard.complete') }}
+                  </button>
                 </div>
               </td>
             </tr>
@@ -171,7 +180,7 @@ async function onStart(o: ProductionOrder) {
 
 function openRedirect(o: ProductionOrder) {
   selected.value = o
-  nextWorkshopId.value = 0
+  nextWorkshopId.value = o.nextWorkshopId || 0
   note.value = ''
   formError.value = null
   redirectOpen.value = true
@@ -193,7 +202,10 @@ async function onRedirect() {
 }
 
 async function onComplete(o: ProductionOrder) {
-  if (!confirm(t('productionBoard.completeConfirm', { id: o.id }))) return
+  const question = o.nextWorkshopName
+    ? t('productionBoard.finishToNextConfirm', { id: o.id, name: o.nextWorkshopName })
+    : t('productionBoard.completeConfirm', { id: o.id })
+  if (!confirm(question)) return
   try {
     await completeProduction(o.id)
     await loadBoard()
@@ -221,5 +233,12 @@ onMounted(async () => {
 .btn-sm { display: inline-flex; height: 2rem; align-items: center; border-radius: 0.5rem; background: #465fff; padding: 0 0.75rem; font-size: 0.75rem; font-weight: 500; color: #fff; }
 .btn-sm.alt { background: #f79009; }
 .btn-sm.ok { background: #12b76a; }
+.route-mini { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.35rem; }
+.route-chip { border-radius: 9999px; border: 1px solid #e5e7eb; padding: 0.05rem 0.5rem; font-size: 0.7rem; font-weight: 500; color: #6b7280; }
+.route-chip.done { border-color: #a6f4c5; background: #ecfdf3; color: #027a48; }
+.route-chip.current { border-color: #9cb0ff; background: #eff4ff; color: #465fff; }
+.dark .route-chip { border-color: #344054; color: #9ca3af; }
+.dark .route-chip.done { border-color: rgb(18 183 106 / 40%); background: rgb(18 183 106 / 10%); color: #6ce9a6; }
+.dark .route-chip.current { border-color: rgb(70 95 255 / 50%); background: rgb(70 95 255 / 12%); color: #9cb0ff; }
 .err { border-radius: 0.5rem; border: 1px solid #fecaca; background: #fef2f2; padding: 0.75rem 1rem; font-size: 0.875rem; color: #dc2626; }
 </style>

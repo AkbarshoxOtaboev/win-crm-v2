@@ -61,7 +61,7 @@ public class WorkshopBalanceServiceImpl implements WorkshopBalanceService {
             return;
         }
 
-        BigDecimal orderTotal = saleOrder.getTotalSum() != null ? saleOrder.getTotalSum() : BigDecimal.ZERO;
+        BigDecimal orderTotal = saleOrder.totalSumWithoutDelivery();
         BigDecimal amount = orderTotal
                 .multiply(feePercent)
                 .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
@@ -214,7 +214,7 @@ public class WorkshopBalanceServiceImpl implements WorkshopBalanceService {
         BigDecimal feePercent = assignment.getFeePercent() != null
                 ? assignment.getFeePercent()
                 : resolveFeePercent(assignment, workshop);
-        BigDecimal orderTotal = saleOrder.getTotalSum() != null ? saleOrder.getTotalSum() : BigDecimal.ZERO;
+        BigDecimal orderTotal = saleOrder.totalSumWithoutDelivery();
         BigDecimal newAmount = orderTotal
                 .multiply(feePercent)
                 .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
@@ -293,8 +293,7 @@ public class WorkshopBalanceServiceImpl implements WorkshopBalanceService {
         if (a.getProductionOrder() == null || a.getProductionOrder().getSaleOrder() == null) {
             return BigDecimal.ZERO;
         }
-        BigDecimal sum = a.getProductionOrder().getSaleOrder().getTotalSum();
-        return sum != null ? sum : BigDecimal.ZERO;
+        return a.getProductionOrder().getSaleOrder().totalSumWithoutDelivery();
     }
 
     private BigDecimal nullSafe(BigDecimal v) {

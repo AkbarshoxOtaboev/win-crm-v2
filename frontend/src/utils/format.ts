@@ -3,6 +3,23 @@ export function money(v?: number | null) {
   return new Intl.NumberFormat('uz-UZ').format(Number(v))
 }
 
+/** Group digits while typing: "2000000.5" -> "2 000 000.5" (max 2 decimals). */
+export function formatAmountInput(raw: string): { text: string; value: number } {
+  const cleaned = raw.replace(/\s/g, '').replace(',', '.').replace(/[^\d.]/g, '')
+  const [intPart = '', ...rest] = cleaned.split('.')
+  const fraction = rest.join('').slice(0, 2)
+  const grouped = intPart.replace(/^0+(?=\d)/, '').replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
+  return {
+    text: cleaned.includes('.') ? `${grouped}.${fraction}` : grouped,
+    value: Number(`${intPart || '0'}.${fraction || '0'}`),
+  }
+}
+
+export function amountToText(v?: number | null): string {
+  if (!v) return ''
+  return formatAmountInput(String(v)).text
+}
+
 export function formatDate(v?: string | null) {
   if (!v) return '—'
   return v.replace('T', ' ').slice(0, 16)

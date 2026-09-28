@@ -2,6 +2,7 @@ package uz.script.wincrm.production;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -14,6 +15,8 @@ import uz.script.wincrm.utils.TableName;
 import uz.script.wincrm.workshop.Workshop;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Getter
@@ -43,4 +46,18 @@ public class ProductionOrder extends FilialScopedEntity {
 
     @Column(columnDefinition = "TEXT")
     private String note;
+
+    /**
+     * Sotuv menejeri belgilagan sexlar ketma-ketligi (masalan: 1 - oyna kesish, 2 - steklo paket).
+     * Bo'sh bo'lsa - eski usul: keyingi sexni sex xodimi qo'lda tanlaydi.
+     */
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = TableName.PRODUCTION_ORDER_ROUTE,
+            joinColumns = @JoinColumn(name = "production_order_id"),
+            inverseJoinColumns = @JoinColumn(name = "workshop_id")
+    )
+    @OrderColumn(name = "step_no")
+    @Builder.Default
+    private List<Workshop> route = new ArrayList<>();
 }

@@ -153,7 +153,7 @@
               <Shield class="field-icon" />
               <select id="user-role" v-model.number="form.roleId" required class="field field-select">
                 <option :value="0" disabled>{{ t('users.selectRole') }}</option>
-                <option v-for="r in assignableRoles" :key="r.id" :value="r.id">{{ r.name }}</option>
+                <option v-for="r in assignableRoles" :key="r.id" :value="r.id">{{ roleLabel(r.name) }}</option>
               </select>
               <ChevronDown class="pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
             </div>
@@ -208,7 +208,7 @@ import { formatUzPhone, isCompleteUzPhone } from '@/utils/phone'
 
 const DIRECTOR_BLOCKED_ROLES = new Set(['SUPER_ADMIN', 'ADMIN', 'DIRECTOR'])
 
-const { t } = useI18n()
+const { t, te } = useI18n()
 const { writeBlocked } = useFilialScope()
 const auth = useAuthStore()
 const route = useRoute()
@@ -245,7 +245,12 @@ function statusLabel(status?: string) {
 
 function formatRoles(role?: RoleItem[]) {
   if (!role?.length) return '—'
-  return role.map((r) => r.name).join(', ')
+  return role.map((r) => roleLabel(r.name)).join(', ')
+}
+
+function roleLabel(name: string) {
+  const key = `users.roleNames.${name}`
+  return te(key) ? t(key) : name
 }
 
 async function load() {

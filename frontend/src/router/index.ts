@@ -390,6 +390,19 @@ router.beforeEach((to, _from, next) => {
     }
   }
 
+  if (auth.isAuthenticated && auth.isCashierOnly) {
+    const allowed =
+      to.path === '/payments' ||
+      to.path === '/clients' ||
+      to.path.startsWith('/clients/') ||
+      to.path === '/profile' ||
+      to.path.startsWith('/profile/')
+    if (!allowed) {
+      next({ path: '/payments' })
+      return
+    }
+  }
+
   if (auth.isAuthenticated && to.matched.some((r) => r.meta.transport) && !auth.canAccessTransport) {
     next({ path: '/' })
     return

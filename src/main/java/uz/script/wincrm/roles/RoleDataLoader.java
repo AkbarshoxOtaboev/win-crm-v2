@@ -53,6 +53,13 @@ public class RoleDataLoader implements CommandLineRunner {
             "CLIENT_VIEW"
     );
 
+    /** Kassir — mijozlardan kelgan to'lovlarni kiritadi (mijoz balansi va buyurtmalarni faqat ko'radi) */
+    private static final Set<String> CASHIER_PERMISSIONS = Set.of(
+            "PAYMENT_VIEW", "PAYMENT_CREATE", "PAYMENT_TYPE_VIEW",
+            "CLIENT_VIEW", "CLIENT_BALANCE_VIEW",
+            "SALE_ORDER_VIEW"
+    );
+
     /** Ishlab chiqarish boshlig‘i — sexlar + barcha production */
     private static final Set<String> PRODUCTION_MANAGER_PERMISSIONS = Set.of(
             "WORKSHOP_VIEW", "WORKSHOP_CREATE", "WORKSHOP_EDIT", "WORKSHOP_DELETE",
@@ -115,6 +122,7 @@ public class RoleDataLoader implements CommandLineRunner {
         ensureRoleWithPermissions("SELLER", SELLER_PERMISSIONS, byName);
         ensureRoleWithPermissions("PRODUCTION_MANAGER", PRODUCTION_MANAGER_PERMISSIONS, byName);
         ensureRoleWithPermissions("TRANSPORT_MANAGER", TRANSPORT_MANAGER_PERMISSIONS, byName);
+        ensureRoleWithPermissions("CASHIER", CASHIER_PERMISSIONS, byName);
         retireRole("WORKSHOP_MANAGER");
     }
 

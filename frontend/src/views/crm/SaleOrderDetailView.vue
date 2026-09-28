@@ -3,7 +3,17 @@
     <PageBreadcrumb :pageTitle="order ? t('saleOrderDetail.title', { id: order.id }) : t('saleOrderDetail.titleFallback')" />
     <div class="mb-4 flex flex-wrap items-center gap-2">
       <router-link to="/sales" class="ghost">{{ t('common.backToList') }}</router-link>
-      <button type="button" class="ghost" @click="openEdit">{{ t('common.edit') }}</button>
+      <button
+        v-if="order && auth.can('SALE_ORDER_EDIT')"
+        type="button"
+        class="btn btn-with-icon ms-auto"
+        :disabled="writeBlocked || order.orderStatus === 'CANCELLED'"
+        :title="order.orderStatus === 'CANCELLED' ? t('saleOrderDetail.editBlockedCancelled') : undefined"
+        @click="openEdit"
+      >
+        <Pencil class="h-4 w-4" />
+        {{ t('saleOrderDetail.updateOrder') }}
+      </button>
     </div>
     <div v-if="error" class="err mb-4">{{ error }}</div>
     <div v-if="order" class="card mb-4 p-5">
@@ -16,7 +26,41 @@
         <div><span class="lbl">{{ t('saleOrderDetail.discount') }}</span>{{ order.discountType ? discountTypeLabel(order.discountType) : '—' }} {{ order.discountValue || '' }}</div>
         <div><span class="lbl">{{ t('common.status') }}</span><SaleStatusBadge :status="order.orderStatus" /></div>
         <div><span class="lbl">{{ t('common.date') }}</span>{{ formatDate(order.orderDate) }}</div>
+        <div>
+          <span class="lbl">{{ t('saleOrderCreate.deliveryTitle') }}</span>
+          <span v-if="order.deliveryType" class="inline-flex items-center gap-1.5">
+            <Truck v-if="order.deliveryType === 'DELIVERY'" class="h-4 w-4 text-brand-500" />
+            <PackageCheck v-else class="h-4 w-4 text-success-500" />
+            {{ order.deliveryType === 'DELIVERY' ? t('saleOrderCreate.delivery') : t('saleOrderCreate.pickup') }}
+          </span>
+          <span v-else>—</span>
+        </div>
+        <div v-if="order.deliveryType === 'DELIVERY'">
+          <span class="lbl">{{ t('saleOrderCreate.deliveryFee') }}</span>{{ money(order.deliveryFee || 0) }}
+        </div>
+        <div v-if="order.comment" class="col-span-2 md:col-span-4">
+          <span class="lbl">{{ t('common.comment') }}</span><span class="whitespace-pre-line">{{ order.comment }}</span>
+        </div>
       </div>
+    </div>
+
+    <div v-if="production && production.route && production.route.length" class="card mb-4 p-5">
+      <div class="status-head">
+        <div>
+          <h3 class="title">{{ t('saleOrderDetail.workshopRoute') }}</h3>
+          <p class="sub">{{ t('saleOrderDetail.workshopRouteHint') }}</p>
+        </div>
+      </div>
+      <ol class="route-list mt-4">
+        <li v-for="s in production.route" :key="s.stepNo" class="route-step" :class="s.state.toLowerCase()">
+          <span class="route-no">
+            <Check v-if="s.state === 'DONE'" class="h-3.5 w-3.5" />
+            <template v-else>{{ s.stepNo }}</template>
+          </span>
+          <span class="route-name">{{ s.workshopName }}</span>
+          <span class="route-state">{{ t(`saleOrderDetail.routeState.${s.state}`) }}</span>
+        </li>
+      </ol>
     </div>
 
     <div v-if="order" class="card mb-4 p-5">
@@ -146,8 +190,8 @@
           <tr v-for="h in history" :key="h.id" class="border-b border-gray-100 dark:border-gray-800">
             <td class="td"><SaleStatusBadge v-if="h.fromStatus" :status="h.fromStatus" /><span v-else>—</span></td>
             <td class="td"><SaleStatusBadge :status="h.toStatus" /></td>
-            <td class="td">{{ h.createdUsername || '—' }}</td>
-            <td class="td">{{ formatDate(h.createdAt) }}</td>
+            <td class="td">{{ h.changedByUserFullName || h.changedByUsername || '—' }}</td>
+            <td class="td">{{ formatDate(h.changedAt) }}</td>
           </tr>
         </tbody>
       </table>
@@ -195,24 +239,62 @@
     </div>
 
     <div v-if="prodModal" class="overlay">
-      <div class="modal">
-        <h3 class="title mb-4">{{ t('saleOrderDetail.sendToProductionTitle', { id: order?.id }) }}</h3>
+      <div class="modal modal-lg">
+        <div class="mb-5 flex items-start justify-between gap-3">
+          <div class="flex items-start gap-3">
+            <span class="modal-badge"><Factory class="h-5 w-5" /></span>
+            <div>
+              <h3 class="title">{{ t('saleOrderDetail.sendToProductionTitle', { id: order?.id }) }}</h3>
+              <p class="modal-hint mt-1">{{ t('saleOrderDetail.routeBuilderHint') }}</p>
+            </div>
+          </div>
+          <button type="button" class="close-btn" :aria-label="t('common.close')" @click="prodModal = false">
+            <X class="h-5 w-5" />
+          </button>
+        </div>
         <div v-if="prodError" class="err mb-3">{{ prodError }}</div>
-        <form class="space-y-3" @submit.prevent="onSendToProduction">
-          <label class="lbl">
-            {{ t('saleOrderDetail.firstWorkshop') }}
-            <select v-model.number="prodWorkshopId" required class="field">
-              <option :value="0" disabled>{{ t('common.select') }}</option>
-              <option v-for="w in activeWorkshops" :key="w.id" :value="w.id">{{ w.name }}</option>
-            </select>
-          </label>
+        <form class="space-y-4" @submit.prevent="onSendToProduction">
+          <div>
+            <label class="f-lbl">{{ t('saleOrderDetail.workshopRoute') }} <span class="req">*</span></label>
+            <ol v-if="prodRoute.length" class="builder-list">
+              <li v-for="(wid, idx) in prodRoute" :key="`${idx}-${wid}`" class="builder-step">
+                <span class="route-no">{{ idx + 1 }}</span>
+                <span class="flex-1 truncate font-medium">{{ workshopName(wid) }}</span>
+                <button type="button" class="icon-btn" :disabled="idx === 0" :aria-label="t('saleOrderDetail.moveUp')" @click="moveRouteStep(idx, -1)">
+                  <ArrowUp class="h-4 w-4" />
+                </button>
+                <button type="button" class="icon-btn" :disabled="idx === prodRoute.length - 1" :aria-label="t('saleOrderDetail.moveDown')" @click="moveRouteStep(idx, 1)">
+                  <ArrowDown class="h-4 w-4" />
+                </button>
+                <button type="button" class="icon-btn danger-icon" :aria-label="t('common.delete')" @click="removeRouteStep(idx)">
+                  <Trash2 class="h-4 w-4" />
+                </button>
+              </li>
+            </ol>
+            <p v-else class="modal-hint">{{ t('saleOrderDetail.routeEmpty') }}</p>
+            <div class="mt-3 flex gap-2">
+              <select v-model.number="prodAddWorkshopId" class="field flex-1">
+                <option :value="0" disabled>{{ t('saleOrderDetail.selectWorkshop') }}</option>
+                <option v-for="w in activeWorkshops" :key="w.id" :value="w.id" :disabled="w.id === prodRoute[prodRoute.length - 1]">
+                  {{ w.name }}
+                </option>
+              </select>
+              <button type="button" class="ghost btn-with-icon" :disabled="!prodAddWorkshopId" @click="addRouteStep">
+                <Plus class="h-4 w-4" />
+                {{ t('saleOrderDetail.addStep') }}
+              </button>
+            </div>
+            <p v-if="routeHasAdjacentDuplicate" class="mt-2 text-xs text-red-600">{{ t('saleOrderDetail.routeDuplicate') }}</p>
+          </div>
           <label class="lbl">
             {{ t('common.note') }}
             <input v-model="prodNote" class="field" />
           </label>
           <div class="flex justify-end gap-2">
             <button type="button" class="ghost" @click="prodModal = false">{{ t('common.cancel') }}</button>
-            <button type="submit" class="btn" :disabled="prodSaving || !prodWorkshopId">{{ prodSaving ? '...' : t('common.send') }}</button>
+            <button type="submit" class="btn" :disabled="prodSaving || !prodRoute.length || routeHasAdjacentDuplicate">
+              {{ prodSaving ? '...' : t('common.send') }}
+            </button>
           </div>
         </form>
       </div>
@@ -238,26 +320,141 @@
     </div>
 
     <div v-if="orderModal" class="overlay">
-      <div class="modal">
-        <h3 class="title mb-4">{{ t('saleOrderDetail.editOrder') }}</h3>
+      <div class="modal modal-lg" role="dialog" aria-modal="true" aria-labelledby="order-modal-title">
+        <div class="mb-5 flex items-start justify-between gap-3">
+          <div class="flex items-start gap-3">
+            <span class="modal-badge"><Pencil class="h-5 w-5" /></span>
+            <div>
+              <h3 id="order-modal-title" class="title">{{ t('saleOrderDetail.editOrderTitle', { id: order?.id }) }}</h3>
+              <p class="modal-hint mt-1">{{ t('saleOrderDetail.editOrderSubtitle') }}</p>
+            </div>
+          </div>
+          <button type="button" class="close-btn" :aria-label="t('common.close')" @click="orderModal = false">
+            <X class="h-5 w-5" />
+          </button>
+        </div>
         <div v-if="formError" class="err mb-3">{{ formError }}</div>
-        <form class="space-y-3" @submit.prevent="onOrderSave">
-          <select v-model.number="orderForm.warehouseId" required class="field">
-            <option v-for="w in warehouses" :key="w.id" :value="w.id">{{ w.name }}</option>
-          </select>
-          <select v-model.number="orderForm.clientId" class="field">
-            <option :value="0">{{ t('saleOrderDetail.clientPlaceholder') }}</option>
-            <option v-for="c in clients" :key="c.id" :value="c.id">{{ c.fullName }}</option>
-          </select>
-          <select v-model.number="orderForm.userId" required class="field">
-            <option v-for="u in users" :key="u.id" :value="u.id">{{ u.fullName || u.username }}</option>
-          </select>
-          <input v-model="orderForm.orderDate" type="datetime-local" required class="field" />
-          <input v-model.number="orderForm.totalSum" type="number" min="0" step="0.01" required class="field" />
-          <input v-model="orderForm.comment" class="field" :placeholder="t('common.comment')" />
-          <div class="flex justify-end gap-2">
+        <form class="space-y-4" @submit.prevent="onOrderSave">
+          <div>
+            <label class="f-lbl">{{ t('common.client') }}</label>
+            <SearchableSelect
+              v-model="orderForm.clientId"
+              :options="clientOptions"
+              :placeholder="t('saleOrderDetail.clientPlaceholder')"
+              :search-placeholder="t('payments.clientSearchPlaceholder')"
+            />
+          </div>
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label for="order-wh" class="f-lbl">{{ t('common.warehouse') }} <span class="req">*</span></label>
+              <div class="relative">
+                <WarehouseIcon class="f-icon" />
+                <select
+                  id="order-wh"
+                  v-model.number="orderForm.warehouseId"
+                  required
+                  class="field f-field"
+                  :disabled="order?.orderStatus === 'COMPLETED'"
+                >
+                  <option v-for="w in warehouses" :key="w.id" :value="w.id">{{ w.name }}</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label for="order-user" class="f-lbl">{{ t('saleOrderDetail.seller') }} <span class="req">*</span></label>
+              <div class="relative">
+                <UserCog class="f-icon" />
+                <select id="order-user" v-model.number="orderForm.userId" required class="field f-field">
+                  <option v-for="u in users" :key="u.id" :value="u.id">{{ u.fullName || u.username }}</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label for="order-date" class="f-lbl">{{ t('common.date') }} <span class="req">*</span></label>
+              <div class="relative">
+                <CalendarDays class="f-icon" />
+                <input id="order-date" v-model="orderForm.orderDate" type="datetime-local" required class="field f-field" />
+              </div>
+            </div>
+            <div>
+              <label for="order-sum" class="f-lbl">{{ t('saleOrderDetail.orderSum') }} <span class="req">*</span></label>
+              <div class="relative">
+                <Banknote class="f-icon" />
+                <input
+                  id="order-sum"
+                  :value="orderSumText"
+                  inputmode="decimal"
+                  autocomplete="off"
+                  required
+                  placeholder="0"
+                  class="field f-field"
+                  @input="onOrderSumInput"
+                />
+              </div>
+            </div>
+          </div>
+          <div>
+            <label class="f-lbl">{{ t('saleOrderCreate.deliveryTitle') }}</label>
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                class="delivery-opt"
+                :class="{ active: orderForm.deliveryType === 'PICKUP' }"
+                :disabled="deliveryTypeLocked"
+                @click="orderForm.deliveryType = 'PICKUP'"
+              >
+                <PackageCheck class="h-5 w-5 flex-shrink-0" />
+                <span class="opt-title">{{ t('saleOrderCreate.pickup') }}</span>
+              </button>
+              <button
+                type="button"
+                class="delivery-opt"
+                :class="{ active: orderForm.deliveryType === 'DELIVERY' }"
+                :disabled="deliveryTypeLocked"
+                @click="orderForm.deliveryType = 'DELIVERY'"
+              >
+                <Truck class="h-5 w-5 flex-shrink-0" />
+                <span class="opt-title">{{ t('saleOrderCreate.delivery') }}</span>
+              </button>
+            </div>
+            <div v-if="orderForm.deliveryType === 'DELIVERY'" class="relative mt-3">
+              <Truck class="f-icon" />
+              <input
+                :value="deliveryFeeText"
+                inputmode="decimal"
+                autocomplete="off"
+                placeholder="0"
+                class="field f-field"
+                :aria-label="t('saleOrderCreate.deliveryFee')"
+                @input="onDeliveryFeeInput"
+              />
+              <span class="f-suffix">{{ t('saleOrderCreate.deliveryFee') }}</span>
+            </div>
+          </div>
+          <div>
+            <label for="order-comment" class="f-lbl">{{ t('common.comment') }}</label>
+            <div class="relative">
+              <MessageSquare class="f-icon f-icon-top" />
+              <textarea
+                id="order-comment"
+                v-model="orderForm.comment"
+                rows="2"
+                class="field f-field f-textarea"
+                :placeholder="t('saleOrderCreate.commentPlaceholder')"
+              />
+            </div>
+          </div>
+          <p v-if="order && order.warehouseId !== orderForm.warehouseId" class="modal-hint">
+            {{ t('saleOrderDetail.warehouseChangeHint') }}
+          </p>
+          <div class="flex justify-end gap-2 pt-1">
             <button type="button" class="ghost" @click="orderModal = false">{{ t('common.cancel') }}</button>
-            <button type="submit" class="btn" :disabled="saving">{{ t('common.save') }}</button>
+            <button type="submit" class="btn btn-with-icon" :disabled="saving">
+              <Check class="h-4 w-4" />
+              {{ saving ? t('common.saving') : t('common.save') }}
+            </button>
           </div>
         </form>
       </div>
@@ -336,7 +533,27 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { ImagePlus, Trash2, X } from 'lucide-vue-next'
+import {
+  ArrowDown,
+  ArrowUp,
+  Banknote,
+  CalendarDays,
+  Check,
+  Factory,
+  ImagePlus,
+  MessageSquare,
+  PackageCheck,
+  Pencil,
+  Plus,
+  Trash2,
+  Truck,
+  UserCog,
+  Warehouse as WarehouseIcon,
+  X,
+} from 'lucide-vue-next'
+import SearchableSelect from '@/components/crm/SearchableSelect.vue'
+import { useAuthStore } from '@/stores/auth'
+import { formatUzPhone } from '@/utils/phone'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import RowActions from '@/components/crm/RowActions.vue'
@@ -344,7 +561,7 @@ import SaleStatusBadge from '@/components/crm/SaleStatusBadge.vue'
 import DeliveryStatusBadge from '@/components/crm/DeliveryStatusBadge.vue'
 import AuthImage from '@/components/crm/AuthImage.vue'
 import { nextSaleStatuses, type SaleStatus } from '@/utils/saleStatus'
-import { sendToProduction } from '@/api/production'
+import { fetchProductionBySaleOrder, sendToProduction, type ProductionOrder } from '@/api/production'
 import { fetchDeliveryBySaleOrder, type Delivery } from '@/api/transport'
 import { fetchActiveWorkshops, type Workshop } from '@/api/workshops'
 import {
@@ -357,6 +574,7 @@ import {
   updateSaleOrder,
   uploadSaleOrderImages,
   deleteSaleOrderImage,
+  type DeliveryType,
   type SaleOrder,
   type SaleOrderDiscountHistory,
   type SaleOrderHistory,
@@ -381,10 +599,11 @@ import { fetchUserOptions, type UserItem } from '@/api/users'
 import { fetchGoods, type Goods } from '@/api/goods'
 import { formatApiError } from '@/api/http'
 import { useFilialScope } from '@/composables/useFilialScope'
-import { formatDate, money, nowLocal, toApiDate } from '@/utils/format'
+import { amountToText, formatAmountInput, formatDate, money, nowLocal, toApiDate } from '@/utils/format'
 
 const { writeBlocked } = useFilialScope()
 const { t, te } = useI18n()
+const auth = useAuthStore()
 
 const route = useRoute()
 const TAB_IDS = ['items', 'discount', 'history', 'images', 'waste'] as const
@@ -408,7 +627,48 @@ const discountType = ref('PERCENTAGE')
 const discountValue = ref(10)
 
 const orderModal = ref(false)
-const orderForm = reactive({ warehouseId: 0, clientId: 0, userId: 0, orderDate: '', totalSum: 0, comment: '' })
+const orderForm = reactive({
+  warehouseId: 0,
+  clientId: 0,
+  userId: 0,
+  orderDate: '',
+  totalSum: 0,
+  comment: '',
+  deliveryType: 'DELIVERY' as DeliveryType,
+  deliveryFee: 0,
+})
+const orderSumText = ref('')
+const deliveryFeeText = ref('')
+const deliveryTypeLocked = computed(() =>
+  ['IN_DELIVERY', 'DELIVERED', 'COMPLETED'].includes(order.value?.orderStatus || ''),
+)
+
+function onDeliveryFeeInput(e: Event) {
+  const el = e.target as HTMLInputElement
+  const { text, value } = formatAmountInput(el.value)
+  deliveryFeeText.value = text
+  el.value = text
+  orderForm.deliveryFee = value
+}
+const clientOptions = computed(() => [
+  { value: 0, label: t('saleOrderDetail.clientPlaceholder'), searchText: '' },
+  ...clients.value.map((c) => {
+    const phone = c.phone ? formatUzPhone(c.phone) : ''
+    return {
+      value: c.id,
+      label: phone ? `${c.fullName} · ${phone}` : c.fullName,
+      searchText: `${c.fullName} ${c.phone || ''}`,
+    }
+  }),
+])
+
+function onOrderSumInput(e: Event) {
+  const el = e.target as HTMLInputElement
+  const { text, value } = formatAmountInput(el.value)
+  orderSumText.value = text
+  el.value = text
+  orderForm.totalSum = value
+}
 const itemModal = ref(false)
 const itemEditingId = ref<number | null>(null)
 const itemForm = reactive({ goodsId: 0, count: 1, width: 0, height: 0, priceCost: 0, priceSelling: 0, arrivalDate: '' })
@@ -457,7 +717,34 @@ const wasteModal = ref(false)
 const wasteForm = reactive({ goodsId: 0, quantity: 1, comment: '' })
 const statusSaving = ref(false)
 const prodModal = ref(false)
-const prodWorkshopId = ref(0)
+const prodRoute = ref<number[]>([])
+const prodAddWorkshopId = ref(0)
+const production = ref<ProductionOrder | null>(null)
+const routeHasAdjacentDuplicate = computed(() =>
+  prodRoute.value.some((wid, i) => i > 0 && prodRoute.value[i - 1] === wid),
+)
+
+function workshopName(wid: number) {
+  return activeWorkshops.value.find((w) => w.id === wid)?.name || `#${wid}`
+}
+
+function addRouteStep() {
+  if (!prodAddWorkshopId.value) return
+  prodRoute.value.push(prodAddWorkshopId.value)
+  prodAddWorkshopId.value = 0
+}
+
+function moveRouteStep(idx: number, dir: -1 | 1) {
+  const target = idx + dir
+  if (target < 0 || target >= prodRoute.value.length) return
+  const next = [...prodRoute.value]
+  ;[next[idx], next[target]] = [next[target], next[idx]]
+  prodRoute.value = next
+}
+
+function removeRouteStep(idx: number) {
+  prodRoute.value.splice(idx, 1)
+}
 const prodNote = ref('')
 const prodError = ref<string | null>(null)
 const prodSaving = ref(false)
@@ -482,7 +769,11 @@ const deliveryConfirmBlocked = computed(
 )
 const flowIndex = computed(() => flowStatuses.value.indexOf(order.value?.orderStatus as SaleStatus))
 const doneIndex = computed(() => (order.value?.orderStatus === 'CANCELLED' ? -1 : flowIndex.value))
-const nextStatuses = computed(() => nextSaleStatuses(order.value?.orderStatus))
+const nextStatuses = computed(() =>
+  nextSaleStatuses(order.value?.orderStatus).filter(
+    (st) => !(st === 'IN_DELIVERY' && order.value?.deliveryType === 'PICKUP'),
+  ),
+)
 
 function statusLabel(status: string) {
   const key = `saleStatus.${status}`
@@ -546,7 +837,7 @@ async function load() {
     clients.value = cl.data || []
     users.value = us.data || []
     goods.value = gs.data || []
-    await loadDelivery()
+    await Promise.all([loadDelivery(), loadProduction()])
   } catch (e) {
     error.value = formatApiError(e, t('common.loadError'))
   }
@@ -558,8 +849,12 @@ function openEdit() {
   orderForm.clientId = order.value.clientId || 0
   orderForm.userId = order.value.userId || 0
   orderForm.orderDate = (order.value.orderDate || '').slice(0, 16)
-  orderForm.totalSum = Number(order.value.totalSum || 0)
+  orderForm.totalSum = Number(order.value.originalTotalSum ?? order.value.totalSum ?? 0)
+  orderSumText.value = amountToText(orderForm.totalSum)
   orderForm.comment = order.value.comment || ''
+  orderForm.deliveryType = order.value.deliveryType || 'DELIVERY'
+  orderForm.deliveryFee = Number(order.value.deliveryFee || 0)
+  deliveryFeeText.value = orderForm.deliveryFee ? amountToText(orderForm.deliveryFee) : ''
   formError.value = null
   orderModal.value = true
 }
@@ -574,7 +869,9 @@ async function onOrderSave() {
       orderDate: toApiDate(orderForm.orderDate),
       totalSum: orderForm.totalSum,
       clientId: orderForm.clientId || null,
-      comment: orderForm.comment || undefined,
+      comment: orderForm.comment.trim(),
+      deliveryType: orderForm.deliveryType,
+      deliveryFee: orderForm.deliveryType === 'DELIVERY' ? orderForm.deliveryFee : 0,
     })
     orderModal.value = false
     await load()
@@ -728,26 +1025,34 @@ async function onStatus(status: SaleStatus) {
 }
 
 async function openProdModal() {
-  prodWorkshopId.value = 0
+  prodRoute.value = []
+  prodAddWorkshopId.value = 0
   prodNote.value = ''
   prodError.value = null
   prodModal.value = true
   try {
     activeWorkshops.value = (await fetchActiveWorkshops()).data || []
-    if (activeWorkshops.value[0]) prodWorkshopId.value = activeWorkshops.value[0].id
   } catch (e) {
     prodError.value = formatApiError(e, t('saleOrderDetail.workshopsLoadError'))
   }
 }
 
+async function loadProduction() {
+  try {
+    production.value = (await fetchProductionBySaleOrder(id())).data ?? null
+  } catch {
+    production.value = null
+  }
+}
+
 async function onSendToProduction() {
-  if (!order.value || !prodWorkshopId.value) return
+  if (!order.value || !prodRoute.value.length || routeHasAdjacentDuplicate.value) return
   prodSaving.value = true
   prodError.value = null
   try {
     await sendToProduction({
       saleOrderId: order.value.id,
-      workshopId: prodWorkshopId.value,
+      workshopIds: [...prodRoute.value],
       note: prodNote.value.trim() || undefined,
     })
     prodModal.value = false
@@ -868,4 +1173,60 @@ watch(
 .dark .image-meta { color: #d1d5db; }
 .dark .image-delete { color: #f87171; }
 .dark .image-delete:hover { background: rgb(127 29 29 / 30%); }
+.btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.btn-with-icon { gap: 0.4rem; }
+.modal-lg { max-width: 36rem; max-height: calc(100vh - 2rem); overflow-y: auto; }
+.modal-badge { display: flex; height: 2.5rem; width: 2.5rem; flex-shrink: 0; align-items: center; justify-content: center; border-radius: 0.75rem; background: #eff4ff; color: #465fff; }
+.close-btn { display: flex; height: 2.25rem; width: 2.25rem; flex-shrink: 0; align-items: center; justify-content: center; border-radius: 0.5rem; color: #9ca3af; }
+.close-btn:hover { background: #f3f4f6; color: #374151; }
+.f-lbl { display: block; margin-bottom: 0.375rem; font-size: 0.875rem; font-weight: 500; color: #374151; }
+.req { color: #ef4444; }
+.f-icon { position: absolute; top: 50%; left: 0.75rem; z-index: 1; height: 1.1rem; width: 1.1rem; transform: translateY(-50%); color: #98a2b3; pointer-events: none; }
+.f-field { height: 2.75rem; padding-left: 2.5rem; }
+.f-field:focus { outline: none; border-color: #9cb0ff; box-shadow: 0 0 0 4px rgb(70 95 255 / 10%); }
+.f-field:disabled { opacity: 0.6; cursor: not-allowed; }
+.dark .modal-badge { background: rgb(70 95 255 / 12%); color: #9cb0ff; }
+.dark .close-btn:hover { background: rgb(255 255 255 / 5%); color: rgba(255, 255, 255, 0.8); }
+.dark .f-lbl { color: #9ca3af; }
+.dark .f-field { border-color: #344054; color: rgba(255, 255, 255, 0.9); }
+.dark .f-field option { background: #101828; }
+.f-icon-top { top: 0.8rem; transform: none; }
+.f-textarea { height: auto; min-height: 4.5rem; padding-top: 0.6rem; padding-bottom: 0.6rem; resize: vertical; line-height: 1.4; }
+.f-suffix { position: absolute; top: 50%; right: 0.75rem; transform: translateY(-50%); font-size: 0.75rem; color: #98a2b3; pointer-events: none; }
+.delivery-opt { display: flex; align-items: center; gap: 0.6rem; height: 2.75rem; border-radius: 0.6rem; border: 1px solid #d1d5db; padding: 0 0.85rem; color: #6b7280; transition: border-color .15s, background-color .15s; }
+.delivery-opt:hover:not(:disabled) { border-color: #9cb0ff; }
+.delivery-opt:disabled { opacity: 0.55; cursor: not-allowed; }
+.delivery-opt.active { border-color: #465fff; background: #eff4ff; color: #465fff; }
+.opt-title { font-size: 0.875rem; font-weight: 600; color: #1f2937; }
+.delivery-opt.active .opt-title { color: #465fff; }
+.dark .delivery-opt { border-color: #344054; color: #9ca3af; }
+.dark .delivery-opt.active { border-color: #7592ff; background: rgb(70 95 255 / 12%); color: #9cb0ff; }
+.dark .opt-title { color: rgba(255, 255, 255, 0.9); }
+.dark .delivery-opt.active .opt-title { color: #9cb0ff; }
+.route-list { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.route-step { display: inline-flex; align-items: center; gap: 0.5rem; border-radius: 9999px; border: 1px solid #e5e7eb; background: #f9fafb; padding: 0.35rem 0.85rem 0.35rem 0.35rem; font-size: 0.875rem; color: #374151; }
+.route-step + .route-step::before { content: '→'; margin-left: -0.25rem; margin-right: 0.25rem; color: #98a2b3; }
+.route-no { display: inline-flex; height: 1.6rem; width: 1.6rem; flex-shrink: 0; align-items: center; justify-content: center; border-radius: 9999px; background: #e5e7eb; font-size: 0.75rem; font-weight: 700; color: #475467; }
+.route-name { font-weight: 600; }
+.route-state { font-size: 0.7rem; color: #6b7280; }
+.route-step.done { border-color: #a6f4c5; background: #ecfdf3; }
+.route-step.done .route-no { background: #12b76a; color: #fff; }
+.route-step.current { border-color: #9cb0ff; background: #eff4ff; }
+.route-step.current .route-no { background: #465fff; color: #fff; }
+.dark .route-step { border-color: #344054; background: rgb(255 255 255 / 3%); color: rgba(255, 255, 255, 0.85); }
+.dark .route-no { background: #344054; color: #d0d5dd; }
+.dark .route-state { color: #9ca3af; }
+.dark .route-step.done { border-color: rgb(18 183 106 / 40%); background: rgb(18 183 106 / 10%); }
+.dark .route-step.current { border-color: rgb(70 95 255 / 50%); background: rgb(70 95 255 / 12%); }
+.builder-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.builder-step { display: flex; align-items: center; gap: 0.6rem; border-radius: 0.6rem; border: 1px solid #e5e7eb; padding: 0.45rem 0.5rem 0.45rem 0.6rem; font-size: 0.875rem; color: #1f2937; }
+.builder-step .route-no { background: #465fff; color: #fff; }
+.icon-btn { display: inline-flex; height: 2rem; width: 2rem; align-items: center; justify-content: center; border-radius: 0.5rem; color: #6b7280; }
+.icon-btn:hover:not(:disabled) { background: #f3f4f6; color: #1f2937; }
+.icon-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.icon-btn.danger-icon:hover:not(:disabled) { background: #fef2f2; color: #dc2626; }
+.dark .builder-step { border-color: #344054; color: rgba(255, 255, 255, 0.9); }
+.dark .icon-btn { color: #9ca3af; }
+.dark .icon-btn:hover:not(:disabled) { background: rgb(255 255 255 / 5%); color: #fff; }
+.dark .icon-btn.danger-icon:hover:not(:disabled) { background: rgb(127 29 29 / 30%); color: #f87171; }
 </style>

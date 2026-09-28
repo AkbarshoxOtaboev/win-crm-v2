@@ -14,6 +14,16 @@ export interface ProductionOrder {
   doneAt?: string
   note?: string
   createdAt?: string
+  route?: ProductionRouteStep[]
+  nextWorkshopId?: number | null
+  nextWorkshopName?: string | null
+}
+
+export interface ProductionRouteStep {
+  stepNo: number
+  workshopId: number
+  workshopName?: string
+  state: 'DONE' | 'CURRENT' | 'PLANNED'
 }
 
 export interface ProductionEvent {
@@ -31,7 +41,7 @@ export interface ProductionEvent {
 
 export function sendToProduction(payload: {
   saleOrderId: number
-  workshopId: number
+  workshopIds: number[]
   note?: string
 }) {
   return apiRequest<RestApiResponse<ProductionOrder>>('/api/production-orders/send-to-production', {
@@ -47,6 +57,12 @@ export function fetchProductionOrders() {
 export function fetchProductionBoard(workshopId: number) {
   return apiRequest<RestApiResponse<ProductionOrder[]>>(
     `/api/production-orders/board?workshopId=${workshopId}`,
+  )
+}
+
+export function fetchProductionBySaleOrder(saleOrderId: number) {
+  return apiRequest<RestApiResponse<ProductionOrder | null>>(
+    `/api/production-orders/by-sale-order/${saleOrderId}`,
   )
 }
 

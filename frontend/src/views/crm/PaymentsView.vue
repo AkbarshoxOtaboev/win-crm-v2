@@ -146,7 +146,7 @@
               </td>
               <td class="td">
                 <span class="type-badge">
-                  <CreditCard class="h-3.5 w-3.5 shrink-0 opacity-70" />
+                  <component :is="iconForTypeId(p.paymentTypeId)" class="h-3.5 w-3.5 shrink-0 opacity-70" />
                   {{ p.paymentTypeName || '—' }}
                 </span>
               </td>
@@ -193,7 +193,13 @@
             {{ t('payments.typesSubtitle') }}
           </p>
         </div>
-        <button type="button" class="btn btn-with-icon" :disabled="writeBlocked" @click="openTypeCreate">
+        <button
+          v-if="auth.can('PAYMENT_TYPE_CREATE')"
+          type="button"
+          class="btn btn-with-icon"
+          :disabled="writeBlocked"
+          @click="openTypeCreate"
+        >
           <Plus class="h-4 w-4" />
           {{ t('payments.newType') }}
         </button>
@@ -230,7 +236,7 @@
                   <span
                     class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-50 text-brand-500 dark:bg-brand-500/10 dark:text-brand-400"
                   >
-                    <CreditCard class="h-4 w-4" />
+                    <component :is="paymentTypeIcon(pt.icon)" class="h-4 w-4" />
                   </span>
                   <span class="font-medium text-gray-800 dark:text-white/90">{{ pt.name }}</span>
                 </div>
@@ -370,7 +376,7 @@
             <div>
               <label for="pay-type" class="lbl">{{ t('payments.paymentType') }} <span class="req">*</span></label>
               <div class="relative">
-                <CreditCard class="field-icon" />
+                <component :is="iconForTypeId(form.paymentTypeId)" class="field-icon" />
                 <select
                   id="pay-type"
                   v-model.number="form.paymentTypeId"
@@ -389,13 +395,13 @@
                 <Banknote class="field-icon" />
                 <input
                   id="pay-amount"
-                  v-model.number="form.paymentAmount"
-                  type="number"
-                  min="0.01"
-                  step="0.01"
+                  :value="amountText"
+                  inputmode="decimal"
+                  autocomplete="off"
                   required
-                  placeholder="0.00"
+                  placeholder="0"
                   class="field"
+                  @input="onAmountInput"
                 />
               </div>
             </div>
@@ -475,7 +481,7 @@
             <span
               class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-500 dark:bg-brand-500/10 dark:text-brand-400"
             >
-              <CreditCard class="h-5 w-5" />
+              <component :is="paymentTypeIcon(typeIcon)" class="h-5 w-5" />
             </span>
             <div>
               <h3
@@ -508,6 +514,24 @@
                 :placeholder="t('payments.typeNamePlaceholder')"
                 class="field"
               />
+            </div>
+          </div>
+          <div>
+            <span class="lbl">{{ t('payments.typeIcon') }}</span>
+            <div class="icon-grid" role="radiogroup" :aria-label="t('payments.typeIcon')">
+              <button
+                v-for="opt in PAYMENT_TYPE_ICONS"
+                :key="opt.key"
+                type="button"
+                role="radio"
+                class="icon-opt"
+                :class="{ active: typeIcon === opt.key }"
+                :aria-checked="typeIcon === opt.key"
+                @click="typeIcon = opt.key"
+              >
+                <component :is="opt.icon" class="h-5 w-5" />
+                <span>{{ t(`payments.icons.${opt.key}`) }}</span>
+              </button>
             </div>
           </div>
           <div class="flex justify-end gap-2 pt-1">
@@ -567,8 +591,14 @@ import { fetchSaleOrdersByClient, type SaleOrder } from '@/api/sales'
 import { useAuthStore } from '@/stores/auth'
 import { formatApiError } from '@/api/http'
 import { useFilialScope } from '@/composables/useFilialScope'
-import { formatDate, money, nowLocal, toApiDate, today } from '@/utils/format'
+import { amountToText, formatAmountInput, formatDate, money, nowLocal, toApiDate, today } from '@/utils/format'
 import { formatUzPhone } from '@/utils/phone'
+import {
+  DEFAULT_PAYMENT_TYPE_ICON,
+  PAYMENT_TYPE_ICONS,
+  paymentTypeIcon,
+  type PaymentTypeIconKey,
+} from '@/utils/paymentTypeIcons'
 
 const { t } = useI18n()
 const { writeBlocked } = useFilialScope()
@@ -595,6 +625,8 @@ const filterClientId = ref(0)
 const typeModal = ref(false)
 const typeEditingId = ref<number | null>(null)
 const typeName = ref('')
+const typeIcon = ref<PaymentTypeIconKey>(DEFAULT_PAYMENT_TYPE_ICON)
+const amountText = ref('')
 const auth = useAuthStore()
 const form = reactive({
   clientId: 0,
@@ -605,6 +637,18 @@ const form = reactive({
   saleOrderId: 0,
   comment: '',
 })
+
+function iconForTypeId(id?: number | null) {
+  return paymentTypeIcon(paymentTypes.value.find((pt) => pt.id === id)?.icon)
+}
+
+function onAmountInput(e: Event) {
+  const el = e.target as HTMLInputElement
+  const { text, value } = formatAmountInput(el.value)
+  amountText.value = text
+  el.value = text
+  form.paymentAmount = value
+}
 
 function clientLabel(c: Client) {
   const phone = c.phone ? formatUzPhone(c.phone) : ''
@@ -730,6 +774,7 @@ function fillForm(p?: Payment) {
   form.userId = p?.userId || me?.id || users.value[0]?.id || 0
   form.paymentTypeId = p?.paymentTypeId || paymentTypes.value[0]?.id || 0
   form.paymentAmount = Number(p?.paymentAmount || 0)
+  amountText.value = amountToText(form.paymentAmount)
   form.paymentDate = p?.paymentDate ? p.paymentDate.slice(0, 16) : nowLocal()
   form.saleOrderId = p?.saleOrderId || 0
   form.comment = p?.comment || ''
@@ -760,6 +805,10 @@ function openEdit(p: Payment) {
 async function onSubmit() {
   if (!form.clientId) {
     formError.value = t('payments.selectClient')
+    return
+  }
+  if (!(form.paymentAmount > 0)) {
+    formError.value = t('payments.amountRequired')
     return
   }
   saving.value = true
@@ -803,6 +852,7 @@ function closeTypeModal() {
 function openTypeCreate() {
   typeEditingId.value = null
   typeName.value = ''
+  typeIcon.value = DEFAULT_PAYMENT_TYPE_ICON
   typeFormError.value = null
   typeModal.value = true
 }
@@ -810,6 +860,7 @@ function openTypeCreate() {
 function openTypeEdit(t: PaymentType) {
   typeEditingId.value = t.id
   typeName.value = t.name
+  typeIcon.value = (t.icon as PaymentTypeIconKey) || DEFAULT_PAYMENT_TYPE_ICON
   typeFormError.value = null
   typeModal.value = true
 }
@@ -818,8 +869,8 @@ async function onTypeSubmit() {
   typeSaving.value = true
   typeFormError.value = null
   try {
-    if (typeEditingId.value) await updatePaymentType(typeEditingId.value, typeName.value.trim())
-    else await createPaymentType(typeName.value.trim())
+    if (typeEditingId.value) await updatePaymentType(typeEditingId.value, typeName.value.trim(), typeIcon.value)
+    else await createPaymentType(typeName.value.trim(), typeIcon.value)
     typeModal.value = false
     await load()
   } catch (e) {
@@ -1226,5 +1277,41 @@ onMounted(load)
 }
 .dark .td {
   color: #9ca3af;
+}
+.icon-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+.icon-opt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 0.625rem;
+  border: 1px solid #e5e7eb;
+  padding: 0.65rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #4b5563;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+.icon-opt:hover {
+  border-color: #9cb0ff;
+}
+.icon-opt.active {
+  border-color: #465fff;
+  background: #eff4ff;
+  color: #465fff;
+  box-shadow: 0 0 0 3px rgb(70 95 255 / 12%);
+}
+.dark .icon-opt {
+  border-color: #344054;
+  color: #d1d5db;
+}
+.dark .icon-opt.active {
+  border-color: #465fff;
+  background: rgb(70 95 255 / 15%);
+  color: #9cb0ff;
 }
 </style>

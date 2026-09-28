@@ -35,9 +35,12 @@
                 {{ d.fullName }}
                 <div v-if="d.note" class="text-xs text-gray-500">{{ d.note }}</div>
               </td>
-              <td class="td">{{ d.phone || '—' }}</td>
+              <td class="td whitespace-nowrap">{{ d.phone ? formatUzPhone(d.phone) : '—' }}</td>
               <td class="td">{{ d.carModel || '—' }}</td>
-              <td class="td whitespace-nowrap">{{ d.carNumber || '—' }}</td>
+              <td class="td whitespace-nowrap">
+                <span v-if="d.carNumber" class="plate-badge">{{ formatCarNumber(d.carNumber) }}</span>
+                <span v-else>—</span>
+              </td>
               <td class="td">
                 <button
                   type="button"
@@ -59,20 +62,95 @@
     </div>
 
     <div v-if="modalOpen" class="overlay">
-      <div class="modal">
-        <h3 class="title mb-4">{{ editingId ? t('transport.drivers.editTitle') : t('transport.drivers.createTitle') }}</h3>
-        <div v-if="formError" class="err mb-3">{{ formError }}</div>
-        <form class="space-y-3" @submit.prevent="onSubmit">
-          <label class="lbl">{{ t('common.fullName') }} *<input v-model="form.fullName" required class="field" /></label>
-          <label class="lbl">{{ t('common.phone') }}<input v-model="form.phone" class="field" placeholder="+998" /></label>
-          <div class="grid grid-cols-2 gap-3">
-            <label class="lbl">{{ t('transport.drivers.car') }}<input v-model="form.carModel" class="field" placeholder="Damas" /></label>
-            <label class="lbl">{{ t('transport.drivers.carNumber') }}<input v-model="form.carNumber" class="field" placeholder="01 A 123 BC" /></label>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="driver-modal-title">
+        <div class="mb-5 flex items-start justify-between gap-3">
+          <div class="flex items-start gap-3">
+            <span class="modal-badge"><Truck class="h-5 w-5" /></span>
+            <div>
+              <h3 id="driver-modal-title" class="title">
+                {{ editingId ? t('transport.drivers.editTitle') : t('transport.drivers.createTitle') }}
+              </h3>
+              <p class="sub">{{ t('transport.drivers.modalSubtitle') }}</p>
+            </div>
           </div>
-          <label class="lbl">{{ t('common.note') }}<input v-model="form.note" class="field" /></label>
-          <div class="flex justify-end gap-2">
+          <button type="button" class="close-btn" :aria-label="t('common.close')" @click="modalOpen = false">
+            <X class="h-5 w-5" />
+          </button>
+        </div>
+        <div v-if="formError" class="err mb-3">{{ formError }}</div>
+        <form class="space-y-4" @submit.prevent="onSubmit">
+          <div>
+            <label for="driver-name" class="lbl">{{ t('common.fullName') }} <span class="req">*</span></label>
+            <div class="relative">
+              <User class="field-icon" />
+              <input
+                id="driver-name"
+                v-model="form.fullName"
+                required
+                class="field field-with-icon"
+                :placeholder="t('clients.fullNamePlaceholder')"
+              />
+            </div>
+          </div>
+          <div>
+            <label for="driver-phone" class="lbl">{{ t('common.phone') }}</label>
+            <div class="relative">
+              <Phone class="field-icon" />
+              <input
+                id="driver-phone"
+                :value="form.phone"
+                inputmode="tel"
+                placeholder="+998-(97)-123-45-67"
+                maxlength="19"
+                class="field field-with-icon"
+                @focus="onPhoneFocus"
+                @input="onPhoneInput"
+              />
+            </div>
+          </div>
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label for="driver-car" class="lbl">{{ t('transport.drivers.car') }}</label>
+              <div class="relative">
+                <Car class="field-icon" />
+                <input
+                  id="driver-car"
+                  v-model="form.carModel"
+                  class="field field-with-icon"
+                  :placeholder="t('transport.drivers.carModelPlaceholder')"
+                />
+              </div>
+            </div>
+            <div>
+              <label for="driver-plate" class="lbl">{{ t('transport.drivers.carNumber') }}</label>
+              <div class="relative">
+                <RectangleHorizontal class="field-icon" />
+                <input
+                  id="driver-plate"
+                  :value="form.carNumber"
+                  autocapitalize="characters"
+                  autocomplete="off"
+                  placeholder="90 B 123 BB"
+                  maxlength="11"
+                  class="field field-with-icon plate"
+                  @input="onCarNumberInput"
+                />
+              </div>
+            </div>
+          </div>
+          <div>
+            <label for="driver-note" class="lbl">{{ t('common.note') }}</label>
+            <div class="relative">
+              <MessageSquare class="field-icon" />
+              <input id="driver-note" v-model="form.note" class="field field-with-icon" />
+            </div>
+          </div>
+          <div class="flex justify-end gap-2 pt-1">
             <button type="button" class="ghost" @click="modalOpen = false">{{ t('common.cancel') }}</button>
-            <button type="submit" class="btn" :disabled="saving">{{ saving ? '...' : t('common.save') }}</button>
+            <button type="submit" class="btn btn-with-icon" :disabled="saving">
+              <Check class="h-4 w-4" />
+              {{ saving ? t('common.saving') : t('common.save') }}
+            </button>
           </div>
         </form>
       </div>
@@ -83,6 +161,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { Car, Check, MessageSquare, Phone, RectangleHorizontal, Truck, User, X } from 'lucide-vue-next'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import RowActions from '@/components/crm/RowActions.vue'
@@ -96,6 +175,8 @@ import {
 } from '@/api/transport'
 import { formatApiError } from '@/api/http'
 import { useFilialScope } from '@/composables/useFilialScope'
+import { formatUzPhone, isCompleteUzPhone, phoneDigits } from '@/utils/phone'
+import { formatCarNumber, isCompleteCarNumber } from '@/utils/carNumber'
 
 const { t } = useI18n()
 const { writeBlocked } = useFilialScope()
@@ -111,6 +192,27 @@ const form = reactive({ fullName: '', phone: '', carModel: '', carNumber: '', no
 
 function isActive(status?: string) {
   return !status || status === 'ACTIVE'
+}
+
+function onPhoneFocus() {
+  if (!form.phone) form.phone = '+998-'
+}
+
+function onPhoneInput(e: Event) {
+  const el = e.target as HTMLInputElement
+  form.phone = formatUzPhone(el.value)
+  el.value = form.phone
+}
+
+function onCarNumberInput(e: Event) {
+  const el = e.target as HTMLInputElement
+  form.carNumber = formatCarNumber(el.value)
+  el.value = form.carNumber
+}
+
+/** "+998-" bo'lsa ham bo'sh deb hisoblanadi */
+function hasPhone(value: string) {
+  return phoneDigits(value).length > 3
 }
 
 const filtered = computed(() => {
@@ -144,9 +246,9 @@ function openEdit(d: TransportDriver) {
   editingId.value = d.id
   Object.assign(form, {
     fullName: d.fullName,
-    phone: d.phone || '',
+    phone: d.phone ? formatUzPhone(d.phone) : '',
     carModel: d.carModel || '',
-    carNumber: d.carNumber || '',
+    carNumber: formatCarNumber(d.carNumber),
     note: d.note || '',
   })
   formError.value = null
@@ -154,13 +256,22 @@ function openEdit(d: TransportDriver) {
 }
 
 async function onSubmit() {
-  saving.value = true
   formError.value = null
+  const phone = hasPhone(form.phone) ? form.phone : ''
+  if (phone && !isCompleteUzPhone(phone)) {
+    formError.value = t('clients.phoneFormat')
+    return
+  }
+  if (form.carNumber && !isCompleteCarNumber(form.carNumber)) {
+    formError.value = t('transport.drivers.carNumberFormat')
+    return
+  }
+  saving.value = true
   const payload = {
     fullName: form.fullName.trim(),
-    phone: form.phone.trim() || undefined,
+    phone: phone || undefined,
     carModel: form.carModel.trim() || undefined,
-    carNumber: form.carNumber.trim() || undefined,
+    carNumber: form.carNumber || undefined,
     note: form.note.trim() || undefined,
   }
   try {
@@ -206,7 +317,22 @@ onMounted(load)
 .td { padding: 0.75rem 1.25rem; font-size: 0.875rem; color: #4b5563; }
 .empty { padding: 2.5rem 1.25rem; text-align: center; font-size: 0.875rem; color: #6b7280; }
 .field { height: 2.5rem; width: 100%; border-radius: 0.5rem; border: 1px solid #d1d5db; background: transparent; padding: 0 0.75rem; font-size: 0.875rem; }
-.lbl { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.75rem; font-weight: 500; color: #6b7280; }
+.lbl { display: block; margin-bottom: 0.375rem; font-size: 0.875rem; font-weight: 500; color: #374151; }
+.req { color: #ef4444; }
+.field:focus { outline: none; border-color: #9cb0ff; box-shadow: 0 0 0 4px rgb(70 95 255 / 10%); }
+.field-with-icon { height: 2.75rem; padding-left: 2.5rem; }
+.field-icon { position: absolute; top: 50%; left: 0.75rem; z-index: 1; height: 1.1rem; width: 1.1rem; transform: translateY(-50%); color: #98a2b3; pointer-events: none; }
+.plate { font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+.plate-badge { display: inline-flex; align-items: center; border-radius: 0.375rem; border: 1.5px solid #1f2937; padding: 0.1rem 0.5rem; font-size: 0.8125rem; font-weight: 700; letter-spacing: 0.06em; color: #1f2937; background: #fff; }
+.modal-badge { display: flex; height: 2.5rem; width: 2.5rem; flex-shrink: 0; align-items: center; justify-content: center; border-radius: 0.75rem; background: #eff4ff; color: #465fff; }
+.close-btn { display: flex; height: 2.25rem; width: 2.25rem; flex-shrink: 0; align-items: center; justify-content: center; border-radius: 0.5rem; color: #9ca3af; }
+.close-btn:hover { background: #f3f4f6; color: #374151; }
+.btn-with-icon { gap: 0.4rem; }
+.dark .lbl { color: #9ca3af; }
+.dark .field { border-color: #344054; color: rgba(255, 255, 255, 0.9); }
+.dark .modal-badge { background: rgb(70 95 255 / 12%); color: #9cb0ff; }
+.dark .close-btn:hover { background: rgb(255 255 255 / 5%); color: rgba(255, 255, 255, 0.8); }
+.dark .plate-badge { border-color: #d1d5db; background: transparent; color: #f3f4f6; }
 .btn { display: inline-flex; height: 2.5rem; align-items: center; justify-content: center; border-radius: 0.5rem; background: #465fff; padding: 0 1rem; font-size: 0.875rem; font-weight: 500; color: #fff; }
 .ghost { height: 2.5rem; display: inline-flex; align-items: center; border-radius: 0.5rem; border: 1px solid #d1d5db; padding: 0 1rem; font-size: 0.875rem; }
 .err { border-radius: 0.5rem; border: 1px solid #fecaca; background: #fef2f2; padding: 0.75rem 1rem; font-size: 0.875rem; color: #dc2626; }

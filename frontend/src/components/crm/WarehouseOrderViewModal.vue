@@ -41,7 +41,7 @@
                   <th class="th">{{ t('warehouseOrders.heightCm') }}</th>
                   <th class="th">{{ t('common.count') }}</th>
                   <th class="th">{{ t('warehouseOrders.kvm') }}</th>
-                  <th class="th">{{ t('warehouseOrders.selling') }}</th>
+                  <th class="th">{{ t('warehouseOrders.arrivalPrice') }}</th>
                   <th class="th">{{ t('common.sum') }}</th>
                 </tr>
               </thead>
@@ -56,7 +56,7 @@
                   <td class="td">{{ row.height != null ? formatNum(row.height) : '—' }}</td>
                   <td class="td">{{ row.pieces != null ? formatNum(row.pieces) : formatNum(row.count) }}</td>
                   <td class="td">{{ row.isWindow ? formatNum(row.count) : '—' }}</td>
-                  <td class="td">{{ money(row.priceSelling) }}</td>
+                  <td class="td">{{ money(row.priceCost) }}</td>
                   <td class="td">{{ money(row.sum) }}</td>
                 </tr>
               </tbody>
@@ -172,7 +172,7 @@ const displayItems = computed(() =>
     const width = it.weight != null ? Number(it.weight) : null
     const height = it.height != null ? Number(it.height) : null
     const count = Number(it.count || 0)
-    const priceSelling = Number(it.priceSelling || 0)
+    const priceCost = Number(it.priceCost || 0)
     let pieces: number | null = it.pieceCount != null ? Number(it.pieceCount) : null
     if (pieces == null && windowItem && width && height && width > 0 && height > 0) {
       pieces = (count * 10000) / (width * height)
@@ -184,9 +184,9 @@ const displayItems = computed(() =>
       height,
       pieces,
       count,
-      priceSelling,
+      priceCost,
       isWindow: windowItem,
-      sum: count * priceSelling,
+      sum: count * priceCost,
     }
   }),
 )

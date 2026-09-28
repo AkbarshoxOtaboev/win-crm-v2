@@ -60,6 +60,8 @@ public class SaleOrderMapper {
                 .discountValue(entity.getDiscountValue())
                 .discountAmount(entity.getDiscountAmount())
                 .totalSum(entity.getTotalSum())
+                .deliveryType(entity.getDeliveryType())
+                .deliveryFee(entity.getDeliveryFee())
                 .paidSum(entity.getPaidSum())
                 .debtSum(entity.getDebtSum())
                 .status(entity.getStatus())

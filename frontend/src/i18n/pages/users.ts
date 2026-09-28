@@ -22,6 +22,12 @@ export default {
     selectRole: 'Rolni tanlang',
     noFilial: 'Filial tanlanmagan',
     phoneFormatError: 'Telefon +998-(12)-345-67-89 formatida to‘liq bo‘lishi kerak',
+    roleNames: {
+      SELLER: 'Sotuvchi',
+      CASHIER: 'Kassir (to‘lov qabul qiluvchi)',
+      PRODUCTION_MANAGER: 'Ishlab chiqarish boshlig‘i',
+      TRANSPORT_MANAGER: 'Transport menejeri',
+    },
   },
   ru: {
     login: 'Логин',
@@ -46,6 +52,12 @@ export default {
     selectRole: 'Выберите роль',
     noFilial: 'Филиал не выбран',
     phoneFormatError: 'Телефон должен быть полностью в формате +998-(12)-345-67-89',
+    roleNames: {
+      SELLER: 'Продавец',
+      CASHIER: 'Кассир (приём оплат)',
+      PRODUCTION_MANAGER: 'Начальник производства',
+      TRANSPORT_MANAGER: 'Менеджер транспорта',
+    },
   },
   en: {
     login: 'Login',
@@ -70,5 +82,11 @@ export default {
     selectRole: 'Select a role',
     noFilial: 'No branch selected',
     phoneFormatError: 'Phone must be complete in the +998-(12)-345-67-89 format',
+    roleNames: {
+      SELLER: 'Seller',
+      CASHIER: 'Cashier (payment entry)',
+      PRODUCTION_MANAGER: 'Production manager',
+      TRANSPORT_MANAGER: 'Transport manager',
+    },
   },
 }

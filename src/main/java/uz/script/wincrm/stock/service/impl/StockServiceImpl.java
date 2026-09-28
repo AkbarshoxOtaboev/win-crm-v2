@@ -71,7 +71,8 @@ public class StockServiceImpl implements StockService {
 
     @Override
     @Transactional
-    public void increaseStock(Long goodsId, Long warehouseId, BigDecimal count, BigDecimal pieceCount) {
+    public void increaseStock(Long goodsId, Long warehouseId, BigDecimal count, BigDecimal pieceCount,
+                              BigDecimal unitCost) {
         BigDecimal pieces = pieceCount != null ? pieceCount : count;
         Stock stock = stockRepository.findByGoodsIdAndWarehouseId(goodsId, warehouseId)
                 .map(existing -> {
@@ -79,6 +80,7 @@ public class StockServiceImpl implements StockService {
                             ? existing.getPieceCount()
                             : BigDecimal.ZERO;
                     BigDecimal delta = pieceCount != null ? pieceCount : resolvePieceDelta(existing, count, null);
+                    existing.setPriceCost(averageCost(existing, count, unitCost));
                     existing.setCount(existing.getCount().add(count));
                     BigDecimal derived = StockPieces.derive(existing.getGoods(), existing.getCount());
                     existing.setPieceCount(derived != null ? derived : existingPieces.add(delta));
@@ -96,6 +98,7 @@ public class StockServiceImpl implements StockService {
                             .warehouse(warehouse)
                             .count(count)
                             .pieceCount(derived != null ? derived : pieces)
+                            .priceCost(unitCost != null ? unitCost : goods.getPriceCost())
                             .status(Status.ACTIVE)
                             .build();
                     filialAccess.attachCurrentFilial(newStock);
@@ -110,6 +113,30 @@ public class StockServiceImpl implements StockService {
         return stockRepository.findByGoodsIdAndWarehouseId(goodsId, warehouseId)
                 .map(Stock::getCount)
                 .orElse(BigDecimal.ZERO);
+    }
+
+    @Override
+    public BigDecimal getUnitCost(Long goodsId, Long warehouseId) {
+        return stockRepository.findByGoodsIdAndWarehouseId(goodsId, warehouseId)
+                .map(Stock::getPriceCost)
+                .orElse(null);
+    }
+
+    private BigDecimal averageCost(Stock stock, BigDecimal inCount, BigDecimal unitCost) {
+        BigDecimal current = stock.getPriceCost();
+        if (unitCost == null) {
+            return current != null ? current : stock.getGoods().getPriceCost();
+        }
+        BigDecimal have = stock.getCount() != null ? stock.getCount() : BigDecimal.ZERO;
+        if (current == null || have.signum() <= 0) {
+            return unitCost;
+        }
+        BigDecimal total = have.add(inCount);
+        if (total.signum() <= 0) {
+            return unitCost;
+        }
+        return have.multiply(current).add(inCount.multiply(unitCost))
+                .divide(total, 2, RoundingMode.HALF_UP);
     }
 
     @Override

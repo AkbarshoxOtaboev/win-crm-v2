@@ -43,4 +43,11 @@ public class Stock extends FilialScopedEntity {
      */
     @Column(precision = 38, scale = 4)
     private BigDecimal pieceCount;
+
+    /**
+     * O'rtacha kelgan narx (1 birlik uchun: WINDOW — 1 kv.m, boshqalar — 1 dona/birlik).
+     * Kirimda og'irlikli o'rtacha bo'yicha yangilanadi, chiqimda o'zgarmaydi.
+     */
+    @Column(precision = 38, scale = 2)
+    private BigDecimal priceCost;
 }

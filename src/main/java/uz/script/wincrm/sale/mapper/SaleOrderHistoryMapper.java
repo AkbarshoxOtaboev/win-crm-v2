@@ -16,6 +16,7 @@ public class SaleOrderHistoryMapper {
                 .toStatus(history.getToStatus())
                 .changedByUserId(history.getChangedByUser() != null ? history.getChangedByUser().getId() : null)
                 .changedByUserFullName(history.getChangedByUser() != null ? history.getChangedByUser().getFullName() : null)
+                .changedByUsername(history.getChangedByUser() != null ? history.getChangedByUser().getUsername() : null)
                 .comment(history.getComment())
                 .changedAt(history.getCreatedAt())
                 .build();
