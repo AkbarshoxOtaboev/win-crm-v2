@@ -36,6 +36,27 @@ public class StockTransferResponse {
     @Schema(description = "Maqsad ombor nomi", example = "Filial ombori")
     private String toWarehouseName;
 
+    @Schema(description = "Jo'natuvchi filial identifikatori", example = "1")
+    private Long fromFilialId;
+
+    @Schema(description = "Jo'natuvchi filial nomi", example = "Toshkent")
+    private String fromFilialName;
+
+    @Schema(description = "Qabul qiluvchi filial identifikatori", example = "2")
+    private Long toFilialId;
+
+    @Schema(description = "Qabul qiluvchi filial nomi", example = "Samarqand")
+    private String toFilialName;
+
+    @Schema(description = "Qabul qiluvchi filialdagi mahsulot identifikatori", example = "15")
+    private Long toGoodsId;
+
+    @Schema(description = "Qabul qiluvchi filialdagi mahsulot nomi", example = "Coca-Cola 1.5L")
+    private String toGoodsName;
+
+    @Schema(description = "Joriy filialga nisbatan yo'nalish: INTERNAL, OUTGOING, INCOMING", example = "OUTGOING")
+    private String direction;
+
     @Schema(description = "Ko'chirilgan miqdor", example = "50")
     private BigDecimal count;
 

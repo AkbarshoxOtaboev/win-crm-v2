@@ -62,6 +62,7 @@ export interface SalarySlip {
   baseSalary?: number
   totalCommission?: number
   totalCommissionReversal?: number
+  totalKpi?: number
   totalBonus?: number
   totalDeduction?: number
   totalAdvance?: number

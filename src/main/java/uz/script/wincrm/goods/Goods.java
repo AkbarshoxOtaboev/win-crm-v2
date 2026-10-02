@@ -51,6 +51,9 @@ public class Goods extends FilialScopedEntity {
 
     private String barcode;
 
+    /** Sotuvchi bera oladigan maksimal chegirma (%); null — cheklanmagan. */
+    @Column(name = "max_discount_percent", precision = 5, scale = 2)
+    private BigDecimal maxDiscountPercent;
 
     private String photo;
 

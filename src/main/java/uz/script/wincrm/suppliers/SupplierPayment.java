@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.SuperBuilder;
+import org.hibernate.annotations.SQLRestriction;
 import uz.script.wincrm.filial.FilialScopedEntity;
 import uz.script.wincrm.payment.PaymentType;
 import uz.script.wincrm.utils.TableName;
@@ -20,6 +21,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 @Table(name = TableName.SUPPLIER_PAYMENTS)
+@SQLRestriction("status <> 'DELETED'")
 public class SupplierPayment extends FilialScopedEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "supplier_id")

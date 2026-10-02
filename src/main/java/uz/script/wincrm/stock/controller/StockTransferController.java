@@ -13,6 +13,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import uz.script.wincrm.stock.request.StockTransferRequest;
 import uz.script.wincrm.stock.response.StockTransferResponse;
+import uz.script.wincrm.stock.response.TransferTargetWarehouseResponse;
 import uz.script.wincrm.stock.service.StockTransferService;
 import uz.script.wincrm.utils.RestApiResponse;
 
@@ -63,6 +64,28 @@ public class StockTransferController {
                 RestApiResponse.<List<StockTransferResponse>>builder()
                         .message("All stock transfers fetched successfully")
                         .data(service.fetchAll())
+                        .build()
+        );
+    }
+
+    @GetMapping("/target-warehouses")
+    @PreAuthorize("hasAuthority('STOCK_EDIT')")
+    @Operation(
+            summary = "Transfer uchun omborlar (barcha filiallar)",
+            description = "Filiallararo jo'natish uchun barcha filiallarning omborlarini qaytaradi. Only users with STOCK_EDIT permission can use this endpoint."
+    )
+    @ApiResponse(
+            responseCode = "200",
+            content = @Content(
+                    mediaType = "application/json",
+                    array = @ArraySchema(schema = @Schema(implementation = TransferTargetWarehouseResponse.class))
+            )
+    )
+    public ResponseEntity<?> fetchTargetWarehouses() {
+        return ResponseEntity.ok(
+                RestApiResponse.<List<TransferTargetWarehouseResponse>>builder()
+                        .message("Target warehouses fetched successfully")
+                        .data(service.fetchTargetWarehouses())
                         .build()
         );
     }

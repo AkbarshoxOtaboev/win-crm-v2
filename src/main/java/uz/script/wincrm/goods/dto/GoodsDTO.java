@@ -1,6 +1,7 @@
 package uz.script.wincrm.goods.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -71,6 +72,11 @@ public class GoodsDTO {
             example = "4870204012345"
     )
     private String barcode;
+
+    @DecimalMin(value = "0.0", inclusive = true, message = "Maksimal chegirma manfiy bo'lishi mumkin emas")
+    @DecimalMax(value = "100.0", inclusive = true, message = "Maksimal chegirma 100% dan oshmasligi kerak")
+    @Schema(description = "Sotuvchi bera oladigan maksimal chegirma, % (bo'sh — cheklanmagan)", example = "5")
+    private BigDecimal maxDiscountPercent;
 
     @DecimalMin(value = "0.0", inclusive = false, message = "Width must be greater than 0")
     @Schema(description = "Default window width in centimeters (WINDOW type)", example = "120")

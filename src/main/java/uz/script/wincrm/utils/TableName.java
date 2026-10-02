@@ -55,4 +55,7 @@ public interface TableName {
     String TRANSPORT_DELIVERIES = "transport_deliveries";
     String TRANSPORT_DELIVERY_WORKERS = "transport_delivery_workers";
     String TRANSPORT_WORKER_SALARIES = "transport_worker_salaries";
+    String DISCOUNT_RULES = "discount_rules";
+    String KPI_RATES = "kpi_rates";
+    String KPI_ENTRIES = "kpi_entries";
 }

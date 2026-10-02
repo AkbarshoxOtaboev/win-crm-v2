@@ -16,6 +16,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import uz.script.wincrm.payment.dto.PaymentAllocationRequest;
 import uz.script.wincrm.payment.dto.PaymentDTO;
 import uz.script.wincrm.payment.response.PaymentPageResponse;
 import uz.script.wincrm.payment.response.PaymentResponse;
@@ -23,6 +24,8 @@ import uz.script.wincrm.payment.service.PaymentService;
 import uz.script.wincrm.utils.PageUtils;
 import uz.script.wincrm.utils.RestApiResponse;
 import uz.script.wincrm.utils.response.PageResponse;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/payments")
@@ -221,6 +224,42 @@ public class PaymentController {
                 RestApiResponse.<PaymentResponse>builder()
                         .message("Payment successfully updated")
                         .data(response)
+                        .build()
+        );
+    }
+
+    @PostMapping("/allocate")
+    @PreAuthorize("hasAnyAuthority('PAYMENT_CREATE', 'PAYMENT_EDIT')")
+    @Operation(
+            summary = "Taqsimlanmagan to'lovlarni buyurtmalarga taqsimlash (akt sverka)",
+            description = "Kassir belgilagan buyurtmasiz to'lovlarni ko'rsatilgan buyurtmalarga yozadi. " +
+                    "Qisman ishlatilgan to'lov ikkiga bo'linadi, qolgani taqsimlanmagan holda qoladi."
+    )
+    @ApiResponse(responseCode = "200")
+    public ResponseEntity<?> allocate(@Valid @RequestBody PaymentAllocationRequest request) {
+        return ResponseEntity.ok(
+                RestApiResponse.<List<PaymentResponse>>builder()
+                        .message("Payments successfully allocated")
+                        .data(service.allocate(request))
+                        .build()
+        );
+    }
+
+    @PostMapping("/{id}/unallocate")
+    @PreAuthorize("hasAnyAuthority('PAYMENT_CREATE', 'PAYMENT_EDIT')")
+    @Operation(
+            summary = "To'lovni buyurtmadan ajratish",
+            description = "To'lovni yana taqsimlanmagan holatga qaytaradi va buyurtma qarzini qayta hisoblaydi."
+    )
+    @ApiResponse(responseCode = "200")
+    public ResponseEntity<?> unallocate(
+            @Parameter(description = "Payment ID", example = "1")
+            @PathVariable Long id
+    ) {
+        return ResponseEntity.ok(
+                RestApiResponse.<PaymentResponse>builder()
+                        .message("Payment successfully unallocated")
+                        .data(service.unallocate(id))
                         .build()
         );
     }

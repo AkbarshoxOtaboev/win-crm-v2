@@ -40,6 +40,7 @@ const label = computed(() => {
 .badge-ready { background: #f5f3ff; color: #7c3aed; }
 .badge-in_delivery { background: #ecfeff; color: #0e7490; }
 .badge-delivered { background: #ecfdf5; color: #059669; }
+.badge-work_done { background: #f0fdfa; color: #0f766e; }
 .badge-completed { background: #d1fae5; color: #047857; }
 .badge-cancelled { background: #fef2f2; color: #dc2626; }
 .dark .badge { background: rgb(255 255 255 / 6%); color: #d1d5db; }
@@ -49,6 +50,7 @@ const label = computed(() => {
 .dark .badge-ready { background: rgb(139 92 246 / 18%); color: #c4b5fd; }
 .dark .badge-in_delivery { background: rgb(6 182 212 / 15%); color: #67e8f9; }
 .dark .badge-delivered { background: rgb(16 185 129 / 15%); color: #6ee7b7; }
+.dark .badge-work_done { background: rgb(20 184 166 / 15%); color: #5eead4; }
 .dark .badge-completed { background: rgb(5 150 105 / 25%); color: #34d399; }
 .dark .badge-cancelled { background: rgb(239 68 68 / 15%); color: #fca5a5; }
 </style>

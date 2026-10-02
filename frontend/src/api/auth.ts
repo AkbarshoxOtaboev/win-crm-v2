@@ -10,6 +10,8 @@ export interface AuthResponse {
   superAdmin?: boolean
   filialId?: number | null
   filialName?: string | null
+  /** Workshops this user manages; empty = not restricted to any workshop. */
+  workshopIds?: number[]
 }
 
 export interface LoginPayload {

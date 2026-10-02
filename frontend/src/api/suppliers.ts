@@ -95,6 +95,22 @@ export interface SupplierPayment {
   comment?: string
   paymentTypeId?: number
   paymentTypeName?: string
+  createdUsername?: string
+  createdAt?: string
+}
+
+export interface SupplierPaymentFilter {
+  supplierId?: number
+  paymentTypeId?: number
+  fromDate?: string
+  toDate?: string
+}
+
+export function filterSupplierPayments(filter: SupplierPaymentFilter, page = 0, size = 200) {
+  return apiRequest<RestApiResponse<SpringPage<SupplierPayment>>>(
+    `/api/supplier-payments/filter?page=${page}&size=${size}&sort=paidDate,desc&sort=id,desc`,
+    { method: 'POST', body: filter },
+  )
 }
 
 export interface SupplierPaymentPayload {

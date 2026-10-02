@@ -11,4 +11,6 @@ public interface GoodsGroupRepository extends JpaRepository<GoodsGroup, Long> {
     boolean existsByNameIgnoreCase(String name);
 
     Optional<GoodsGroup> findByNameIgnoreCase(String name);
+
+    Optional<GoodsGroup> findFirstByNameIgnoreCaseOrderByIdAsc(String name);
 }

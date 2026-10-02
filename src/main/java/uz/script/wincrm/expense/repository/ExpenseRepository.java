@@ -11,11 +11,14 @@ import uz.script.wincrm.expense.Expense;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface ExpenseRepository extends JpaRepository<Expense, Long> {
 
     Page<Expense> findByCategoryId(Long categoryId, Pageable pageable);
+
+    Optional<Expense> findBySupplierPaymentId(Long supplierPaymentId);
 
     List<Expense> findByExpenseDateBetween(LocalDate startDate, LocalDate endDate);
 

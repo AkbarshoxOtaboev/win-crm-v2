@@ -13,6 +13,7 @@ import uz.script.wincrm.workshop.dto.AssignmentFeePercentDTO;
 import uz.script.wincrm.workshop.dto.WorkshopDTO;
 import uz.script.wincrm.workshop.response.WorkshopDashboardResponse;
 import uz.script.wincrm.workshop.response.WorkshopResponse;
+import uz.script.wincrm.workshop.service.WorkshopAccess;
 import uz.script.wincrm.workshop.service.WorkshopBalanceService;
 import uz.script.wincrm.workshop.service.WorkshopService;
 
@@ -26,6 +27,7 @@ public class WorkshopController {
 
     private final WorkshopService service;
     private final WorkshopBalanceService balanceService;
+    private final WorkshopAccess workshopAccess;
 
     @PostMapping("/create")
     @PreAuthorize("hasAuthority('WORKSHOP_CREATE')")
@@ -102,6 +104,7 @@ public class WorkshopController {
     @PreAuthorize("hasAuthority('WORKSHOP_VIEW')")
     @Operation(summary = "Workshop production dashboard (queue, progress, completed, balance)")
     public ResponseEntity<?> dashboard(@PathVariable Long id) {
+        workshopAccess.assertWorkshop(id);
         return ResponseEntity.ok(RestApiResponse.<WorkshopDashboardResponse>builder()
                 .message("Workshop dashboard fetched successfully")
                 .data(balanceService.dashboard(id))

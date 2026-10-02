@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import uz.script.wincrm.exceptions.BadRequestException;
 import uz.script.wincrm.exceptions.ResourceNotFoundException;
+import uz.script.wincrm.kpi.repository.KpiEntryRepository;
 import uz.script.wincrm.salary.SalaryConfig;
 import uz.script.wincrm.salary.repository.SalaryConfigRepository;
 import uz.script.wincrm.salary.repository.SalaryTransactionRepository;
@@ -27,6 +28,7 @@ public class SalarySlipServiceImpl implements SalarySlipService {
     private final SalaryTransactionRepository transactionRepository;
     private final SalaryConfigRepository configRepository;
     private final UserRepository userRepository;
+    private final KpiEntryRepository kpiEntryRepository;
 
     @Override
     public SalarySlipResponse getSlip(Long userId, Integer year, Integer month) {
@@ -48,10 +50,12 @@ public class SalarySlipServiceImpl implements SalarySlipService {
         BigDecimal bonus = safe(agg != null ? agg.getTotalBonus() : null);
         BigDecimal deduction = safe(agg != null ? agg.getTotalDeduction() : null);
         BigDecimal advance = safe(agg != null ? agg.getTotalAdvance() : null);
+        BigDecimal kpi = safe(kpiEntryRepository.sumForUserPeriod(userId, year, month));
 
         BigDecimal net = baseSalary
                 .add(commission)
                 .subtract(commissionReversal)
+                .add(kpi)
                 .add(bonus)
                 .subtract(deduction)
                 .subtract(advance);
@@ -64,6 +68,7 @@ public class SalarySlipServiceImpl implements SalarySlipService {
                 .baseSalary(baseSalary)
                 .totalCommission(commission)
                 .totalCommissionReversal(commissionReversal)
+                .totalKpi(kpi)
                 .totalBonus(bonus)
                 .totalDeduction(deduction)
                 .totalAdvance(advance)

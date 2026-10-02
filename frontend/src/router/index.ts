@@ -178,6 +178,12 @@ const router = createRouter({
       meta: { title: 'Sotuv hisoboti', requiresAuth: true },
     },
     {
+      path: '/sales/debts',
+      name: 'SellerDebts',
+      component: () => import('../views/crm/SellerDebtsView.vue'),
+      meta: { title: 'Qarzdorlar', requiresAuth: true },
+    },
+    {
       path: '/sales/wastes',
       name: 'SalesWastes',
       component: () => import('../views/crm/SalesWastesView.vue'),
@@ -230,6 +236,12 @@ const router = createRouter({
       name: 'Salary',
       component: () => import('../views/crm/SalaryView.vue'),
       meta: { title: 'Maosh', requiresAuth: true },
+    },
+    {
+      path: '/kpi',
+      name: 'Kpi',
+      component: () => import('../views/crm/KpiView.vue'),
+      meta: { title: 'KPI', requiresAuth: true },
     },
     {
       path: '/users',
@@ -316,6 +328,12 @@ const router = createRouter({
       name: 'SettingsAudit',
       component: () => import('../views/crm/settings/AuditSettingsView.vue'),
       meta: { title: 'Audit loglar', requiresAuth: true, settingsAdmin: true },
+    },
+    {
+      path: '/settings/discount-rules',
+      name: 'SettingsDiscountRules',
+      component: () => import('../views/crm/settings/DiscountRulesSettingsView.vue'),
+      meta: { title: 'Chegirma qoidalari', requiresAuth: true, settingsAdmin: true },
     },
     {
       path: '/profile',

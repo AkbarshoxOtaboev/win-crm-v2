@@ -26,6 +26,23 @@ export interface PaymentPayload {
   comment?: string
 }
 
+export interface PaymentAllocationPayload {
+  clientId: number
+  paymentIds: number[]
+  allocations: { saleOrderId: number; amount: number }[]
+}
+
+export function allocatePayments(payload: PaymentAllocationPayload) {
+  return apiRequest<RestApiResponse<Payment[]>>('/api/payments/allocate', {
+    method: 'POST',
+    body: payload,
+  })
+}
+
+export function unallocatePayment(id: number) {
+  return apiRequest<RestApiResponse<Payment>>(`/api/payments/${id}/unallocate`, { method: 'POST' })
+}
+
 export interface PaymentType {
   id: number
   name: string

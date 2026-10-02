@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import uz.script.wincrm.audit.AuditAction;
 import uz.script.wincrm.audit.Auditable;
 import uz.script.wincrm.exceptions.ResourceNotFoundException;
+import uz.script.wincrm.expense.service.SupplierPaymentExpenseSync;
 import uz.script.wincrm.payment.PaymentType;
 import uz.script.wincrm.payment.repository.PaymentTypeRepository;
 import uz.script.wincrm.suppliers.Supplier;
@@ -35,6 +36,7 @@ public class SupplierPaymentServiceImpl implements SupplierPaymentService {
     private final SupplierRepository supplierRepository;
     private final PaymentTypeRepository paymentTypeRepository;
     private final SupplierBalanceService supplierBalanceService;
+    private final SupplierPaymentExpenseSync expenseSync;
 
     @Override
     @Transactional
@@ -58,6 +60,7 @@ public class SupplierPaymentServiceImpl implements SupplierPaymentService {
         payment = repository.save(payment);
 
         supplierBalanceService.increasePayment(supplier.getId(), dto.getPaidSumm());
+        expenseSync.upsert(payment);
 
         log.info("Supplier payment created successfully. ID: {}", payment.getId());
 
@@ -95,6 +98,7 @@ public class SupplierPaymentServiceImpl implements SupplierPaymentService {
         } else if (diff.compareTo(BigDecimal.ZERO) < 0) {
             supplierBalanceService.decreasePayment(payment.getSupplier().getId(), diff.abs());
         }
+        expenseSync.upsert(payment);
 
         log.info("Supplier payment updated successfully. ID: {}", payment.getId());
 
@@ -117,6 +121,7 @@ public class SupplierPaymentServiceImpl implements SupplierPaymentService {
         repository.save(payment);
 
         supplierBalanceService.decreasePayment(payment.getSupplier().getId(), payment.getPaidSumm());
+        expenseSync.remove(payment.getId());
 
         log.info("Supplier payment deleted successfully. ID: {}", id);
     }

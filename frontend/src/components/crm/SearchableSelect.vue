@@ -35,7 +35,7 @@
       <ul class="options">
         <li v-if="filtered.length === 0" class="empty">{{ t('common.notFound') }}</li>
         <li
-          v-for="opt in filtered"
+          v-for="opt in visible"
           :key="opt.value"
           class="option"
           :class="{ active: Number(opt.value) === Number(modelValue) }"
@@ -43,6 +43,7 @@
         >
           {{ opt.label }}
         </li>
+        <li v-if="hiddenCount > 0" class="more">{{ t('shared.moreResults', { count: hiddenCount }) }}</li>
       </ul>
     </div>
   </div>
@@ -66,11 +67,14 @@ const props = withDefaults(
     placeholder?: string
     searchPlaceholder?: string
     disabled?: boolean
+    /** Max options shown while the search is empty; 0 = show all. */
+    limit?: number
   }>(),
   {
     placeholder: '',
     searchPlaceholder: '',
     disabled: false,
+    limit: 0,
   },
 )
 
@@ -104,6 +108,11 @@ const filtered = computed(() => {
     return false
   })
 })
+
+const visible = computed(() =>
+  props.limit > 0 && !query.value.trim() ? filtered.value.slice(0, props.limit) : filtered.value,
+)
+const hiddenCount = computed(() => filtered.value.length - visible.value.length)
 
 function toggle() {
   if (props.disabled) return
@@ -209,6 +218,17 @@ onMounted(() => {})
   text-align: center;
   font-size: 0.8125rem;
   color: #9ca3af;
+}
+.more {
+  border-top: 1px solid #f3f4f6;
+  margin-top: 0.25rem;
+  padding: 0.5rem 0.65rem 0.35rem;
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+.dark .more {
+  border-top-color: #1f2937;
+  color: #6b7280;
 }
 .dark .field-btn {
   border-color: #344054;

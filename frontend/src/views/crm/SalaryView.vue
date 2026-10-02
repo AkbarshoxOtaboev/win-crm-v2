@@ -171,6 +171,9 @@
           <span>{{ t('salary.commissionReversal') }}</span><span>{{ money(slip.totalCommissionReversal) }}</span>
         </div>
         <div class="flex justify-between border-b border-gray-100 py-2 dark:border-gray-800">
+          <span>{{ t('salary.kpi') }}</span><span>{{ money(slip.totalKpi) }}</span>
+        </div>
+        <div class="flex justify-between border-b border-gray-100 py-2 dark:border-gray-800">
           <span>{{ t('salary.bonus') }}</span><span>{{ money(slip.totalBonus) }}</span>
         </div>
         <div class="flex justify-between border-b border-gray-100 py-2 dark:border-gray-800">

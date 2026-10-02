@@ -32,4 +32,11 @@ public class Expense extends FilialScopedEntity {
 
     @Column(length = 500)
     private String description;
+
+    /**
+     * Yetkazib beruvchiga to'lovdan avtomatik yaratilgan xarajat bo'lsa - o'sha to'lov ID'si.
+     * Bunday xarajat faqat yetkazib beruvchi to'lovi orqali o'zgaradi/o'chiriladi.
+     */
+    @Column(name = "supplier_payment_id")
+    private Long supplierPaymentId;
 }

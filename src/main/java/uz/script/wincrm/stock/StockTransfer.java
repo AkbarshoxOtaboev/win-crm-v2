@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.SQLRestriction;
+import uz.script.wincrm.filial.Filial;
 import uz.script.wincrm.filial.FilialScopedEntity;
 import uz.script.wincrm.goods.Goods;
 import uz.script.wincrm.utils.TableName;
@@ -41,6 +42,15 @@ public class StockTransfer extends FilialScopedEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "to_warehouse_id", nullable = false)
     private Warehouse toWarehouse;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "to_filial_id")
+    private Filial toFilial;
+
+    /** Goods row in the receiving filial's catalog; differs from {@code goods} for cross-filial transfers. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "to_goods_id")
+    private Goods toGoods;
 
     @Column(nullable = false)
     private BigDecimal count;

@@ -12,8 +12,12 @@ import uz.script.wincrm.audit.Auditable;
 import uz.script.wincrm.clients.Client;
 import uz.script.wincrm.clients.repository.ClientRepository;
 import uz.script.wincrm.clients.service.ClientBalanceService;
+import uz.script.wincrm.discount.service.DiscountRuleService;
 import uz.script.wincrm.exceptions.BadRequestException;
+import uz.script.wincrm.kpi.service.KpiService;
 import uz.script.wincrm.exceptions.ResourceNotFoundException;
+import uz.script.wincrm.payment.Payment;
+import uz.script.wincrm.payment.repository.PaymentRepository;
 import uz.script.wincrm.production.repository.ProductionOrderRepository;
 import uz.script.wincrm.sale.SaleOrder;
 import uz.script.wincrm.sale.dto.ApplyDiscountDTO;
@@ -30,6 +34,7 @@ import uz.script.wincrm.sale.repository.SaleOrderRepository;
 import uz.script.wincrm.sale.response.SaleOrderDiscountHistoryResponse;
 import uz.script.wincrm.sale.response.SaleOrderResponse;
 import uz.script.wincrm.sale.service.DiscountCalculator;
+import uz.script.wincrm.sale.service.DiscountLimitPolicy;
 import uz.script.wincrm.sale.service.SaleOrderDiscountHistoryRecorder;
 import uz.script.wincrm.sale.service.SaleOrderHistoryService;
 import uz.script.wincrm.sale.service.SaleOrderItemService;
@@ -55,6 +60,7 @@ public class SaleOrderServiceImpl implements SaleOrderService {
 
     private final SaleOrderRepository repository;
     private final ProductionOrderRepository productionOrderRepository;
+    private final PaymentRepository paymentRepository;
     private final SaleOrderMapper mapper;
     private final ClientRepository clientRepository;
     private final WarehouseRepository warehouseRepository;
@@ -70,6 +76,9 @@ public class SaleOrderServiceImpl implements SaleOrderService {
     private final SaleOrderDiscountHistoryRecorder discountHistoryRecorder;
     private final SaleOrderDiscountHistoryRepository discountHistoryRepository;
     private final SaleOrderDiscountHistoryMapper discountHistoryMapper;
+    private final DiscountLimitPolicy discountLimitPolicy;
+    private final DiscountRuleService discountRuleService;
+    private final KpiService kpiService;
 
     @Override
     @Auditable(
@@ -120,13 +129,13 @@ public class SaleOrderServiceImpl implements SaleOrderService {
                         .build()
         );
 
-        // Create paytida ixtiyoriy chegirma (dto.discountType != null bo'lsa) - shu yerda bir marta qo'llanadi
+        createInitialItems(entity, dto);
+
+        // Create paytida ixtiyoriy chegirma - pozitsiyalardan keyin, mahsulot chegirma chegarasi tekshirilishi uchun
         if (dto.getDiscountType() != null && dto.getDiscountValue() != null) {
-            applyDiscountInternal(entity, dto.getDiscountType(), dto.getDiscountValue());
+            applyDiscountInternal(entity, dto.getDiscountType(), dto.getDiscountValue(), true);
             entity = repository.save(entity);
         }
-
-        createInitialItems(entity, dto);
 
         if (entity.getClient() != null) {
             clientBalanceService.recalculateClientBalance(entity.getClient().getId());
@@ -264,7 +273,7 @@ public class SaleOrderServiceImpl implements SaleOrderService {
             entity.setOriginalTotalSum(dto.getTotalSum());
         }
         if (dto.getTotalSum() != null && entity.getDiscountType() != null && entity.getDiscountValue() != null) {
-            applyDiscountInternal(entity, entity.getDiscountType(), entity.getDiscountValue());
+            applyDiscountInternal(entity, entity.getDiscountType(), entity.getDiscountValue(), false);
         } else {
             recalculateTotals(entity);
         }
@@ -296,6 +305,7 @@ public class SaleOrderServiceImpl implements SaleOrderService {
         SalesOrderStatus current = entity.getSalesOrderStatus();
         if (current != SalesOrderStatus.CANCELLED
                 && current != SalesOrderStatus.DELIVERED
+                && current != SalesOrderStatus.WORK_DONE
                 && current != SalesOrderStatus.COMPLETED) {
             saleOrderItemService.returnItemsToStock(id);
             productionOrderService.cancelForSaleOrder(id);
@@ -304,6 +314,7 @@ public class SaleOrderServiceImpl implements SaleOrderService {
 
         entity.setStatus(Status.DELETED);
         repository.saveAndFlush(entity);
+        kpiService.removeForSaleOrder(id);
 
         if (entity.getClient() != null) {
             clientBalanceService.recalculateClientBalance(entity.getClient().getId());
@@ -315,7 +326,7 @@ public class SaleOrderServiceImpl implements SaleOrderService {
             action = AuditAction.UPDATE,
             entity = "SaleOrder"
     )
-    public void changeStatus(Long id, SalesOrderStatus salesOrderStatus) {
+    public void changeStatus(Long id, SalesOrderStatus salesOrderStatus, String comment) {
         log.info("Change order {} status to {}", id, salesOrderStatus);
         SaleOrder entity = repository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Sale order not found with id: " + id));
@@ -325,6 +336,24 @@ public class SaleOrderServiceImpl implements SaleOrderService {
         if (!currentStatus.canTransitionTo(salesOrderStatus)) {
             throw new BadRequestException(
                     "Cannot change order status from " + currentStatus + " to " + salesOrderStatus);
+        }
+
+        String trimmedComment = comment != null ? comment.trim() : null;
+        if (salesOrderStatus == SalesOrderStatus.CANCELLED
+                && (trimmedComment == null || trimmedComment.isEmpty())) {
+            throw new BadRequestException("Buyurtmani bekor qilish sababini (izoh) kiriting");
+        }
+
+        if (salesOrderStatus == SalesOrderStatus.COMPLETED) {
+            BigDecimal paid = paymentRepository.findBySaleOrderId(id).stream()
+                    .map(Payment::getPaymentAmount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal debt = entity.getTotalSum().subtract(paid);
+            if (debt.signum() > 0) {
+                throw new BadRequestException(
+                        "Buyurtma bo'yicha " + debt.stripTrailingZeros().toPlainString()
+                                + " so'm qarz bor. Yakunlash uchun avval qarz to'liq to'lanishi kerak.");
+            }
         }
 
         if (salesOrderStatus == SalesOrderStatus.PROCESSING
@@ -363,6 +392,9 @@ public class SaleOrderServiceImpl implements SaleOrderService {
         }
 
         entity.setSalesOrderStatus(salesOrderStatus);
+        if (salesOrderStatus == SalesOrderStatus.CANCELLED) {
+            entity.setDebtSum(BigDecimal.ZERO);
+        }
         repository.saveAndFlush(entity);
 
         saleOrderHistoryService.recordHistory(
@@ -370,11 +402,16 @@ public class SaleOrderServiceImpl implements SaleOrderService {
                         .saleOrderId(entity.getId())
                         .fromStatus(currentStatus)
                         .toStatus(salesOrderStatus)
+                        .comment(trimmedComment != null && !trimmedComment.isEmpty() ? trimmedComment : null)
                         .build()
         );
 
         if (salesOrderStatus == SalesOrderStatus.CANCELLED && entity.getClient() != null) {
             clientBalanceService.recalculateClientBalance(entity.getClient().getId());
+        }
+
+        if (salesOrderStatus == SalesOrderStatus.COMPLETED) {
+            kpiService.accrueForSaleOrder(entity);
         }
     }
 
@@ -394,7 +431,7 @@ public class SaleOrderServiceImpl implements SaleOrderService {
                     "Yakuniy holatdagi (" + entity.getSalesOrderStatus() + ") buyurtmaga chegirma qo'llab bo'lmaydi");
         }
 
-        applyDiscountInternal(entity, dto.getDiscountType(), dto.getDiscountValue());
+        applyDiscountInternal(entity, dto.getDiscountType(), dto.getDiscountValue(), true);
 
         entity = repository.save(entity);
 
@@ -426,12 +463,17 @@ public class SaleOrderServiceImpl implements SaleOrderService {
      */
     private void applyDiscountInternal(SaleOrder entity,
                                        uz.script.wincrm.sale.enums.DiscountType type,
-                                       BigDecimal value) {
+                                       BigDecimal value,
+                                       boolean enforceGoodsLimit) {
         BigDecimal previousDiscount =
                 entity.getDiscountAmount() != null ? entity.getDiscountAmount() : BigDecimal.ZERO;
 
         BigDecimal base = entity.getOriginalTotalSum();
         BigDecimal discountAmount = discountCalculator.calculate(base, type, value);
+        if (enforceGoodsLimit) {
+            discountRuleService.checkOrderDiscount(entity, discountAmount);
+            discountLimitPolicy.checkOrderDiscount(entity, discountAmount);
+        }
 
         entity.setDiscountType(type);
         entity.setDiscountValue(value);
@@ -464,7 +506,9 @@ public class SaleOrderServiceImpl implements SaleOrderService {
         BigDecimal discount = entity.getDiscountAmount() != null ? entity.getDiscountAmount() : BigDecimal.ZERO;
         BigDecimal total = entity.getOriginalTotalSum().subtract(discount).add(entity.deliveryFeeOrZero());
         entity.setTotalSum(total);
-        entity.setDebtSum(total.subtract(paidOrZero(entity)));
+        entity.setDebtSum(entity.getSalesOrderStatus() == SalesOrderStatus.CANCELLED
+                ? BigDecimal.ZERO
+                : total.subtract(paidOrZero(entity)));
     }
 
     private BigDecimal paidOrZero(SaleOrder entity) {

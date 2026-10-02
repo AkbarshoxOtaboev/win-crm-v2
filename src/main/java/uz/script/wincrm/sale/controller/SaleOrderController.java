@@ -24,10 +24,13 @@ import uz.script.wincrm.sale.enums.SalesOrderStatus;
 import uz.script.wincrm.sale.response.SaleOrderDiscountHistoryResponse;
 import uz.script.wincrm.sale.response.SaleOrderHistoryResponse;
 import uz.script.wincrm.sale.response.SaleOrderResponse;
+import uz.script.wincrm.sale.response.SellerDebtResponse;
 import uz.script.wincrm.sale.service.SaleOrderHistoryService;
 import uz.script.wincrm.sale.service.SaleOrderService;
+import uz.script.wincrm.sale.service.SellerDebtService;
 import uz.script.wincrm.utils.RestApiResponse;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -39,6 +42,7 @@ public class SaleOrderController {
 
     private final SaleOrderService service;
     private final SaleOrderHistoryService historyService;
+    private final SellerDebtService sellerDebtService;
 
     @PostMapping("/create")
     @PreAuthorize("hasAuthority('SALE_ORDER_CREATE')")
@@ -197,6 +201,33 @@ public class SaleOrderController {
         );
     }
 
+    @GetMapping("/debts/by-seller")
+    @PreAuthorize("hasAuthority('SALE_ORDER_VIEW')")
+    @Operation(
+            summary = "Debtor clients grouped by seller",
+            description = "Qarzi qolgan buyurtmalar sotuvchi va mijoz bo'yicha guruhlanadi. " +
+                    "DEBT_NOTIFICATION_VIEW ruxsati bo'lmagan foydalanuvchi (sotuvchi) faqat o'z mijozlarini ko'radi."
+    )
+    @ApiResponse(
+            responseCode = "200",
+            content = @Content(
+                    mediaType = "application/json",
+                    array = @ArraySchema(schema = @Schema(implementation = SellerDebtResponse.class))
+            )
+    )
+    public ResponseEntity<?> fetchSellerDebts(
+            @RequestParam(required = false) Long userId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
+    ) {
+        return ResponseEntity.ok(
+                RestApiResponse.<List<SellerDebtResponse>>builder()
+                        .message("Seller debts fetched successfully")
+                        .data(sellerDebtService.fetchSellerDebts(userId, startDate, endDate))
+                        .build()
+        );
+    }
+
     @GetMapping("/date-range")
     @PreAuthorize("hasAuthority('SALE_ORDER_VIEW')")
     @Operation(
@@ -293,9 +324,12 @@ public class SaleOrderController {
                     description = "New sale order status",
                     example = "CONFIRMED"
             )
-            @RequestParam SalesOrderStatus salesOrderStatus
+            @RequestParam SalesOrderStatus salesOrderStatus,
+
+            @Parameter(description = "Status change comment (required for CANCELLED)")
+            @RequestParam(required = false) String comment
     ) {
-        service.changeStatus(id, salesOrderStatus);
+        service.changeStatus(id, salesOrderStatus, comment);
 
         return ResponseEntity.ok(
                 RestApiResponse.<Void>builder()

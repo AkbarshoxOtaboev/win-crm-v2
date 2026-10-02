@@ -454,21 +454,155 @@
       </div>
 
       <!-- Akt / Hisob-kitob -->
-      <div v-show="tab === 'act'" class="card p-5">
-        <h4 class="mb-1 text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('clientDetail.tabs.act') }}</h4>
-        <p class="mb-4 text-sm text-gray-500">{{ t('clientDetail.actSubtitle') }}</p>
-        <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <div class="metric-box">
-            <p class="text-xs text-gray-500">{{ t('clientDetail.debit') }}</p>
-            <p class="mt-1 text-lg font-bold text-brand-500">{{ moneySom(totalSales) }}</p>
+      <div v-show="tab === 'act'" class="space-y-4">
+        <div class="card p-5">
+          <h4 class="mb-1 text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('clientDetail.tabs.act') }}</h4>
+          <p class="mb-4 text-sm text-gray-500">{{ t('clientDetail.actSubtitle') }}</p>
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div class="metric-box">
+              <p class="text-xs text-gray-500">{{ t('clientDetail.debit') }}</p>
+              <p class="mt-1 text-lg font-bold text-brand-500">{{ moneySom(totalSales) }}</p>
+            </div>
+            <div class="metric-box">
+              <p class="text-xs text-gray-500">{{ t('clientDetail.credit') }}</p>
+              <p class="mt-1 text-lg font-bold text-success-600">{{ moneySom(totalPaid) }}</p>
+            </div>
+            <div class="metric-box">
+              <p class="text-xs text-gray-500">{{ t('clientDetail.balanceRest') }}</p>
+              <p class="mt-1 text-lg font-bold text-error-600">{{ moneySom(totalDebt) }}</p>
+            </div>
+            <div class="metric-box">
+              <p class="text-xs text-gray-500">{{ t('clientDetail.allocation.unallocated') }}</p>
+              <p class="mt-1 text-lg font-bold text-warning-600">{{ moneySom(unallocatedTotal) }}</p>
+            </div>
           </div>
-          <div class="metric-box">
-            <p class="text-xs text-gray-500">{{ t('clientDetail.credit') }}</p>
-            <p class="mt-1 text-lg font-bold text-success-600">{{ moneySom(totalPaid) }}</p>
+        </div>
+
+        <div v-if="canAllocate" class="card p-5">
+          <h4 class="mb-1 text-base font-semibold text-gray-800 dark:text-white/90">{{ t('clientDetail.allocation.title') }}</h4>
+          <p class="mb-4 text-sm text-gray-500">{{ t('clientDetail.allocation.hint') }}</p>
+
+          <div class="grid gap-4 lg:grid-cols-2">
+            <div class="alloc-box">
+              <div class="alloc-head">
+                <span>{{ t('clientDetail.allocation.payments') }}</span>
+                <label v-if="unallocatedPayments.length" class="inline-flex items-center gap-1.5 text-xs font-normal">
+                  <input
+                    type="checkbox"
+                    :checked="allPaymentsSelected"
+                    @change="toggleAllPayments(($event.target as HTMLInputElement).checked)"
+                  />
+                  {{ t('clientDetail.allocation.selectAll') }}
+                </label>
+              </div>
+              <p v-if="unallocatedPayments.length === 0" class="empty">{{ t('clientDetail.allocation.noUnallocated') }}</p>
+              <table v-else class="min-w-full">
+                <tbody>
+                  <tr v-for="p in unallocatedPayments" :key="p.id" class="border-b border-gray-100 last:border-0 dark:border-gray-800">
+                    <td class="td w-8"><input v-model="selectedPaymentIds" type="checkbox" :value="p.id" /></td>
+                    <td class="td">
+                      <div class="font-medium text-gray-800 dark:text-white/90">#{{ p.id }} · {{ p.paymentTypeName || '—' }}</div>
+                      <div class="text-xs text-gray-500">{{ formatDate(p.paymentDate) }}<template v-if="p.comment"> · {{ p.comment }}</template></div>
+                    </td>
+                    <td class="td text-end font-semibold text-success-600">{{ moneySom(p.paymentAmount) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="alloc-box">
+              <div class="alloc-head">
+                <span>{{ t('clientDetail.allocation.orders') }}</span>
+              </div>
+              <p v-if="debtOrders.length === 0" class="empty">{{ t('clientDetail.allocation.noDebtOrders') }}</p>
+              <table v-else class="min-w-full">
+                <tbody>
+                  <tr v-for="o in debtOrders" :key="o.id" class="border-b border-gray-100 last:border-0 dark:border-gray-800">
+                    <td class="td w-8">
+                      <input
+                        type="checkbox"
+                        :checked="selectedOrderIds.includes(o.id)"
+                        @change="toggleOrder(o, ($event.target as HTMLInputElement).checked)"
+                      />
+                    </td>
+                    <td class="td">
+                      <router-link :to="`/sales/${o.id}`" class="font-medium text-brand-500">#{{ o.id }}</router-link>
+                      <div class="text-xs text-gray-500">
+                        {{ formatDate(o.orderDate) }} · {{ t('clientDetail.allocation.debtLeft') }}: {{ money(o.debtSum) }}
+                      </div>
+                    </td>
+                    <td class="td w-36">
+                      <input
+                        v-if="selectedOrderIds.includes(o.id)"
+                        v-model.number="allocationAmounts[o.id]"
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        :max="Number(o.debtSum || 0)"
+                        class="field h-9 text-end"
+                      />
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
-          <div class="metric-box">
-            <p class="text-xs text-gray-500">{{ t('clientDetail.balanceRest') }}</p>
-            <p class="mt-1 text-lg font-bold text-error-600">{{ moneySom(totalDebt) }}</p>
+
+          <div class="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+            <span class="text-gray-500">{{ t('clientDetail.allocation.selected') }}: <b class="text-gray-800 dark:text-white/90">{{ money(selectedPool) }}</b></span>
+            <span class="text-gray-500">{{ t('clientDetail.allocation.allocating') }}: <b class="text-brand-500">{{ money(allocatingTotal) }}</b></span>
+            <span class="text-gray-500">{{ t('clientDetail.allocation.left') }}: <b :class="allocationLeft < 0 ? 'text-error-600' : 'text-gray-800 dark:text-white/90'">{{ money(allocationLeft) }}</b></span>
+            <button
+              type="button"
+              class="btn ms-auto"
+              :disabled="allocating || !!allocationError || allocatingTotal <= 0"
+              @click="onAllocate"
+            >
+              {{ allocating ? t('common.saving') : t('clientDetail.allocation.submit') }}
+            </button>
+          </div>
+          <p v-if="allocationError && allocatingTotal > 0" class="mt-2 text-sm text-error-600">{{ allocationError }}</p>
+          <p v-if="allocationMessage" class="mt-2 text-sm text-success-600">{{ allocationMessage }}</p>
+        </div>
+
+        <div class="card">
+          <div class="border-b border-gray-100 px-5 py-4 dark:border-gray-800">
+            <h4 class="text-base font-semibold text-gray-800 dark:text-white/90">{{ t('clientDetail.statement.title') }}</h4>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="min-w-full">
+              <thead>
+                <tr class="border-b border-gray-100 dark:border-gray-800">
+                  <th class="th">{{ t('common.date') }}</th>
+                  <th class="th">{{ t('clientDetail.statement.document') }}</th>
+                  <th class="th text-end">{{ t('clientDetail.debit') }}</th>
+                  <th class="th text-end">{{ t('clientDetail.credit') }}</th>
+                  <th class="th text-end">{{ t('clientDetail.statement.balance') }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-if="statementRows.length === 0"><td colspan="5" class="empty">{{ t('clientDetail.statement.empty') }}</td></tr>
+                <tr v-for="row in statementRows" :key="row.key" class="border-b border-gray-100 dark:border-gray-800">
+                  <td class="td whitespace-nowrap">{{ formatDate(row.date) }}</td>
+                  <td class="td">
+                    <router-link v-if="row.orderId" :to="`/sales/${row.orderId}`" class="text-brand-500">{{ row.title }}</router-link>
+                    <span v-else>{{ row.title }}</span>
+                    <span v-if="row.badge" class="ms-1.5 inline-flex rounded-md bg-warning-50 px-1.5 py-0.5 text-xs text-warning-700 dark:bg-warning-500/10 dark:text-warning-400">{{ row.badge }}</span>
+                  </td>
+                  <td class="td text-end">{{ row.debit ? money(row.debit) : '' }}</td>
+                  <td class="td text-end text-success-600">{{ row.credit ? money(row.credit) : '' }}</td>
+                  <td class="td text-end font-medium" :class="row.balance > 0 ? 'text-error-600' : 'text-gray-800 dark:text-white/90'">{{ money(row.balance) }}</td>
+                </tr>
+              </tbody>
+              <tfoot v-if="statementRows.length">
+                <tr>
+                  <td class="td font-semibold" colspan="2">{{ t('clientDetail.statement.total') }}</td>
+                  <td class="td text-end font-semibold">{{ money(statementTotals.debit) }}</td>
+                  <td class="td text-end font-semibold text-success-600">{{ money(statementTotals.credit) }}</td>
+                  <td class="td text-end font-semibold" :class="statementTotals.debit - statementTotals.credit > 0 ? 'text-error-600' : ''">{{ money(statementTotals.debit - statementTotals.credit) }}</td>
+                </tr>
+              </tfoot>
+            </table>
           </div>
         </div>
       </div>
@@ -484,10 +618,11 @@
                 <th class="th">{{ t('common.type') }}</th>
                 <th class="th">{{ t('clientDetail.order') }}</th>
                 <th class="th">{{ t('common.date') }}</th>
+                <th v-if="canAllocate" class="th text-end">{{ t('common.actions') }}</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-if="payments.length === 0"><td colspan="5" class="empty">{{ t('clientDetail.noPayments') }}</td></tr>
+              <tr v-if="payments.length === 0"><td :colspan="canAllocate ? 6 : 5" class="empty">{{ t('clientDetail.noPayments') }}</td></tr>
               <tr
                 v-for="p in payments"
                 :key="p.id"
@@ -504,9 +639,19 @@
                   >
                     #{{ p.saleOrderId }}
                   </router-link>
-                  <span v-else>—</span>
+                  <span v-else class="text-xs text-warning-600">{{ t('clientDetail.allocation.unallocatedShort') }}</span>
                 </td>
                 <td class="td">{{ formatDate(p.paymentDate) }}</td>
+                <td v-if="canAllocate" class="td text-end">
+                  <button
+                    v-if="p.saleOrderId"
+                    type="button"
+                    class="text-xs font-medium text-warning-600 hover:underline"
+                    @click="onUnallocate(p)"
+                  >
+                    {{ t('clientDetail.allocation.unallocate') }}
+                  </button>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -737,7 +882,8 @@ import {
   type ClientNote,
 } from '@/api/clientNotes'
 import { fetchSaleOrdersByClient, type SaleOrder } from '@/api/sales'
-import { fetchPaymentsByClient, type Payment } from '@/api/payments'
+import { allocatePayments, fetchPaymentsByClient, unallocatePayment, type Payment } from '@/api/payments'
+import { useAuthStore } from '@/stores/auth'
 import { fetchDebtHistoryByClient, sendDebtSmsToClient, type DebtNotificationHistory } from '@/api/debt'
 import { fetchSaleOrderItemsByClient, type SaleOrderItem } from '@/api/saleOrderItems'
 import { formatApiError } from '@/api/http'
@@ -758,6 +904,7 @@ type TabKey =
 
 const route = useRoute()
 const { t, te } = useI18n()
+const auth = useAuthStore()
 
 const tabKeys: TabKey[] = [
   'overview',
@@ -852,6 +999,160 @@ const breadcrumbItems = computed(() => [
 const totalSales = computed(() => Number(balance.value?.totalPurchase ?? 0))
 const totalPaid = computed(() => Number(balance.value?.totalPaid ?? 0))
 const totalDebt = computed(() => Number(balance.value?.totalDebt ?? 0))
+
+const canAllocate = computed(() => auth.can('PAYMENT_CREATE') || auth.can('PAYMENT_EDIT'))
+const selectedPaymentIds = ref<number[]>([])
+const selectedOrderIds = ref<number[]>([])
+const allocationAmounts = reactive<Record<number, number>>({})
+const allocating = ref(false)
+const allocationMessage = ref('')
+
+function byDateAsc<T extends { id: number }>(date: (x: T) => string | undefined) {
+  return (a: T, b: T) => String(date(a) || '').localeCompare(String(date(b) || '')) || a.id - b.id
+}
+
+const unallocatedPayments = computed(() =>
+  payments.value.filter((p) => !p.saleOrderId).sort(byDateAsc((p) => p.paymentDate)),
+)
+const unallocatedTotal = computed(() =>
+  unallocatedPayments.value.reduce((s, p) => s + Number(p.paymentAmount || 0), 0),
+)
+const debtOrders = computed(() =>
+  sales.value
+    .filter((o) => o.orderStatus !== 'CANCELLED' && Number(o.debtSum || 0) > 0)
+    .sort(byDateAsc((o) => o.orderDate)),
+)
+const allPaymentsSelected = computed(
+  () => unallocatedPayments.value.length > 0 && selectedPaymentIds.value.length === unallocatedPayments.value.length,
+)
+const selectedPool = computed(() =>
+  unallocatedPayments.value
+    .filter((p) => selectedPaymentIds.value.includes(p.id))
+    .reduce((s, p) => s + Number(p.paymentAmount || 0), 0),
+)
+const allocatingTotal = computed(() =>
+  selectedOrderIds.value.reduce((s, id) => s + Number(allocationAmounts[id] || 0), 0),
+)
+const allocationLeft = computed(() => Math.round((selectedPool.value - allocatingTotal.value) * 100) / 100)
+
+const allocationError = computed(() => {
+  if (!selectedPaymentIds.value.length) return t('clientDetail.allocation.selectPayments')
+  if (allocationLeft.value < 0) return t('clientDetail.allocation.exceedsPool')
+  for (const id of selectedOrderIds.value) {
+    const order = debtOrders.value.find((o) => o.id === id)
+    const amount = Number(allocationAmounts[id] || 0)
+    if (amount <= 0) return t('clientDetail.allocation.amountRequired', { id })
+    if (order && amount > Number(order.debtSum || 0) + 0.005) return t('clientDetail.allocation.exceedsDebt', { id })
+  }
+  return ''
+})
+
+function toggleAllPayments(checked: boolean) {
+  selectedPaymentIds.value = checked ? unallocatedPayments.value.map((p) => p.id) : []
+}
+
+function toggleOrder(order: SaleOrder, checked: boolean) {
+  allocationMessage.value = ''
+  if (!checked) {
+    selectedOrderIds.value = selectedOrderIds.value.filter((id) => id !== order.id)
+    delete allocationAmounts[order.id]
+    return
+  }
+  selectedOrderIds.value = [...selectedOrderIds.value, order.id]
+  const suggested = Math.min(Number(order.debtSum || 0), Math.max(0, allocationLeft.value))
+  allocationAmounts[order.id] = Math.round(suggested * 100) / 100
+}
+
+function resetAllocation() {
+  selectedPaymentIds.value = []
+  selectedOrderIds.value = []
+  for (const key of Object.keys(allocationAmounts)) delete allocationAmounts[Number(key)]
+}
+
+async function onAllocate() {
+  if (allocationError.value || allocatingTotal.value <= 0) return
+  allocating.value = true
+  allocationMessage.value = ''
+  error.value = null
+  try {
+    await allocatePayments({
+      clientId: clientId(),
+      paymentIds: [...selectedPaymentIds.value],
+      allocations: selectedOrderIds.value.map((id) => ({ saleOrderId: id, amount: Number(allocationAmounts[id]) })),
+    })
+    const total = allocatingTotal.value
+    resetAllocation()
+    await load()
+    allocationMessage.value = t('clientDetail.allocation.success', { amount: money(total) })
+  } catch (e) {
+    error.value = formatApiError(e)
+  } finally {
+    allocating.value = false
+  }
+}
+
+async function onUnallocate(p: Payment) {
+  if (!confirm(t('clientDetail.allocation.unallocateConfirm', { id: p.id, order: p.saleOrderId }))) return
+  error.value = null
+  try {
+    await unallocatePayment(p.id)
+    resetAllocation()
+    await load()
+  } catch (e) {
+    error.value = formatApiError(e)
+  }
+}
+
+type StatementRow = {
+  key: string
+  date: string
+  title: string
+  badge?: string
+  orderId?: number
+  debit: number
+  credit: number
+  balance: number
+}
+
+const statementRows = computed<StatementRow[]>(() => {
+  const entries: Omit<StatementRow, 'balance'>[] = []
+  for (const o of sales.value) {
+    if (o.orderStatus === 'CANCELLED') continue
+    entries.push({
+      key: `o${o.id}`,
+      date: o.orderDate || '',
+      title: t('clientDetail.statement.order', { id: o.id }),
+      orderId: o.id,
+      debit: Number(o.totalSum || 0),
+      credit: 0,
+    })
+  }
+  for (const p of payments.value) {
+    entries.push({
+      key: `p${p.id}`,
+      date: p.paymentDate || '',
+      title: p.saleOrderId
+        ? t('clientDetail.statement.paymentFor', { id: p.id, type: p.paymentTypeName || '—', order: p.saleOrderId })
+        : t('clientDetail.statement.payment', { id: p.id, type: p.paymentTypeName || '—' }),
+      badge: p.saleOrderId ? undefined : t('clientDetail.allocation.unallocatedShort'),
+      debit: 0,
+      credit: Number(p.paymentAmount || 0),
+    })
+  }
+  entries.sort((a, b) => a.date.localeCompare(b.date) || b.debit - a.debit)
+  let balanceRun = 0
+  return entries.map((e) => {
+    balanceRun += e.debit - e.credit
+    return { ...e, balance: Math.round(balanceRun * 100) / 100 }
+  })
+})
+
+const statementTotals = computed(() =>
+  statementRows.value.reduce(
+    (acc, r) => ({ debit: acc.debit + r.debit, credit: acc.credit + r.credit }),
+    { debit: 0, credit: 0 },
+  ),
+)
 
 const itemsCost = computed(() =>
   items.value.reduce((s, it) => s + Number(it.priceCost || 0) * Number(it.count || 1), 0),
@@ -1171,7 +1472,13 @@ watch(
   },
 )
 
-onMounted(load)
+onMounted(() => {
+  const requestedTab = route.query.tab
+  if (typeof requestedTab === 'string' && tabKeys.includes(requestedTab as TabKey)) {
+    tab.value = requestedTab as TabKey
+  }
+  load()
+})
 </script>
 
 <style scoped>
@@ -1331,6 +1638,45 @@ onMounted(load)
 }
 .dark .metric-box {
   background: rgb(255 255 255 / 0.04);
+}
+.alloc-box {
+  border-radius: 0.75rem;
+  border: 1px solid #e5e7eb;
+  max-height: 22rem;
+  overflow-y: auto;
+}
+.alloc-head {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb;
+  padding: 0.6rem 1rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #374151;
+}
+.alloc-box .td {
+  padding: 0.55rem 1rem;
+}
+.th.text-end,
+.td.text-end {
+  text-align: end;
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.dark .alloc-box {
+  border-color: #1f2937;
+}
+.dark .alloc-head {
+  border-color: #1f2937;
+  background: #111827;
+  color: #d1d5db;
 }
 .status-pill {
   display: inline-flex;

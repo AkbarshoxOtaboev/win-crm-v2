@@ -4,9 +4,20 @@
     <div class="mb-4 flex flex-wrap items-center gap-2">
       <router-link to="/sales" class="ghost">{{ t('common.backToList') }}</router-link>
       <button
+        v-if="order"
+        type="button"
+        class="ghost btn-with-icon ms-auto"
+        :disabled="refreshing"
+        :title="t('common.refresh')"
+        @click="onRefresh"
+      >
+        <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': refreshing }" />
+        {{ t('common.refresh') }}
+      </button>
+      <button
         v-if="order && auth.can('SALE_ORDER_EDIT')"
         type="button"
-        class="btn btn-with-icon ms-auto"
+        class="btn btn-with-icon"
         :disabled="writeBlocked || order.orderStatus === 'CANCELLED'"
         :title="order.orderStatus === 'CANCELLED' ? t('saleOrderDetail.editBlockedCancelled') : undefined"
         @click="openEdit"
@@ -85,7 +96,12 @@
           type="button"
           class="status-btn"
           :class="st === 'CANCELLED' ? 'status-btn-danger' : 'status-btn-primary'"
-          :disabled="statusSaving || writeBlocked || (st === 'DELIVERED' && deliveryConfirmBlocked)"
+          :disabled="
+            statusSaving ||
+            writeBlocked ||
+            (st === 'DELIVERED' && deliveryConfirmBlocked) ||
+            (st === 'COMPLETED' && completeBlocked)
+          "
           @click="onStatus(st)"
         >
           {{ statusButtonLabel(st) }}
@@ -100,6 +116,13 @@
       </p>
       <p v-if="order.orderStatus === 'IN_DELIVERY' && deliveryConfirmBlocked" class="mt-2 text-xs text-amber-600 dark:text-amber-400">
         {{ t('saleOrderDetail.deliveryConfirmBlocked') }}
+      </p>
+      <p v-if="order.orderStatus === 'WORK_DONE'" class="mt-2 text-xs" :class="completeBlocked ? 'text-amber-600 dark:text-amber-400' : 'text-gray-500 dark:text-gray-400'">
+        {{
+          completeBlocked
+            ? t('saleOrderDetail.completeBlockedDebt', { debt: money(order.debtSum) })
+            : t('saleOrderDetail.completeReady', { status: statusLabel('COMPLETED') })
+        }}
       </p>
     </div>
 
@@ -137,23 +160,39 @@
       <table class="min-w-full">
         <thead>
           <tr class="border-b border-gray-100 dark:border-gray-800">
-            <th class="th">{{ t('common.product') }}</th><th class="th">{{ t('common.count') }}</th><th class="th">{{ t('saleOrderDetail.selling') }}</th><th class="th">{{ t('common.date') }}</th><th class="th text-right">{{ t('common.actions') }}</th>
+            <th class="th">{{ t('common.product') }}</th><th class="th">{{ t('common.count') }}</th><th class="th">{{ t('saleOrderDetail.selling') }}</th><th class="th">{{ t('saleOrderDetail.lineSum') }}</th><th class="th">{{ t('common.date') }}</th><th class="th text-right">{{ t('common.actions') }}</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-if="items.length === 0"><td colspan="5" class="empty">{{ t('saleOrderDetail.noItems') }}</td></tr>
+          <tr v-if="items.length === 0"><td colspan="6" class="empty">{{ t('saleOrderDetail.noItems') }}</td></tr>
           <tr v-for="it in items" :key="it.id" class="border-b border-gray-100 dark:border-gray-800">
             <td class="td">{{ it.goodsName || it.goodsId }}</td>
             <td class="td">{{ itemQtyText(it) }}</td>
             <td class="td">{{ money(it.priceSelling) }}</td>
+            <td class="td font-medium text-gray-800 dark:text-white/90">{{ money(lineSum(it)) }}</td>
             <td class="td">{{ formatDate(it.arrivalDate) }}</td>
             <td class="td text-right"><RowActions @edit="openItemEdit(it)" @delete="onItemDelete(it)" /></td>
           </tr>
         </tbody>
+        <tfoot v-if="items.length">
+          <tr class="sum-row">
+            <td class="td" colspan="3">{{ t('saleOrderDetail.itemsTotal') }}</td>
+            <td class="td" colspan="3">{{ money(itemsTotal) }}</td>
+          </tr>
+        </tfoot>
       </table>
     </div>
 
     <div v-show="tab === 'discount'" class="card p-5 space-y-4">
+      <div v-if="discountLimit != null" class="limit-card">
+        <div>
+          {{ t('saleOrderDetail.discountLimit', { percent: formatPercent(discountLimit), amount: money(discountLimitAmount) }) }}
+        </div>
+        <div v-if="canBypassDiscountLimit" class="mt-1 text-xs opacity-80">{{ t('saleOrderDetail.discountLimitBypass') }}</div>
+      </div>
+      <div v-if="roleDiscountLimit != null" class="limit-card">
+        {{ t('saleOrderDetail.roleDiscountLimit', { percent: formatPercent(roleDiscountLimit), amount: money(discountBase * roleDiscountLimit) }) }}
+      </div>
       <form class="flex flex-wrap items-end gap-2" @submit.prevent="onDiscount">
         <div>
           <label class="lbl">{{ t('common.type') }}</label>
@@ -166,8 +205,12 @@
           <label class="lbl">{{ t('saleOrderDetail.value') }}</label>
           <input v-model.number="discountValue" type="number" min="0.01" step="0.01" class="field w-32" />
         </div>
-        <button type="submit" class="btn" :disabled="saving">{{ t('common.apply') }}</button>
+        <button type="submit" class="btn" :disabled="saving || discountExceeded">{{ t('common.apply') }}</button>
       </form>
+      <div v-if="discountPreview" class="text-sm" :class="discountExceeded ? 'text-error-600 dark:text-error-400' : 'text-gray-600 dark:text-gray-400'">
+        {{ t('saleOrderDetail.discountPreview', { percent: formatPercent(discountPreview.fraction), amount: money(discountPreview.amount) }) }}
+        <template v-if="discountExceeded"> — {{ t('saleOrderDetail.discountExceeded') }}</template>
+      </div>
       <table class="min-w-full">
         <thead><tr class="border-b border-gray-100 dark:border-gray-800"><th class="th">{{ t('common.type') }}</th><th class="th">{{ t('saleOrderDetail.value') }}</th><th class="th">{{ t('common.sum') }}</th><th class="th">{{ t('common.date') }}</th></tr></thead>
         <tbody>
@@ -184,13 +227,14 @@
 
     <div v-show="tab === 'history'" class="card">
       <table class="min-w-full">
-        <thead><tr class="border-b border-gray-100 dark:border-gray-800"><th class="th">{{ t('common.from') }}</th><th class="th">{{ t('saleOrderDetail.historyTo') }}</th><th class="th">{{ t('saleOrderDetail.who') }}</th><th class="th">{{ t('common.date') }}</th></tr></thead>
+        <thead><tr class="border-b border-gray-100 dark:border-gray-800"><th class="th">{{ t('common.from') }}</th><th class="th">{{ t('saleOrderDetail.historyTo') }}</th><th class="th">{{ t('saleOrderDetail.who') }}</th><th class="th">{{ t('common.comment') }}</th><th class="th">{{ t('common.date') }}</th></tr></thead>
         <tbody>
-          <tr v-if="history.length === 0"><td colspan="4" class="empty">{{ t('saleOrderDetail.noHistory') }}</td></tr>
+          <tr v-if="history.length === 0"><td colspan="5" class="empty">{{ t('saleOrderDetail.noHistory') }}</td></tr>
           <tr v-for="h in history" :key="h.id" class="border-b border-gray-100 dark:border-gray-800">
             <td class="td"><SaleStatusBadge v-if="h.fromStatus" :status="h.fromStatus" /><span v-else>—</span></td>
             <td class="td"><SaleStatusBadge :status="h.toStatus" /></td>
             <td class="td">{{ h.changedByUserFullName || h.changedByUsername || '—' }}</td>
+            <td class="td whitespace-pre-line">{{ h.comment || '—' }}</td>
             <td class="td">{{ formatDate(h.changedAt) }}</td>
           </tr>
         </tbody>
@@ -235,6 +279,40 @@
         <button type="button" class="preview-close" :aria-label="t('common.close')" @click="preview = null"><X :size="18" /></button>
         <AuthImage :src="imageSrc(preview)" :alt="preview.originalFileName || ''" class="preview-img" />
         <p class="preview-name">{{ preview.originalFileName || preview.fileName }}</p>
+      </div>
+    </div>
+
+    <div v-if="cancelModal" class="overlay">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="cancel-modal-title">
+        <div class="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <h3 id="cancel-modal-title" class="title">{{ t('saleOrderDetail.cancelTitle', { id: order?.id }) }}</h3>
+            <p class="modal-hint mt-1">{{ t('saleOrderDetail.cancelHint') }}</p>
+          </div>
+          <button type="button" class="close-btn" :aria-label="t('common.close')" @click="cancelModal = false">
+            <X class="h-5 w-5" />
+          </button>
+        </div>
+        <div v-if="cancelError" class="err mb-3">{{ cancelError }}</div>
+        <form class="space-y-4" @submit.prevent="onCancelConfirm">
+          <div>
+            <label for="cancel-reason" class="f-lbl">{{ t('saleOrderDetail.cancelReason') }} <span class="req">*</span></label>
+            <textarea
+              id="cancel-reason"
+              v-model="cancelReason"
+              rows="3"
+              required
+              class="field f-textarea"
+              :placeholder="t('saleOrderDetail.cancelReasonPlaceholder')"
+            />
+          </div>
+          <div class="flex justify-end gap-2">
+            <button type="button" class="ghost" @click="cancelModal = false">{{ t('common.cancel') }}</button>
+            <button type="submit" class="status-btn status-btn-danger" :disabled="statusSaving || !cancelReason.trim()">
+              {{ statusSaving ? t('common.saving') : t('saleOrderDetail.cancelSubmit') }}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
 
@@ -465,10 +543,14 @@
         <h3 class="title mb-4">{{ itemEditingId ? t('saleOrderDetail.editItem') : t('saleOrderDetail.newItem') }}</h3>
         <div v-if="formError" class="err mb-3">{{ formError }}</div>
         <form class="space-y-3" @submit.prevent="onItemSave">
-          <select v-model.number="itemForm.goodsId" required class="field">
-            <option :value="0" disabled>{{ t('common.product') }}</option>
-            <option v-for="g in goods" :key="g.id" :value="g.id">{{ g.name }}</option>
-          </select>
+          <SearchableSelect
+            :model-value="itemForm.goodsId"
+            :options="goodsOptions"
+            :limit="5"
+            :placeholder="t('saleOrderDetail.productPlaceholder')"
+            :search-placeholder="t('saleOrderDetail.productSearchPlaceholder')"
+            @update:model-value="onGoodsPick"
+          />
           <div v-if="itemIsWindow" class="grid grid-cols-2 gap-3">
             <label class="modal-lbl">
               {{ t('saleOrderDetail.width') }}
@@ -545,6 +627,7 @@ import {
   PackageCheck,
   Pencil,
   Plus,
+  RefreshCw,
   Trash2,
   Truck,
   UserCog,
@@ -597,6 +680,7 @@ import { fetchWarehouses, type Warehouse } from '@/api/warehouses'
 import { fetchClients, type Client } from '@/api/clients'
 import { fetchUserOptions, type UserItem } from '@/api/users'
 import { fetchGoods, type Goods } from '@/api/goods'
+import { fetchMyDiscountLimit } from '@/api/discountRules'
 import { formatApiError } from '@/api/http'
 import { useFilialScope } from '@/composables/useFilialScope'
 import { amountToText, formatAmountInput, formatDate, money, nowLocal, toApiDate } from '@/utils/format'
@@ -626,6 +710,69 @@ const saving = ref(false)
 const discountType = ref('PERCENTAGE')
 const discountValue = ref(10)
 
+const canBypassDiscountLimit = computed(() => auth.can('GOODS_EDIT'))
+
+/** Mirrors backend DiscountLimitPolicy: weighted remaining share after item-level price cuts. */
+const discountLimit = computed<number | null>(() => {
+  const goodsById = new Map(goods.value.map((g) => [g.id, g]))
+  let weightSum = 0
+  let allowedSum = 0
+  let anyLimited = false
+  for (const it of items.value) {
+    const weight = Number(it.priceSelling || 0) * Number(it.count || 0)
+    if (weight <= 0) continue
+    const g = it.goodsId != null ? goodsById.get(it.goodsId) : undefined
+    let remaining = 1
+    if (g?.maxDiscountPercent != null) {
+      anyLimited = true
+      const limit = Number(g.maxDiscountPercent) / 100
+      const list = Number(g.priceSelling || 0)
+      const price = Number(it.priceSelling || 0)
+      const used = list > 0 && price < list ? (list - price) / list : 0
+      remaining = used >= limit ? 0 : 1 - (1 - limit) / (1 - used)
+    }
+    weightSum += weight
+    allowedSum += weight * remaining
+  }
+  return anyLimited && weightSum > 0 ? allowedSum / weightSum : null
+})
+
+const discountBase = computed(() => Number(order.value?.originalTotalSum ?? order.value?.totalSum ?? 0))
+const discountLimitAmount = computed(() => discountBase.value * (discountLimit.value ?? 0))
+
+const discountPreview = computed(() => {
+  const base = discountBase.value
+  const value = Number(discountValue.value || 0)
+  if (base <= 0 || value <= 0) return null
+  const amount = discountType.value === 'PERCENTAGE' ? (base * value) / 100 : value
+  return { amount, fraction: amount / base }
+})
+
+/** null - unlimited. Unlike the goods limit, GOODS_EDIT does not bypass it. */
+const roleDiscountLimit = ref<number | null>(null)
+
+const discountExceeded = computed(() => {
+  if (!discountPreview.value) return false
+  const limits = [roleDiscountLimit.value, canBypassDiscountLimit.value ? null : discountLimit.value]
+    .filter((v): v is number => v != null)
+  if (limits.length === 0) return false
+  return discountPreview.value.fraction > Math.min(...limits) + 0.0001
+})
+
+async function loadRoleDiscountLimit() {
+  try {
+    const res = await fetchMyDiscountLimit()
+    const pct = res.data?.maxDiscountPercent
+    roleDiscountLimit.value = pct != null ? Number(pct) / 100 : null
+  } catch {
+    roleDiscountLimit.value = null
+  }
+}
+
+function formatPercent(fraction: number) {
+  return `${Math.round(fraction * 10000) / 100}%`
+}
+
 const orderModal = ref(false)
 const orderForm = reactive({
   warehouseId: 0,
@@ -640,7 +787,7 @@ const orderForm = reactive({
 const orderSumText = ref('')
 const deliveryFeeText = ref('')
 const deliveryTypeLocked = computed(() =>
-  ['IN_DELIVERY', 'DELIVERED', 'COMPLETED'].includes(order.value?.orderStatus || ''),
+  ['IN_DELIVERY', 'DELIVERED', 'WORK_DONE', 'COMPLETED'].includes(order.value?.orderStatus || ''),
 )
 
 function onDeliveryFeeInput(e: Event) {
@@ -661,6 +808,22 @@ const clientOptions = computed(() => [
     }
   }),
 ])
+
+const goodsOptions = computed(() =>
+  goods.value.map((g) => ({
+    value: g.id,
+    label: g.name,
+    searchText: `${g.barcode || ''} ${g.goodsGroupName || ''}`,
+  })),
+)
+
+function onGoodsPick(goodsId: number) {
+  if (goodsId === itemForm.goodsId) return
+  itemForm.goodsId = goodsId
+  itemForm.width = 0
+  itemForm.height = 0
+  fillItemFromGoods()
+}
 
 function onOrderSumInput(e: Event) {
   const el = e.target as HTMLInputElement
@@ -697,6 +860,12 @@ function windowPieces(it: SaleOrderItem) {
   return (Number(it.count || 0) * 10000) / (w * h)
 }
 
+function lineSum(it: SaleOrderItem) {
+  return Number(it.count || 0) * Number(it.priceSelling || 0)
+}
+
+const itemsTotal = computed(() => items.value.reduce((sum, it) => sum + lineSum(it), 0))
+
 function itemQtyText(it: SaleOrderItem) {
   if (!isWindowGoodsId(it.goodsId)) return formatQty(it.count)
   const pieces = windowPieces(it)
@@ -716,6 +885,9 @@ watch(
 const wasteModal = ref(false)
 const wasteForm = reactive({ goodsId: 0, quantity: 1, comment: '' })
 const statusSaving = ref(false)
+const cancelModal = ref(false)
+const cancelReason = ref('')
+const cancelError = ref<string | null>(null)
 const prodModal = ref(false)
 const prodRoute = ref<number[]>([])
 const prodAddWorkshopId = ref(0)
@@ -755,10 +927,20 @@ const preview = ref<SaleOrderImage | null>(null)
 
 const delivery = ref<Delivery | null>(null)
 
-const MAIN_FLOW: SaleStatus[] = ['NEW', 'CONFIRMED', 'PROCESSING', 'READY', 'IN_DELIVERY', 'DELIVERED', 'COMPLETED']
+const MAIN_FLOW: SaleStatus[] = [
+  'NEW',
+  'CONFIRMED',
+  'PROCESSING',
+  'READY',
+  'IN_DELIVERY',
+  'DELIVERED',
+  'WORK_DONE',
+  'COMPLETED',
+]
 const flowStatuses = computed<SaleStatus[]>(() => {
   const status = order.value?.orderStatus
-  const selfPickup = !delivery.value && (status === 'DELIVERED' || status === 'COMPLETED')
+  const selfPickup =
+    !delivery.value && (status === 'DELIVERED' || status === 'WORK_DONE' || status === 'COMPLETED')
   const base = selfPickup ? MAIN_FLOW.filter((s) => s !== 'IN_DELIVERY') : MAIN_FLOW
   return status === 'CANCELLED' ? [...base, 'CANCELLED'] : base
 })
@@ -767,6 +949,7 @@ const deliveryConfirmBlocked = computed(
     order.value?.orderStatus === 'IN_DELIVERY' &&
     !(delivery.value && ['IN_TRANSIT', 'ARRIVED'].includes(delivery.value.deliveryStatus)),
 )
+const completeBlocked = computed(() => Number(order.value?.debtSum ?? 0) > 0)
 const flowIndex = computed(() => flowStatuses.value.indexOf(order.value?.orderStatus as SaleStatus))
 const doneIndex = computed(() => (order.value?.orderStatus === 'CANCELLED' ? -1 : flowIndex.value))
 const nextStatuses = computed(() =>
@@ -843,6 +1026,17 @@ async function load() {
   }
 }
 
+const refreshing = ref(false)
+
+async function onRefresh() {
+  refreshing.value = true
+  try {
+    await load()
+  } finally {
+    refreshing.value = false
+  }
+}
+
 function openEdit() {
   if (!order.value) return
   orderForm.warehouseId = order.value.warehouseId || 0
@@ -892,13 +1086,13 @@ function fillItemFromGoods() {
 
 function openItemCreate() {
   itemEditingId.value = null
-  itemForm.goodsId = goods.value[0]?.id || 0
+  itemForm.goodsId = 0
   itemForm.count = 1
-  const g = goods.value.find((x) => x.id === itemForm.goodsId)
-  itemForm.width = isWindowGoodsId(itemForm.goodsId) ? Number(g?.width || 0) : 0
-  itemForm.height = isWindowGoodsId(itemForm.goodsId) ? Number(g?.height || 0) : 0
+  itemForm.width = 0
+  itemForm.height = 0
+  itemForm.priceCost = 0
+  itemForm.priceSelling = 0
   itemForm.arrivalDate = nowLocal()
-  fillItemFromGoods()
   formError.value = null
   itemModal.value = true
 }
@@ -919,6 +1113,10 @@ function openItemEdit(it: SaleOrderItem) {
 
 async function onItemSave() {
   if (!order.value) return
+  if (!itemForm.goodsId) {
+    formError.value = t('saleOrderDetail.productRequired')
+    return
+  }
   saving.value = true
   formError.value = null
   try {
@@ -1004,7 +1202,12 @@ async function onStatus(status: SaleStatus) {
     await openProdModal()
     return
   }
-  if (status === 'CANCELLED' && !confirm(t('saleOrderDetail.cancelConfirm', { id: order.value.id }))) return
+  if (status === 'CANCELLED') {
+    cancelReason.value = ''
+    cancelError.value = null
+    cancelModal.value = true
+    return
+  }
   if (status === 'IN_DELIVERY' && !confirm(t('saleOrderDetail.deliveryConfirm', { id: order.value.id }))) return
   if (
     status === 'DELIVERED' &&
@@ -1019,6 +1222,26 @@ async function onStatus(status: SaleStatus) {
     await load()
   } catch (e) {
     error.value = formatApiError(e, t('saleOrderDetail.statusError'))
+  } finally {
+    statusSaving.value = false
+  }
+}
+
+async function onCancelConfirm() {
+  if (!order.value) return
+  const reason = cancelReason.value.trim()
+  if (!reason) {
+    cancelError.value = t('saleOrderDetail.cancelReasonRequired')
+    return
+  }
+  statusSaving.value = true
+  cancelError.value = null
+  try {
+    await changeSaleOrderStatus(order.value.id, 'CANCELLED', reason)
+    cancelModal.value = false
+    await load()
+  } catch (e) {
+    cancelError.value = formatApiError(e, t('saleOrderDetail.statusError'))
   } finally {
     statusSaving.value = false
   }
@@ -1101,7 +1324,10 @@ async function onWasteDelete(w: SaleOrderWaste) {
   }
 }
 
-onMounted(load)
+onMounted(() => {
+  load()
+  loadRoleDiscountLimit()
+})
 
 watch(
   () => route.params.id,
@@ -1125,6 +1351,8 @@ watch(
 .btn { display: inline-flex; height: 2.5rem; align-items: center; border-radius: 0.5rem; background: #465fff; padding: 0 1rem; font-size: 0.875rem; font-weight: 500; color: #fff; }
 .ghost { height: 2.5rem; display: inline-flex; align-items: center; border-radius: 0.5rem; border: 1px solid #d1d5db; padding: 0 1rem; font-size: 0.875rem; }
 .err { border-radius: 0.5rem; border: 1px solid #fecaca; background: #fef2f2; padding: 0.75rem 1rem; font-size: 0.875rem; color: #dc2626; }
+.limit-card { border-radius: 0.5rem; border: 1px solid #fde68a; background: #fffbeb; padding: 0.65rem 0.9rem; font-size: 0.875rem; color: #92400e; }
+.dark .limit-card { border-color: rgba(245, 158, 11, 0.3); background: rgba(245, 158, 11, 0.1); color: #fcd34d; }
 .lbl { display: block; margin-bottom: 0.25rem; font-size: 0.75rem; color: #6b7280; }
 .tab { height: 2.25rem; border-radius: 0.5rem; border: 1px solid #d1d5db; padding: 0 1rem; font-size: 0.875rem; }
 .tab.active { background: #465fff; border-color: #465fff; color: #fff; }
@@ -1175,6 +1403,9 @@ watch(
 .dark .image-delete:hover { background: rgb(127 29 29 / 30%); }
 .btn:disabled { opacity: 0.55; cursor: not-allowed; }
 .btn-with-icon { gap: 0.4rem; }
+.ghost:disabled { opacity: 0.6; cursor: wait; }
+.sum-row .td { border-top: 1px solid #e5e7eb; font-weight: 700; color: #1f2937; }
+.dark .sum-row .td { border-color: #1f2937; color: rgba(255, 255, 255, 0.9); }
 .modal-lg { max-width: 36rem; max-height: calc(100vh - 2rem); overflow-y: auto; }
 .modal-badge { display: flex; height: 2.5rem; width: 2.5rem; flex-shrink: 0; align-items: center; justify-content: center; border-radius: 0.75rem; background: #eff4ff; color: #465fff; }
 .close-btn { display: flex; height: 2.25rem; width: 2.25rem; flex-shrink: 0; align-items: center; justify-content: center; border-radius: 0.5rem; color: #9ca3af; }

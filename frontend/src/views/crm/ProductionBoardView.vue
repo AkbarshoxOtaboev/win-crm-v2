@@ -4,9 +4,14 @@
     <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
       <div class="flex flex-col gap-3 border-b border-gray-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-gray-800">
         <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('nav.productionBoard') }}</h3>
-        <select v-model.number="workshopId" class="field sm:w-64" @change="loadBoard">
+        <select
+          v-model.number="workshopId"
+          class="field sm:w-64"
+          :disabled="visibleWorkshops.length === 1 && auth.workshopIds.length > 0"
+          @change="loadBoard"
+        >
           <option :value="0" disabled>{{ t('productionDashboard.selectWorkshop') }}</option>
-          <option v-for="w in workshops" :key="w.id" :value="w.id">{{ w.name }}</option>
+          <option v-for="w in visibleWorkshops" :key="w.id" :value="w.id">{{ w.name }}</option>
         </select>
       </div>
       <div v-if="error" class="err mx-5 mt-4">{{ error }}</div>
@@ -98,7 +103,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
@@ -112,9 +117,14 @@ import {
 import { fetchActiveWorkshops, type Workshop } from '@/api/workshops'
 import { formatApiError } from '@/api/http'
 import { formatDate } from '@/utils/format'
+import { useAuthStore } from '@/stores/auth'
 
 const { t } = useI18n()
+const auth = useAuthStore()
 const workshops = ref<Workshop[]>([])
+const visibleWorkshops = computed(() =>
+  auth.workshopIds.length ? workshops.value.filter((w) => auth.workshopIds.includes(w.id)) : workshops.value,
+)
 const workshopId = ref(0)
 const items = ref<ProductionOrder[]>([])
 const loading = ref(false)
@@ -147,10 +157,23 @@ function assignmentLabel(status?: string | null) {
 async function loadWorkshops() {
   const res = await fetchActiveWorkshops()
   workshops.value = res.data || []
-  if (!workshopId.value && workshops.value[0]) {
-    workshopId.value = workshops.value[0].id
+  pickWorkshop()
+}
+
+function pickWorkshop() {
+  if (!visibleWorkshops.value.some((w) => w.id === workshopId.value)) {
+    workshopId.value = visibleWorkshops.value[0]?.id || 0
   }
 }
+
+watch(
+  () => auth.workshopIds,
+  () => {
+    const before = workshopId.value
+    pickWorkshop()
+    if (workshopId.value !== before) void loadBoard()
+  },
+)
 
 async function loadBoard() {
   if (!workshopId.value) {

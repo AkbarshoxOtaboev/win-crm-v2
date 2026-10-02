@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import uz.script.wincrm.audit.AuditAction;
 import uz.script.wincrm.audit.Auditable;
 import uz.script.wincrm.dashboard.responses.DailyExpenseReportResponse;
+import uz.script.wincrm.exceptions.BadRequestException;
 import uz.script.wincrm.exceptions.ResourceNotFoundException;
 import uz.script.wincrm.expense.Expense;
 import uz.script.wincrm.expense.ExpenseCategory;
@@ -110,6 +111,7 @@ public class ExpenseServiceImpl implements ExpenseService {
 
         Expense entity = repository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Expense not found with id: " + id));
+        ensureNotSupplierPayment(entity);
 
         if (dto.getCategoryId() != null
                 && (entity.getCategory() == null || !dto.getCategoryId().equals(entity.getCategory().getId()))) {
@@ -135,9 +137,17 @@ public class ExpenseServiceImpl implements ExpenseService {
 
         Expense entity = repository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Expense not found with id: " + id));
+        ensureNotSupplierPayment(entity);
 
         entity.setStatus(Status.DELETED);
         repository.save(entity);
+    }
+
+    private void ensureNotSupplierPayment(Expense entity) {
+        if (entity.getSupplierPaymentId() != null) {
+            throw new BadRequestException(
+                    "Bu xarajat yetkazib beruvchiga to'lovdan yaratilgan. Uni Yetkazib beruvchilar bo'limida o'zgartiring.");
+        }
     }
 
     @Override

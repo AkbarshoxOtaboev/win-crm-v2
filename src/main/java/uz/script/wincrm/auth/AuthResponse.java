@@ -22,4 +22,6 @@ public class AuthResponse {
     private boolean superAdmin;
     private Long filialId;
     private String filialName;
+    /** Sex boshlig'i faqat shu sexlar bilan ishlaydi; bo'sh - cheklov yo'q. */
+    private List<Long> workshopIds;
 }

@@ -76,11 +76,12 @@ export function deleteSaleOrder(id: number) {
   })
 }
 
-export function changeSaleOrderStatus(id: number, salesOrderStatus: string) {
-  return apiRequest<RestApiResponse<SaleOrder>>(
-    `/api/sale-orders/${id}/status?salesOrderStatus=${encodeURIComponent(salesOrderStatus)}`,
-    { method: 'PATCH' },
-  )
+export function changeSaleOrderStatus(id: number, salesOrderStatus: string, comment?: string) {
+  const params = new URLSearchParams({ salesOrderStatus })
+  if (comment) params.set('comment', comment)
+  return apiRequest<RestApiResponse<SaleOrder>>(`/api/sale-orders/${id}/status?${params}`, {
+    method: 'PATCH',
+  })
 }
 
 export function fetchSaleOrder(id: number) {
@@ -97,6 +98,41 @@ export function fetchSaleOrdersByClient(clientId: number, page = 0, size = 50) {
   return apiRequest<RestApiResponse<SpringPage<SaleOrder>>>(
     `/api/sale-orders/client/${clientId}?page=${page}&size=${size}&sort=id,asc`,
   )
+}
+
+export interface SellerOrderDebt {
+  saleOrderId: number
+  orderDate?: string
+  totalSum?: number
+  paidSum?: number
+  debtSum?: number
+  status?: string
+}
+
+export interface SellerClientDebt {
+  clientId?: number | null
+  clientFullName?: string | null
+  phone?: string | null
+  totalSum?: number
+  paidSum?: number
+  debt?: number
+  orders: SellerOrderDebt[]
+}
+
+export interface SellerDebt {
+  userId: number
+  userFullName?: string
+  totalDebt?: number
+  clients: SellerClientDebt[]
+}
+
+export function fetchSellerDebts(params: { userId?: number; startDate?: string; endDate?: string } = {}) {
+  const q = new URLSearchParams()
+  if (params.userId) q.set('userId', String(params.userId))
+  if (params.startDate) q.set('startDate', params.startDate)
+  if (params.endDate) q.set('endDate', params.endDate)
+  const qs = q.toString()
+  return apiRequest<RestApiResponse<SellerDebt[]>>(`/api/sale-orders/debts/by-seller${qs ? `?${qs}` : ''}`)
 }
 
 export function applyDiscount(id: number, discountType: string, discountValue: number) {

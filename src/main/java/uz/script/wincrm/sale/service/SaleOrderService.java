@@ -31,7 +31,8 @@ public interface SaleOrderService {
 
     void delete(Long id);
 
-    void changeStatus(Long id, SalesOrderStatus salesOrderStatus);
+    /** CANCELLED holatiga o'tishda {@code comment} (bekor qilish sababi) majburiy. */
+    void changeStatus(Long id, SalesOrderStatus salesOrderStatus, String comment);
 
     /**
      * Buyurtmaga chegirma qo'llaydi. Faqat totalSum'ga ta'sir qiladi:

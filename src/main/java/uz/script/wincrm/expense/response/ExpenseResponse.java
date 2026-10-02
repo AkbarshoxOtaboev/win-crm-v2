@@ -45,4 +45,7 @@ public class ExpenseResponse {
 
     @Schema(description = "ID of the user who created the expense", example = "1")
     private Long createdBy;
+
+    @Schema(description = "Supplier payment that generated this expense (read-only expense if set)", example = "5")
+    private Long supplierPaymentId;
 }

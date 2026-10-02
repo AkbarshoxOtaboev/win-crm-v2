@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import uz.script.wincrm.goods.Goods;
+import uz.script.wincrm.goods.enums.Type;
 
 import java.util.Optional;
 
@@ -16,6 +17,10 @@ public interface GoodsRepository extends JpaRepository<Goods, Long> {
     Optional<Goods> findByBarcode(String barcode);
 
     boolean existsByName(String name);
+
+    Optional<Goods> findFirstByBarcodeOrderByIdAsc(String barcode);
+
+    Optional<Goods> findFirstByNameIgnoreCaseAndTypeOrderByIdAsc(String name, Type type);
 
     @Query("SELECT g FROM Goods g WHERE g.id = :id AND g.status <> 'DELETED'")
     Optional<Goods> findByIdActive(@Param("id") Long id);

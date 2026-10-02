@@ -21,6 +21,7 @@ public class GoodsMapper {
                 .priceCost(dto.getPriceCost())
                 .priceSelling(dto.getPriceSelling())
                 .barcode(dto.getBarcode())
+                .maxDiscountPercent(dto.getMaxDiscountPercent())
                 .width(dto.getType() == Type.WINDOW ? dto.getWidth() : null)
                 .height(dto.getType() == Type.WINDOW ? dto.getHeight() : null)
                 .photo(photoPath)
@@ -38,6 +39,7 @@ public class GoodsMapper {
         goods.setPriceCost(dto.getPriceCost());
         goods.setPriceSelling(dto.getPriceSelling());
         goods.setBarcode(dto.getBarcode());
+        goods.setMaxDiscountPercent(dto.getMaxDiscountPercent());
         if (dto.getType() == Type.WINDOW) {
             goods.setWidth(dto.getWidth());
             goods.setHeight(dto.getHeight());
@@ -63,6 +65,7 @@ public class GoodsMapper {
                 .priceCost(goods.getPriceCost())
                 .priceSelling(goods.getPriceSelling())
                 .barcode(goods.getBarcode())
+                .maxDiscountPercent(goods.getMaxDiscountPercent())
                 .width(goods.getWidth())
                 .height(goods.getHeight())
                 .photo(goods.getPhoto())

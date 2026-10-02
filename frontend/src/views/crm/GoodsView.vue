@@ -27,12 +27,13 @@
               <th class="th">{{ t('goods.unit') }}</th>
               <th class="th">{{ t('goods.type') }}</th>
               <th class="th">{{ t('goods.selling') }}</th>
+              <th class="th">{{ t('goods.maxDiscount') }}</th>
               <th class="th text-right">{{ t('common.actions') }}</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-if="loading"><td colspan="7" class="empty">{{ t('common.loading') }}</td></tr>
-            <tr v-else-if="filtered.length === 0"><td colspan="7" class="empty">{{ t('goods.noGoods') }}</td></tr>
+            <tr v-if="loading"><td colspan="8" class="empty">{{ t('common.loading') }}</td></tr>
+            <tr v-else-if="filtered.length === 0"><td colspan="8" class="empty">{{ t('goods.noGoods') }}</td></tr>
             <tr v-for="g in filtered" :key="g.id" class="border-b border-gray-100 dark:border-gray-800">
               <td class="td">{{ g.id }}</td>
               <td class="td font-medium text-gray-800 dark:text-white/90">{{ g.name }}</td>
@@ -40,6 +41,12 @@
               <td class="td">{{ g.unitTypeName || '—' }}</td>
               <td class="td">{{ g.typeLabel || g.type || '—' }}</td>
               <td class="td">{{ money(g.priceSelling) }}</td>
+              <td class="td">
+                <span v-if="g.maxDiscountPercent != null" class="inline-flex rounded-full bg-warning-50 px-2 py-0.5 text-xs font-medium text-warning-700 dark:bg-warning-500/10 dark:text-warning-400">
+                  ≤ {{ Number(g.maxDiscountPercent) }}%
+                </span>
+                <span v-else class="text-gray-400">—</span>
+              </td>
               <td class="td text-right"><RowActions @edit="openEdit(g)" @delete="onDelete(g)" /></td>
             </tr>
           </tbody>
@@ -192,10 +199,25 @@
               <input v-model.number="form.height" type="number" min="1" step="1" required class="field" placeholder="150" />
             </div>
           </div>
-          <div>
-            <label class="lbl">{{ t('goods.barcode') }}</label>
-            <input v-model="form.barcode" class="field" />
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="lbl">{{ t('goods.barcode') }}</label>
+              <input v-model="form.barcode" class="field" />
+            </div>
+            <div>
+              <label class="lbl">{{ t('goods.maxDiscountPercent') }}</label>
+              <input
+                v-model.number="form.maxDiscountPercent"
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                class="field"
+                :placeholder="t('goods.maxDiscountPlaceholder')"
+              />
+            </div>
           </div>
+          <p class="-mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('goods.maxDiscountHint') }}</p>
           <div>
             <label class="lbl">{{ t('goods.photo') }}</label>
             <div v-if="previewUrl" class="photo-preview">
@@ -291,6 +313,7 @@ const form = reactive({
   priceCost: 0,
   priceSelling: 0,
   barcode: '',
+  maxDiscountPercent: '' as number | '',
   width: 0,
   height: 0,
 })
@@ -379,6 +402,7 @@ function openCreate() {
     priceCost: 0,
     priceSelling: 0,
     barcode: '',
+    maxDiscountPercent: '',
     width: 0,
     height: 0,
   })
@@ -397,6 +421,7 @@ function openEdit(g: Goods) {
     priceCost: Number(g.priceCost || 0),
     priceSelling: Number(g.priceSelling || 0),
     barcode: g.barcode || '',
+    maxDiscountPercent: g.maxDiscountPercent != null ? Number(g.maxDiscountPercent) : '',
     width: Number(g.width || 0),
     height: Number(g.height || 0),
   })
@@ -415,6 +440,9 @@ function buildFormData() {
   fd.append('priceCost', String(form.priceCost))
   fd.append('priceSelling', String(form.priceSelling))
   if (form.barcode.trim()) fd.append('barcode', form.barcode.trim())
+  if (form.maxDiscountPercent !== '' && form.maxDiscountPercent != null) {
+    fd.append('maxDiscountPercent', String(form.maxDiscountPercent))
+  }
   if (form.type === 'WINDOW') {
     fd.append('width', String(form.width))
     fd.append('height', String(form.height))

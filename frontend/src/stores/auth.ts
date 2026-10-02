@@ -17,11 +17,12 @@ const ASSIGNED_FILIAL_KEY = 'wincrm_assigned_filial_id'
 const ASSIGNED_FILIAL_NAME_KEY = 'wincrm_assigned_filial_name'
 const ROLES_KEY = 'wincrm_roles'
 const PERMISSIONS_KEY = 'wincrm_permissions'
+const WORKSHOPS_KEY = 'wincrm_workshop_ids'
 
-function readList(key: string): string[] {
+function readList<T = string>(key: string): T[] {
   try {
     const raw = localStorage.getItem(key)
-    return raw ? (JSON.parse(raw) as string[]) : []
+    return raw ? (JSON.parse(raw) as T[]) : []
   } catch {
     return []
   }
@@ -36,6 +37,7 @@ export const useAuthStore = defineStore('auth', () => {
   const error = ref<string | null>(null)
   const roles = ref<string[]>(readList(ROLES_KEY))
   const permissions = ref<string[]>(readList(PERMISSIONS_KEY))
+  const workshopIds = ref<number[]>(readList<number>(WORKSHOPS_KEY))
   const superAdmin = ref(localStorage.getItem(SUPER_ADMIN_KEY) === 'true')
   const assignedFilialId = ref<number | null>(
     localStorage.getItem(ASSIGNED_FILIAL_KEY) ? Number(localStorage.getItem(ASSIGNED_FILIAL_KEY)) : null,
@@ -105,6 +107,8 @@ export const useAuthStore = defineStore('auth', () => {
     superAdmin.value = Boolean(data.superAdmin)
     assignedFilialId.value = data.filialId ?? null
     assignedFilialName.value = data.filialName ?? null
+    workshopIds.value = data.workshopIds || []
+    localStorage.setItem(WORKSHOPS_KEY, JSON.stringify(workshopIds.value))
     persistAuthProfile({
       superAdmin: data.superAdmin,
       roles: data.roles,
@@ -172,6 +176,8 @@ export const useAuthStore = defineStore('auth', () => {
       error.value = null
       roles.value = []
       permissions.value = []
+      workshopIds.value = []
+      localStorage.removeItem(WORKSHOPS_KEY)
       superAdmin.value = false
       assignedFilialId.value = null
       assignedFilialName.value = null
@@ -188,6 +194,7 @@ export const useAuthStore = defineStore('auth', () => {
     error,
     roles,
     permissions,
+    workshopIds,
     superAdmin,
     assignedFilialId,
     assignedFilialName,

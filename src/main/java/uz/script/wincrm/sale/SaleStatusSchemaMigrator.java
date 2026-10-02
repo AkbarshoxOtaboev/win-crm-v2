@@ -27,6 +27,16 @@ public class SaleStatusSchemaMigrator implements CommandLineRunner {
         dropConstraint("sale_orders", "sale_orders_sales_order_status_check");
         dropConstraint("sale_order_history", "sale_order_history_from_status_check");
         dropConstraint("sale_order_history", "sale_order_history_to_status_check");
+        clearCancelledOrderDebts();
+    }
+
+    private void clearCancelledOrderDebts() {
+        int updated = entityManager.createNativeQuery(
+                        "UPDATE sale_orders SET debt_sum = 0 WHERE sales_order_status = 'CANCELLED' AND debt_sum <> 0")
+                .executeUpdate();
+        if (updated > 0) {
+            log.info("Cleared debt of {} cancelled sale orders", updated);
+        }
     }
 
     private void dropConstraint(String table, String constraint) {

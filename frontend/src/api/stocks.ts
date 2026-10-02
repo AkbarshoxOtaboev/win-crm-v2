@@ -35,9 +35,29 @@ export interface StockTransfer {
   fromWarehouseName?: string
   toWarehouseId?: number
   toWarehouseName?: string
+  fromFilialId?: number | null
+  fromFilialName?: string | null
+  toFilialId?: number | null
+  toFilialName?: string | null
+  toGoodsId?: number | null
+  toGoodsName?: string | null
+  direction?: 'INTERNAL' | 'OUTGOING' | 'INCOMING'
   count?: number
   comment?: string
   status?: string
+  createdAt?: string
+  createdUsername?: string
+}
+
+export interface TransferTargetWarehouse {
+  id: number
+  name: string
+  filialId?: number | null
+  filialName?: string | null
+}
+
+export function fetchTransferTargetWarehouses() {
+  return apiRequest<RestApiResponse<TransferTargetWarehouse[]>>('/api/stock-transfers/target-warehouses')
 }
 
 export function fetchStocks() {

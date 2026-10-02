@@ -23,6 +23,7 @@ import uz.script.wincrm.sale.mapper.SaleOrderItemMapper;
 import uz.script.wincrm.sale.repository.SaleOrderItemRepository;
 import uz.script.wincrm.sale.repository.SaleOrderRepository;
 import uz.script.wincrm.sale.response.SaleOrderItemResponse;
+import uz.script.wincrm.sale.service.DiscountLimitPolicy;
 import uz.script.wincrm.sale.service.SaleOrderItemService;
 import uz.script.wincrm.stock.StockPieces;
 import uz.script.wincrm.stock.service.StockService;
@@ -49,6 +50,7 @@ public class SaleOrderItemServiceImpl implements SaleOrderItemService {
     private final GoodsRepository goodsRepository;
     private final WarehouseRepository warehouseRepository;
     private final StockService stockService;
+    private final DiscountLimitPolicy discountLimitPolicy;
 
     @Override
     @Auditable(
@@ -63,6 +65,7 @@ public class SaleOrderItemServiceImpl implements SaleOrderItemService {
 
         Goods goods = goodsRepository.findById(dto.getGoodsId())
                 .orElseThrow(() -> new ResourceNotFoundException("Goods not found with id: " + dto.getGoodsId()));
+        discountLimitPolicy.checkItemPrice(goods, dto.getPriceSelling());
 
         // ⭐ WINDOW (Oyna) turi uchun count = width * height (kv.m) qilib hisoblanadi.
         //    Hisoblangan qiymat dto.count ga yoziladi, shundan keyin stock validatsiya,
@@ -212,6 +215,12 @@ public class SaleOrderItemServiceImpl implements SaleOrderItemService {
                     .orElseThrow(() -> new ResourceNotFoundException("Goods not found with id: " + dto.getGoodsId()));
         }
         boolean goodsChanged = newGoods != oldGoods;
+        boolean priceChanged = dto.getPriceSelling() != null
+                && (entity.getPriceSelling() == null || dto.getPriceSelling().compareTo(entity.getPriceSelling()) != 0);
+        if (goodsChanged || priceChanged) {
+            discountLimitPolicy.checkItemPrice(newGoods,
+                    dto.getPriceSelling() != null ? dto.getPriceSelling() : entity.getPriceSelling());
+        }
 
         // WINDOW uchun dto.count - dona (bo'laklar soni), entity.count esa kv.m.
         // Partial update'da kelmagan qiymatlar mavjud pozitsiyadan olinadi.

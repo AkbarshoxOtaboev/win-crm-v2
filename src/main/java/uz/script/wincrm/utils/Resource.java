@@ -41,4 +41,5 @@ public enum Resource {
     TRANSPORT_DRIVER,
     TRANSPORT_WORKER,
     TRANSPORT_SALARY,
+    KPI,
 }

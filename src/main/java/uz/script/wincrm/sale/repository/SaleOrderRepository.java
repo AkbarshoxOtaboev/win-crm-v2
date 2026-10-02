@@ -36,6 +36,7 @@ public interface SaleOrderRepository extends JpaRepository<SaleOrder, Long> {
      */
     List<SaleOrder> findByClient_IdAndDebtSumGreaterThan(Long clientId, BigDecimal amount);
 
+    /** Mijozning bekor qilinmagan, qarzi bor buyurtmalari - eng eskisidan boshlab (FIFO taqsimot uchun). */
     /**
      * Qarzdor mijozlar ro'yxatini (admin panel uchun) ixtiyoriy filtrlar bilan qaytaradi:
      * - startDate/endDate: orderDate bo'yicha sana oralig'i (ikkalasi ham null bo'lsa cheklanmaydi)

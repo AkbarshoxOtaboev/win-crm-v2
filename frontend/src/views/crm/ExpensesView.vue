@@ -37,9 +37,24 @@
               <td class="td font-medium text-gray-800 dark:text-white/90">{{ e.categoryName || '—' }}</td>
               <td class="td">{{ money(e.amount) }}</td>
               <td class="td">{{ e.expenseDate }}</td>
-              <td class="td">{{ e.description || '—' }}</td>
+              <td class="td">
+                {{ e.description || '—' }}
+                <router-link
+                  v-if="e.supplierPaymentId"
+                  to="/suppliers/balances"
+                  class="ms-1 inline-flex rounded-md bg-brand-50 px-1.5 py-0.5 text-xs font-medium text-brand-600 dark:bg-brand-500/10 dark:text-brand-400"
+                  :title="t('expenses.supplierPaymentHint')"
+                >
+                  {{ t('expenses.supplierPaymentBadge') }}
+                </router-link>
+              </td>
               <td class="td text-right">
-                <RowActions @edit="openExpenseEdit(e)" @delete="onExpenseDelete(e)" />
+                <RowActions
+                  :edit="!e.supplierPaymentId"
+                  :remove="!e.supplierPaymentId"
+                  @edit="openExpenseEdit(e)"
+                  @delete="onExpenseDelete(e)"
+                />
               </td>
             </tr>
           </tbody>

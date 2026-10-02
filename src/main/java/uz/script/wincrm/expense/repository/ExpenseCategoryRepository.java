@@ -10,4 +10,8 @@ import java.util.Optional;
 public interface ExpenseCategoryRepository extends JpaRepository<ExpenseCategory, Long> {
 
     Optional<ExpenseCategory> findByNameIgnoreCase(String name);
+
+    Optional<ExpenseCategory> findFirstByNameIgnoreCaseAndFilial_IdOrderByIdAsc(String name, Long filialId);
+
+    Optional<ExpenseCategory> findFirstByNameIgnoreCaseAndFilialIsNullOrderByIdAsc(String name);
 }

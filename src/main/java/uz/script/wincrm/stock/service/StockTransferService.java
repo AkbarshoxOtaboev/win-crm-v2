@@ -2,6 +2,7 @@ package uz.script.wincrm.stock.service;
 
 import uz.script.wincrm.stock.request.StockTransferRequest;
 import uz.script.wincrm.stock.response.StockTransferResponse;
+import uz.script.wincrm.stock.response.TransferTargetWarehouseResponse;
 
 import java.util.List;
 
@@ -26,6 +27,11 @@ public interface StockTransferService {
     List<StockTransferResponse> fetchByWarehouseId(Long warehouseId);
 
     List<StockTransferResponse> fetchByGoodsId(Long goodsId);
+
+    /**
+     * Joriy filial omborlari va boshqa filiallar omborlari — filiallararo jo'natish uchun.
+     */
+    List<TransferTargetWarehouseResponse> fetchTargetWarehouses();
 
     /**
      * Faqat transfer tarixi yozuvini soft-delete qiladi (status = DELETED);

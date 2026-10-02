@@ -36,6 +36,7 @@ import uz.script.wincrm.utils.Status;
 import uz.script.wincrm.workshop.Workshop;
 import uz.script.wincrm.workshop.enums.WorkshopBalanceEventType;
 import uz.script.wincrm.workshop.repository.WorkshopRepository;
+import uz.script.wincrm.workshop.service.WorkshopAccess;
 import uz.script.wincrm.workshop.service.WorkshopBalanceService;
 
 import java.time.LocalDateTime;
@@ -55,6 +56,7 @@ public class ProductionOrderServiceImpl implements ProductionOrderService {
     private final WorkshopRepository workshopRepository;
     private final SaleOrderHistoryService saleOrderHistoryService;
     private final WorkshopBalanceService workshopBalanceService;
+    private final WorkshopAccess workshopAccess;
 
     @Override
     @Auditable(action = AuditAction.CREATE, entity = "ProductionOrder")
@@ -131,6 +133,7 @@ public class ProductionOrderServiceImpl implements ProductionOrderService {
 
     @Override
     public List<ProductionOrderResponse> board(Long workshopId) {
+        workshopAccess.assertWorkshop(workshopId);
         getActiveWorkshop(workshopId);
         return assignmentRepository
                 .findByWorkshop_IdAndAssignmentStatusInOrderByCreatedAtAsc(
@@ -167,6 +170,7 @@ public class ProductionOrderServiceImpl implements ProductionOrderService {
         }
 
         ProductionAssignment current = getOpenAssignment(order.getId());
+        workshopAccess.assertWorkshop(current.getWorkshop().getId());
         if (current.getAssignmentStatus() == ProductionAssignmentStatus.ACTIVE) {
             return toResponse(order);
         }
@@ -202,6 +206,7 @@ public class ProductionOrderServiceImpl implements ProductionOrderService {
         }
 
         ProductionAssignment current = getOpenAssignment(order.getId());
+        workshopAccess.assertWorkshop(current.getWorkshop().getId());
         Workshop next = getActiveWorkshop(dto.getNextWorkshopId());
         if (current.getWorkshop().getId().equals(next.getId())) {
             throw new BadRequestException("Keyingi sex joriydan farq qilishi kerak");
@@ -268,6 +273,7 @@ public class ProductionOrderServiceImpl implements ProductionOrderService {
         }
 
         ProductionAssignment current = getOpenAssignment(order.getId());
+        workshopAccess.assertWorkshop(current.getWorkshop().getId());
         String note = dto != null ? dto.getNote() : null;
 
         Workshop plannedNext = plannedNextWorkshop(order, current);

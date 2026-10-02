@@ -163,6 +163,14 @@
                 >
                   #{{ p.saleOrderId }}
                 </span>
+                <router-link
+                  v-else-if="p.clientId"
+                  :to="{ path: `/clients/${p.clientId}`, query: { tab: 'act' } }"
+                  class="inline-flex rounded-md bg-warning-50 px-2 py-0.5 text-xs font-medium text-warning-700 hover:underline dark:bg-warning-500/10 dark:text-warning-400"
+                  :title="t('payments.allocateLink')"
+                >
+                  {{ t('payments.advance') }}
+                </router-link>
                 <span v-else class="text-xs text-gray-400">{{ t('payments.advance') }}</span>
               </td>
               <td class="td td-actions">
@@ -311,7 +319,7 @@
             <template v-else-if="clientBalance">
               <div class="debt-head">
                 <span class="debt-title">{{ t('payments.clientBalance') }}</span>
-                <span class="debt-orders">{{ t('payments.ordersCount', { n: clientSaleOrders.length }) }}</span>
+                <span class="debt-orders">{{ t('payments.ordersCount', { n: activeClientOrders.length }) }}</span>
               </div>
               <div class="debt-grid">
                 <div class="debt-item">
@@ -353,10 +361,15 @@
                   </span>
                 </div>
               </div>
-              <p v-else-if="clientSaleOrders.length" class="debt-hint">
+              <p v-else-if="activeClientOrders.length" class="debt-hint">
                 {{ t('payments.noDebtOrders') }}
               </p>
             </template>
+          </div>
+
+          <div v-if="showUnallocatedHint" class="dist-card">
+            <div class="dist-title">{{ t('payments.unallocatedTitle') }}</div>
+            <p>{{ t('payments.unallocatedHint') }}</p>
           </div>
 
           <div>
@@ -432,8 +445,8 @@
                   class="field field-select"
                   :disabled="!form.clientId"
                 >
-                  <option :value="0">{{ t('payments.advanceOption') }}</option>
-                  <option v-for="o in clientSaleOrders" :key="o.id" :value="o.id">
+                  <option :value="0">{{ t('payments.unallocatedOption') }}</option>
+                  <option v-for="o in selectableOrders" :key="o.id" :value="o.id">
                     {{ formatOrderOption(o) }}
                   </option>
                 </select>
@@ -674,8 +687,22 @@ const filterClientOptions = computed(() => [
   ...clientOptions.value,
 ])
 
+const activeClientOrders = computed(() =>
+  clientSaleOrders.value.filter((o) => o.orderStatus !== 'CANCELLED'),
+)
+
+const selectableOrders = computed(() =>
+  clientSaleOrders.value.filter((o) => o.orderStatus !== 'CANCELLED' || o.id === form.saleOrderId),
+)
+
 const clientOrdersWithDebt = computed(() =>
-  clientSaleOrders.value.filter((o) => Number(o.debtSum || 0) > 0),
+  activeClientOrders.value
+    .filter((o) => Number(o.debtSum || 0) > 0)
+    .sort((a, b) => String(a.orderDate || '').localeCompare(String(b.orderDate || '')) || a.id - b.id),
+)
+
+const showUnallocatedHint = computed(
+  () => !editingId.value && !form.saleOrderId && form.paymentAmount > 0 && clientOrdersWithDebt.value.length > 0,
 )
 
 const filtered = computed(() => {
@@ -1217,6 +1244,23 @@ onMounted(load)
   margin-top: 0.65rem;
   font-size: 0.75rem;
   color: #6b7280;
+}
+.dist-card {
+  border-radius: 0.75rem;
+  border: 1px dashed #9cb0ff;
+  background: #f5f7ff;
+  padding: 0.75rem 1rem;
+  font-size: 0.8125rem;
+  color: #374151;
+}
+.dist-title {
+  margin-bottom: 0.4rem;
+  font-weight: 600;
+}
+.dark .dist-card {
+  border-color: rgb(70 95 255 / 45%);
+  background: rgb(70 95 255 / 8%);
+  color: #d1d5db;
 }
 .dark .debt-card {
   border-color: #344054;

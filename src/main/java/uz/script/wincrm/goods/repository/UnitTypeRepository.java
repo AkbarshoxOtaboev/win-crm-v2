@@ -11,4 +11,6 @@ public interface UnitTypeRepository extends JpaRepository<UnitType, Long> {
     boolean existsByNameIgnoreCase(String name);
 
     Optional<UnitType> findByNameIgnoreCase(String name);
+
+    Optional<UnitType> findFirstByNameIgnoreCaseOrderByIdAsc(String name);
 }

@@ -27,6 +27,7 @@ export interface Expense {
   createdAt?: string
   updatedAt?: string
   createdBy?: number
+  supplierPaymentId?: number | null
 }
 
 export interface ExpensePayload {

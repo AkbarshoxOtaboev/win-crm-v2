@@ -13,6 +13,7 @@ export interface Goods {
   priceCost?: number
   priceSelling?: number
   barcode?: string
+  maxDiscountPercent?: number | null
   photo?: string
   width?: number
   height?: number

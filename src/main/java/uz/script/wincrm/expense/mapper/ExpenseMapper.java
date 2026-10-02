@@ -46,6 +46,7 @@ public class ExpenseMapper {
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .createdBy(entity.getCreatedUserId())
+                .supplierPaymentId(entity.getSupplierPaymentId())
                 .build();
     }
 }

@@ -83,6 +83,9 @@ public class GoodsResponse {
     )
     private String barcode;
 
+    @Schema(description = "Sotuvchi bera oladigan maksimal chegirma, % (null — cheklanmagan)", example = "5")
+    private BigDecimal maxDiscountPercent;
+
     @Schema(description = "Default window width in centimeters (WINDOW type)", example = "120")
     private BigDecimal width;
 

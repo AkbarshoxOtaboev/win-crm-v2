@@ -13,9 +13,14 @@
           </p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-          <select v-model.number="workshopId" class="field sm:w-64" @change="load">
+          <select
+            v-model.number="workshopId"
+            class="field sm:w-64"
+            :disabled="visibleWorkshops.length === 1 && auth.workshopIds.length > 0"
+            @change="load"
+          >
             <option :value="0" disabled>{{ t('productionDashboard.selectWorkshop') }}</option>
-            <option v-for="w in workshops" :key="w.id" :value="w.id">{{ w.name }}</option>
+            <option v-for="w in visibleWorkshops" :key="w.id" :value="w.id">{{ w.name }}</option>
           </select>
           <button type="button" class="icon-btn" :disabled="loading" :title="t('common.refresh')" @click="load">
             <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': loading }" />
@@ -135,7 +140,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RefreshCw } from 'lucide-vue-next'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
@@ -156,6 +161,9 @@ const { t } = useI18n()
 const auth = useAuthStore()
 
 const workshops = ref<Workshop[]>([])
+const visibleWorkshops = computed(() =>
+  auth.workshopIds.length ? workshops.value.filter((w) => auth.workshopIds.includes(w.id)) : workshops.value,
+)
 const workshopId = ref(0)
 const dash = ref<WorkshopDashboard | null>(null)
 const loading = ref(false)
@@ -175,10 +183,23 @@ watch(
 async function loadWorkshops() {
   const res = await fetchActiveWorkshops()
   workshops.value = res.data || []
-  if (!workshopId.value && workshops.value[0]) {
-    workshopId.value = workshops.value[0].id
+  pickWorkshop()
+}
+
+function pickWorkshop() {
+  if (!visibleWorkshops.value.some((w) => w.id === workshopId.value)) {
+    workshopId.value = visibleWorkshops.value[0]?.id || 0
   }
 }
+
+watch(
+  () => auth.workshopIds,
+  () => {
+    const before = workshopId.value
+    pickWorkshop()
+    if (workshopId.value !== before) void load()
+  },
+)
 
 async function load() {
   if (!workshopId.value) {

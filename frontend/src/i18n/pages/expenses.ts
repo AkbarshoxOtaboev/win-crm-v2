@@ -12,6 +12,8 @@ export default {
     editCategory: 'Kategoriyani tahrirlash',
     createCategory: 'Yangi kategoriya',
     deleteConfirm: 'Xarajat #{id} o‘chirilsinmi?',
+    supplierPaymentBadge: 'Ta’minotchiga to‘lov',
+    supplierPaymentHint: 'Avtomatik yozilgan. O‘zgartirish uchun Yetkazib beruvchilar balansi bo‘limiga o‘ting',
   },
   ru: {
     categories: 'Категории',
@@ -26,6 +28,8 @@ export default {
     editCategory: 'Редактирование категории',
     createCategory: 'Новая категория',
     deleteConfirm: 'Удалить расход #{id}?',
+    supplierPaymentBadge: 'Оплата поставщику',
+    supplierPaymentHint: 'Создано автоматически. Для изменения перейдите в раздел «Баланс поставщиков»',
   },
   en: {
     categories: 'Categories',
@@ -40,5 +44,7 @@ export default {
     editCategory: 'Edit category',
     createCategory: 'New category',
     deleteConfirm: 'Delete expense #{id}?',
+    supplierPaymentBadge: 'Supplier payment',
+    supplierPaymentHint: 'Created automatically. Edit it from the Supplier balances page',
   },
 }
