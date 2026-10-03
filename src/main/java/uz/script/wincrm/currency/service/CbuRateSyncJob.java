@@ -22,15 +22,16 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Markaziy bank kurslarini avtomatik yig'adi: har soatda oxirgi e'lon qilingan kurs, ishga tushganda va har tunda
- * tarix (birinchi marta - bir yillik, keyin oxirgi ikki hafta bo'shliqlari).
+ * tarix (birinchi marta - oxirgi 30 kun, keyin oxirgi ikki hafta bo'shliqlari).
  * CBU har kuni kurs belgilamaydi: belgilanmagan kun so'ralsa oxirgi belgilangan kurs qaytadi.
+ * Undan eski sana kursi kerak bo'lsa (masalan, orqa sanali kirim), {@link ExchangeRateService#rateOn} uni o'sha zahoti oladi.
  */
 @Component
 @RequiredArgsConstructor
 @Slf4j
 public class CbuRateSyncJob {
 
-    private static final int HISTORY_DAYS = 365;
+    private static final int HISTORY_DAYS = 30;
     private static final int CATCH_UP_DAYS = 14;
     private static final long REQUEST_PAUSE_MS = 150;
 

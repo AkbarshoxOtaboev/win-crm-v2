@@ -151,7 +151,7 @@ import { useTheme } from '@/components/layout/ThemeProvider.vue'
 import { fetchCurrentRate, fetchExchangeRates, syncExchangeRate, type ExchangeRate } from '@/api/exchangeRates'
 import { formatApiError } from '@/api/http'
 
-const RANGES = [7, 30, 90, 180, 365] as const
+const RANGES = [7, 14, 30] as const
 type Range = (typeof RANGES)[number]
 const AUTO_RELOAD_MS = 10 * 60 * 1000
 
