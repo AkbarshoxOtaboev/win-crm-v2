@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import uz.script.wincrm.currency.CurrencyMath;
 import uz.script.wincrm.discount.DiscountRule;
 import uz.script.wincrm.discount.DiscountRuleRepository;
 import uz.script.wincrm.discount.dto.DiscountRuleRequest;
@@ -21,11 +22,8 @@ import uz.script.wincrm.utils.Status;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.text.DecimalFormat;
-import java.text.DecimalFormatSymbols;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
@@ -134,18 +132,12 @@ public class DiscountRuleServiceImpl implements DiscountRuleService {
         if (actual.compareTo(limit.add(TOLERANCE)) > 0) {
             BigDecimal maxAmount = original.multiply(limit).divide(HUNDRED, 2, RoundingMode.HALF_UP);
             throw new BadRequestException(String.format(
-                    "Sizning rolingiz uchun buyurtmaga maksimal chegirma %s%% (%s so'm). Kiritilgan chegirma %s%%",
-                    plain(limit), money(maxAmount), plain(actual)));
+                    "Sizning rolingiz uchun buyurtmaga maksimal chegirma %s%% (%s). Kiritilgan chegirma %s%%",
+                    plain(limit), CurrencyMath.format(maxAmount, order.currencyOrBase()), plain(actual)));
         }
     }
 
     private String plain(BigDecimal value) {
         return value.setScale(2, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString();
-    }
-
-    private String money(BigDecimal value) {
-        DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.ROOT);
-        symbols.setGroupingSeparator(' ');
-        return new DecimalFormat("#,##0.##", symbols).format(value);
     }
 }

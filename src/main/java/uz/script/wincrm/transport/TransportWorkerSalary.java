@@ -2,11 +2,14 @@ package uz.script.wincrm.transport;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.SuperBuilder;
+import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.SQLRestriction;
+import uz.script.wincrm.currency.Currency;
 import uz.script.wincrm.filial.FilialScopedEntity;
 import uz.script.wincrm.transport.enums.WorkerSalaryStatus;
 import uz.script.wincrm.users.User;
@@ -43,8 +46,24 @@ public class TransportWorkerSalary extends FilialScopedEntity {
     @Column(nullable = false)
     private Long saleOrderId;
 
+    /** So'mda; orderTotalSnapshot = sourceAmount × exchangeRate. */
     @Column(nullable = false)
     private BigDecimal orderTotalSnapshot;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "source_currency", nullable = false, length = 3)
+    @ColumnDefault("'UZS'")
+    @Builder.Default
+    private Currency sourceCurrency = Currency.UZS;
+
+    /** Buyurtma valyutasidagi summa; eski yozuvlarda null (orderTotalSnapshot bilan teng). */
+    @Column(name = "source_amount", precision = 19, scale = 2)
+    private BigDecimal sourceAmount;
+
+    @Column(name = "exchange_rate", nullable = false, precision = 19, scale = 4)
+    @ColumnDefault("1")
+    @Builder.Default
+    private BigDecimal exchangeRate = BigDecimal.ONE;
 
     @Column(nullable = false, precision = 7, scale = 2)
     private BigDecimal percentSnapshot;

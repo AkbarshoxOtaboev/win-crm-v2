@@ -35,9 +35,9 @@
               </td>
               <td class="td font-medium text-gray-800 dark:text-white/90">{{ o.clientFullName || '—' }}</td>
               <td class="td">{{ formatDate(o.orderDate) }}</td>
-              <td class="td">{{ money(o.totalSum) }}</td>
-              <td class="td">{{ money(o.paidSum) }}</td>
-              <td class="td">{{ money(o.debtSum) }}</td>
+              <td class="td whitespace-nowrap">{{ amt(o, o.totalSum) }}</td>
+              <td class="td whitespace-nowrap">{{ amt(o, o.paidSum) }}</td>
+              <td class="td whitespace-nowrap">{{ amt(o, o.debtSum) }}</td>
               <td class="td"><SaleStatusBadge :status="o.orderStatus" /></td>
               <td class="td text-right">
                 <RowActions @edit="openEdit(o)" @delete="onDelete(o)">
@@ -129,6 +129,7 @@ import { fetchUserOptions, type UserItem } from '@/api/users'
 import { formatApiError } from '@/api/http'
 import { useFilialScope } from '@/composables/useFilialScope'
 import { formatDate, money, toApiDate } from '@/utils/format'
+import { moneyIn } from '@/utils/currency'
 
 const router = useRouter()
 const { writeBlocked } = useFilialScope()
@@ -156,6 +157,10 @@ const form = reactive({
   totalSum: 0,
   comment: '',
 })
+
+function amt(o: SaleOrder, v?: number | null) {
+  return o.currency && o.currency !== 'UZS' ? moneyIn(v, o.currency) : money(v)
+}
 
 const filtered = computed(() => {
   const q = search.value.trim().toLowerCase()

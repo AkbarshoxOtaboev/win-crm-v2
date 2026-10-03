@@ -2,6 +2,7 @@ package uz.script.wincrm.sale.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
 import lombok.AllArgsConstructor;
@@ -9,6 +10,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import uz.script.wincrm.currency.Currency;
 import uz.script.wincrm.sale.enums.DeliveryType;
 import uz.script.wincrm.sale.enums.DiscountType;
 
@@ -72,6 +74,10 @@ public class SaleOrderDTO {
     @Schema(description = "Yetkazib berish turi: DELIVERY (yetkazib berish xizmati) yoki PICKUP (mijoz o'zi olib ketadi)",
             example = "DELIVERY")
     private DeliveryType deliveryType;
+
+    @Schema(description = "Buyurtma valyutasi (bo'sh — UZS). Barcha summalar shu valyutada keladi. "
+            + "Kurs buyurtma sanasidagi Markaziy bank kursidan avtomatik olinadi.", example = "USD")
+    private Currency currency;
 
     @Schema(description = "Yetkazib berish xizmati haqi (faqat DELIVERY uchun, totalSum'ga qo'shiladi)", example = "150000")
     @PositiveOrZero(message = "Yetkazib berish haqi manfiy bo'lishi mumkin emas")

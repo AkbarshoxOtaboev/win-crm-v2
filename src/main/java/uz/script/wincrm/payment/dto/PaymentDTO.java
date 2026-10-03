@@ -8,6 +8,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import uz.script.wincrm.currency.Currency;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -37,8 +38,12 @@ public class PaymentDTO {
 
     @NotNull(message = "Payment amount is required")
     @DecimalMin(value = "0.01", message = "Payment amount must be greater than 0")
-    @Schema(description = "Payment amount", example = "1000.00", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "Kassaga tushgan summa - to'lov turi valyutasida", example = "1000.00", requiredMode = Schema.RequiredMode.REQUIRED)
     private BigDecimal paymentAmount;
+
+    @Schema(description = "Qaysi valyutadagi qarz yopiladi. Buyurtma berilsa - buyurtma valyutasi; bo'sh bo'lsa - kassa valyutasi. "
+            + "Valyutalar farq qilsa to'lov kunidagi Markaziy bank kursi qo'llanadi.", example = "USD")
+    private Currency debtCurrency;
 
     @NotNull(message = "Payment date is required")
     @Schema(

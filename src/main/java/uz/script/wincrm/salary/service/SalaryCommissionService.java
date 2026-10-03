@@ -3,8 +3,8 @@ package uz.script.wincrm.salary.service;
 import uz.script.wincrm.sale.SaleOrder;
 
 /**
- * Komissiya hisoblash "dvigateli". PaymentServiceImpl'dan (to'lov yaratilgan/yangilangan/
- * o'chirilgan hodisalarda, paidSum/debtSum qayta hisoblangandan KEYIN) chaqiriladi.
+ * Komissiya hisoblash "dvigateli". Buyurtma COMPLETED bo'lganda yoki o'chirilganda (SaleOrderServiceImpl)
+ * va to'lov o'zgarib paidSum qayta hisoblangandan KEYIN (PaymentServiceImpl) chaqiriladi.
  *
  * Yondashuv - single source of truth (recalculateSaleOrderSums / recalculateClientBalance
  * pattern'ingizdek): har safar buyurtma bo'yicha KUTILGAN komissiya qayta hisoblanadi va

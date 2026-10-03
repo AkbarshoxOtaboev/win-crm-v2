@@ -23,6 +23,9 @@ export default {
     noFilial: 'Filial tanlanmagan',
     phoneFormatError: 'Telefon +998-(12)-345-67-89 formatida to‘liq bo‘lishi kerak',
     roleNames: {
+      SUPER_ADMIN: 'Bosh administrator',
+      ADMIN: 'Administrator',
+      DIRECTOR: 'Direktor',
       SELLER: 'Sotuvchi',
       CASHIER: 'Kassir (to‘lov qabul qiluvchi)',
       PRODUCTION_MANAGER: 'Ishlab chiqarish boshlig‘i',
@@ -53,6 +56,9 @@ export default {
     noFilial: 'Филиал не выбран',
     phoneFormatError: 'Телефон должен быть полностью в формате +998-(12)-345-67-89',
     roleNames: {
+      SUPER_ADMIN: 'Главный администратор',
+      ADMIN: 'Администратор',
+      DIRECTOR: 'Директор',
       SELLER: 'Продавец',
       CASHIER: 'Кассир (приём оплат)',
       PRODUCTION_MANAGER: 'Начальник производства',
@@ -83,6 +89,9 @@ export default {
     noFilial: 'No branch selected',
     phoneFormatError: 'Phone must be complete in the +998-(12)-345-67-89 format',
     roleNames: {
+      SUPER_ADMIN: 'Super administrator',
+      ADMIN: 'Administrator',
+      DIRECTOR: 'Director',
       SELLER: 'Seller',
       CASHIER: 'Cashier (payment entry)',
       PRODUCTION_MANAGER: 'Production manager',

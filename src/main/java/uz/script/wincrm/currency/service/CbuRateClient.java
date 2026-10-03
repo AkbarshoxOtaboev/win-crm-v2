@@ -46,7 +46,7 @@ public class CbuRateClient {
                     .body(new ParameterizedTypeReference<>() {});
         } catch (RestClientException e) {
             log.warn("CBU rate request failed for {} {}: {}", currency, date, e.getMessage());
-            throw new BadRequestException("Markaziy bank kursini olib bo'lmadi. Internet aloqasini tekshiring yoki kursni qo'lda kiriting.");
+            throw new BadRequestException("Markaziy bank kursini olib bo'lmadi. Internet aloqasini tekshiring.");
         }
         if (body == null || body.isEmpty()) {
             throw new BadRequestException("Markaziy bank " + currency + " kursini qaytarmadi");

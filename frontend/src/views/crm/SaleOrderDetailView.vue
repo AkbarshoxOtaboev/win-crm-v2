@@ -31,9 +31,16 @@
       <div class="grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
         <div><span class="lbl">{{ t('common.client') }}</span>{{ order.clientFullName || '—' }}</div>
         <div><span class="lbl">{{ t('common.warehouse') }}</span>{{ order.warehouseName || '—' }}</div>
-        <div><span class="lbl">{{ t('common.total') }}</span>{{ money(order.totalSum) }}</div>
-        <div><span class="lbl">{{ t('saleOrderDetail.debt') }}</span>{{ money(order.debtSum) }}</div>
-        <div><span class="lbl">{{ t('saleOrderDetail.paid') }}</span>{{ money(order.paidSum) }}</div>
+        <div>
+          <span class="lbl">{{ t('common.total') }}</span>{{ amt(order.totalSum) }}
+          <span v-if="isForeign && order.totalSumBase != null" class="base-eq">≈ {{ moneyIn(order.totalSumBase, 'UZS', t('common.currency')) }}</span>
+        </div>
+        <div><span class="lbl">{{ t('saleOrderDetail.debt') }}</span>{{ amt(order.debtSum) }}</div>
+        <div><span class="lbl">{{ t('saleOrderDetail.paid') }}</span>{{ amt(order.paidSum) }}</div>
+        <div v-if="isForeign">
+          <span class="lbl">{{ t('saleOrderDetail.currencyRate') }}</span>
+          {{ t(`exchangeRates.currencies.${orderCurrency}`) }} · 1 {{ currencySymbol(orderCurrency) }} = {{ formatRate(order.exchangeRate) }} {{ t('common.currency') }}
+        </div>
         <div><span class="lbl">{{ t('saleOrderDetail.discount') }}</span>{{ order.discountType ? discountTypeLabel(order.discountType) : '—' }} {{ order.discountValue || '' }}</div>
         <div><span class="lbl">{{ t('common.status') }}</span><SaleStatusBadge :status="order.orderStatus" /></div>
         <div><span class="lbl">{{ t('common.date') }}</span>{{ formatDate(order.orderDate) }}</div>
@@ -47,7 +54,7 @@
           <span v-else>—</span>
         </div>
         <div v-if="order.deliveryType === 'DELIVERY'">
-          <span class="lbl">{{ t('saleOrderCreate.deliveryFee') }}</span>{{ money(order.deliveryFee || 0) }}
+          <span class="lbl">{{ t('saleOrderCreate.deliveryFee') }}</span>{{ amt(order.deliveryFee || 0) }}
         </div>
         <div v-if="order.comment" class="col-span-2 md:col-span-4">
           <span class="lbl">{{ t('common.comment') }}</span><span class="whitespace-pre-line">{{ order.comment }}</span>
@@ -120,7 +127,7 @@
       <p v-if="order.orderStatus === 'WORK_DONE'" class="mt-2 text-xs" :class="completeBlocked ? 'text-amber-600 dark:text-amber-400' : 'text-gray-500 dark:text-gray-400'">
         {{
           completeBlocked
-            ? t('saleOrderDetail.completeBlockedDebt', { debt: money(order.debtSum) })
+            ? t('saleOrderDetail.completeBlockedDebt', { debt: amt(order.debtSum) })
             : t('saleOrderDetail.completeReady', { status: statusLabel('COMPLETED') })
         }}
       </p>
@@ -168,8 +175,8 @@
           <tr v-for="it in items" :key="it.id" class="border-b border-gray-100 dark:border-gray-800">
             <td class="td">{{ it.goodsName || it.goodsId }}</td>
             <td class="td">{{ itemQtyText(it) }}</td>
-            <td class="td">{{ money(it.priceSelling) }}</td>
-            <td class="td font-medium text-gray-800 dark:text-white/90">{{ money(lineSum(it)) }}</td>
+            <td class="td">{{ amt(it.priceSelling) }}</td>
+            <td class="td font-medium text-gray-800 dark:text-white/90">{{ amt(lineSum(it)) }}</td>
             <td class="td">{{ formatDate(it.arrivalDate) }}</td>
             <td class="td text-right"><RowActions @edit="openItemEdit(it)" @delete="onItemDelete(it)" /></td>
           </tr>
@@ -177,7 +184,7 @@
         <tfoot v-if="items.length">
           <tr class="sum-row">
             <td class="td" colspan="3">{{ t('saleOrderDetail.itemsTotal') }}</td>
-            <td class="td" colspan="3">{{ money(itemsTotal) }}</td>
+            <td class="td" colspan="3">{{ amt(itemsTotal) }}</td>
           </tr>
         </tfoot>
       </table>
@@ -186,12 +193,12 @@
     <div v-show="tab === 'discount'" class="card p-5 space-y-4">
       <div v-if="discountLimit != null" class="limit-card">
         <div>
-          {{ t('saleOrderDetail.discountLimit', { percent: formatPercent(discountLimit), amount: money(discountLimitAmount) }) }}
+          {{ t('saleOrderDetail.discountLimit', { percent: formatPercent(discountLimit), amount: amt(discountLimitAmount) }) }}
         </div>
         <div v-if="canBypassDiscountLimit" class="mt-1 text-xs opacity-80">{{ t('saleOrderDetail.discountLimitBypass') }}</div>
       </div>
       <div v-if="roleDiscountLimit != null" class="limit-card">
-        {{ t('saleOrderDetail.roleDiscountLimit', { percent: formatPercent(roleDiscountLimit), amount: money(discountBase * roleDiscountLimit) }) }}
+        {{ t('saleOrderDetail.roleDiscountLimit', { percent: formatPercent(roleDiscountLimit), amount: amt(discountBase * roleDiscountLimit) }) }}
       </div>
       <form class="flex flex-wrap items-end gap-2" @submit.prevent="onDiscount">
         <div>
@@ -202,13 +209,13 @@
           </select>
         </div>
         <div>
-          <label class="lbl">{{ t('saleOrderDetail.value') }}</label>
+          <label class="lbl">{{ t('saleOrderDetail.value') }}{{ discountType === 'FIXED_AMOUNT' ? ` (${curLabel})` : ' (%)' }}</label>
           <input v-model.number="discountValue" type="number" min="0.01" step="0.01" class="field w-32" />
         </div>
         <button type="submit" class="btn" :disabled="saving || discountExceeded">{{ t('common.apply') }}</button>
       </form>
       <div v-if="discountPreview" class="text-sm" :class="discountExceeded ? 'text-error-600 dark:text-error-400' : 'text-gray-600 dark:text-gray-400'">
-        {{ t('saleOrderDetail.discountPreview', { percent: formatPercent(discountPreview.fraction), amount: money(discountPreview.amount) }) }}
+        {{ t('saleOrderDetail.discountPreview', { percent: formatPercent(discountPreview.fraction), amount: amt(discountPreview.amount) }) }}
         <template v-if="discountExceeded"> — {{ t('saleOrderDetail.discountExceeded') }}</template>
       </div>
       <table class="min-w-full">
@@ -218,7 +225,7 @@
           <tr v-for="d in discounts" :key="d.id" class="border-b border-gray-100 dark:border-gray-800">
             <td class="td">{{ d.discountType ? discountTypeLabel(d.discountType) : '—' }}</td>
             <td class="td">{{ d.discountValue }}</td>
-            <td class="td">{{ money(d.discountAmount) }}</td>
+            <td class="td">{{ amt(d.discountAmount) }}</td>
             <td class="td">{{ formatDate(d.createdAt) }}</td>
           </tr>
         </tbody>
@@ -457,7 +464,7 @@
               </div>
             </div>
             <div>
-              <label for="order-sum" class="f-lbl">{{ t('saleOrderDetail.orderSum') }} <span class="req">*</span></label>
+              <label for="order-sum" class="f-lbl">{{ t('saleOrderDetail.orderSum') }} ({{ curLabel }}) <span class="req">*</span></label>
               <div class="relative">
                 <Banknote class="f-icon" />
                 <input
@@ -524,6 +531,32 @@
               />
             </div>
           </div>
+          <div v-if="isForeign">
+            <label for="order-rate" class="f-lbl">{{ t('saleOrderCreate.rate') }} <span class="req">*</span></label>
+            <div class="relative">
+              <Banknote class="f-icon" />
+              <input
+                id="order-rate"
+                :value="rateFollowsDate && orderRateLoading ? t('exchangeRates.rateLoading') : orderRate > 0 ? formatRate(orderRate) : '—'"
+                readonly
+                tabindex="-1"
+                class="field f-field cursor-default bg-gray-50 dark:bg-white/[0.03]"
+                :title="t('exchangeRates.rateAuto')"
+              />
+            </div>
+            <p v-if="rateFollowsDate && !orderRateLoading && !(orderRate > 0)" class="modal-hint mt-1 text-amber-600">
+              {{ t('saleOrderCreate.rateMissing') }}
+            </p>
+            <p v-else class="modal-hint mt-1">
+              <template v-if="rateLocked">{{ t('saleOrderDetail.rateLocked') }}</template>
+              <template v-else>
+                <template v-if="rateFollowsDate && cbuOrderRateDate">
+                  {{ t('exchangeRates.cbuRate') }} · {{ cbuOrderRateDate.split('-').reverse().join('.') }}.
+                </template>
+                {{ t('saleOrderDetail.rateHint') }}
+              </template>
+            </p>
+          </div>
           <p v-if="order && order.warehouseId !== orderForm.warehouseId" class="modal-hint">
             {{ t('saleOrderDetail.warehouseChangeHint') }}
           </p>
@@ -567,15 +600,23 @@
               <input v-model.number="itemForm.count" type="number" min="0.01" step="0.01" required class="field" />
             </label>
             <label class="modal-lbl">
-              {{ itemIsWindow ? t('saleOrderDetail.sellingKvm') : t('saleOrderDetail.selling') }}
+              {{ itemIsWindow ? t('saleOrderDetail.sellingKvm') : t('saleOrderDetail.selling') }} ({{ curLabel }})
               <input v-model.number="itemForm.priceSelling" type="number" min="0.01" step="0.01" required class="field" />
             </label>
           </div>
           <p v-if="itemIsWindow" class="modal-hint">
-            {{ t('saleOrderDetail.kvmHint', { kvm: formatQty(itemKvm), sum: money(itemKvm * Number(itemForm.priceSelling || 0)) }) }}
+            {{ t('saleOrderDetail.kvmHint', { kvm: formatQty(itemKvm), sum: amt(itemKvm * Number(itemForm.priceSelling || 0)) }) }}
+          </p>
+          <p v-if="pickedGoods && goodsCurrency(pickedGoods) !== orderCurrency" class="modal-hint">
+            {{ listPriceIn(pickedGoods) != null
+              ? t('saleOrderCreate.priceConverted', {
+                  from: moneyIn(pickedGoods.priceSelling, goodsCurrency(pickedGoods), t('common.currency')),
+                  rate: formatRate(conversionRate),
+                })
+              : t('saleOrderCreate.rateMissing') }}
           </p>
           <label class="modal-lbl">
-            {{ t('saleOrderDetail.costPrice') }}
+            {{ t('saleOrderDetail.costPrice') }} ({{ t('common.currency') }})
             <input v-model.number="itemForm.priceCost" type="number" min="0" step="0.01" required class="field" />
           </label>
           <p v-if="itemEditingId" class="modal-hint">
@@ -684,6 +725,9 @@ import { fetchMyDiscountLimit } from '@/api/discountRules'
 import { formatApiError } from '@/api/http'
 import { useFilialScope } from '@/composables/useFilialScope'
 import { amountToText, formatAmountInput, formatDate, money, nowLocal, toApiDate } from '@/utils/format'
+import { BASE_CURRENCY, currencySymbol, formatRate, moneyIn, type CurrencyCode } from '@/utils/currency'
+import { fetchCurrentRate } from '@/api/exchangeRates'
+import { useCbuRate } from '@/composables/useCbuRate'
 
 const { writeBlocked } = useFilialScope()
 const { t, te } = useI18n()
@@ -710,6 +754,41 @@ const saving = ref(false)
 const discountType = ref('PERCENTAGE')
 const discountValue = ref(10)
 
+const orderCurrency = computed<CurrencyCode>(() => order.value?.currency || BASE_CURRENCY)
+const isForeign = computed(() => orderCurrency.value !== BASE_CURRENCY)
+const curLabel = computed(() => currencySymbol(orderCurrency.value, t('common.currency')))
+/** So'mdagi buyurtmada dollardagi mahsulot narxini o'girish uchun bugungi kurs. */
+const currentUsdRate = ref(0)
+const conversionRate = computed(() => (isForeign.value ? Number(order.value?.exchangeRate || 0) : currentUsdRate.value))
+
+function amt(v?: number | null) {
+  return isForeign.value ? moneyIn(v, orderCurrency.value) : money(v)
+}
+
+function goodsCurrency(g: Goods): CurrencyCode {
+  return g.priceCurrency || BASE_CURRENCY
+}
+
+/** Katalog narxi buyurtma valyutasida (backend DiscountLimitPolicy bilan bir xil); kurs bo'lmasa null. */
+function listPriceIn(g: Goods) {
+  const price = Number(g.priceSelling || 0)
+  const from = goodsCurrency(g)
+  if (from === orderCurrency.value) return price
+  const rate = conversionRate.value
+  if (!(rate > 0)) return null
+  return Math.round((from === BASE_CURRENCY ? price / rate : price * rate) * 100) / 100
+}
+
+async function ensureConversionRate() {
+  if (isForeign.value || currentUsdRate.value > 0) return
+  if (!goods.value.some((g) => goodsCurrency(g) !== BASE_CURRENCY)) return
+  try {
+    currentUsdRate.value = Number((await fetchCurrentRate('USD')).data?.rate || 0)
+  } catch {
+    currentUsdRate.value = 0
+  }
+}
+
 const canBypassDiscountLimit = computed(() => auth.can('GOODS_EDIT'))
 
 /** Mirrors backend DiscountLimitPolicy: weighted remaining share after item-level price cuts. */
@@ -726,7 +805,7 @@ const discountLimit = computed<number | null>(() => {
     if (g?.maxDiscountPercent != null) {
       anyLimited = true
       const limit = Number(g.maxDiscountPercent) / 100
-      const list = Number(g.priceSelling || 0)
+      const list = listPriceIn(g) ?? 0
       const price = Number(it.priceSelling || 0)
       const used = list > 0 && price < list ? (list - price) / list : 0
       remaining = used >= limit ? 0 : 1 - (1 - limit) / (1 - used)
@@ -789,6 +868,25 @@ const deliveryFeeText = ref('')
 const deliveryTypeLocked = computed(() =>
   ['IN_DELIVERY', 'DELIVERED', 'WORK_DONE', 'COMPLETED'].includes(order.value?.orderStatus || ''),
 )
+const rateLocked = computed(() => ['COMPLETED', 'CANCELLED'].includes(order.value?.orderStatus || ''))
+/** Server buyurtma kuni o'zgarsa (yakuniy holatgacha) kursni yangi sanadagi Markaziy bank kursiga almashtiradi. */
+const rateFollowsDate = computed(
+  () =>
+    orderModal.value &&
+    isForeign.value &&
+    !rateLocked.value &&
+    !!orderForm.orderDate &&
+    orderForm.orderDate.slice(0, 10) !== (order.value?.orderDate || '').slice(0, 10),
+)
+const {
+  rate: cbuOrderRate,
+  rateDate: cbuOrderRateDate,
+  loading: orderRateLoading,
+} = useCbuRate(
+  () => (rateFollowsDate.value ? orderCurrency.value : null),
+  () => orderForm.orderDate,
+)
+const orderRate = computed(() => (rateFollowsDate.value ? cbuOrderRate.value : Number(order.value?.exchangeRate || 0)))
 
 function onDeliveryFeeInput(e: Event) {
   const el = e.target as HTMLInputElement
@@ -842,6 +940,7 @@ function isWindowGoodsId(goodsId?: number | null) {
 }
 
 const itemIsWindow = computed(() => isWindowGoodsId(itemForm.goodsId))
+const pickedGoods = computed(() => goods.value.find((x) => x.id === itemForm.goodsId) || null)
 const itemKvm = computed(() =>
   itemIsWindow.value
     ? (Number(itemForm.width || 0) * Number(itemForm.height || 0) * Number(itemForm.count || 0)) / 10000
@@ -949,7 +1048,8 @@ const deliveryConfirmBlocked = computed(
     order.value?.orderStatus === 'IN_DELIVERY' &&
     !(delivery.value && ['IN_TRANSIT', 'ARRIVED'].includes(delivery.value.deliveryStatus)),
 )
-const completeBlocked = computed(() => Number(order.value?.debtSum ?? 0) > 0)
+/** Backend bilan bir xil: 0.01 dan kichik qoldiq (kurs yaxlitlashi) to'langan hisoblanadi. */
+const completeBlocked = computed(() => Number(order.value?.debtSum ?? 0) >= 0.01)
 const flowIndex = computed(() => flowStatuses.value.indexOf(order.value?.orderStatus as SaleStatus))
 const doneIndex = computed(() => (order.value?.orderStatus === 'CANCELLED' ? -1 : flowIndex.value))
 const nextStatuses = computed(() =>
@@ -1020,7 +1120,7 @@ async function load() {
     clients.value = cl.data || []
     users.value = us.data || []
     goods.value = gs.data || []
-    await Promise.all([loadDelivery(), loadProduction()])
+    await Promise.all([loadDelivery(), loadProduction(), ensureConversionRate()])
   } catch (e) {
     error.value = formatApiError(e, t('common.loadError'))
   }
@@ -1080,7 +1180,7 @@ function fillItemFromGoods() {
   const g = goods.value.find((x) => x.id === itemForm.goodsId)
   if (g) {
     itemForm.priceCost = Number(g.priceCost || 0)
-    itemForm.priceSelling = Number(g.priceSelling || 0)
+    itemForm.priceSelling = listPriceIn(g) ?? 0
   }
 }
 
@@ -1360,6 +1460,8 @@ watch(
 .modal { width: 100%; max-width: 28rem; border-radius: 1rem; background: #fff; padding: 1.25rem; }
 .modal-lbl { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.75rem; font-weight: 500; color: #6b7280; }
 .modal-hint { font-size: 0.75rem; color: #6b7280; }
+.base-eq { display: block; font-size: 0.75rem; color: #6b7280; }
+.dark .base-eq { color: #9ca3af; }
 .dark .modal-lbl, .dark .modal-hint { color: #9ca3af; }
 .sub { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.25rem; font-size: 0.875rem; color: #6b7280; }
 .status-head { display: flex; justify-content: space-between; gap: 1rem; }

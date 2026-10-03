@@ -40,7 +40,7 @@
               <td class="td">{{ g.goodsGroupName || '—' }}</td>
               <td class="td">{{ g.unitTypeName || '—' }}</td>
               <td class="td">{{ g.typeLabel || g.type || '—' }}</td>
-              <td class="td">{{ money(g.priceSelling) }}</td>
+              <td class="td whitespace-nowrap">{{ sellingLabel(g) }}</td>
               <td class="td">
                 <span v-if="g.maxDiscountPercent != null" class="inline-flex rounded-full bg-warning-50 px-2 py-0.5 text-xs font-medium text-warning-700 dark:bg-warning-500/10 dark:text-warning-400">
                   ≤ {{ Number(g.maxDiscountPercent) }}%
@@ -181,12 +181,17 @@
               </select>
             </div>
             <div>
-              <label class="lbl">{{ t('goods.costPrice') }} *</label>
+              <label class="lbl">{{ t('goods.costPrice') }} ({{ t('common.currency') }}) *</label>
               <input v-model.number="form.priceCost" type="number" min="0" step="0.01" required class="field" />
             </div>
             <div>
               <label class="lbl">{{ t('goods.selling') }} *</label>
-              <input v-model.number="form.priceSelling" type="number" min="0" step="0.01" required class="field" />
+              <div class="price-group">
+                <input v-model.number="form.priceSelling" type="number" min="0" step="0.01" required class="field" />
+                <select v-model="form.priceCurrency" class="field currency-select" :title="t('goods.priceCurrency')">
+                  <option v-for="c in CURRENCIES" :key="c" :value="c">{{ currencySymbol(c, t('common.currency')) }}</option>
+                </select>
+              </div>
             </div>
           </div>
           <div v-if="form.type === 'WINDOW'" class="grid grid-cols-2 gap-3">
@@ -280,6 +285,7 @@ import {
 import { formatApiError, getAccessToken } from '@/api/http'
 import { useFilialScope } from '@/composables/useFilialScope'
 import { money } from '@/utils/format'
+import { BASE_CURRENCY, CURRENCIES, currencySymbol, moneyIn, type CurrencyCode } from '@/utils/currency'
 
 const { t } = useI18n()
 const { writeBlocked } = useFilialScope()
@@ -312,11 +318,18 @@ const form = reactive({
   type: 'PRODUCT',
   priceCost: 0,
   priceSelling: 0,
+  priceCurrency: BASE_CURRENCY as CurrencyCode,
   barcode: '',
   maxDiscountPercent: '' as number | '',
   width: 0,
   height: 0,
 })
+
+function sellingLabel(g: Goods) {
+  return g.priceCurrency && g.priceCurrency !== BASE_CURRENCY
+    ? moneyIn(g.priceSelling, g.priceCurrency, t('common.currency'))
+    : money(g.priceSelling)
+}
 
 const filtered = computed(() => {
   const q = search.value.trim().toLowerCase()
@@ -401,6 +414,7 @@ function openCreate() {
     type: 'PRODUCT',
     priceCost: 0,
     priceSelling: 0,
+    priceCurrency: BASE_CURRENCY,
     barcode: '',
     maxDiscountPercent: '',
     width: 0,
@@ -420,6 +434,7 @@ function openEdit(g: Goods) {
     type: g.type || 'PRODUCT',
     priceCost: Number(g.priceCost || 0),
     priceSelling: Number(g.priceSelling || 0),
+    priceCurrency: g.priceCurrency || BASE_CURRENCY,
     barcode: g.barcode || '',
     maxDiscountPercent: g.maxDiscountPercent != null ? Number(g.maxDiscountPercent) : '',
     width: Number(g.width || 0),
@@ -439,6 +454,7 @@ function buildFormData() {
   fd.append('type', form.type)
   fd.append('priceCost', String(form.priceCost))
   fd.append('priceSelling', String(form.priceSelling))
+  fd.append('priceCurrency', form.priceCurrency)
   if (form.barcode.trim()) fd.append('barcode', form.barcode.trim())
   if (form.maxDiscountPercent !== '' && form.maxDiscountPercent != null) {
     fd.append('maxDiscountPercent', String(form.maxDiscountPercent))
@@ -595,6 +611,9 @@ onBeforeUnmount(revokeLocalPreview)
 .ghost { height: 2.5rem; border-radius: 0.5rem; border: 1px solid #d1d5db; padding: 0 1rem; font-size: 0.875rem; }
 .err { border-radius: 0.5rem; border: 1px solid #fecaca; background: #fef2f2; padding: 0.75rem 1rem; font-size: 0.875rem; color: #dc2626; }
 .lbl { display: block; margin-bottom: 0.25rem; font-size: 0.875rem; color: #4b5563; }
+.price-group { display: flex; gap: 0.25rem; }
+.price-group .field { min-width: 0; }
+.price-group .currency-select { width: 4.75rem; flex: none; padding: 0 0.4rem; }
 .photo-preview {
   margin-bottom: 0.5rem;
   display: inline-flex;

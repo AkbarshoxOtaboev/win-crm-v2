@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import uz.script.wincrm.currency.Currency;
 import uz.script.wincrm.sale.SaleOrder;
 import uz.script.wincrm.sale.enums.SalesOrderStatus;
 
@@ -71,37 +72,45 @@ public interface SaleOrderRepository extends JpaRepository<SaleOrder, Long> {
 //    Optional<SaleOrder> findByIdAndStatusNotDeleted(Long id);
 
     /**
-     * Berilgan davrda eng ko'p savdo qilgan TOP sotuvchilarni (User) qaytaradi.
-     * Har bir qator: [0] = User entity, [1] = buyurtmalar soni (Long), [2] = umumiy summa (BigDecimal).
+     * Sotuvchilar bo'yicha savdo qatorlari, buyurtma valyutasi, kursi va kuni bo'yicha alohida -
+     * summalar valyutaga o'girilgandan keyin jamlanadi.
+     * Har bir qator: [0] = userId, [1] = fullName, [2] = currency, [3] = exchangeRate, [4] = kun,
+     * [5] = buyurtmalar soni (Long), [6] = summa (BigDecimal).
      * DELETED buyurtmalar SaleOrder'dagi @SQLRestriction("status <> 'DELETED'") orqali avtomatik chiqarib tashlanadi.
      */
     @Query("""
-            SELECT so.user, COUNT(so), COALESCE(SUM(so.totalSum), 0)
-            FROM SaleOrder so
-            WHERE so.user IS NOT NULL
-              AND so.salesOrderStatus <> uz.script.wincrm.sale.enums.SalesOrderStatus.CANCELLED
+            SELECT u.id, u.fullName, so.currency, so.exchangeRate, CAST(so.orderDate AS LocalDate),
+                   COUNT(so), COALESCE(SUM(so.totalSum), 0)
+            FROM SaleOrder so JOIN so.user u
+            WHERE so.salesOrderStatus <> uz.script.wincrm.sale.enums.SalesOrderStatus.CANCELLED
               AND so.orderDate BETWEEN :startDate AND :endDate
-            GROUP BY so.user
-            ORDER BY SUM(so.totalSum) DESC
+            GROUP BY u.id, u.fullName, so.currency, so.exchangeRate, CAST(so.orderDate AS LocalDate)
             """)
-    List<Object[]> findTopSellersByAmount(
+    List<Object[]> findSellerSalesRows(
             @Param("startDate") LocalDateTime startDate,
-            @Param("endDate") LocalDateTime endDate,
-            Pageable pageable
+            @Param("endDate") LocalDateTime endDate
     );
 
     @Query("SELECT COALESCE(SUM(s.totalSum), 0) FROM SaleOrder s WHERE s.client.id = :clientId " +
+            "AND s.currency = :currency " +
             "AND s.salesOrderStatus <> uz.script.wincrm.sale.enums.SalesOrderStatus.CANCELLED")
-    BigDecimal sumTotalSumByClientId(@Param("clientId") Long clientId);
+    BigDecimal sumTotalSumByClientIdAndCurrency(@Param("clientId") Long clientId,
+                                                @Param("currency") Currency currency);
 
     @Query("SELECT COALESCE(SUM(s.totalSum), 0) FROM SaleOrder s " +
-            "WHERE s.client.id = :clientId AND s.orderDate BETWEEN :fromDateTime AND :toDateTime " +
+            "WHERE s.client.id = :clientId AND s.currency = :currency " +
+            "AND s.orderDate BETWEEN :fromDateTime AND :toDateTime " +
             "AND s.salesOrderStatus <> uz.script.wincrm.sale.enums.SalesOrderStatus.CANCELLED")
-    BigDecimal sumTotalSumByClientIdAndDateRange(
+    BigDecimal sumTotalSumByClientIdAndCurrencyAndDateRange(
             @Param("clientId") Long clientId,
+            @Param("currency") Currency currency,
             @Param("fromDateTime") LocalDateTime fromDateTime,
             @Param("toDateTime") LocalDateTime toDateTime
     );
+
+    @Query("SELECT DISTINCT s.currency FROM SaleOrder s WHERE s.client.id = :clientId " +
+            "AND s.salesOrderStatus <> uz.script.wincrm.sale.enums.SalesOrderStatus.CANCELLED")
+    List<Currency> findCurrenciesByClientId(@Param("clientId") Long clientId);
 
     /**
      * Berilgan user (sotuvchi) uchun buyurtmalar sonini va umumiy totalSum yig'indisini
@@ -130,12 +139,12 @@ public interface SaleOrderRepository extends JpaRepository<SaleOrder, Long> {
     // ---------------------------------------------------------------
 
     @Query("SELECT new uz.script.wincrm.telegram.view.SaleOrderView(" +
-            "so.id, so.orderDate, so.totalSum, so.paidSum, so.debtSum, so.salesOrderStatus) " +
+            "so.id, so.orderDate, so.totalSum, so.paidSum, so.debtSum, so.salesOrderStatus, so.currency) " +
             "FROM SaleOrder so WHERE so.client.id = :clientId ORDER BY so.orderDate DESC")
     List<uz.script.wincrm.telegram.view.SaleOrderView> findOrderViewsByClientId(@Param("clientId") Long clientId);
 
     @Query("SELECT new uz.script.wincrm.telegram.view.SaleOrderView(" +
-            "so.id, so.orderDate, so.totalSum, so.paidSum, so.debtSum, so.salesOrderStatus) " +
+            "so.id, so.orderDate, so.totalSum, so.paidSum, so.debtSum, so.salesOrderStatus, so.currency) " +
             "FROM SaleOrder so WHERE so.id = :id AND so.client.id = :clientId")
     Optional<uz.script.wincrm.telegram.view.SaleOrderView> findOrderViewByIdAndClientId(
             @Param("id") Long id, @Param("clientId") Long clientId);

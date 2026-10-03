@@ -25,7 +25,10 @@
           <tbody>
             <tr v-if="loading"><td colspan="2" class="empty">{{ t('common.loading') }}</td></tr>
             <tr v-for="r in rules" :key="r.roleId" class="border-b border-gray-100 dark:border-gray-800">
-              <td class="td font-medium text-gray-800 dark:text-white/90">{{ r.roleName }}</td>
+              <td class="td">
+                <p class="font-medium text-gray-800 dark:text-white/90">{{ roleLabel(r.roleName) }}</p>
+                <p v-if="roleLabel(r.roleName) !== r.roleName" class="role-code">{{ r.roleName }}</p>
+              </td>
               <td class="td">
                 <span v-if="r.locked" class="muted" :title="t('discountRules.locked')">{{ t('discountRules.unlimited') }}</span>
                 <div v-else class="pct-input">
@@ -74,7 +77,7 @@
                 <div class="font-medium text-gray-800 dark:text-white/90">{{ u.fullName || u.username }}</div>
                 <div class="muted text-xs">{{ u.username }}</div>
               </td>
-              <td class="td">{{ (u.roles || []).join(', ') || '—' }}</td>
+              <td class="td">{{ (u.roles || []).map(roleLabel).join(', ') || '—' }}</td>
               <td class="td">{{ u.filialName || '—' }}</td>
               <td class="td">
                 <div class="pct-input">
@@ -119,8 +122,10 @@ import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import { fetchDiscountRules, saveDiscountRules, type DiscountRule } from '@/api/discountRules'
 import { fetchKpiRates, saveKpiRate, type KpiRate } from '@/api/kpi'
 import { formatApiError } from '@/api/http'
+import { roleLabel as roleLabelOf } from '@/utils/permissions'
 
 const { t } = useI18n()
+const roleLabel = (name: string) => roleLabelOf(name, t)
 
 const loading = ref(false)
 const error = ref<string | null>(null)
@@ -140,7 +145,7 @@ const filteredRates = computed(() => {
   const q = search.value.trim().toLowerCase()
   if (!q) return rates.value
   return rates.value.filter((u) =>
-    [u.fullName, u.username, u.filialName, ...(u.roles || [])].some((s) => s?.toLowerCase().includes(q)),
+    [u.fullName, u.username, u.filialName, ...(u.roles || []), ...(u.roles || []).map(roleLabel)].some((s) => s?.toLowerCase().includes(q)),
   )
 })
 
@@ -181,7 +186,7 @@ async function onSaveRules() {
     if (r.locked) continue
     const value = parsePercent(ruleInputs[r.roleId])
     if (value === undefined) {
-      error.value = `${r.roleName}: ${t('discountRules.percentRange')}`
+      error.value = `${roleLabel(r.roleName)}: ${t('discountRules.percentRange')}`
       return
     }
     payload.push({ roleId: r.roleId, maxDiscountPercent: value })
@@ -232,6 +237,7 @@ onMounted(load)
 .td { padding: 0.625rem 1.25rem; font-size: 0.875rem; color: #4b5563; }
 .empty { padding: 2rem; text-align: center; font-size: 0.875rem; color: #6b7280; }
 .muted { color: #9ca3af; }
+.role-code { margin-top: 0.15rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.7rem; letter-spacing: 0.02em; color: #9ca3af; }
 .field { height: 2.5rem; width: 100%; border-radius: 0.5rem; border: 1px solid #d1d5db; background: transparent; padding: 0 0.75rem; font-size: 0.875rem; }
 .search { width: 16rem; }
 .pct-input { position: relative; max-width: 12rem; }

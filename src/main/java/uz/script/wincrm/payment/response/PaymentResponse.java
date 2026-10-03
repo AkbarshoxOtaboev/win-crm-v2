@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
+import uz.script.wincrm.currency.Currency;
 import uz.script.wincrm.utils.Status;
 
 import java.math.BigDecimal;
@@ -39,8 +40,20 @@ public class PaymentResponse {
     @Schema(description = "Payment type name", example = "Naqd pul")
     private String paymentTypeName;
 
-    @Schema(description = "Payment amount", example = "1000.00")
+    @Schema(description = "Kassaga tushgan summa (currency da)", example = "1000.00")
     private BigDecimal paymentAmount;
+
+    @Schema(description = "Kassa valyutasi", example = "UZS")
+    private Currency currency;
+
+    @Schema(description = "Yopilgan qarz valyutasi", example = "USD")
+    private Currency debtCurrency;
+
+    @Schema(description = "To'lov kungi kurs", example = "12850")
+    private BigDecimal exchangeRate;
+
+    @Schema(description = "Qarzdan yopilgan summa (debtCurrency da)", example = "500.00")
+    private BigDecimal appliedAmount;
 
     @Schema(description = "Payment date and time", example = "2026-07-04T09:30:15")
     private LocalDateTime paymentDate;

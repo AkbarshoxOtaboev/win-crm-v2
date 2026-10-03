@@ -5,6 +5,7 @@ import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
+import uz.script.wincrm.currency.Currency;
 
 import java.math.BigDecimal;
 
@@ -35,4 +36,7 @@ public class ClientBalanceDTO {
             requiredMode = Schema.RequiredMode.REQUIRED
     )
     private BigDecimal totalPaid;
+
+    @Schema(description = "Qaysi valyutadagi balans tuzatiladi (bo'sh — UZS)", example = "USD")
+    private Currency currency;
 }

@@ -5,6 +5,7 @@ import uz.script.wincrm.workshop.enums.WorkshopBalanceEventType;
 import uz.script.wincrm.workshop.response.WorkshopDashboardResponse;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 public interface WorkshopBalanceService {
 
@@ -12,5 +13,6 @@ public interface WorkshopBalanceService {
 
     void setAssignmentFeePercent(Long assignmentId, BigDecimal feePercent);
 
-    WorkshopDashboardResponse dashboard(Long workshopId);
+    /** Yakunlangan ishlar ro'yxati va jami [fromDate, toDate] bo'yicha; navbat va balans davrga bog'liq emas. */
+    WorkshopDashboardResponse dashboard(Long workshopId, LocalDate fromDate, LocalDate toDate);
 }

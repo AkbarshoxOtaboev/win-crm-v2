@@ -26,8 +26,11 @@ import uz.script.wincrm.production.response.ProductionEventResponse;
 import uz.script.wincrm.production.response.ProductionOrderResponse;
 import uz.script.wincrm.production.service.ProductionOrderService;
 import uz.script.wincrm.sale.SaleOrder;
+import uz.script.wincrm.sale.SaleOrderItem;
 import uz.script.wincrm.sale.dto.SaleOrderHistoryDTO;
 import uz.script.wincrm.sale.enums.SalesOrderStatus;
+import uz.script.wincrm.sale.repository.SaleOrderImageRepository;
+import uz.script.wincrm.sale.repository.SaleOrderItemRepository;
 import uz.script.wincrm.sale.repository.SaleOrderRepository;
 import uz.script.wincrm.sale.service.SaleOrderHistoryService;
 import uz.script.wincrm.security.CustomUserDetails;
@@ -39,8 +42,12 @@ import uz.script.wincrm.workshop.repository.WorkshopRepository;
 import uz.script.wincrm.workshop.service.WorkshopAccess;
 import uz.script.wincrm.workshop.service.WorkshopBalanceService;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 @Service
@@ -57,6 +64,8 @@ public class ProductionOrderServiceImpl implements ProductionOrderService {
     private final SaleOrderHistoryService saleOrderHistoryService;
     private final WorkshopBalanceService workshopBalanceService;
     private final WorkshopAccess workshopAccess;
+    private final SaleOrderItemRepository saleOrderItemRepository;
+    private final SaleOrderImageRepository saleOrderImageRepository;
 
     @Override
     @Auditable(action = AuditAction.CREATE, entity = "ProductionOrder")
@@ -131,17 +140,27 @@ public class ProductionOrderServiceImpl implements ProductionOrderService {
                 .toList();
     }
 
+    /**
+     * Sex doskasi: kutilayotgan va jarayondagi topshiriqlar doim, yakunlanganlari esa
+     * [fromDate, toDate] oralig'ida tugatilganlari — barchasi sexga kelgan tartibda.
+     */
     @Override
-    public List<ProductionOrderResponse> board(Long workshopId) {
+    public List<ProductionOrderResponse> board(Long workshopId, LocalDate fromDate, LocalDate toDate) {
         workshopAccess.assertWorkshop(workshopId);
         getActiveWorkshop(workshopId);
-        return assignmentRepository
+        if (fromDate != null && toDate != null && fromDate.isAfter(toDate)) {
+            throw new BadRequestException("Boshlanish sanasi tugash sanasidan keyin bo'lishi mumkin emas");
+        }
+        List<ProductionAssignment> rows = new ArrayList<>(assignmentRepository
                 .findByWorkshop_IdAndAssignmentStatusInOrderByCreatedAtAsc(
                         workshopId,
-                        List.of(ProductionAssignmentStatus.PENDING, ProductionAssignmentStatus.ACTIVE))
-                .stream()
+                        List.of(ProductionAssignmentStatus.PENDING, ProductionAssignmentStatus.ACTIVE)));
+        rows.addAll(assignmentRepository.findDoneBetween(workshopId, fromDate, toDate));
+        return rows.stream()
                 .filter(a -> a.getProductionOrder().getProductionStatus() != ProductionOrderStatus.CANCELLED)
-                .map(a -> toResponse(a.getProductionOrder()))
+                .sorted(Comparator.comparing(ProductionAssignment::getCreatedAt,
+                        Comparator.nullsLast(Comparator.naturalOrder())))
+                .map(this::toBoardResponse)
                 .toList();
     }
 
@@ -507,6 +526,54 @@ public class ProductionOrderServiceImpl implements ProductionOrderService {
                 .doneAt(order.getDoneAt())
                 .note(order.getNote())
                 .createdAt(order.getCreatedAt())
+                .build();
+    }
+
+    private ProductionOrderResponse toBoardResponse(ProductionAssignment assignment) {
+        ProductionOrderResponse response = toResponse(assignment.getProductionOrder());
+        response.setBoardAssignmentId(assignment.getId());
+        response.setBoardAssignmentStatus(assignment.getAssignmentStatus());
+        response.setAcceptedAt(assignment.getStartedAt());
+        response.setSubmittedAt(assignment.getFinishedAt());
+
+        SaleOrder saleOrder = assignment.getProductionOrder().getSaleOrder();
+        if (saleOrder == null) {
+            return response;
+        }
+        response.setOrderDate(saleOrder.getOrderDate());
+        response.setPlannedReadyDate(saleOrder.getPlannedReadyDate());
+        response.setSaleOrderComment(saleOrder.getComment());
+        response.setItems(saleOrderItemRepository.findAllBySaleOrderId(saleOrder.getId()).stream()
+                .filter(i -> i.getStatus() == Status.ACTIVE)
+                .map(this::toBoardItem)
+                .toList());
+        response.setImages(saleOrderImageRepository.findBySaleOrderIdOrderByCreatedAtAsc(saleOrder.getId()).stream()
+                .filter(img -> img.getStatus() == Status.ACTIVE && img.getFileName() != null)
+                .map(img -> ProductionOrderResponse.Image.builder()
+                        .id(img.getId())
+                        .url("/api/files/" + img.getFileName())
+                        .originalFileName(img.getOriginalFileName())
+                        .build())
+                .toList());
+        return response;
+    }
+
+    private ProductionOrderResponse.Item toBoardItem(SaleOrderItem item) {
+        BigDecimal pieces = null;
+        if (item.getWidth() != null && item.getHeight() != null && item.getCount() != null
+                && item.getWidth().signum() > 0 && item.getHeight().signum() > 0) {
+            BigDecimal area = item.getWidth().multiply(item.getHeight())
+                    .divide(BigDecimal.valueOf(10000), 6, RoundingMode.HALF_UP);
+            pieces = item.getCount().divide(area, 0, RoundingMode.HALF_UP);
+        }
+        return ProductionOrderResponse.Item.builder()
+                .id(item.getId())
+                .goodsId(item.getGoods() != null ? item.getGoods().getId() : null)
+                .goodsName(item.getGoods() != null ? item.getGoods().getName() : null)
+                .width(item.getWidth())
+                .height(item.getHeight())
+                .count(item.getCount())
+                .pieces(pieces)
                 .build();
     }
 

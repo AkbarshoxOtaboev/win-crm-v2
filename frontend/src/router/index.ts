@@ -178,6 +178,18 @@ const router = createRouter({
       meta: { title: 'Sotuv hisoboti', requiresAuth: true },
     },
     {
+      path: '/currency',
+      name: 'Currency',
+      component: () => import('../views/crm/CurrencyView.vue'),
+      meta: { title: 'Valyuta', requiresAuth: true },
+    },
+    {
+      path: '/sales/fx-difference',
+      name: 'FxDifference',
+      component: () => import('../views/crm/FxDifferenceView.vue'),
+      meta: { title: 'Kurs farqi', requiresAuth: true },
+    },
+    {
       path: '/sales/debts',
       name: 'SellerDebts',
       component: () => import('../views/crm/SellerDebtsView.vue'),
@@ -337,9 +349,7 @@ const router = createRouter({
     },
     {
       path: '/settings/exchange-rates',
-      name: 'SettingsExchangeRates',
-      component: () => import('../views/crm/settings/ExchangeRatesSettingsView.vue'),
-      meta: { title: 'Valyuta kurslari', requiresAuth: true, settingsAdmin: true },
+      redirect: '/currency',
     },
     {
       path: '/profile',

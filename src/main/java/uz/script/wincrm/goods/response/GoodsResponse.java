@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
+import uz.script.wincrm.currency.Currency;
 import uz.script.wincrm.goods.enums.Type;
 import uz.script.wincrm.utils.Status;
 
@@ -76,6 +77,9 @@ public class GoodsResponse {
             example = "12000.00"
     )
     private BigDecimal priceSelling;
+
+    @Schema(description = "Sotish narxi valyutasi", example = "USD")
+    private Currency priceCurrency;
 
     @Schema(
             description = "Goods barcode",

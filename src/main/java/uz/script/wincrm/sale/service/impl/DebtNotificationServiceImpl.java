@@ -8,8 +8,11 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import uz.script.wincrm.clients.Client;
 import uz.script.wincrm.clients.repository.ClientRepository;
-import uz.script.wincrm.clients.response.ClientBalanceResponse;
 import uz.script.wincrm.clients.service.ClientBalanceService;
+import uz.script.wincrm.currency.Currency;
+import uz.script.wincrm.currency.CurrencyAmount;
+import uz.script.wincrm.currency.CurrencyMath;
+import uz.script.wincrm.currency.service.ExchangeRateService;
 import uz.script.wincrm.exceptions.BadRequestException;
 import uz.script.wincrm.sale.SaleOrder;
 import uz.script.wincrm.sale.enums.DebtNotificationStatus;
@@ -43,6 +46,7 @@ public class DebtNotificationServiceImpl implements DebtNotificationService {
     private final DebtNotificationHistoryRecorder historyRecorder;
     private final ClientRepository clientRepository;
     private final ClientBalanceService clientBalanceService;
+    private final ExchangeRateService exchangeRateService;
 
     @Override
     public List<DebtorClientResponse> fetchDebtorClients(LocalDate startDate, LocalDate endDate, Long userId) {
@@ -73,13 +77,13 @@ public class DebtNotificationServiceImpl implements DebtNotificationService {
         Client client = clientRepository.findById(clientId)
                 .orElseThrow(() -> new BadRequestException("Mijoz topilmadi: id=" + clientId));
 
-        BigDecimal totalDebt = resolveClientTotalDebt(clientId);
+        List<CurrencyAmount> debts = resolveClientDebts(clientId);
 
-        if (totalDebt.compareTo(BigDecimal.ZERO) <= 0) {
+        if (debts.isEmpty()) {
             throw new BadRequestException("Ushbu mijozda qarz mavjud emas");
         }
 
-        sendToClient(client, totalDebt);
+        sendToClient(client, debts);
     }
 
     @Override
@@ -112,13 +116,13 @@ public class DebtNotificationServiceImpl implements DebtNotificationService {
         }
 
         Client client = order.getClient();
-        BigDecimal totalDebt = resolveClientTotalDebt(client.getId());
+        List<CurrencyAmount> debts = resolveClientDebts(client.getId());
 
-        if (totalDebt.compareTo(BigDecimal.ZERO) <= 0) {
+        if (debts.isEmpty()) {
             throw new BadRequestException("Ushbu mijozda qarz mavjud emas");
         }
 
-        sendToClient(client, totalDebt);
+        sendToClient(client, debts);
     }
 
     @Override
@@ -137,12 +141,13 @@ public class DebtNotificationServiceImpl implements DebtNotificationService {
                 .map(historyMapper::toResponse);
     }
 
-    private void sendToClient(Client client, BigDecimal totalDebt) {
+    private void sendToClient(Client client, List<CurrencyAmount> debts) {
         if (client.getPhone() == null || client.getPhone().isBlank()) {
             throw new BadRequestException("Mijoz '" + client.getFullName() + "' uchun telefon raqami mavjud emas");
         }
 
-        String message = buildClientMessage(client, totalDebt);
+        String message = buildClientMessage(client, debts);
+        BigDecimal totalDebt = baseEquivalent(debts);
 //        String message = deafultTemplate();
         try {
             smsService.sendSms(client.getPhone(), message);
@@ -157,8 +162,29 @@ public class DebtNotificationServiceImpl implements DebtNotificationService {
         return "Assalomu allaykum ABAT STEKLO Kompanyasi Xodimlari bugun hammaga 17:30 majlis elon qilindi.";
     }
 
-    private String buildClientMessage(Client client, BigDecimal totalDebt) {
-        return "Hurmatli "+client.getFullName()+"! ABADSTEKLO korxonasidagi qarzingiz "+totalDebt.stripTrailingZeros().toPlainString()+" soʻmni tashkil etadi. Iltimos, toʻlovni oʻz vaqtida amalga oshiring. Rahmat!";
+    private String buildClientMessage(Client client, List<CurrencyAmount> debts) {
+        String amounts = debts.stream()
+                .map(d -> CurrencyMath.format(d.amount(), d.currency()).replace("so'm", "soʻm"))
+                .collect(Collectors.joining(" va "));
+        return "Hurmatli "+client.getFullName()+"! ABADSTEKLO korxonasidagi qarzingiz "+amounts+"ni tashkil etadi. Iltimos, toʻlovni oʻz vaqtida amalga oshiring. Rahmat!";
+    }
+
+    /** Tarix uchun bitta summa: xorijiy qarzlar bugungi kurs bo'yicha so'mga o'giriladi (kurs bo'lmasa qo'shilmaydi). */
+    private BigDecimal baseEquivalent(List<CurrencyAmount> debts) {
+        BigDecimal total = BigDecimal.ZERO;
+        for (CurrencyAmount debt : debts) {
+            if (debt.currency().isBase()) {
+                total = total.add(debt.amount());
+                continue;
+            }
+            try {
+                BigDecimal rate = exchangeRateService.rateOn(debt.currency(), LocalDate.now());
+                total = total.add(CurrencyMath.convert(debt.amount(), debt.currency(), Currency.BASE, rate));
+            } catch (Exception e) {
+                log.warn("{} kursi topilmadi, qarz tarixida so'm ekvivalenti hisoblanmadi: {}", debt.currency(), e.getMessage());
+            }
+        }
+        return total;
     }
 
     /**
@@ -171,15 +197,15 @@ public class DebtNotificationServiceImpl implements DebtNotificationService {
      * SMS matnida ham, admin panelda ham ko'rsatiladi — ikkalasi bir xil
      * bo'lishi kerak.
      */
-    private BigDecimal resolveClientTotalDebt(Long clientId) {
+    private List<CurrencyAmount> resolveClientDebts(Long clientId) {
         try {
-            ClientBalanceResponse balance = clientBalanceService.findAllTimeByClientId(clientId);
-            return balance != null && balance.getTotalDebt() != null
-                    ? balance.getTotalDebt()
-                    : BigDecimal.ZERO;
+            return clientBalanceService.findAllTimeByClientId(clientId).stream()
+                    .filter(b -> b.getTotalDebt() != null && b.getTotalDebt().compareTo(CurrencyMath.TOLERANCE) >= 0)
+                    .map(b -> new CurrencyAmount(CurrencyMath.orBase(b.getCurrency()), b.getTotalDebt()))
+                    .toList();
         } catch (Exception e) {
             log.warn("Mijoz id={} uchun ClientBalance topilmadi, qarz 0 deb olinadi: {}", clientId, e.getMessage());
-            return BigDecimal.ZERO;
+            return List.of();
         }
     }
 
@@ -187,12 +213,18 @@ public class DebtNotificationServiceImpl implements DebtNotificationService {
         // Diqqat: totalDebt endi filtrlangan buyurtmalar yig'indisidan emas,
         // ClientBalance'dan olinadi — shunda admin panelda ko'rinadigan summa
         // va SMS orqali mijozga yuboriladigan summa har doim bir xil bo'ladi.
-        BigDecimal totalDebt = resolveClientTotalDebt(client.getId());
+        List<CurrencyAmount> debts = resolveClientDebts(client.getId());
+        BigDecimal totalDebt = debts.stream()
+                .filter(d -> d.currency().isBase())
+                .map(CurrencyAmount::amount)
+                .findFirst()
+                .orElse(BigDecimal.ZERO);
 
         List<DebtorClientResponse.DebtOrderInfo> orderInfos = orders.stream()
                 .map(order -> DebtorClientResponse.DebtOrderInfo.builder()
                         .saleOrderId(order.getId())
                         .debtSum(order.getDebtSum())
+                        .currency(order.currencyOrBase())
                         .orderDate(order.getOrderDate())
                         .userId(order.getUser() != null ? order.getUser().getId() : null)
                         .userFullName(order.getUser() != null ? order.getUser().getFullName() : null)
@@ -204,6 +236,7 @@ public class DebtNotificationServiceImpl implements DebtNotificationService {
                 .clientFullName(client.getFullName())
                 .phone(client.getPhone())
                 .totalDebt(totalDebt)
+                .debts(debts)
                 .orders(orderInfos)
                 .build();
     }

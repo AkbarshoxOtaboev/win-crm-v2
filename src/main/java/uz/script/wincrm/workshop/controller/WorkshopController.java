@@ -17,6 +17,7 @@ import uz.script.wincrm.workshop.service.WorkshopAccess;
 import uz.script.wincrm.workshop.service.WorkshopBalanceService;
 import uz.script.wincrm.workshop.service.WorkshopService;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -103,11 +104,15 @@ public class WorkshopController {
     @GetMapping("/{id}/dashboard")
     @PreAuthorize("hasAuthority('WORKSHOP_VIEW')")
     @Operation(summary = "Workshop production dashboard (queue, progress, completed, balance)")
-    public ResponseEntity<?> dashboard(@PathVariable Long id) {
+    public ResponseEntity<?> dashboard(
+            @PathVariable Long id,
+            @RequestParam(required = false) LocalDate fromDate,
+            @RequestParam(required = false) LocalDate toDate
+    ) {
         workshopAccess.assertWorkshop(id);
         return ResponseEntity.ok(RestApiResponse.<WorkshopDashboardResponse>builder()
                 .message("Workshop dashboard fetched successfully")
-                .data(balanceService.dashboard(id))
+                .data(balanceService.dashboard(id, fromDate, toDate))
                 .build());
     }
 

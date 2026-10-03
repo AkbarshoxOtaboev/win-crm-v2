@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
+import uz.script.wincrm.currency.Currency;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -18,7 +19,7 @@ public class DailyPaymentSummaryResponse {
     @Schema(description = "Sana", example = "2026-07-09")
     private LocalDate date;
 
-    @Schema(description = "Shu kundagi jami to'lov summasi", example = "3200000.00")
+    @Schema(description = "Shu kundagi jami to'lov summasi, ko'rsatish valyutasida", example = "3200000.00")
     private BigDecimal totalAmount;
 
     @Schema(description = "Shu kundagi to'lovlarning PaymentType bo'yicha taqsimoti")
@@ -36,7 +37,9 @@ public class DailyPaymentSummaryResponse {
         @Schema(description = "Payment type nomi", example = "Naqd pul")
         private String paymentTypeName;
 
-        @Schema(description = "Shu kunda shu turdagi to'lovlar summasi", example = "1500000.00")
+        @Schema(description = "Shu kunda shu turdagi to'lovlar summasi, kassa valyutasida", example = "1500000.00")
         private BigDecimal amount;
+
+        private Currency currency;
     }
 }

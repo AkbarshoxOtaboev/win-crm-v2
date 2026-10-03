@@ -1,6 +1,7 @@
 package uz.script.wincrm.goods.mapper;
 
 import org.springframework.stereotype.Component;
+import uz.script.wincrm.currency.Currency;
 import uz.script.wincrm.goods.Goods;
 import uz.script.wincrm.goods.GoodsGroup;
 import uz.script.wincrm.goods.UnitType;
@@ -20,6 +21,7 @@ public class GoodsMapper {
                 .type(dto.getType())
                 .priceCost(dto.getPriceCost())
                 .priceSelling(dto.getPriceSelling())
+                .priceCurrency(dto.getPriceCurrency() != null ? dto.getPriceCurrency() : Currency.BASE)
                 .barcode(dto.getBarcode())
                 .maxDiscountPercent(dto.getMaxDiscountPercent())
                 .width(dto.getType() == Type.WINDOW ? dto.getWidth() : null)
@@ -38,6 +40,9 @@ public class GoodsMapper {
         }
         goods.setPriceCost(dto.getPriceCost());
         goods.setPriceSelling(dto.getPriceSelling());
+        if (dto.getPriceCurrency() != null) {
+            goods.setPriceCurrency(dto.getPriceCurrency());
+        }
         goods.setBarcode(dto.getBarcode());
         goods.setMaxDiscountPercent(dto.getMaxDiscountPercent());
         if (dto.getType() == Type.WINDOW) {
@@ -64,6 +69,7 @@ public class GoodsMapper {
                 .typeLabel(goods.getType() != null ? goods.getType().getLabel() : null)
                 .priceCost(goods.getPriceCost())
                 .priceSelling(goods.getPriceSelling())
+                .priceCurrency(goods.getPriceCurrency())
                 .barcode(goods.getBarcode())
                 .maxDiscountPercent(goods.getMaxDiscountPercent())
                 .width(goods.getWidth())

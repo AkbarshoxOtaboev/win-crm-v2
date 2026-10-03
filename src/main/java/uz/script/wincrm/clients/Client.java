@@ -72,10 +72,10 @@ public class Client extends FilialScopedEntity {
     @JoinColumn(name = "client_group_id")
     private ClientGroup clientGroup;
 
-    @OneToOne(
+    @OneToMany(
             mappedBy = "client",
             cascade = CascadeType.ALL,
             orphanRemoval = true
     )
-    private ClientBalance balance;
+    private List<ClientBalance> balances;
 }

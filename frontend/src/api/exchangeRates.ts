@@ -4,30 +4,20 @@ import type { CurrencyCode } from '@/utils/currency'
 
 export type ExchangeRateSource = 'MANUAL' | 'CBU'
 
+/** Markaziy bank kursi: 1 birlik valyuta = rate so'm. */
 export interface ExchangeRate {
   id: number
   currency: CurrencyCode
   rateDate: string
   rate: number
+  /** Oldingi kursga nisbatan o'zgarish (so'm). */
+  change?: number | null
   source: ExchangeRateSource
   createdUsername?: string | null
   updatedAt?: string | null
 }
 
-export interface CbuRate {
-  currency: CurrencyCode
-  rateDate: string
-  rate: number
-  diff?: number | null
-}
-
-export interface ExchangeRatePayload {
-  currency: CurrencyCode
-  rateDate: string
-  rate: number
-  source?: ExchangeRateSource
-}
-
+/** Eng yangisi birinchi. */
 export function fetchExchangeRates(currency: CurrencyCode = 'USD', from?: string, to?: string) {
   const params = new URLSearchParams({ currency })
   if (from) params.set('from', from)
@@ -35,25 +25,16 @@ export function fetchExchangeRates(currency: CurrencyCode = 'USD', from?: string
   return apiRequest<RestApiResponse<ExchangeRate[]>>(`/api/exchange-rates?${params}`)
 }
 
-export function fetchCurrentRate(currency: CurrencyCode = 'USD') {
-  return apiRequest<RestApiResponse<ExchangeRate | null>>(`/api/exchange-rates/current?currency=${currency}`)
-}
-
-export function fetchCbuRate(currency: CurrencyCode = 'USD', date?: string) {
+/** Berilgan kunda (bo'sh - bugun) amal qiladigan kurs: shu sanali hujjatlar aynan shu kursni oladi. */
+export function fetchCurrentRate(currency: CurrencyCode = 'USD', date?: string) {
   const params = new URLSearchParams({ currency })
   if (date) params.set('date', date)
-  return apiRequest<RestApiResponse<CbuRate>>(`/api/exchange-rates/cbu?${params}`)
+  return apiRequest<RestApiResponse<ExchangeRate | null>>(`/api/exchange-rates/current?${params}`)
 }
 
-export function saveExchangeRate(payload: ExchangeRatePayload) {
-  return apiRequest<RestApiResponse<ExchangeRate>>('/api/exchange-rates', {
-    method: 'PUT',
-    body: payload,
-  })
-}
-
-export function deleteExchangeRate(id: number) {
-  return apiRequest<RestApiResponse<null>>(`/api/exchange-rates/${id}`, {
-    method: 'DELETE',
+/** Markaziy bankdan oxirgi kursni hozir olish (server buni har soatda o'zi ham qiladi). */
+export function syncExchangeRate(currency: CurrencyCode = 'USD') {
+  return apiRequest<RestApiResponse<ExchangeRate | null>>(`/api/exchange-rates/sync?currency=${currency}`, {
+    method: 'POST',
   })
 }

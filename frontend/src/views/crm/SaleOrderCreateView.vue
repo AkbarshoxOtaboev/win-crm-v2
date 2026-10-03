@@ -65,7 +65,7 @@
           </label>
 
           <label class="lbl min-w-0 flex-1">
-            {{ t('saleOrderCreate.orderSumRequired') }}
+            {{ t('saleOrderCreate.orderSumRequired') }} ({{ curLabel }})
             <input
               :value="totalSumText"
               inputmode="decimal"
@@ -76,6 +76,38 @@
           </label>
         </div>
         <p class="total-hint mt-1.5">{{ t('saleOrderCreate.orderSumHint') }}</p>
+
+        <div class="form-row mt-3">
+          <label class="lbl min-w-0 w-full sm:w-44 sm:flex-none">
+            {{ t('saleOrderCreate.currency') }}
+            <select
+              v-model="form.currency"
+              class="field"
+              :disabled="draftItems.length > 0"
+              :title="draftItems.length > 0 ? t('saleOrderCreate.currencyLocked') : undefined"
+            >
+              <option v-for="c in CURRENCIES" :key="c" :value="c">{{ t(`exchangeRates.currencies.${c}`) }}</option>
+            </select>
+          </label>
+          <label v-if="needsRate" class="lbl min-w-0 w-full sm:w-44 sm:flex-none">
+            {{ t('saleOrderCreate.rate') }}
+            <input
+              :value="rateLoading ? t('exchangeRates.rateLoading') : form.exchangeRate > 0 ? formatRate(form.exchangeRate) : '—'"
+              readonly
+              tabindex="-1"
+              class="field cursor-default bg-gray-50 dark:bg-white/[0.03]"
+              :title="t('exchangeRates.rateAuto')"
+            />
+          </label>
+          <p v-if="needsRate" class="cur-hint">
+            <span v-if="!rateLoading && !(form.exchangeRate > 0)" class="text-amber-600">{{ t('saleOrderCreate.rateMissing') }}</span>
+            <template v-else>
+              <span v-if="cbuRateDate">{{ t('exchangeRates.cbuRate') }} · {{ cbuRateDate.split('-').reverse().join('.') }}. </span>
+              <span v-if="isForeign">{{ t('saleOrderCreate.currencyHint') }}</span>
+              <span v-else>{{ t('saleOrderCreate.rateForGoodsHint') }}</span>
+            </template>
+          </p>
+        </div>
 
         <div class="delivery-block mt-4">
           <span class="lbl">{{ t('saleOrderCreate.deliveryTitle') }}</span>
@@ -107,7 +139,7 @@
               </button>
             </div>
             <label v-if="form.deliveryType === 'DELIVERY'" class="lbl min-w-0 w-full sm:w-64 sm:flex-none">
-              {{ t('saleOrderCreate.deliveryFee') }}
+              {{ t('saleOrderCreate.deliveryFee') }} ({{ curLabel }})
               <input
                 :value="deliveryFeeText"
                 inputmode="decimal"
@@ -144,6 +176,9 @@
               {{ balanceText(clientBalance ? Math.abs(Number(clientBalance.totalDebt || 0)) : undefined) }}
             </span>
           </div>
+          <p v-if="otherCurrencyDebts" class="summary-note">
+            {{ t('saleOrderCreate.otherCurrencyDebt', { value: otherCurrencyDebts }) }}
+          </p>
           <p v-if="balanceError" class="summary-note">{{ balanceError }}</p>
         </div>
       </div>
@@ -189,12 +224,12 @@
               <input :value="formatNum(computedKvm)" class="field" readonly />
             </label>
             <label class="lbl min-w-0 w-36 sm:flex-none">
-              {{ t('saleOrderCreate.sellingPrice') }}
+              {{ t('saleOrderCreate.sellingPrice') }} ({{ curLabel }})
               <input v-model.number="itemForm.priceSelling" type="number" min="0.01" step="0.01" class="field" />
             </label>
             <label class="lbl min-w-0 w-40 sm:flex-none">
               {{ t('saleOrderCreate.totalSum') }}
-              <input :value="money(computedSum)" class="field" readonly />
+              <input :value="amt(computedSum)" class="field" readonly />
             </label>
           </template>
 
@@ -204,16 +239,16 @@
               <input v-model.number="itemForm.count" type="number" min="0.01" step="0.01" class="field" />
             </label>
             <label class="lbl min-w-0 w-36 sm:flex-none">
-              {{ t('saleOrderCreate.costPrice') }}
+              {{ t('saleOrderCreate.costPrice') }} ({{ t('common.currency') }})
               <input v-model.number="itemForm.priceCost" type="number" min="0.01" step="0.01" class="field" />
             </label>
             <label class="lbl min-w-0 w-36 sm:flex-none">
-              {{ t('saleOrderCreate.selling') }}
+              {{ t('saleOrderCreate.selling') }} ({{ curLabel }})
               <input v-model.number="itemForm.priceSelling" type="number" min="0.01" step="0.01" class="field" />
             </label>
             <label class="lbl min-w-0 w-40 sm:flex-none">
               {{ t('saleOrderCreate.totalSum') }}
-              <input :value="money(computedSum)" class="field" readonly />
+              <input :value="amt(computedSum)" class="field" readonly />
             </label>
           </template>
 
@@ -228,6 +263,12 @@
         </p>
         <p v-else-if="selectedGoods && !isServiceGoods" class="stock-hint">
           {{ t('saleOrderCreate.stockLeft', { qty: qtyWithUnit(remainingStock(selectedGoods.id), isWindowGoods) }) }}
+        </p>
+        <p v-if="selectedGoods && goodsCurrency(selectedGoods) !== form.currency" class="stock-hint">
+          {{ t('saleOrderCreate.priceConverted', {
+            from: moneyIn(selectedGoods.priceSelling, goodsCurrency(selectedGoods), t('common.currency')),
+            rate: formatRate(form.exchangeRate),
+          }) }}
         </p>
         <p v-if="itemError" class="mt-2 text-xs text-red-600">{{ itemError }}</p>
       </div>
@@ -258,8 +299,8 @@
               <td class="td">{{ row.height != null ? formatNum(row.height) : '—' }}</td>
               <td class="td">{{ row.pieces != null ? formatNum(row.pieces) : formatNum(row.count) }}</td>
               <td class="td">{{ row.isWindow ? formatNum(row.count) : '—' }}</td>
-              <td class="td">{{ money(row.priceSelling) }}</td>
-              <td class="td">{{ money(row.sum) }}</td>
+              <td class="td">{{ amt(row.priceSelling) }}</td>
+              <td class="td">{{ amt(row.sum) }}</td>
               <td class="td text-right">
                 <button type="button" class="danger" :disabled="saving" @click="onRemoveItem(row.key)">{{ t('common.delete') }}</button>
               </td>
@@ -268,7 +309,7 @@
           <tfoot v-if="displayItems.length">
             <tr class="border-t border-gray-200 bg-gray-50">
               <td class="td font-semibold" colspan="7">{{ t('saleOrderCreate.itemsTotal') }}</td>
-              <td class="td font-semibold">{{ money(itemsTotalSum) }}</td>
+              <td class="td font-semibold">{{ amt(itemsTotalSum) }}</td>
               <td class="td" />
             </tr>
           </tfoot>
@@ -281,13 +322,16 @@
           <template v-else>
             <template v-if="deliveryFeeValue > 0">
               <span class="save-label">{{ t('saleOrderCreate.orderSum') }}</span>
-              <span class="save-part">{{ money(form.totalSum) }}</span>
+              <span class="save-part">{{ amt(form.totalSum) }}</span>
               <span class="save-label">+ {{ t('saleOrderCreate.deliveryFeeShort') }}</span>
-              <span class="save-part">{{ money(deliveryFeeValue) }}</span>
+              <span class="save-part">{{ amt(deliveryFeeValue) }}</span>
               <span class="save-label">=</span>
             </template>
             <span v-else class="save-label">{{ t('saleOrderCreate.orderSum') }}</span>
-            <span class="save-total">{{ money(grandTotal) }}</span>
+            <span class="save-total">{{ amt(grandTotal) }}</span>
+            <span v-if="isForeign && form.exchangeRate > 0" class="save-label">
+              ≈ {{ moneyIn(grandTotal * form.exchangeRate, 'UZS', t('common.currency')) }}
+            </span>
           </template>
         </div>
         <div class="flex gap-2">
@@ -358,13 +402,15 @@ import { PackageCheck, Truck } from 'lucide-vue-next'
 import { createSaleOrder, type DeliveryType } from '@/api/sales'
 import { fetchWarehouses, type Warehouse } from '@/api/warehouses'
 import { createClient, fetchClients, type Client } from '@/api/clients'
-import { fetchClientBalance, type ClientBalance } from '@/api/clientBalances'
+import { balanceIn, fetchClientBalance, type ClientBalance } from '@/api/clientBalances'
+import { useCbuRate } from '@/composables/useCbuRate'
 import { fetchUserOptions, type UserItem } from '@/api/users'
 import { fetchGoods, type Goods } from '@/api/goods'
 import { fetchStocksByWarehouse, type Stock } from '@/api/stocks'
 import { useAuthStore } from '@/stores/auth'
 import { formatApiError } from '@/api/http'
 import { formatAmountInput, money } from '@/utils/format'
+import { BASE_CURRENCY, CURRENCIES, currencySymbol, formatRate, moneyIn, type CurrencyCode } from '@/utils/currency'
 import { formatUzPhone, isCompleteUzPhone } from '@/utils/phone'
 
 const { t } = useI18n()
@@ -400,7 +446,7 @@ const itemError = ref<string | null>(null)
 const clientModal = ref(false)
 const clientSaving = ref(false)
 const clientError = ref<string | null>(null)
-const clientBalance = ref<ClientBalance | null>(null)
+const clientBalances = ref<ClientBalance[]>([])
 const balanceLoading = ref(false)
 const balanceError = ref<string | null>(null)
 let balanceRequest = 0
@@ -414,7 +460,40 @@ const form = reactive({
   totalSum: 0,
   deliveryType: 'PICKUP' as DeliveryType,
   deliveryFee: 0,
+  currency: BASE_CURRENCY as CurrencyCode,
+  /** Xorijiy buyurtmada buyurtma kursi; so'mdagi buyurtmada faqat xorijiy narxli mahsulotni o'girish uchun. */
+  exchangeRate: 0,
 })
+
+const isForeign = computed(() => form.currency !== BASE_CURRENCY)
+const hasForeignGoods = computed(() => goods.value.some((g) => goodsCurrency(g) !== BASE_CURRENCY))
+const needsRate = computed(() => isForeign.value || hasForeignGoods.value)
+const curLabel = computed(() => currencySymbol(form.currency, t('common.currency')))
+const { rate: cbuRate, rateDate: cbuRateDate, loading: rateLoading } = useCbuRate(
+  () => (isForeign.value ? form.currency : needsRate.value ? 'USD' : null),
+  () => form.orderDate,
+)
+watch(cbuRate, (v) => {
+  form.exchangeRate = v
+})
+
+function amt(v?: number | null) {
+  return isForeign.value ? moneyIn(v, form.currency) : money(v)
+}
+
+function goodsCurrency(g: Goods): CurrencyCode {
+  return g.priceCurrency || BASE_CURRENCY
+}
+
+/** Katalog narxini buyurtma valyutasiga o'giradi; kurs bo'lmasa 0 (qo'lda kiritiladi). */
+function goodsPriceIn(g: Goods) {
+  const price = Number(g.priceSelling || 0)
+  const from = goodsCurrency(g)
+  if (from === form.currency) return price
+  if (!(form.exchangeRate > 0)) return 0
+  const converted = from === BASE_CURRENCY ? price / form.exchangeRate : price * form.exchangeRate
+  return Math.round(converted * 100) / 100
+}
 
 const totalSumText = ref('')
 const deliveryFeeText = ref('')
@@ -580,6 +659,7 @@ const itemsTotalSum = computed(() => displayItems.value.reduce((acc, r) => acc +
 const saveBlockReason = computed(() => {
   if (!headerReady.value) return t('saleOrderCreate.selectHeader')
   if (!(form.totalSum > 0)) return t('saleOrderCreate.enterSum')
+  if (isForeign.value && !(form.exchangeRate > 0)) return t('saleOrderCreate.rateMissing')
   if (draftItems.value.length === 0) return t('saleOrderCreate.addAtLeastOne')
   return null
 })
@@ -590,12 +670,11 @@ watch(
     const g = goods.value.find((x) => x.id === id)
     if (!g) return
     itemForm.priceCost = Number(g.priceCost || 0)
-    itemForm.priceSelling = Number(g.priceSelling || 0)
+    itemForm.priceSelling = goodsPriceIn(g)
     itemForm.count = 1
     if (isWindow(g)) {
       itemForm.width = Number(g.width || 0)
       itemForm.height = Number(g.height || 0)
-      itemForm.priceCost = Number(g.priceSelling || 0)
     } else {
       itemForm.width = 0
       itemForm.height = 0
@@ -603,10 +682,27 @@ watch(
   },
 )
 
+watch(
+  () => form.exchangeRate,
+  () => {
+    const g = selectedGoods.value
+    if (g && goodsCurrency(g) !== form.currency) itemForm.priceSelling = goodsPriceIn(g)
+  },
+)
+
+const clientBalance = computed(() => balanceIn(clientBalances.value, form.currency) || null)
+
+const otherCurrencyDebts = computed(() =>
+  clientBalances.value
+    .filter((b) => (b.currency || BASE_CURRENCY) !== form.currency && Number(b.totalDebt || 0) > 0)
+    .map((b) => moneyIn(b.totalDebt, b.currency || BASE_CURRENCY, t('common.currency')))
+    .join(', '),
+)
+
 function balanceText(v?: number | null) {
-  if (balanceLoading.value && !clientBalance.value) return '...'
-  if (v == null) return '—'
-  return money(v)
+  if (balanceLoading.value && clientBalances.value.length === 0) return '...'
+  if (v == null) return clientBalances.value.length ? amt(0) : '—'
+  return amt(v)
 }
 
 async function loadClientBalance() {
@@ -614,16 +710,16 @@ async function loadClientBalance() {
   const current = ++balanceRequest
   balanceError.value = null
   if (!clientId) {
-    clientBalance.value = null
+    clientBalances.value = []
     return
   }
   balanceLoading.value = true
   try {
     const res = await fetchClientBalance(clientId, { fromDate: '2000-01-01', toDate: '2100-12-31' })
-    if (current === balanceRequest) clientBalance.value = res.data || null
+    if (current === balanceRequest) clientBalances.value = res.data || []
   } catch (e) {
     if (current === balanceRequest) {
-      clientBalance.value = null
+      clientBalances.value = []
       balanceError.value = formatApiError(e, t('saleOrderCreate.balanceError'))
     }
   } finally {
@@ -634,7 +730,7 @@ async function loadClientBalance() {
 watch(
   () => form.clientId,
   () => {
-    clientBalance.value = null
+    clientBalances.value = []
     void loadClientBalance()
   },
 )
@@ -717,7 +813,7 @@ function onAddItem() {
     height: windowMode ? Number(itemForm.height) : null,
     pieces: windowMode ? pieces : null,
     count,
-    priceCost: windowMode ? selling : Number(itemForm.priceCost),
+    priceCost: windowMode ? toBase(selling) : Number(itemForm.priceCost),
     priceSelling: selling,
   })
   itemForm.goodsId = 0
@@ -726,6 +822,11 @@ function onAddItem() {
   itemForm.height = 0
   itemForm.priceCost = 0
   itemForm.priceSelling = 0
+}
+
+/** Pozitsiya tannarxi doim so'mda saqlanadi. */
+function toBase(v: number) {
+  return isForeign.value && form.exchangeRate > 0 ? Math.round(v * form.exchangeRate * 100) / 100 : v
 }
 
 function onRemoveItem(key: number) {
@@ -747,6 +848,7 @@ async function onSave() {
       comment: form.comment.trim() || undefined,
       deliveryType: form.deliveryType,
       deliveryFee: deliveryFeeValue.value,
+      currency: form.currency,
       items: draftItems.value.map((d) => ({
         goodsId: d.goodsId,
         priceCost: d.priceCost,
@@ -891,6 +993,8 @@ async function onCreateClient() {
 .dark .opt-sub { color: #9ca3af; }
 .dark .save-part { color: rgba(255, 255, 255, 0.8); }
 .stock-hint { margin-top: 0.5rem; font-size: 0.75rem; color: #6b7280; }
+.cur-hint { flex: 1 1 16rem; align-self: center; font-size: 0.75rem; color: #6b7280; }
+.dark .cur-hint { color: #9ca3af; }
 .save-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem; }
 .save-info { display: flex; align-items: baseline; gap: 0.5rem; font-size: 0.875rem; }
 .save-label { color: #6b7280; }

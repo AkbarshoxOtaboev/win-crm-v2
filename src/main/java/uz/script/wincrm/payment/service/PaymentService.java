@@ -6,6 +6,7 @@ import uz.script.wincrm.payment.dto.PaymentAllocationRequest;
 import uz.script.wincrm.payment.dto.PaymentDTO;
 import uz.script.wincrm.payment.response.PaymentResponse;
 
+import java.time.LocalDate;
 import java.util.List;
 
 public interface PaymentService {
@@ -15,6 +16,8 @@ public interface PaymentService {
     PaymentResponse findById(Long id);
 
     Page<PaymentResponse> fetchAll(Pageable pageable);
+
+    Page<PaymentResponse> search(Long clientId, Long paymentTypeId, LocalDate fromDate, LocalDate toDate, Pageable pageable);
 
     Page<PaymentResponse> fetchByClientId(Long clientId, Pageable pageable);
 

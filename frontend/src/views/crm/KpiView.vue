@@ -122,7 +122,12 @@
                   <RouterLink :to="`/sales/${e.saleOrderId}`" class="link">#{{ e.saleOrderId }}</RouterLink>
                 </td>
                 <td class="td">{{ e.clientFullName || '—' }}</td>
-                <td class="td text-right">{{ money(e.baseAmount) }}</td>
+                <td class="td text-right">
+                  {{ money(e.baseAmount) }}
+                  <div v-if="fxSnapshotText(e.sourceCurrency, e.sourceAmount, e.exchangeRate)" class="text-xs text-gray-500">
+                    {{ fxSnapshotText(e.sourceCurrency, e.sourceAmount, e.exchangeRate) }}
+                  </div>
+                </td>
                 <td class="td text-right">{{ e.percent != null ? `${e.percent}%` : '—' }}</td>
                 <td class="td text-right font-medium text-gray-800 dark:text-white/90">{{ money(e.amount) }}</td>
                 <td class="td text-right">{{ money(e.running) }}</td>
@@ -160,6 +165,7 @@ import {
 } from '@/api/kpi'
 import { formatApiError } from '@/api/http'
 import { formatDate, money } from '@/utils/format'
+import { fxSnapshotText } from '@/utils/currency'
 
 type Tab = 'employees' | 'workshops'
 

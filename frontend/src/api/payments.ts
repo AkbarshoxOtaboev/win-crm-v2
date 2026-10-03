@@ -11,7 +11,14 @@ export interface Payment {
   saleOrderId?: number
   paymentTypeId?: number
   paymentTypeName?: string
+  /** Kassaga tushgan summa - to'lov turi valyutasida. */
   paymentAmount?: number
+  currency?: CurrencyCode
+  /** Qaysi valyutadagi qarz yopiladi (buyurtma bo'lsa uning valyutasi). */
+  debtCurrency?: CurrencyCode
+  exchangeRate?: number
+  /** Qarzdan yopilgan summa - debtCurrency'da. */
+  appliedAmount?: number
   paymentDate?: string
   comment?: string
   status?: string
@@ -21,10 +28,13 @@ export interface PaymentPayload {
   clientId: number
   userId: number
   paymentTypeId: number
+  /** To'lov turi valyutasidagi summa. */
   paymentAmount: number
   paymentDate: string
   saleOrderId?: number | null
   comment?: string
+  debtCurrency?: CurrencyCode
+  exchangeRate?: number
 }
 
 export interface PaymentAllocationPayload {
@@ -52,10 +62,20 @@ export interface PaymentType {
   status?: string
 }
 
-export function fetchPayments(page = 0, size = 50) {
-  return apiRequest<RestApiResponse<PageResponse<Payment>>>(
-    `/api/payments?page=${page}&size=${size}`,
-  )
+export interface PaymentFilters {
+  clientId?: number
+  paymentTypeId?: number
+  fromDate?: string
+  toDate?: string
+}
+
+export function fetchPayments(page = 0, size = 50, filters: PaymentFilters = {}) {
+  const params = new URLSearchParams({ page: String(page), size: String(size) })
+  if (filters.clientId) params.set('clientId', String(filters.clientId))
+  if (filters.paymentTypeId) params.set('paymentTypeId', String(filters.paymentTypeId))
+  if (filters.fromDate) params.set('fromDate', filters.fromDate)
+  if (filters.toDate) params.set('toDate', filters.toDate)
+  return apiRequest<RestApiResponse<PageResponse<Payment>>>(`/api/payments?${params}`)
 }
 
 export function createPayment(payload: PaymentPayload) {

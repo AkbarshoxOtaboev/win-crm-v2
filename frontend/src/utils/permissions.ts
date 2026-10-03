@@ -13,6 +13,13 @@ export function splitPermissionName(name: string): { resource: string; action: s
 
 type TranslateFn = (key: string) => string
 
+/** SUPER_ADMIN -> "Bosh administrator"; unknown (custom) roles keep their own name. */
+export function roleLabel(name: string, t: TranslateFn): string {
+  const key = `users.roleNames.${name}`
+  const label = t(key)
+  return label === key ? name : label
+}
+
 export function permissionLabel(name: string, t: TranslateFn): string {
   const parts = splitPermissionName(name)
   if (!parts) return name

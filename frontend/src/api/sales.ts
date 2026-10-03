@@ -1,5 +1,6 @@
 import { apiRequest } from './http'
 import type { RestApiResponse, SpringPage } from './types'
+import type { CurrencyCode } from '@/utils/currency'
 
 export interface SaleOrder {
   id: number
@@ -22,6 +23,11 @@ export interface SaleOrder {
   debtSum?: number
   status?: string
   orderStatus?: string
+  /** Buyurtma valyutasi: barcha summalar (narx, jami, to'langan, qarz) shu valyutada. */
+  currency?: CurrencyCode
+  /** 1 birlik valyuta = necha so'm (so'mda 1). */
+  exchangeRate?: number
+  totalSumBase?: number
 }
 
 export type DeliveryType = 'DELIVERY' | 'PICKUP'
@@ -35,6 +41,8 @@ export interface SaleOrderPayload {
   comment?: string
   deliveryType?: DeliveryType
   deliveryFee?: number
+  currency?: CurrencyCode
+  exchangeRate?: number
 }
 
 export interface SaleOrderInitialItem {
@@ -106,13 +114,16 @@ export interface SellerOrderDebt {
   totalSum?: number
   paidSum?: number
   debtSum?: number
+  currency?: CurrencyCode
   status?: string
 }
 
+/** Mijoz + valyuta: bitta mijozning so'm va dollar buyurtmalari alohida qatorda. */
 export interface SellerClientDebt {
   clientId?: number | null
   clientFullName?: string | null
   phone?: string | null
+  currency?: CurrencyCode
   totalSum?: number
   paidSum?: number
   debt?: number
@@ -122,7 +133,9 @@ export interface SellerClientDebt {
 export interface SellerDebt {
   userId: number
   userFullName?: string
+  /** So'mdagi qarz. */
   totalDebt?: number
+  debts?: { currency: CurrencyCode; amount: number }[]
   clients: SellerClientDebt[]
 }
 

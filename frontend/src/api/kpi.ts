@@ -1,5 +1,6 @@
 import { apiRequest } from './http'
 import type { RestApiResponse } from './types'
+import type { CurrencyCode } from '@/utils/currency'
 
 export interface KpiRate {
   userId: number
@@ -26,7 +27,12 @@ export interface KpiEntry {
   earnedAt?: string
   saleOrderId: number
   clientFullName?: string | null
+  /** So'mda. */
   baseAmount?: number
+  /** Xorijiy valyutadagi buyurtma: baseAmount = sourceAmount × exchangeRate. */
+  sourceCurrency?: CurrencyCode
+  sourceAmount?: number | null
+  exchangeRate?: number
   percent?: number
   amount: number
 }

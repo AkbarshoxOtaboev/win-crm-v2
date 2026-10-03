@@ -4,6 +4,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
+import uz.script.wincrm.currency.Currency;
+import uz.script.wincrm.currency.CurrencyAmount;
 import uz.script.wincrm.sale.enums.SalesOrderStatus;
 
 import java.math.BigDecimal;
@@ -20,9 +22,13 @@ public class SellerDebtResponse {
 
     private String userFullName;
 
-    @Schema(description = "Sotuvchi buyurtmalari bo'yicha jami qolgan qarz")
+    @Schema(description = "Sotuvchi buyurtmalari bo'yicha so'mdagi jami qolgan qarz")
     private BigDecimal totalDebt;
 
+    @Schema(description = "Har bir valyutadagi jami qolgan qarz")
+    private List<CurrencyAmount> debts;
+
+    /** Mijoz + valyuta bo'yicha: bitta mijozning so'm va dollar buyurtmalari alohida qatorda. */
     private List<ClientDebt> clients;
 
     @Getter
@@ -36,6 +42,8 @@ public class SellerDebtResponse {
         private String clientFullName;
 
         private String phone;
+
+        private Currency currency;
 
         private BigDecimal totalSum;
 
@@ -61,6 +69,8 @@ public class SellerDebtResponse {
         private BigDecimal paidSum;
 
         private BigDecimal debtSum;
+
+        private Currency currency;
 
         private SalesOrderStatus status;
     }

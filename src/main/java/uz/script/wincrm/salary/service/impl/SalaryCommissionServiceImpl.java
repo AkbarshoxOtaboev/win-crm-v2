@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import uz.script.wincrm.sale.SaleOrder;
+import uz.script.wincrm.sale.enums.SalesOrderStatus;
 import uz.script.wincrm.salary.SalaryConfig;
 import uz.script.wincrm.salary.SalaryTransaction;
 import uz.script.wincrm.salary.enums.CommissionType;
@@ -13,6 +14,7 @@ import uz.script.wincrm.salary.repository.SalaryConfigRepository;
 import uz.script.wincrm.salary.repository.SalaryTransactionRepository;
 import uz.script.wincrm.salary.service.SalaryCommissionService;
 import uz.script.wincrm.users.User;
+import uz.script.wincrm.utils.Status;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -64,8 +66,13 @@ public class SalaryCommissionServiceImpl implements SalaryCommissionService {
 
         BigDecimal paidSum = saleOrder.getPaidSum() != null ? saleOrder.getPaidSum() : BigDecimal.ZERO;
         BigDecimal totalSum = saleOrder.getTotalSum() != null ? saleOrder.getTotalSum() : BigDecimal.ZERO;
+        BigDecimal paidBase = saleOrder.toBase(paidSum);
 
-        BigDecimal expected = computeExpectedCommission(config, paidSum, totalSum);
+        boolean earned = saleOrder.getStatus() == Status.ACTIVE
+                && saleOrder.getSalesOrderStatus() == SalesOrderStatus.COMPLETED;
+        BigDecimal expected = earned
+                ? computeExpectedCommission(config, paidBase, paidSum, totalSum)
+                : BigDecimal.ZERO;
 
         // Ayni paytda kitobga olingan sof komissiya (COMMISSION - COMMISSION_REVERSAL).
         BigDecimal booked = transactionRepository.netBookedCommissionBySaleOrderId(saleOrder.getId());
@@ -91,7 +98,7 @@ public class SalaryCommissionServiceImpl implements SalaryCommissionService {
                 .amount(delta.abs())
                 .commissionTypeSnapshot(config.getCommissionType())
                 .rateSnapshot(config.getCommissionValue())
-                .baseAmountSnapshot(paidSum)
+                .baseAmountSnapshot(paidBase)
                 .earnedAt(now)
                 .periodYear(now.getYear())
                 .periodMonth(now.getMonthValue())
@@ -105,17 +112,17 @@ public class SalaryCommissionServiceImpl implements SalaryCommissionService {
     }
 
     /**
-     * Trigger = "to'lov kelganda", shu sababli:
-     *   PERCENT - to'langan qismdan (paidSum) foiz. Buyurtma to'liq to'langanda yig'indi
-     *             avtomatik buyurtma summasining foiziga teng bo'ladi.
+     * Komissiya faqat COMPLETED buyurtmaga hisoblanadi (boshqa holatda kutilgan qiymat 0):
+     *   PERCENT - to'langan qismning so'm ekvivalentidan (buyurtma kursida) foiz.
      *   FIXED   - aniq summa har buyurtma uchun BIR MARTA, faqat to'liq to'langach
      *             (paidSum >= totalSum va totalSum > 0).
      */
-    private BigDecimal computeExpectedCommission(SalaryConfig config, BigDecimal paidSum, BigDecimal totalSum) {
+    private BigDecimal computeExpectedCommission(SalaryConfig config, BigDecimal paidBase,
+                                                 BigDecimal paidSum, BigDecimal totalSum) {
         BigDecimal value = config.getCommissionValue() != null ? config.getCommissionValue() : BigDecimal.ZERO;
 
         if (config.getCommissionType() == CommissionType.PERCENT) {
-            return paidSum.multiply(value)
+            return paidBase.multiply(value)
                     .divide(HUNDRED, 2, RoundingMode.HALF_UP);
         }
 

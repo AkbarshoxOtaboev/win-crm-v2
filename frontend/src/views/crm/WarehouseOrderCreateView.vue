@@ -69,15 +69,25 @@
               :value="rateText"
               inputmode="decimal"
               autocomplete="off"
-              placeholder="0"
+              :placeholder="rateLoading ? t('exchangeRates.rateLoading') : '0'"
               class="field"
-              :disabled="isTransferred || (!!orderId && !isEditMode)"
+              :readonly="!canEditRate"
+              :title="canEditRate ? t('warehouseOrders.rateEditHint') : isTransferred ? t('warehouseOrders.transferredLocked') : t('warehouseOrders.rateNoPermission')"
               @input="onRateInput"
+              @change="persistRate"
             />
           </label>
           <p v-if="isForeign" class="cur-hint">
-            <span v-if="!(form.exchangeRate > 0)" class="text-amber-600">{{ t('warehouseOrders.rateMissing') }}</span>
-            <span v-else>{{ t('warehouseOrders.currencyHint') }}</span>
+            <span v-if="!rateLoading && !(form.exchangeRate > 0)" class="text-amber-600">{{ t('warehouseOrders.rateMissing') }}</span>
+            <template v-else>
+              <span v-if="rateIsManual" class="text-amber-600">
+                {{ t('warehouseOrders.rateManual', { rate: formatRate(cbuRate) }) }}
+                <button v-if="canEditRate" type="button" class="link-btn" @click="resetRate">{{ t('warehouseOrders.rateReset') }}</button>.
+              </span>
+              <span v-else-if="cbuRateDate">{{ t('exchangeRates.cbuRate') }} · {{ cbuRateDate.split('-').reverse().join('.') }}. </span>
+              <span>{{ canEditRate ? t('warehouseOrders.rateEditHint') : t('warehouseOrders.currencyHint') }}</span>
+              <span v-if="rateSaved" class="text-emerald-600"> {{ t('warehouseOrders.rateSaved') }}</span>
+            </template>
           </p>
         </div>
         <p v-if="isTransferred" class="mt-3 text-xs text-amber-600">
@@ -98,7 +108,7 @@
 
       <div class="p-5 border-b border-gray-100">
         <div class="form-row">
-          <label class="lbl min-w-0 flex-[1.4]">
+          <label class="lbl product-col">
             {{ t('common.product') }}
             <SearchableSelect
               v-model="itemForm.goodsId"
@@ -134,7 +144,8 @@
           </label>
 
           <label class="lbl min-w-0 w-40 sm:flex-none">
-            {{ isWindowGoods ? t('warehouseOrders.arrivalPriceKvm') : t('warehouseOrders.arrivalPrice') }}
+            <template v-if="isForeign">{{ isWindowGoods ? t('warehouseOrders.priceUsdKvm') : t('warehouseOrders.priceUsd') }}</template>
+            <template v-else>{{ isWindowGoods ? t('warehouseOrders.arrivalPriceKvm') : t('warehouseOrders.arrivalPrice') }}</template>
             <input
               :value="priceCostText"
               inputmode="decimal"
@@ -144,11 +155,21 @@
               @input="onPriceCostInput"
             />
           </label>
+          <label v-if="isForeign" class="lbl min-w-0 w-40 sm:flex-none">
+            {{ isWindowGoods ? t('warehouseOrders.priceSomKvm') : t('warehouseOrders.priceSom') }}
+            <input
+              :value="itemForm.priceCost > 0 && form.exchangeRate > 0 ? money(toSom(itemForm.priceCost)) : ''"
+              class="field"
+              placeholder="0"
+              readonly
+              tabindex="-1"
+            />
+          </label>
           <label class="lbl min-w-0 w-40 sm:flex-none">
             {{ t('warehouseOrders.totalSum') }}
             <input :value="amt(computedSum)" class="field" readonly />
             <span v-if="isForeign && computedSum > 0 && form.exchangeRate > 0" class="base-eq">
-              {{ t('warehouseOrders.baseEquivalent', { value: moneyIn(computedSum * form.exchangeRate, 'UZS', t('common.currency')) }) }}
+              {{ t('warehouseOrders.baseEquivalent', { value: moneyIn(Math.round(computedSum * form.exchangeRate * 100) / 100, 'UZS', t('common.currency')) }) }}
             </span>
           </label>
 
@@ -173,14 +194,16 @@
               <th class="th">{{ t('warehouseOrders.heightCm') }}</th>
               <th class="th">{{ t('common.count') }}</th>
               <th class="th">{{ t('warehouseOrders.kvm') }}</th>
-              <th class="th">{{ t('warehouseOrders.arrivalPrice') }}</th>
-              <th class="th">{{ t('common.sum') }}</th>
+              <th class="th">{{ isForeign ? t('warehouseOrders.colPriceUsd') : t('warehouseOrders.arrivalPrice') }}</th>
+              <th v-if="isForeign" class="th">{{ t('warehouseOrders.colPriceSom') }}</th>
+              <th class="th">{{ isForeign ? t('warehouseOrders.colSumUsd') : t('common.sum') }}</th>
+              <th v-if="isForeign" class="th">{{ t('warehouseOrders.colSumSom') }}</th>
               <th class="th text-right">{{ t('common.actions') }}</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="displayItems.length === 0">
-              <td colspan="9" class="empty">{{ t('warehouseOrders.noItemsYet') }}</td>
+              <td :colspan="isForeign ? 11 : 9" class="empty">{{ t('warehouseOrders.noItemsYet') }}</td>
             </tr>
             <tr v-for="(row, idx) in displayItems" :key="row.id" class="border-b border-gray-100">
               <td class="td">{{ idx + 1 }}</td>
@@ -190,7 +213,9 @@
               <td class="td">{{ row.pieces != null ? formatNum(row.pieces) : formatNum(row.count) }}</td>
               <td class="td">{{ row.isWindow ? formatNum(row.count) : '—' }}</td>
               <td class="td">{{ amt(row.priceCost) }}</td>
+              <td v-if="isForeign" class="td">{{ money(row.priceSom) }}</td>
               <td class="td">{{ amt(row.sum) }}</td>
+              <td v-if="isForeign" class="td">{{ money(row.sumSom) }}</td>
               <td class="td text-right">
                 <button
                   v-if="!isTransferred"
@@ -206,13 +231,9 @@
           </tbody>
           <tfoot v-if="displayItems.length">
             <tr class="border-t border-gray-200 bg-gray-50">
-              <td class="td font-semibold" colspan="7">{{ t('common.total') }}</td>
-              <td class="td font-semibold">
-                {{ amt(itemsTotalSum) }}
-                <div v-if="isForeign && form.exchangeRate > 0" class="base-eq">
-                  {{ t('warehouseOrders.baseEquivalent', { value: moneyIn(itemsTotalSum * form.exchangeRate, 'UZS', t('common.currency')) }) }}
-                </div>
-              </td>
+              <td class="td font-semibold" :colspan="isForeign ? 8 : 7">{{ t('common.total') }}</td>
+              <td class="td font-semibold">{{ amt(itemsTotalSum) }}</td>
+              <td v-if="isForeign" class="td font-semibold">{{ moneyIn(itemsTotalSom, 'UZS', t('common.currency')) }}</td>
               <td class="td" />
             </tr>
           </tfoot>
@@ -255,12 +276,14 @@ import { fetchSuppliers, type Supplier } from '@/api/suppliers'
 import { fetchGoods, type Goods } from '@/api/goods'
 import { formatApiError } from '@/api/http'
 import { amountToText, formatAmountInput, money } from '@/utils/format'
-import { CURRENCIES, moneyIn, type CurrencyCode } from '@/utils/currency'
-import { fetchCurrentRate } from '@/api/exchangeRates'
+import { CURRENCIES, formatRate, moneyIn, type CurrencyCode } from '@/utils/currency'
+import { useCbuRate } from '@/composables/useCbuRate'
+import { useAuthStore } from '@/stores/auth'
 
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
+const auth = useAuthStore()
 const warehouses = ref<Warehouse[]>([])
 const suppliers = ref<Supplier[]>([])
 const goods = ref<Goods[]>([])
@@ -296,35 +319,89 @@ const form = reactive({
 })
 
 const isForeign = computed(() => form.currency !== 'UZS')
-const rateText = ref('')
+/** Saqlangan hujjat kursi: sana va valyuta o'zgarmasa yoki hujjat omborga o'tkazilgan bo'lsa server uni qoldiradi. */
+const savedRate = ref<{ currency: CurrencyCode; rate: number; day: string } | null>(null)
 
-function amt(v?: number | null) {
-  return isForeign.value ? moneyIn(v, form.currency) : money(v)
-}
+const { rate: cbuRate, rateDate: cbuRateDate, loading: rateLoading } = useCbuRate(
+  () => (isForeign.value ? form.currency : null),
+  () => form.arrivalDate,
+)
+
+const keepsSavedRate = computed(() => {
+  const saved = savedRate.value
+  return (
+    !!saved &&
+    saved.rate > 0 &&
+    saved.currency === form.currency &&
+    (saved.day === form.arrivalDate || isTransferred.value)
+  )
+})
+
+/** Kirimga ruxsati bor xodim kiritgan kurs; null - Markaziy bank (yoki saqlangan hujjat) kursi. */
+const manualRate = ref<number | null>(null)
+const rateText = ref('')
+const rateSaved = ref(false)
+const canEditRate = computed(
+  () => !isTransferred.value && auth.can(orderId.value ? 'WAREHOUSE_ORDER_EDIT' : 'WAREHOUSE_ORDER_CREATE'),
+)
+const rateIsManual = computed(
+  () => isForeign.value && cbuRate.value > 0 && form.exchangeRate > 0 && Math.abs(form.exchangeRate - cbuRate.value) >= 0.0001,
+)
+
+watch(
+  [isForeign, manualRate, keepsSavedRate, cbuRate],
+  () => {
+    if (!isForeign.value) form.exchangeRate = 0
+    else if (manualRate.value != null) form.exchangeRate = manualRate.value
+    else form.exchangeRate = keepsSavedRate.value ? savedRate.value!.rate : cbuRate.value
+  },
+  { immediate: true },
+)
+
+watch(
+  () => form.exchangeRate,
+  (v) => {
+    if (formatAmountInput(rateText.value).value !== v) rateText.value = v > 0 ? amountToText(v) : ''
+  },
+  { immediate: true },
+)
 
 function onRateInput(e: Event) {
   const el = e.target as HTMLInputElement
   const { text, value } = formatAmountInput(el.value)
   rateText.value = text
   el.value = text
-  form.exchangeRate = value
+  manualRate.value = value
+  rateSaved.value = false
 }
 
-watch(
-  () => form.currency,
-  async (cur) => {
-    if (cur === 'UZS' || form.exchangeRate > 0) return
-    try {
-      const rate = (await fetchCurrentRate(cur)).data?.rate
-      if (rate && !(form.exchangeRate > 0)) {
-        form.exchangeRate = Number(rate)
-        rateText.value = amountToText(form.exchangeRate)
-      }
-    } catch {
-      /* kurs yo'q — foydalanuvchi qo'lda kiritadi */
-    }
-  },
-)
+function resetRate() {
+  manualRate.value = null
+  savedRate.value = null
+  void persistRate()
+}
+
+/** Hujjat yaratilgan bo'lsa yangi kurs darhol saqlanadi - pozitsiyalar so'mdagi qiymati shu kurs bilan hisoblanadi. */
+async function persistRate() {
+  if (!orderId.value || !canEditRate.value || !(form.exchangeRate > 0)) return
+  error.value = null
+  try {
+    await updateWarehouseOrder(orderId.value, buildOrderPayload())
+    savedRate.value = { currency: form.currency, rate: form.exchangeRate, day: form.arrivalDate }
+    manualRate.value = null
+    rateSaved.value = true
+  } catch (e) {
+    error.value = formatApiError(e)
+  }
+}
+
+function toSom(v: number) {
+  return form.exchangeRate > 0 ? Math.round(v * form.exchangeRate * 100) / 100 : 0
+}
+
+function amt(v?: number | null) {
+  return isForeign.value ? moneyIn(v, form.currency) : money(v)
+}
 
 const itemForm = reactive({
   goodsId: 0,
@@ -435,11 +512,14 @@ const displayItems = computed(() =>
       priceCost,
       isWindow: windowItem,
       sum: count * priceCost,
+      priceSom: toSom(priceCost),
+      sumSom: Math.round(toSom(priceCost) * count * 100) / 100,
     }
   }),
 )
 
 const itemsTotalSum = computed(() => displayItems.value.reduce((acc, r) => acc + r.sum, 0))
+const itemsTotalSom = computed(() => displayItems.value.reduce((acc, r) => acc + r.sumSom, 0))
 
 function buildOrderPayload() {
   return {
@@ -449,7 +529,7 @@ function buildOrderPayload() {
     comment: form.comment.trim() || undefined,
     serviceFee: 0,
     currency: form.currency,
-    exchangeRate: isForeign.value ? form.exchangeRate : undefined,
+    exchangeRate: isForeign.value && form.exchangeRate > 0 ? form.exchangeRate : undefined,
   }
 }
 
@@ -493,9 +573,12 @@ function applyOrderToForm(order: {
   form.warehouseId = order.warehouseId || 0
   form.arrivalDate = (order.arrivalDate || '').slice(0, 10) || todayLocal()
   form.comment = order.comment || ''
-  form.exchangeRate = order.currency && order.currency !== 'UZS' ? Number(order.exchangeRate || 0) : 0
-  rateText.value = amountToText(form.exchangeRate)
   form.currency = order.currency || 'UZS'
+  manualRate.value = null
+  savedRate.value =
+    order.currency && order.currency !== 'UZS'
+      ? { currency: order.currency, rate: Number(order.exchangeRate || 0), day: form.arrivalDate }
+      : null
 }
 
 async function load() {
@@ -608,6 +691,7 @@ onMounted(load)
 .sub { margin-top: 0.25rem; font-size: 0.875rem; color: #6b7280; }
 .head { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; padding: 1.25rem 1.25rem 1rem; border-bottom: 1px solid #f3f4f6; }
 .form-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.75rem; }
+.product-col { flex: 1.4 1 14rem; min-width: 14rem; }
 .lbl { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.75rem; font-weight: 500; color: #6b7280; }
 .field { height: 2.5rem; width: 100%; border-radius: 0.5rem; border: 1px solid #d1d5db; background: #fff; padding: 0 0.75rem; font-size: 0.875rem; }
 .field:disabled, .field[readonly] { background: #f9fafb; color: #374151; }
@@ -617,6 +701,7 @@ onMounted(load)
 .danger { font-size: 0.8125rem; font-weight: 500; color: #dc2626; }
 .cur-hint { flex: 1 1 16rem; align-self: center; font-size: 0.75rem; color: #6b7280; }
 .base-eq { font-size: 0.6875rem; font-weight: 400; color: #6b7280; }
+.link-btn { font-weight: 500; color: #465fff; text-decoration: underline; }
 .th { padding: 0.75rem 1rem; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; white-space: nowrap; }
 .td { padding: 0.75rem 1rem; font-size: 0.875rem; color: #4b5563; }
 .empty { padding: 2rem 1.25rem; text-align: center; font-size: 0.875rem; color: #6b7280; }

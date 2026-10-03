@@ -11,6 +11,7 @@ import uz.script.wincrm.audit.Auditable;
 import uz.script.wincrm.exceptions.BadRequestException;
 import uz.script.wincrm.exceptions.ResourceNotFoundException;
 import uz.script.wincrm.sale.SaleOrder;
+import uz.script.wincrm.sale.service.SaleOrderBaseConverter;
 import uz.script.wincrm.security.CustomUserDetails;
 import uz.script.wincrm.transport.TransportDelivery;
 import uz.script.wincrm.transport.TransportSetting;
@@ -50,11 +51,14 @@ public class TransportSalaryServiceImpl implements TransportSalaryService {
     private final TransportWorkerSalaryRepository salaryRepository;
     private final TransportSettingRepository settingRepository;
     private final TransportMapper mapper;
+    private final SaleOrderBaseConverter baseConverter;
 
     @Override
     public void accrueForDelivery(TransportDelivery delivery) {
         SaleOrder order = delivery.getSaleOrder();
-        BigDecimal orderTotal = order.getTotalSum() != null ? order.getTotalSum() : BigDecimal.ZERO;
+        SaleOrderBaseConverter.Conversion fx = baseConverter.convertToday(
+                order, order.getTotalSum() != null ? order.getTotalSum() : BigDecimal.ZERO);
+        BigDecimal orderTotal = fx.baseAmount();
         BigDecimal percent = currentPercent();
         List<TransportWorker> workers = delivery.getWorkers().stream()
                 .sorted(Comparator.comparing(TransportWorker::getId))
@@ -82,6 +86,9 @@ public class TransportSalaryServiceImpl implements TransportSalaryService {
                     .worker(workers.get(i))
                     .saleOrderId(order.getId())
                     .orderTotalSnapshot(orderTotal)
+                    .sourceCurrency(fx.currency())
+                    .sourceAmount(fx.sourceAmount())
+                    .exchangeRate(fx.rate())
                     .percentSnapshot(percent)
                     .workersCount(count)
                     .amount(amount)

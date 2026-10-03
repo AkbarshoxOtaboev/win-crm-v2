@@ -12,6 +12,7 @@ import uz.script.wincrm.production.enums.ProductionAssignmentStatus;
 import uz.script.wincrm.production.enums.ProductionOrderStatus;
 import uz.script.wincrm.production.repository.ProductionAssignmentRepository;
 import uz.script.wincrm.sale.SaleOrder;
+import uz.script.wincrm.sale.service.SaleOrderBaseConverter;
 import uz.script.wincrm.utils.Status;
 import uz.script.wincrm.workshop.Workshop;
 import uz.script.wincrm.workshop.WorkshopBalance;
@@ -25,6 +26,7 @@ import uz.script.wincrm.workshop.service.WorkshopBalanceService;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -38,6 +40,7 @@ public class WorkshopBalanceServiceImpl implements WorkshopBalanceService {
     private final WorkshopBalanceRepository balanceRepository;
     private final WorkshopBalanceEntryRepository entryRepository;
     private final ProductionAssignmentRepository assignmentRepository;
+    private final SaleOrderBaseConverter baseConverter;
 
     @Override
     @Transactional
@@ -61,7 +64,8 @@ public class WorkshopBalanceServiceImpl implements WorkshopBalanceService {
             return;
         }
 
-        BigDecimal orderTotal = saleOrder.totalSumWithoutDelivery();
+        SaleOrderBaseConverter.Conversion fx = baseConverter.convertToday(saleOrder, saleOrder.totalSumWithoutDelivery());
+        BigDecimal orderTotal = fx.baseAmount();
         BigDecimal amount = orderTotal
                 .multiply(feePercent)
                 .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
@@ -87,6 +91,9 @@ public class WorkshopBalanceServiceImpl implements WorkshopBalanceService {
                 .saleOrder(saleOrder)
                 .eventType(eventType)
                 .orderTotalSum(orderTotal)
+                .sourceCurrency(fx.currency())
+                .sourceAmount(fx.sourceAmount())
+                .exchangeRate(fx.rate())
                 .feePercent(feePercent)
                 .amount(amount)
                 .occurredAt(LocalDateTime.now())
@@ -128,10 +135,13 @@ public class WorkshopBalanceServiceImpl implements WorkshopBalanceService {
 
     @Override
     @Transactional(readOnly = true)
-    public WorkshopDashboardResponse dashboard(Long workshopId) {
+    public WorkshopDashboardResponse dashboard(Long workshopId, LocalDate fromDate, LocalDate toDate) {
         Workshop workshop = workshopRepository.findById(workshopId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Workshop not found with id: " + workshopId));
+        if (fromDate != null && toDate != null && fromDate.isAfter(toDate)) {
+            throw new BadRequestException("Boshlanish sanasi tugash sanasidan keyin bo'lishi mumkin emas");
+        }
 
         List<ProductionAssignment> open = assignmentRepository
                 .findByWorkshop_IdAndAssignmentStatusInOrderByCreatedAtAsc(
@@ -142,10 +152,7 @@ public class WorkshopBalanceServiceImpl implements WorkshopBalanceService {
                         || a.getProductionOrder().getProductionStatus() != ProductionOrderStatus.CANCELLED)
                 .toList();
 
-        List<ProductionAssignment> done = assignmentRepository
-                .findByWorkshop_IdAndAssignmentStatusInOrderByFinishedAtDesc(
-                        workshopId,
-                        List.of(ProductionAssignmentStatus.DONE));
+        List<ProductionAssignment> done = assignmentRepository.findDoneBetween(workshopId, fromDate, toDate);
 
         long queuedCount = 0;
         BigDecimal queuedSum = BigDecimal.ZERO;
@@ -214,7 +221,8 @@ public class WorkshopBalanceServiceImpl implements WorkshopBalanceService {
         BigDecimal feePercent = assignment.getFeePercent() != null
                 ? assignment.getFeePercent()
                 : resolveFeePercent(assignment, workshop);
-        BigDecimal orderTotal = saleOrder.totalSumWithoutDelivery();
+        SaleOrderBaseConverter.Conversion fx = baseConverter.convertToday(saleOrder, saleOrder.totalSumWithoutDelivery());
+        BigDecimal orderTotal = fx.baseAmount();
         BigDecimal newAmount = orderTotal
                 .multiply(feePercent)
                 .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
@@ -233,6 +241,9 @@ public class WorkshopBalanceServiceImpl implements WorkshopBalanceService {
 
             entry.setFeePercent(feePercent);
             entry.setOrderTotalSum(orderTotal);
+            entry.setSourceCurrency(fx.currency());
+            entry.setSourceAmount(fx.sourceAmount());
+            entry.setExchangeRate(fx.rate());
             entry.setAmount(newAmount);
             entryRepository.save(entry);
             return;
@@ -254,6 +265,9 @@ public class WorkshopBalanceServiceImpl implements WorkshopBalanceService {
                 .saleOrder(saleOrder)
                 .eventType(eventType)
                 .orderTotalSum(orderTotal)
+                .sourceCurrency(fx.currency())
+                .sourceAmount(fx.sourceAmount())
+                .exchangeRate(fx.rate())
                 .feePercent(feePercent)
                 .amount(newAmount)
                 .occurredAt(LocalDateTime.now())
@@ -293,7 +307,8 @@ public class WorkshopBalanceServiceImpl implements WorkshopBalanceService {
         if (a.getProductionOrder() == null || a.getProductionOrder().getSaleOrder() == null) {
             return BigDecimal.ZERO;
         }
-        return a.getProductionOrder().getSaleOrder().totalSumWithoutDelivery();
+        SaleOrder sale = a.getProductionOrder().getSaleOrder();
+        return sale.toBase(sale.totalSumWithoutDelivery());
     }
 
     private BigDecimal nullSafe(BigDecimal v) {

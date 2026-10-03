@@ -15,8 +15,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import uz.script.wincrm.currency.Currency;
 import uz.script.wincrm.dashboard.responses.*;
-import uz.script.wincrm.expense.service.ExpenseService;
 import uz.script.wincrm.utils.RestApiResponse;
 
 import java.time.LocalDate;
@@ -30,7 +30,6 @@ import java.util.List;
 public class DashboardController {
 
     private final DashboardService service;
-    private final ExpenseService expenseService;
 
     @GetMapping("/top-goods/by-quantity")
     @PreAuthorize("hasAuthority('DASHBOARD_VIEW')")
@@ -58,12 +57,14 @@ public class DashboardController {
             @Parameter(description = "Start date", example = "2026-07-01")
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @Parameter(description = "End date", example = "2026-07-31")
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @Parameter(description = "Summalar valyutasi", example = "UZS")
+            @RequestParam(defaultValue = "UZS") Currency currency
     ) {
         return ResponseEntity.ok(
                 RestApiResponse.<List<TopGoodsResponse>>builder()
                         .message("Eng ko'p sotilgan mahsulotlar (miqdor bo'yicha)")
-                        .data(service.fetchTopGoodsByQuantity(startDate, endDate))
+                        .data(service.fetchTopGoodsByQuantity(startDate, endDate, currency))
                         .build()
         );
     }
@@ -90,12 +91,14 @@ public class DashboardController {
             @Parameter(description = "Start date", example = "2026-07-01")
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @Parameter(description = "End date", example = "2026-07-31")
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @Parameter(description = "Summalar valyutasi", example = "UZS")
+            @RequestParam(defaultValue = "UZS") Currency currency
     ) {
         return ResponseEntity.ok(
                 RestApiResponse.<List<TopGoodsResponse>>builder()
                         .message("Eng ko'p sotilgan mahsulotlar (summa bo'yicha)")
-                        .data(service.fetchTopGoodsByAmount(startDate, endDate))
+                        .data(service.fetchTopGoodsByAmount(startDate, endDate, currency))
                         .build()
         );
     }
@@ -122,12 +125,14 @@ public class DashboardController {
             @Parameter(description = "Start date", example = "2026-07-01")
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @Parameter(description = "End date", example = "2026-07-31")
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @Parameter(description = "Summalar valyutasi", example = "UZS")
+            @RequestParam(defaultValue = "UZS") Currency currency
     ) {
         return ResponseEntity.ok(
                 RestApiResponse.<List<GoodsGroupSummaryResponse>>builder()
                         .message("Goods group bo'yicha statistika")
-                        .data(service.fetchGoodsGroupSummary(startDate, endDate))
+                        .data(service.fetchGoodsGroupSummary(startDate, endDate, currency))
                         .build()
         );
     }
@@ -155,12 +160,14 @@ public class DashboardController {
             @Parameter(description = "Start date", example = "2026-07-01")
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @Parameter(description = "End date", example = "2026-07-31")
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @Parameter(description = "Summalar valyutasi", example = "UZS")
+            @RequestParam(defaultValue = "UZS") Currency currency
     ) {
         return ResponseEntity.ok(
                 RestApiResponse.<List<TopSellerResponse>>builder()
                         .message("Eng ko'p savdo qilgan sotuvchilar")
-                        .data(service.fetchTopSellers(startDate, endDate))
+                        .data(service.fetchTopSellers(startDate, endDate, currency))
                         .build()
         );
     }
@@ -221,12 +228,14 @@ public class DashboardController {
             @Parameter(description = "Sana-vaqt oralig'i boshi", example = "2026-07-01T00:00:00")
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fromDate,
             @Parameter(description = "Sana-vaqt oralig'i oxiri", example = "2026-07-31T23:59:59")
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime toDate
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime toDate,
+            @Parameter(description = "Kunlik jami summa valyutasi", example = "UZS")
+            @RequestParam(defaultValue = "UZS") Currency currency
     ) {
         return ResponseEntity.ok(
                 RestApiResponse.<List<DailyPaymentSummaryResponse>>builder()
                         .message("Kunlik to'lovlar statistikasi")
-                        .data(service.fetchDailyPayments(fromDate, toDate))
+                        .data(service.fetchDailyPayments(fromDate, toDate, currency))
                         .build()
         );
     }
@@ -261,7 +270,10 @@ public class DashboardController {
             @Parameter(description = "Tugash sanasi", example = "2026-07-31")
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-            LocalDate toDate
+            LocalDate toDate,
+
+            @Parameter(description = "Summalar valyutasi (xarajatlar so'mda yuritiladi)", example = "UZS")
+            @RequestParam(defaultValue = "UZS") Currency currency
     ) {
 
         LocalDate today = LocalDate.now();
@@ -272,9 +284,74 @@ public class DashboardController {
         return ResponseEntity.ok(
                 RestApiResponse.<List<DailyExpenseReportResponse>>builder()
                         .message("Kunlik xarajatlar statistikasi")
-                        .data(expenseService.findExpenseReportByExpenesCategory(fromDate, toDate))
+                        .data(service.fetchExpenseReport(fromDate, toDate, currency))
                         .build()
         );
     }
 
+    @GetMapping("/cash-balances")
+    @PreAuthorize("hasAuthority('DASHBOARD_VIEW')")
+    @Operation(
+            summary = "Kassa qoldiqlari (to'lov turi bo'yicha, o'z valyutasida)",
+            description = """
+                    Har bir to'lov turi (kassa) uchun o'z valyutasida: davr boshidagi qoldiq, mijozlardan kirim,
+                    yetkazib beruvchilarga chiqim va davr oxiridagi qoldiq. Turli valyutadagi kassalar qo'shilmaydi.
+                    Umumiy xarajatlar to'lov turiga bog'lanmagani uchun bu hisobotga kirmaydi.
+                    
+                    Only users with DASHBOARD_VIEW permission can use this endpoint.
+                    """
+    )
+    @ApiResponse(
+            responseCode = "200",
+            content = @Content(
+                    mediaType = "application/json",
+                    array = @ArraySchema(schema = @Schema(implementation = CashBalanceResponse.class))
+            )
+    )
+    public ResponseEntity<?> cashBalances(
+            @Parameter(description = "Boshlanish sanasi", example = "2026-07-01")
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @Parameter(description = "Tugash sanasi", example = "2026-07-31")
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate
+    ) {
+        return ResponseEntity.ok(
+                RestApiResponse.<List<CashBalanceResponse>>builder()
+                        .message("Kassa qoldiqlari")
+                        .data(service.fetchCashBalances(fromDate, toDate))
+                        .build()
+        );
+    }
+
+    @GetMapping("/fx-difference")
+    @PreAuthorize("hasAuthority('DASHBOARD_VIEW')")
+    @Operation(
+            summary = "Kurs farqi hisoboti",
+            description = """
+                    Xorijiy valyutadagi buyurtmaga kelgan har bir to'lov uchun: qarzdan yopilgan summa buyurtma kursida
+                    va to'lov kunidagi kursda so'mga o'girilib, farqi (foyda yoki zarar) ko'rsatiladi.
+                    Buyurtmaga taqsimlanmagan to'lovlar faqat soni bilan qaytadi.
+                    
+                    Only users with DASHBOARD_VIEW permission can use this endpoint.
+                    """
+    )
+    @ApiResponse(
+            responseCode = "200",
+            content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = FxDifferenceResponse.class)
+            )
+    )
+    public ResponseEntity<?> fxDifference(
+            @Parameter(description = "Boshlanish sanasi", example = "2026-07-01")
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @Parameter(description = "Tugash sanasi", example = "2026-07-31")
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate
+    ) {
+        return ResponseEntity.ok(
+                RestApiResponse.<FxDifferenceResponse>builder()
+                        .message("Kurs farqi hisoboti")
+                        .data(service.fetchFxDifference(fromDate, toDate))
+                        .build()
+        );
+    }
 }

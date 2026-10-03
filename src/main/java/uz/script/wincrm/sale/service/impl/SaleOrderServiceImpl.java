@@ -12,9 +12,13 @@ import uz.script.wincrm.audit.Auditable;
 import uz.script.wincrm.clients.Client;
 import uz.script.wincrm.clients.repository.ClientRepository;
 import uz.script.wincrm.clients.service.ClientBalanceService;
+import uz.script.wincrm.currency.Currency;
+import uz.script.wincrm.currency.CurrencyMath;
+import uz.script.wincrm.currency.service.ExchangeRateService;
 import uz.script.wincrm.discount.service.DiscountRuleService;
 import uz.script.wincrm.exceptions.BadRequestException;
 import uz.script.wincrm.kpi.service.KpiService;
+import uz.script.wincrm.salary.service.SalaryCommissionService;
 import uz.script.wincrm.exceptions.ResourceNotFoundException;
 import uz.script.wincrm.payment.Payment;
 import uz.script.wincrm.payment.repository.PaymentRepository;
@@ -30,6 +34,7 @@ import uz.script.wincrm.sale.enums.SalesOrderStatus;
 import uz.script.wincrm.sale.mapper.SaleOrderDiscountHistoryMapper;
 import uz.script.wincrm.sale.mapper.SaleOrderMapper;
 import uz.script.wincrm.sale.repository.SaleOrderDiscountHistoryRepository;
+import uz.script.wincrm.sale.repository.SaleOrderItemRepository;
 import uz.script.wincrm.sale.repository.SaleOrderRepository;
 import uz.script.wincrm.sale.response.SaleOrderDiscountHistoryResponse;
 import uz.script.wincrm.sale.response.SaleOrderResponse;
@@ -48,6 +53,7 @@ import uz.script.wincrm.warehouse.Warehouse;
 import uz.script.wincrm.warehouse.repository.WarehouseRepository;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
@@ -79,6 +85,9 @@ public class SaleOrderServiceImpl implements SaleOrderService {
     private final DiscountLimitPolicy discountLimitPolicy;
     private final DiscountRuleService discountRuleService;
     private final KpiService kpiService;
+    private final SalaryCommissionService salaryCommissionService;
+    private final ExchangeRateService exchangeRateService;
+    private final SaleOrderItemRepository saleOrderItemRepository;
 
     @Override
     @Auditable(
@@ -106,6 +115,9 @@ public class SaleOrderServiceImpl implements SaleOrderService {
         entity.setUser(currentUser);
         entity.setStatus(Status.ACTIVE);
         entity.setSalesOrderStatus(SalesOrderStatus.NEW);
+        Currency currency = CurrencyMath.orBase(dto.getCurrency());
+        entity.setCurrency(currency);
+        entity.setExchangeRate(resolveRate(currency, dto.getOrderDate()));
 
         // Kelgan summa - ASL summa (itemlardan yig'ilganmi yoki to'g'ridan-to'g'ri - farqi yo'q)
         BigDecimal original = dto.getTotalSum();
@@ -240,6 +252,8 @@ public class SaleOrderServiceImpl implements SaleOrderService {
         SaleOrder entity = repository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Sale order not found with id: " + id));
 
+        ensureFinalOrderUnchanged(entity, dto);
+
         if (dto.getWarehouseId() != null && !dto.getWarehouseId().equals(entity.getWarehouse().getId())) {
             if (entity.getSalesOrderStatus().isFinal()) {
                 throw new BadRequestException(
@@ -258,7 +272,9 @@ public class SaleOrderServiceImpl implements SaleOrderService {
             entity.setClient(client);
         }
 
+        LocalDateTime previousOrderDate = entity.getOrderDate();
         mapper.updateEntity(entity, dto);
+        applyCurrencyChange(entity, dto, previousOrderDate);
 
         if (dto.getDeliveryType() != null) {
             applyDelivery(entity, dto.getDeliveryType(), dto.getDeliveryFee());
@@ -315,6 +331,7 @@ public class SaleOrderServiceImpl implements SaleOrderService {
         entity.setStatus(Status.DELETED);
         repository.saveAndFlush(entity);
         kpiService.removeForSaleOrder(id);
+        salaryCommissionService.recalculateCommissionForSaleOrder(entity);
 
         if (entity.getClient() != null) {
             clientBalanceService.recalculateClientBalance(entity.getClient().getId());
@@ -346,13 +363,13 @@ public class SaleOrderServiceImpl implements SaleOrderService {
 
         if (salesOrderStatus == SalesOrderStatus.COMPLETED) {
             BigDecimal paid = paymentRepository.findBySaleOrderId(id).stream()
-                    .map(Payment::getPaymentAmount)
+                    .map(Payment::appliedOrPaid)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
             BigDecimal debt = entity.getTotalSum().subtract(paid);
-            if (debt.signum() > 0) {
+            if (debt.compareTo(CurrencyMath.TOLERANCE) >= 0) {
                 throw new BadRequestException(
-                        "Buyurtma bo'yicha " + debt.stripTrailingZeros().toPlainString()
-                                + " so'm qarz bor. Yakunlash uchun avval qarz to'liq to'lanishi kerak.");
+                        "Buyurtma bo'yicha " + CurrencyMath.format(debt, entity.currencyOrBase())
+                                + " qarz bor. Yakunlash uchun avval qarz to'liq to'lanishi kerak.");
             }
         }
 
@@ -412,6 +429,7 @@ public class SaleOrderServiceImpl implements SaleOrderService {
 
         if (salesOrderStatus == SalesOrderStatus.COMPLETED) {
             kpiService.accrueForSaleOrder(entity);
+            salaryCommissionService.recalculateCommissionForSaleOrder(entity);
         }
     }
 
@@ -491,6 +509,67 @@ public class SaleOrderServiceImpl implements SaleOrderService {
                         .totalSumAfter(entity.getTotalSum())
                         .build()
         );
+    }
+
+    /**
+     * Yakuniy (COMPLETED/CANCELLED) buyurtmada to'lov, KPI, sex va transport hisoblari yopilgan,
+     * shuning uchun summaga ta'sir qiluvchi maydonlar o'zgarmaydi. Izoh va rejalashtirilgan sanalar ochiq.
+     */
+    private void ensureFinalOrderUnchanged(SaleOrder entity, SaleOrderDTO dto) {
+        if (!entity.getSalesOrderStatus().isFinal()) {
+            return;
+        }
+        BigDecimal original = entity.getOriginalTotalSum() != null ? entity.getOriginalTotalSum() : entity.getTotalSum();
+        DeliveryType deliveryType = dto.getDeliveryType() != null ? dto.getDeliveryType() : entity.getDeliveryType();
+        BigDecimal requestedFee = deliveryType == DeliveryType.DELIVERY
+                ? (dto.getDeliveryFee() != null ? dto.getDeliveryFee() : entity.getDeliveryFee())
+                : BigDecimal.ZERO;
+        Long clientId = entity.getClient() != null ? entity.getClient().getId() : null;
+        boolean changed =
+                (dto.getTotalSum() != null && original != null && dto.getTotalSum().compareTo(original) != 0)
+                        || (dto.getClientId() != null && !dto.getClientId().equals(clientId))
+                        || (dto.getCurrency() != null && dto.getCurrency() != entity.currencyOrBase())
+                        || deliveryType != entity.getDeliveryType()
+                        || Objects.requireNonNullElse(requestedFee, BigDecimal.ZERO)
+                        .compareTo(Objects.requireNonNullElse(entity.getDeliveryFee(), BigDecimal.ZERO)) != 0
+                        || (dto.getOrderDate() != null && entity.getOrderDate() != null
+                        && !dto.getOrderDate().withSecond(0).withNano(0)
+                        .equals(entity.getOrderDate().withSecond(0).withNano(0)));
+        if (changed) {
+            throw new BadRequestException("Yakuniy holatdagi (" + entity.getSalesOrderStatus()
+                    + ") buyurtmaning summasi, mijozi, valyutasi, yetkazib berishi va sanasini o'zgartirib bo'lmaydi");
+        }
+    }
+
+    private BigDecimal resolveRate(Currency currency, LocalDateTime orderDate) {
+        if (currency.isBase()) {
+            return BigDecimal.ONE;
+        }
+        return exchangeRateService.rateOn(currency, orderDate != null ? orderDate.toLocalDate() : LocalDate.now());
+    }
+
+    /**
+     * Pozitsiya narxlari va to'lovlar buyurtma valyutasida yoziladi, shuning uchun ular bor bo'lsa valyuta
+     * o'zgarmaydi. Kurs har doim buyurtma sanasidagi Markaziy bank kursi: sana o'zgarsa yakuniy holatgacha qayta olinadi.
+     */
+    private void applyCurrencyChange(SaleOrder entity, SaleOrderDTO dto, LocalDateTime previousOrderDate) {
+        Currency current = entity.currencyOrBase();
+        Currency requested = dto.getCurrency() != null ? dto.getCurrency() : current;
+        if (requested != current) {
+            boolean hasItems = saleOrderItemRepository.findAllBySaleOrderId(entity.getId()).stream()
+                    .anyMatch(i -> i.getStatus() == Status.ACTIVE);
+            if (hasItems || !paymentRepository.findBySaleOrderId(entity.getId()).isEmpty()) {
+                throw new BadRequestException("Pozitsiya yoki to'lov bor buyurtmaning valyutasini o'zgartirib bo'lmaydi");
+            }
+            entity.setCurrency(requested);
+            entity.setExchangeRate(resolveRate(requested, entity.getOrderDate()));
+            return;
+        }
+        boolean dateChanged = entity.getOrderDate() != null && previousOrderDate != null
+                && !entity.getOrderDate().toLocalDate().equals(previousOrderDate.toLocalDate());
+        if (dateChanged && !current.isBase() && !entity.getSalesOrderStatus().isFinal()) {
+            entity.setExchangeRate(resolveRate(current, entity.getOrderDate()));
+        }
     }
 
     private void applyDelivery(SaleOrder entity, DeliveryType type, BigDecimal fee) {

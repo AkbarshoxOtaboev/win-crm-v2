@@ -6,6 +6,7 @@ import uz.script.wincrm.production.dto.SendToProductionDTO;
 import uz.script.wincrm.production.response.ProductionEventResponse;
 import uz.script.wincrm.production.response.ProductionOrderResponse;
 
+import java.time.LocalDate;
 import java.util.List;
 
 public interface ProductionOrderService {
@@ -18,7 +19,7 @@ public interface ProductionOrderService {
 
     List<ProductionOrderResponse> fetchAll();
 
-    List<ProductionOrderResponse> board(Long workshopId);
+    List<ProductionOrderResponse> board(Long workshopId, LocalDate fromDate, LocalDate toDate);
 
     ProductionOrderResponse start(Long id);
 

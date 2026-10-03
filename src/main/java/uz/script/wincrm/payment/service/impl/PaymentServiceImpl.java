@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import uz.script.wincrm.audit.AuditAction;
@@ -12,6 +13,9 @@ import uz.script.wincrm.audit.Auditable;
 import uz.script.wincrm.clients.Client;
 import uz.script.wincrm.clients.repository.ClientRepository;
 import uz.script.wincrm.clients.service.ClientBalanceService;
+import uz.script.wincrm.currency.Currency;
+import uz.script.wincrm.currency.CurrencyMath;
+import uz.script.wincrm.currency.service.ExchangeRateService;
 import uz.script.wincrm.exceptions.BadRequestException;
 import uz.script.wincrm.exceptions.ResourceNotFoundException;
 import uz.script.wincrm.payment.Payment;
@@ -23,6 +27,7 @@ import uz.script.wincrm.payment.repository.PaymentRepository;
 import uz.script.wincrm.payment.repository.PaymentTypeRepository;
 import uz.script.wincrm.payment.response.PaymentResponse;
 import uz.script.wincrm.payment.service.PaymentService;
+import uz.script.wincrm.salary.service.SalaryCommissionService;
 import uz.script.wincrm.sale.SaleOrder;
 import uz.script.wincrm.sale.enums.SalesOrderStatus;
 import uz.script.wincrm.sale.repository.SaleOrderRepository;
@@ -31,6 +36,8 @@ import uz.script.wincrm.users.repository.UserRepository;
 import uz.script.wincrm.utils.Status;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -52,6 +59,8 @@ public class PaymentServiceImpl implements PaymentService {
     private final ClientRepository clientRepository;
     private final UserRepository userRepository;
     private final ClientBalanceService clientBalanceService;
+    private final ExchangeRateService exchangeRateService;
+    private final SalaryCommissionService salaryCommissionService;
 
     @Override
     @Auditable(
@@ -78,17 +87,14 @@ public class PaymentServiceImpl implements PaymentService {
                 throw new BadRequestException("Tanlangan buyurtma boshqa mijozga tegishli");
             }
 
-            BigDecimal remainingDebt = remainingDebt(saleOrder, null);
-            if (dto.getPaymentAmount().compareTo(remainingDebt) > 0) {
-                throw new BadRequestException(
-                        "Payment amount exceeds the remaining debt of the sale order. Remaining debt: " + remainingDebt);
-            }
+            Payment draft = draftPayment(dto, paymentType, saleOrder, null);
+            ensureWithinDebt(saleOrder, draft.getAppliedAmount(), null);
 
-            first = savePayment(dto, client, user, paymentType, saleOrder, dto.getPaymentAmount(), dto.getComment());
+            first = savePayment(draft, client, user, paymentType, saleOrder);
             recalculateSaleOrderSums(saleOrder);
         } else {
             // Buyurtma ko'rsatilmasa to'lov taqsimlanmagan holda qoladi; kassir keyin akt sverkada taqsimlaydi
-            first = savePayment(dto, client, user, paymentType, null, dto.getPaymentAmount(), dto.getComment());
+            first = savePayment(draftPayment(dto, paymentType, null, null), client, user, paymentType, null);
         }
 
         clientBalanceService.recalculateClientBalance(client.getId());
@@ -118,9 +124,13 @@ public class PaymentServiceImpl implements PaymentService {
             }
             pool.add(payment);
         }
+        Currency poolCurrency = pool.isEmpty() ? Currency.BASE : CurrencyMath.orBase(pool.get(0).getDebtCurrency());
+        if (pool.stream().anyMatch(p -> CurrencyMath.orBase(p.getDebtCurrency()) != poolCurrency)) {
+            throw new BadRequestException("Bir vaqtda faqat bitta valyutadagi to'lovlarni taqsimlash mumkin");
+        }
         pool.sort(Comparator.comparing(Payment::getPaymentDate).thenComparing(Payment::getId));
         BigDecimal poolTotal = pool.stream()
-                .map(Payment::getPaymentAmount)
+                .map(Payment::appliedOrPaid)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         Map<Long, BigDecimal> requested = new LinkedHashMap<>();
@@ -141,10 +151,15 @@ public class PaymentServiceImpl implements PaymentService {
             if (order.getClient() == null || !order.getClient().getId().equals(client.getId())) {
                 throw new BadRequestException("Buyurtma #" + order.getId() + " boshqa mijozga tegishli");
             }
+            if (order.currencyOrBase() != poolCurrency) {
+                throw new BadRequestException("Buyurtma #" + order.getId() + " " + order.currencyOrBase()
+                        + " da, tanlangan to'lovlar esa " + poolCurrency + " qarzi uchun");
+            }
             BigDecimal debt = remainingDebt(order, null);
             if (entry.getValue().compareTo(debt) > 0) {
-                throw new BadRequestException("Buyurtma #" + order.getId() + " qolgan qarzi " + debt
-                        + ", unga " + entry.getValue() + " yozib bo'lmaydi");
+                throw new BadRequestException("Buyurtma #" + order.getId() + " qolgan qarzi "
+                        + CurrencyMath.format(debt, poolCurrency) + ", unga "
+                        + CurrencyMath.format(entry.getValue(), poolCurrency) + " yozib bo'lmaydi");
             }
             targets.put(order, entry.getValue());
         }
@@ -156,16 +171,18 @@ public class PaymentServiceImpl implements PaymentService {
             BigDecimal need = target.getValue();
             while (need.signum() > 0) {
                 Payment source = pool.get(index);
-                BigDecimal available = source.getPaymentAmount();
+                BigDecimal available = source.appliedOrPaid();
                 if (available.compareTo(need) <= 0) {
                     source.setSaleOrder(order);
                     allocated.add(repository.save(source));
                     need = need.subtract(available);
                     index++;
                 } else {
-                    source.setPaymentAmount(available.subtract(need));
+                    Payment part = splitOff(source, order, need);
+                    source.setAppliedAmount(available.subtract(need));
+                    source.setPaymentAmount(source.getPaymentAmount().subtract(part.getPaymentAmount()));
                     repository.save(source);
-                    allocated.add(repository.save(splitOff(source, order, need)));
+                    allocated.add(repository.save(part));
                     need = BigDecimal.ZERO;
                 }
             }
@@ -201,15 +218,22 @@ public class PaymentServiceImpl implements PaymentService {
         return mapper.toResponse(entity);
     }
 
-    private Payment splitOff(Payment source, SaleOrder order, BigDecimal amount) {
+    /** {@code applied} - qarz valyutasida; kassadagi qismi to'lovning o'z kursi bilan o'giriladi. */
+    private Payment splitOff(Payment source, SaleOrder order, BigDecimal applied) {
         String note = "To'lov #" + source.getId() + " dan taqsimlandi";
         String comment = source.getComment() == null || source.getComment().isBlank()
                 ? note
                 : source.getComment().trim() + " · " + note;
+        BigDecimal received = CurrencyMath.convert(applied, source.getDebtCurrency(), source.getCurrency(),
+                source.getExchangeRate());
         Payment part = Payment.builder()
                 .paymentType(source.getPaymentType())
                 .user(source.getUser())
-                .paymentAmount(amount)
+                .paymentAmount(received)
+                .currency(source.getCurrency())
+                .debtCurrency(source.getDebtCurrency())
+                .exchangeRate(source.getExchangeRate())
+                .appliedAmount(applied)
                 .paymentDate(source.getPaymentDate())
                 .comment(comment.length() > 255 ? comment.substring(0, 255) : comment)
                 .saleOrder(order)
@@ -220,11 +244,13 @@ public class PaymentServiceImpl implements PaymentService {
         return part;
     }
 
-    private Payment savePayment(PaymentDTO dto, Client client, User user, PaymentType paymentType,
-                                SaleOrder saleOrder, BigDecimal amount, String comment) {
+    private Payment draftPayment(PaymentDTO dto, PaymentType paymentType, SaleOrder saleOrder, Payment existing) {
         Payment entity = mapper.toEntity(dto);
-        entity.setPaymentAmount(amount);
-        entity.setComment(comment);
+        applyCurrency(entity, paymentType, saleOrder, dto.getDebtCurrency(), existing);
+        return entity;
+    }
+
+    private Payment savePayment(Payment entity, Client client, User user, PaymentType paymentType, SaleOrder saleOrder) {
         entity.setClient(client);
         entity.setSaleOrder(saleOrder);
         entity.setUser(user);
@@ -233,11 +259,59 @@ public class PaymentServiceImpl implements PaymentService {
         return repository.save(entity);
     }
 
-    /** Buyurtmaning qolgan qarzi; {@code excludePaymentId} berilsa, o'sha to'lov hisobga olinmaydi. */
+    /**
+     * Kassa valyutasi to'lov turidan, qarz valyutasi buyurtmadan (yoki so'rovdan) olinadi. Farq qilsa,
+     * kurs bilan o'giriladi: masalan 6 425 000 so'm, kurs 12 850, $ qarz - $500 yopiladi.
+     * Kurs - to'lov kunidagi Markaziy bank kursi. {@code existing} - tahrirlanayotgan to'lov: juftlik va sana
+     * o'zgarmasa, eski kurs qoladi.
+     */
+    private void applyCurrency(Payment entity, PaymentType paymentType, SaleOrder saleOrder,
+                               Currency requestedDebtCurrency, Payment existing) {
+        Currency currency = CurrencyMath.orBase(paymentType != null ? paymentType.getCurrency() : null);
+        Currency debtCurrency;
+        if (saleOrder != null) {
+            debtCurrency = saleOrder.currencyOrBase();
+        } else if (requestedDebtCurrency != null) {
+            debtCurrency = requestedDebtCurrency;
+        } else if (existing != null) {
+            debtCurrency = CurrencyMath.orBase(existing.getDebtCurrency());
+        } else {
+            debtCurrency = currency;
+        }
+
+        Currency foreign = CurrencyMath.foreignOf(currency, debtCurrency);
+        BigDecimal rate = BigDecimal.ONE;
+        if (foreign != null && currency != debtCurrency) {
+            LocalDateTime date = entity.getPaymentDate() != null ? entity.getPaymentDate() : LocalDateTime.now();
+            boolean sameDay = existing != null && existing.getPaymentDate() != null
+                    && existing.getPaymentDate().toLocalDate().equals(date.toLocalDate());
+            if (sameDay && existing.getCurrency() == currency
+                    && existing.getDebtCurrency() == debtCurrency && existing.getExchangeRate() != null) {
+                rate = existing.getExchangeRate();
+            } else {
+                rate = exchangeRateService.rateOn(foreign, date.toLocalDate());
+            }
+        }
+
+        entity.setCurrency(currency);
+        entity.setDebtCurrency(debtCurrency);
+        entity.setExchangeRate(rate);
+        entity.setAppliedAmount(CurrencyMath.convert(entity.getPaymentAmount(), currency, debtCurrency, rate));
+    }
+
+    private void ensureWithinDebt(SaleOrder saleOrder, BigDecimal applied, Long excludePaymentId) {
+        BigDecimal remaining = remainingDebt(saleOrder, excludePaymentId);
+        if (applied.subtract(remaining).compareTo(CurrencyMath.TOLERANCE) >= 0) {
+            throw new BadRequestException("To'lov buyurtmaning qolgan qarzidan katta. Qolgan qarz: "
+                    + CurrencyMath.format(remaining, saleOrder.currencyOrBase()));
+        }
+    }
+
+    /** Buyurtmaning qolgan qarzi (buyurtma valyutasida); {@code excludePaymentId} berilsa, o'sha to'lov hisobga olinmaydi. */
     private BigDecimal remainingDebt(SaleOrder saleOrder, Long excludePaymentId) {
         BigDecimal paid = repository.findBySaleOrderId(saleOrder.getId()).stream()
                 .filter(p -> excludePaymentId == null || !p.getId().equals(excludePaymentId))
-                .map(Payment::getPaymentAmount)
+                .map(Payment::appliedOrPaid)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         return saleOrder.getTotalSum().subtract(paid);
     }
@@ -263,6 +337,29 @@ public class PaymentServiceImpl implements PaymentService {
         log.info("Fetch all payments");
 
         return repository.findAll(pageable)
+                .map(mapper::toResponse);
+    }
+
+    @Override
+    public Page<PaymentResponse> search(Long clientId, Long paymentTypeId, LocalDate fromDate, LocalDate toDate,
+                                        Pageable pageable) {
+        if (fromDate != null && toDate != null && fromDate.isAfter(toDate)) {
+            throw new BadRequestException("Boshlanish sanasi tugash sanasidan keyin bo'lishi mumkin emas");
+        }
+        List<Specification<Payment>> specs = new ArrayList<>();
+        if (clientId != null) {
+            specs.add((root, query, cb) -> cb.equal(root.get("client").get("id"), clientId));
+        }
+        if (paymentTypeId != null) {
+            specs.add((root, query, cb) -> cb.equal(root.get("paymentType").get("id"), paymentTypeId));
+        }
+        if (fromDate != null) {
+            specs.add((root, query, cb) -> cb.greaterThanOrEqualTo(root.get("paymentDate"), fromDate.atStartOfDay()));
+        }
+        if (toDate != null) {
+            specs.add((root, query, cb) -> cb.lessThan(root.get("paymentDate"), toDate.plusDays(1).atStartOfDay()));
+        }
+        return repository.findAll(Specification.allOf(specs), pageable)
                 .map(mapper::toResponse);
     }
 
@@ -328,16 +425,17 @@ public class PaymentServiceImpl implements PaymentService {
 
         Long previousClientId = entity.getClient() != null ? entity.getClient().getId() : null;
 
-        if (dto.getPaymentAmount() != null && saleOrder != null) {
-            BigDecimal remainingDebt = remainingDebt(saleOrder, entity.getId());
-
-            if (dto.getPaymentAmount().compareTo(remainingDebt) > 0) {
-                throw new BadRequestException(
-                        "Payment amount exceeds the remaining debt of the sale order. Remaining debt: " + remainingDebt);
-            }
-        }
-
+        Payment before = Payment.builder()
+                .currency(entity.getCurrency())
+                .debtCurrency(entity.getDebtCurrency())
+                .exchangeRate(entity.getExchangeRate())
+                .paymentDate(entity.getPaymentDate())
+                .build();
         mapper.updateEntity(entity, dto);
+        applyCurrency(entity, entity.getPaymentType(), saleOrder, dto.getDebtCurrency(), before);
+        if (saleOrder != null) {
+            ensureWithinDebt(saleOrder, entity.getAppliedAmount(), entity.getId());
+        }
         String username = Objects.requireNonNull(SecurityContextHolder.getContext().getAuthentication()).getName();
         entity.setCreatedUsername(username);
 
@@ -394,7 +492,7 @@ public class PaymentServiceImpl implements PaymentService {
         List<Payment> payments = repository.findBySaleOrderId(saleOrder.getId());
 
         BigDecimal paidSum = payments.stream()
-                .map(Payment::getPaymentAmount)
+                .map(Payment::appliedOrPaid)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         BigDecimal debtSum = saleOrder.getSalesOrderStatus() == SalesOrderStatus.CANCELLED
@@ -405,5 +503,6 @@ public class PaymentServiceImpl implements PaymentService {
         saleOrder.setDebtSum(debtSum);
 
         saleOrderRepository.save(saleOrder);
+        salaryCommissionService.recalculateCommissionForSaleOrder(saleOrder);
     }
 }

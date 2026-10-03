@@ -1,12 +1,16 @@
 import { apiRequest } from './http'
 import type { RestApiResponse, SpringPage } from './types'
+import type { CurrencyCode } from '@/utils/currency'
 
 export interface DebtorClient {
   clientId?: number
   clientFullName?: string
   phone?: string
+  /** So'mdagi qarz. */
   totalDebt?: number
   debtSum?: number
+  /** Har bir valyutadagi qarz (faqat musbatlari). */
+  debts?: { currency: CurrencyCode; amount: number }[]
 }
 
 export interface DebtNotificationHistory {

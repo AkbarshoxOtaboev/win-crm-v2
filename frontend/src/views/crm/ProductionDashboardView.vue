@@ -22,6 +22,24 @@
             <option :value="0" disabled>{{ t('productionDashboard.selectWorkshop') }}</option>
             <option v-for="w in visibleWorkshops" :key="w.id" :value="w.id">{{ w.name }}</option>
           </select>
+          <label class="filter-date">
+            <span>{{ t('common.from') }}</span>
+            <input v-model="fromDate" type="date" class="field" :max="toDate || undefined" @change="load" />
+          </label>
+          <label class="filter-date">
+            <span>{{ t('common.to') }}</span>
+            <input v-model="toDate" type="date" class="field" :min="fromDate || undefined" @change="load" />
+          </label>
+          <button
+            type="button"
+            class="icon-btn"
+            :disabled="isCurrentMonth"
+            :title="t('productionBoard.resetMonth')"
+            :aria-label="t('productionBoard.resetMonth')"
+            @click="resetMonth"
+          >
+            <FilterX class="h-4 w-4" />
+          </button>
           <button type="button" class="icon-btn" :disabled="loading" :title="t('common.refresh')" @click="load">
             <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': loading }" />
           </button>
@@ -142,7 +160,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { RefreshCw } from 'lucide-vue-next'
+import { FilterX, RefreshCw } from 'lucide-vue-next'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import {
@@ -170,6 +188,28 @@ const loading = ref(false)
 const error = ref<string | null>(null)
 const feeDraft = reactive<Record<number, number>>({})
 const savingId = ref<number | null>(null)
+
+function localIsoDate(d: Date) {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+function monthStart() {
+  const d = new Date()
+  return localIsoDate(new Date(d.getFullYear(), d.getMonth(), 1))
+}
+function todayLocal() {
+  return localIsoDate(new Date())
+}
+
+const fromDate = ref(monthStart())
+const toDate = ref(todayLocal())
+const isCurrentMonth = computed(() => fromDate.value === monthStart() && toDate.value === todayLocal())
+
+function resetMonth() {
+  fromDate.value = monthStart()
+  toDate.value = todayLocal()
+  void load()
+}
 
 watch(
   () => dash.value?.completedWorks,
@@ -206,10 +246,14 @@ async function load() {
     dash.value = null
     return
   }
+  if (fromDate.value && toDate.value && fromDate.value > toDate.value) {
+    error.value = t('productionBoard.invalidRange')
+    return
+  }
   loading.value = true
   error.value = null
   try {
-    const res = await fetchWorkshopDashboard(workshopId.value)
+    const res = await fetchWorkshopDashboard(workshopId.value, fromDate.value || undefined, toDate.value || undefined)
     dash.value = res.data
   } catch (e) {
     error.value = formatApiError(e)
@@ -317,6 +361,20 @@ onMounted(async () => {
   background: transparent;
   padding: 0 0.75rem;
   font-size: 0.875rem;
+}
+.filter-date {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+.filter-date .field {
+  width: 10.5rem;
+}
+.icon-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 .fee-input {
   width: 5.5rem;

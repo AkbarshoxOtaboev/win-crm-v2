@@ -66,8 +66,14 @@
                   <td class="td">{{ row.height != null ? formatNum(row.height) : '—' }}</td>
                   <td class="td">{{ row.pieces != null ? formatNum(row.pieces) : formatNum(row.count) }}</td>
                   <td class="td">{{ row.isWindow ? formatNum(row.count) : '—' }}</td>
-                  <td class="td">{{ amt(row.priceCost) }}</td>
-                  <td class="td">{{ amt(row.sum) }}</td>
+                  <td class="td">
+                    {{ amt(row.priceCost) }}
+                    <div v-if="isForeign" class="base-eq">{{ moneyIn(toSom(row.priceCost), 'UZS', t('common.currency')) }}</div>
+                  </td>
+                  <td class="td">
+                    {{ amt(row.sum) }}
+                    <div v-if="isForeign" class="base-eq">{{ moneyIn(toSom(row.priceCost, row.count), 'UZS', t('common.currency')) }}</div>
+                  </td>
                 </tr>
               </tbody>
               <tfoot v-if="displayItems.length || Number(order.serviceFee) > 0">
@@ -170,6 +176,13 @@ const isForeign = computed(() => !!order.value?.currency && order.value.currency
 
 function amt(v?: number | null) {
   return isForeign.value ? moneyIn(v, order.value?.currency) : money(v)
+}
+
+/** Ombor tannarxi kabi: birlik narxi kurs bilan so'mga (2 xona), keyin miqdorga ko'paytiriladi. */
+function toSom(price: number, count = 1) {
+  const rate = Number(order.value?.exchangeRate || 0)
+  const unit = Math.round(price * rate * 100) / 100
+  return Math.round(unit * count * 100) / 100
 }
 const statusLabel = computed(() => {
   if (order.value?.orderStatus === 'TRANSFERRED') return t('warehouseOrders.statusTransferred')

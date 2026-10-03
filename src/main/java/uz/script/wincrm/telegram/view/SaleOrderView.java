@@ -1,5 +1,6 @@
 package uz.script.wincrm.telegram.view;
 
+import uz.script.wincrm.currency.Currency;
 import uz.script.wincrm.sale.enums.SalesOrderStatus;
 
 import java.math.BigDecimal;
@@ -15,6 +16,7 @@ public record SaleOrderView(
         BigDecimal totalSum,
         BigDecimal paidSum,
         BigDecimal debtSum,
-        SalesOrderStatus salesOrderStatus
+        SalesOrderStatus salesOrderStatus,
+        Currency currency
 ) {
 }

@@ -22,7 +22,9 @@
         class="h-10 rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:text-white/90"
         @change="load"
       />
+      <ReportCurrencyToggle :model-value="display" class="ms-auto" @update:model-value="changeCurrency" />
     </div>
+    <p v-if="rateMissing" class="mb-4 text-sm text-warning-600 dark:text-warning-400">{{ t('reportCurrency.rateMissing') }}</p>
 
     <div class="mb-4 grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-6">
       <article
@@ -32,7 +34,7 @@
           <ShoppingBag class="h-6 w-6" />
         </div>
         <p class="mt-4 text-sm text-brand-600 dark:text-brand-400">{{ t('home.totalSales') }}</p>
-        <h4 class="mt-1 text-title-sm font-bold text-gray-800 dark:text-white/90">{{ money(totals.sales) }}</h4>
+        <h4 class="mt-1 text-title-sm font-bold text-gray-800 dark:text-white/90">{{ fmt(totals.sales) }}</h4>
       </article>
       <article
         class="rounded-2xl border border-success-200 bg-gradient-to-br from-success-50 to-white p-5 dark:border-success-500/20 dark:from-success-500/10 dark:to-white/[0.03] md:p-6"
@@ -41,7 +43,7 @@
           <Wallet class="h-6 w-6" />
         </div>
         <p class="mt-4 text-sm text-success-600 dark:text-success-400">{{ t('home.totalPayments') }}</p>
-        <h4 class="mt-1 text-title-sm font-bold text-gray-800 dark:text-white/90">{{ money(totals.payments) }}</h4>
+        <h4 class="mt-1 text-title-sm font-bold text-gray-800 dark:text-white/90">{{ fmt(totals.payments) }}</h4>
       </article>
       <article
         class="rounded-2xl border border-orange-200 bg-gradient-to-br from-orange-50 to-white p-5 dark:border-orange-500/20 dark:from-orange-500/10 dark:to-white/[0.03] md:p-6"
@@ -50,8 +52,59 @@
           <Receipt class="h-6 w-6" />
         </div>
         <p class="mt-4 text-sm text-orange-600 dark:text-orange-400">{{ t('home.totalExpenses') }}</p>
-        <h4 class="mt-1 text-title-sm font-bold text-gray-800 dark:text-white/90">{{ money(totals.expenses) }}</h4>
+        <h4 class="mt-1 text-title-sm font-bold text-gray-800 dark:text-white/90">{{ fmt(totals.expenses) }}</h4>
       </article>
+    </div>
+
+    <div class="mb-4 rounded-2xl border border-gray-200 bg-white px-5 pb-5 pt-5 dark:border-gray-800 dark:bg-white/[0.03] sm:px-6 sm:pt-6">
+      <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-2.5">
+          <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-success-50 text-success-600 dark:bg-success-500/15 dark:text-success-400">
+            <Landmark class="h-4 w-4" />
+          </span>
+          <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('home.cashBalances') }}</h3>
+        </div>
+        <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('home.cashBalancesHint') }}</p>
+      </div>
+      <p v-if="cashBalances.length === 0" class="py-6 text-center text-sm text-gray-500">{{ t('home.empty') }}</p>
+      <div v-else class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead>
+            <tr class="border-b border-gray-100 text-left text-xs text-gray-500 dark:border-gray-800">
+              <th class="py-2 pe-4 font-medium">{{ t('home.cashbox') }}</th>
+              <th class="py-2 pe-4 text-right font-medium">{{ t('home.cashOpening') }}</th>
+              <th class="py-2 pe-4 text-right font-medium">{{ t('home.cashIn') }}</th>
+              <th class="py-2 pe-4 text-right font-medium">{{ t('home.cashOut') }}</th>
+              <th class="py-2 text-right font-medium">{{ t('home.cashClosing') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="c in cashBalances"
+              :key="`${c.paymentTypeId}-${c.currency}`"
+              class="border-b border-gray-100 dark:border-gray-800"
+            >
+              <td class="py-2 pe-4 text-gray-700 dark:text-gray-300">
+                {{ c.paymentTypeName }}
+                <span class="ms-1 rounded bg-gray-100 px-1.5 py-0.5 text-[11px] text-gray-500 dark:bg-white/5">{{ c.currency }}</span>
+              </td>
+              <td class="py-2 pe-4 text-right text-gray-600 dark:text-gray-400">{{ cashMoney(c.opening, c.currency) }}</td>
+              <td class="py-2 pe-4 text-right text-success-600 dark:text-success-400">+{{ cashMoney(c.incoming, c.currency) }}</td>
+              <td class="py-2 pe-4 text-right text-error-600 dark:text-error-400">−{{ cashMoney(c.outgoing, c.currency) }}</td>
+              <td class="py-2 text-right font-semibold text-gray-800 dark:text-white/90">{{ cashMoney(c.closing, c.currency) }}</td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr v-for="tot in cashTotals" :key="tot.currency" class="text-gray-800 dark:text-white/90">
+              <td class="py-2 pe-4 font-semibold">{{ t('home.cashTotal', { currency: tot.currency }) }}</td>
+              <td class="py-2 pe-4 text-right">{{ cashMoney(tot.opening, tot.currency) }}</td>
+              <td class="py-2 pe-4 text-right">+{{ cashMoney(tot.incoming, tot.currency) }}</td>
+              <td class="py-2 pe-4 text-right">−{{ cashMoney(tot.outgoing, tot.currency) }}</td>
+              <td class="py-2 text-right font-semibold">{{ cashMoney(tot.closing, tot.currency) }}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
     </div>
 
     <div class="mb-4 rounded-2xl border border-gray-200 bg-white px-5 pb-5 pt-5 dark:border-gray-800 dark:bg-white/[0.03] sm:px-6 sm:pt-6">
@@ -113,6 +166,7 @@
             :value-label="t(element.valueKey)"
             :rows="element.rows"
             :format-as="element.formatAs"
+            :currency="display"
             :tone="element.tone"
           />
         </div>
@@ -127,7 +181,9 @@ import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import DashboardWidget, { type DashboardRow } from '@/components/crm/DashboardWidget.vue'
+import ReportCurrencyToggle from '@/components/crm/ReportCurrencyToggle.vue'
 import {
+  fetchCashBalances,
   fetchDailyPayments,
   fetchExpenseInfo,
   fetchGoodsGroupSummary,
@@ -135,16 +191,20 @@ import {
   fetchTopGoodsByAmount,
   fetchTopGoodsByQuantity,
   fetchTopSellers,
+  type CashBalance,
 } from '@/api/dashboard'
 import { fetchSaleOrdersByDateRange, type SaleOrder } from '@/api/sales'
 import { formatApiError } from '@/api/http'
-import { money, today } from '@/utils/format'
+import { today } from '@/utils/format'
+import { moneyIn, type CurrencyCode } from '@/utils/currency'
+import { useReportCurrency } from '@/composables/useReportCurrency'
 import VueApexCharts from 'vue3-apexcharts'
 import draggable from 'vuedraggable'
 import {
   Banknote,
   BarChart3,
   Boxes,
+  Landmark,
   Package,
   Receipt,
   ShoppingBag,
@@ -187,6 +247,35 @@ const paymentsCategories = ref<string[]>([])
 const paymentsValues = ref<number[]>([])
 const totals = ref({ sales: 0, payments: 0, expenses: 0 })
 const widgets = ref<WidgetDef[]>(defaultWidgets())
+const cashBalances = ref<CashBalance[]>([])
+const { display, setDisplay, loadRates, conv, fmt, compact: compactMoney, rateMissing } = useReportCurrency()
+
+const cashTotals = computed(() => {
+  const map = new Map<CurrencyCode, { currency: CurrencyCode; opening: number; incoming: number; outgoing: number; closing: number }>()
+  for (const c of cashBalances.value) {
+    const cur = map.get(c.currency) || { currency: c.currency, opening: 0, incoming: 0, outgoing: 0, closing: 0 }
+    cur.opening += Number(c.opening || 0)
+    cur.incoming += Number(c.incoming || 0)
+    cur.outgoing += Number(c.outgoing || 0)
+    cur.closing += Number(c.closing || 0)
+    map.set(c.currency, cur)
+  }
+  return [...map.values()]
+})
+
+function cashMoney(v: number, currency: CurrencyCode) {
+  return moneyIn(Number(v || 0), currency, t('common.currency'))
+}
+
+function orderAmount(o: SaleOrder) {
+  if (o.orderStatus === 'CANCELLED') return 0
+  return conv(o.totalSum, o.currency, o.exchangeRate, o.orderDate)
+}
+
+async function changeCurrency(c: CurrencyCode) {
+  setDisplay(c)
+  await load()
+}
 
 function barChartOptions(categories: string[], color: string) {
   return {
@@ -214,14 +303,14 @@ function barChartOptions(categories: string[], color: string) {
     },
     yaxis: {
       labels: {
-        formatter: (v: number) => compact(v),
+        formatter: (v: number) => (display.value === 'USD' ? compactMoney(v) : compact(v)),
         style: { colors: '#6b7280', fontSize: '12px' },
       },
     },
     grid: { yaxis: { lines: { show: true } }, xaxis: { lines: { show: false } } },
     fill: { opacity: 1 },
     tooltip: {
-      y: { formatter: (v: number) => money(v) },
+      y: { formatter: (v: number) => fmt(v) },
     },
   }
 }
@@ -229,11 +318,13 @@ function barChartOptions(categories: string[], color: string) {
 const chartSeries = computed(() => [{ name: t('home.sale'), data: chartValues.value }])
 const chartOptions = computed(() => {
   void locale.value
+  void display.value
   return barChartOptions(chartCategories.value, '#465fff')
 })
 const paymentsChartSeries = computed(() => [{ name: t('home.payment'), data: paymentsValues.value }])
 const paymentsChartOptions = computed(() => {
   void locale.value
+  void display.value
   return barChartOptions(paymentsCategories.value, '#f97316')
 })
 
@@ -379,9 +470,10 @@ async function loadChart() {
       `${isoDate(start)}T00:00:00`,
       `${isoDate(end)}T23:59:59`,
     )
+    await loadRates(isoDate(start), isoDate(end))
     for (const o of res.data || []) {
       const key = orderKey(o, chartPeriod.value)
-      if (key in sums) sums[key] += amt(o.totalSum)
+      if (key in sums) sums[key] += orderAmount(o)
     }
   } catch {
     /* keep zeros */
@@ -398,16 +490,20 @@ async function setChartPeriod(period: ChartPeriod) {
 async function load() {
   error.value = null
   try {
-    const [a, q, g, s, p, d, exp, sales] = await Promise.all([
-      fetchTopGoodsByAmount(startDate.value, endDate.value),
-      fetchTopGoodsByQuantity(startDate.value, endDate.value),
-      fetchGoodsGroupSummary(startDate.value, endDate.value),
-      fetchTopSellers(startDate.value, endDate.value),
+    const cur = display.value
+    const [a, q, g, s, p, d, exp, sales, cash] = await Promise.all([
+      fetchTopGoodsByAmount(startDate.value, endDate.value, cur),
+      fetchTopGoodsByQuantity(startDate.value, endDate.value, cur),
+      fetchGoodsGroupSummary(startDate.value, endDate.value, cur),
+      fetchTopSellers(startDate.value, endDate.value, cur),
       fetchPaymentsByType(startDate.value, endDate.value),
-      fetchDailyPayments(startDate.value, endDate.value),
-      fetchExpenseInfo(startDate.value, endDate.value),
+      fetchDailyPayments(startDate.value, endDate.value, cur),
+      fetchExpenseInfo(startDate.value, endDate.value, cur),
       fetchSaleOrdersByDateRange(`${startDate.value}T00:00:00`, `${endDate.value}T23:59:59`),
+      fetchCashBalances(startDate.value, endDate.value),
+      loadRates(startDate.value, endDate.value),
     ])
+    cashBalances.value = cash.data || []
 
     setWidgetRows(
       'topAmount',
@@ -447,6 +543,7 @@ async function load() {
         id: x.paymentTypeId,
         name: x.paymentTypeName || '—',
         value: amt(x.totalAmount ?? x.amount),
+        currency: x.currency || 'UZS',
       })),
     )
 
@@ -457,8 +554,8 @@ async function load() {
     paymentsValues.value = dailyRows.map((x) => amt(x.totalAmount ?? x.amount))
 
     totals.value = {
-      sales: (sales.data || []).reduce((sum, o) => sum + amt(o.totalSum), 0),
-      payments: (p.data || []).reduce((sum, x) => sum + amt(x.totalAmount ?? x.amount), 0),
+      sales: (sales.data || []).reduce((sum, o) => sum + orderAmount(o), 0),
+      payments: dailyRows.reduce((sum, x) => sum + amt(x.totalAmount ?? x.amount), 0),
       expenses: (exp.data || []).reduce((sum, x) => sum + amt(x.totalAmount ?? x.amount), 0),
     }
     await loadChart()

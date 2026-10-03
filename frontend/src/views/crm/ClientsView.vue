@@ -325,7 +325,7 @@
               <router-link :to="`/clients/${d.clientId}`" class="text-brand-500">{{ d.clientFullName }}</router-link>
             </td>
             <td class="px-5 py-3 text-sm">{{ d.phone || '—' }}</td>
-            <td class="px-5 py-3 text-sm">{{ d.totalDebt ?? d.debtSum }}</td>
+            <td class="px-5 py-3 text-sm whitespace-nowrap">{{ debtorDebtText(d) }}</td>
             <td class="px-5 py-3 text-right">
               <button type="button" class="text-sm text-brand-500" @click="sendOneSms(d.clientId!)">{{ t('clients.sms') }}</button>
             </td>
@@ -384,6 +384,7 @@ import {
 import { fetchDebtors, sendDebtSmsToClient, sendDebtSmsToClients, type DebtorClient } from '@/api/debt'
 import { formatApiError } from '@/api/http'
 import { useFilialScope } from '@/composables/useFilialScope'
+import { moneyIn } from '@/utils/currency'
 import {
   formatUzPhone,
   isCompleteUzPhone,
@@ -396,6 +397,11 @@ const tab = ref<'list' | 'groups' | 'debtors'>('list')
 const clients = ref<Client[]>([])
 const groups = ref<ClientGroup[]>([])
 const debtors = ref<DebtorClient[]>([])
+
+function debtorDebtText(d: DebtorClient) {
+  if (d.debts?.length) return d.debts.map((x) => moneyIn(x.amount, x.currency, t('common.currency'))).join(' · ')
+  return moneyIn(d.totalDebt ?? d.debtSum ?? 0, 'UZS', t('common.currency'))
+}
 const selectedDebtors = ref<number[]>([])
 const groupModal = ref(false)
 const groupEditingId = ref<number | null>(null)

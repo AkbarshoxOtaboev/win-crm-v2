@@ -16,6 +16,7 @@ import uz.script.wincrm.kpi.response.KpiSummaryResponse;
 import uz.script.wincrm.kpi.service.KpiService;
 import uz.script.wincrm.roles.RoleResponse;
 import uz.script.wincrm.sale.SaleOrder;
+import uz.script.wincrm.sale.service.SaleOrderBaseConverter;
 import uz.script.wincrm.users.User;
 import uz.script.wincrm.users.repository.UserRepository;
 import uz.script.wincrm.users.response.UserResponse;
@@ -51,6 +52,7 @@ public class KpiServiceImpl implements KpiService {
     private final UserService userService;
     private final WorkshopRepository workshopRepository;
     private final WorkshopBalanceEntryRepository workshopEntryRepository;
+    private final SaleOrderBaseConverter baseConverter;
 
     @Override
     public void accrueForSaleOrder(SaleOrder saleOrder) {
@@ -65,7 +67,8 @@ public class KpiServiceImpl implements KpiService {
         if (entryRepository.existsBySaleOrder_IdAndUser_Id(saleOrder.getId(), seller.getId())) {
             return;
         }
-        BigDecimal base = saleOrder.totalSumWithoutDelivery().max(BigDecimal.ZERO);
+        SaleOrderBaseConverter.Conversion fx = baseConverter.convertToday(saleOrder, saleOrder.totalSumWithoutDelivery());
+        BigDecimal base = fx.baseAmount().max(BigDecimal.ZERO);
         BigDecimal amount = base.multiply(rate.getPercent()).divide(HUNDRED, 2, RoundingMode.HALF_UP);
         LocalDateTime now = LocalDateTime.now();
 
@@ -73,6 +76,9 @@ public class KpiServiceImpl implements KpiService {
                 .user(seller)
                 .saleOrder(saleOrder)
                 .baseAmount(base)
+                .sourceCurrency(fx.currency())
+                .sourceAmount(fx.sourceAmount().max(BigDecimal.ZERO))
+                .exchangeRate(fx.rate())
                 .percent(rate.getPercent())
                 .amount(amount)
                 .earnedAt(now)
@@ -183,6 +189,9 @@ public class KpiServiceImpl implements KpiService {
                         .saleOrderId(e.getSaleOrder().getId())
                         .clientFullName(clientName(e.getSaleOrder()))
                         .baseAmount(e.getBaseAmount())
+                        .sourceCurrency(e.getSourceCurrency())
+                        .sourceAmount(e.getSourceAmount())
+                        .exchangeRate(e.getExchangeRate())
                         .percent(e.getPercent())
                         .amount(e.getAmount())
                         .build())
@@ -241,6 +250,9 @@ public class KpiServiceImpl implements KpiService {
                         .saleOrderId(e.getSaleOrder().getId())
                         .clientFullName(clientName(e.getSaleOrder()))
                         .baseAmount(e.getOrderTotalSum())
+                        .sourceCurrency(e.getSourceCurrency())
+                        .sourceAmount(e.getSourceAmount())
+                        .exchangeRate(e.getExchangeRate())
                         .percent(e.getFeePercent())
                         .amount(e.getAmount())
                         .build())

@@ -54,7 +54,8 @@ public class WarehouseOrderDTO {
     @Schema(description = "Document currency; null on create - UZS, on update - unchanged", example = "USD")
     private Currency currency;
 
-    @DecimalMin(value = "0.0001", message = "Exchange rate must be positive")
-    @Schema(description = "1 unit = rate UZS; null - company rate for the arrival date", example = "12850")
+    @DecimalMin(value = "0.0001", message = "Kurs musbat bo'lishi kerak")
+    @Schema(description = "1 unit = rate UZS, set by the user allowed to create/edit receipts; "
+            + "null - Central Bank rate for the arrival date", example = "11850")
     private BigDecimal exchangeRate;
 }

@@ -193,7 +193,7 @@ public class SupplierPaymentServiceImpl implements SupplierPaymentService {
         BigDecimal rate = BigDecimal.ONE;
         if (foreign != null) {
             LocalDate date = dto.getPaidDate() != null ? dto.getPaidDate().toLocalDate() : LocalDate.now();
-            rate = dto.getExchangeRate() != null ? dto.getExchangeRate() : exchangeRateService.rateOn(foreign, date);
+            rate = exchangeRateService.rateOn(foreign, date);
         }
 
         BigDecimal paid = dto.getPaidSumm();

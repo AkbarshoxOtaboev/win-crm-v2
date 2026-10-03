@@ -8,6 +8,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.web.multipart.MultipartFile;
+import uz.script.wincrm.currency.Currency;
 import uz.script.wincrm.goods.enums.Type;
 
 import java.math.BigDecimal;
@@ -66,6 +67,9 @@ public class GoodsDTO {
             requiredMode = Schema.RequiredMode.REQUIRED
     )
     private BigDecimal priceSelling;
+
+    @Schema(description = "Sotish narxi valyutasi (bo'sh — UZS). Tannarx doim so'mda.", example = "USD")
+    private Currency priceCurrency;
 
     @Schema(
             description = "Goods barcode",

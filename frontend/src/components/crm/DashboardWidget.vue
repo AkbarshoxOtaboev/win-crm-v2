@@ -64,7 +64,7 @@
               </span>
               <span class="truncate">{{ row.name }}</span>
             </span>
-            <span class="shrink-0 font-semibold" :class="valueColor">{{ format(row.value) }}</span>
+            <span class="shrink-0 font-semibold" :class="valueColor">{{ format(row) }}</span>
           </li>
         </ul>
       </div>
@@ -77,11 +77,14 @@ import { computed, ref, type Component } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ChevronDown, GripVertical } from 'lucide-vue-next'
 import { money } from '@/utils/format'
+import { moneyIn, type CurrencyCode } from '@/utils/currency'
 
 export interface DashboardRow {
   id?: string | number
   name: string
   value: number
+  /** Qatorning o'z valyutasi (masalan, kassa); berilmasa vidjet valyutasi. */
+  currency?: CurrencyCode
 }
 
 const props = withDefaults(
@@ -92,12 +95,14 @@ const props = withDefaults(
     valueLabel?: string
     rows: DashboardRow[]
     formatAs?: 'money' | 'number'
+    currency?: CurrencyCode
     tone?: 'blue' | 'indigo' | 'violet' | 'green' | 'teal' | 'orange'
   }>(),
   {
     nameLabel: '',
     valueLabel: '',
     formatAs: 'money',
+    currency: 'UZS',
     tone: 'blue',
   },
 )
@@ -172,8 +177,10 @@ function toggleSort(key: 'name' | 'value') {
   }
 }
 
-function format(v: number) {
+function format(row: DashboardRow) {
+  const v = row.value
   if (props.formatAs === 'number') return new Intl.NumberFormat('uz-UZ').format(Number(v || 0))
+  if ((row.currency || props.currency) === 'USD') return moneyIn(v, 'USD')
   return money(v)
 }
 </script>

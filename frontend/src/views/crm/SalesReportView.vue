@@ -5,9 +5,11 @@
     <div class="mb-4 flex flex-wrap items-center gap-2">
       <input v-model="startDate" type="date" class="field" @change="load" />
       <input v-model="endDate" type="date" class="field" @change="load" />
+      <ReportCurrencyToggle :model-value="display" class="ms-auto" @update:model-value="changeCurrency" />
     </div>
 
     <div v-if="error" class="err mb-4">{{ error }}</div>
+    <p v-if="rateMissing" class="mb-4 text-sm text-amber-600">{{ t('reportCurrency.rateMissing') }}</p>
 
     <div class="mb-4 grid grid-cols-1 gap-4 md:grid-cols-4">
       <article class="stat">
@@ -16,15 +18,15 @@
       </article>
       <article class="stat">
         <p class="stat-label">{{ t('salesReport.totalSales') }}</p>
-        <h4 class="stat-value">{{ money(totals.sales) }}</h4>
+        <h4 class="stat-value">{{ fmt(totals.sales) }}</h4>
       </article>
       <article class="stat">
         <p class="stat-label">{{ t('salesReport.paid') }}</p>
-        <h4 class="stat-value paid">{{ money(totals.paid) }}</h4>
+        <h4 class="stat-value paid">{{ fmt(totals.paid) }}</h4>
       </article>
       <article class="stat">
         <p class="stat-label">{{ t('salesReport.debt') }}</p>
-        <h4 class="stat-value debt">{{ money(totals.debt) }}</h4>
+        <h4 class="stat-value debt">{{ fmt(totals.debt) }}</h4>
       </article>
     </div>
 
@@ -56,9 +58,9 @@
               <td class="td">{{ formatDate(o.orderDate) }}</td>
               <td class="td">{{ o.clientFullName || '—' }}</td>
               <td class="td">{{ o.userFullName || '—' }}</td>
-              <td class="td">{{ money(o.totalSum) }}</td>
-              <td class="td">{{ money(o.paidSum) }}</td>
-              <td class="td">{{ money(o.debtSum) }}</td>
+              <td class="td">{{ moneyIn(o.totalSum, o.currency, t('common.currency')) }}</td>
+              <td class="td">{{ moneyIn(o.paidSum, o.currency, t('common.currency')) }}</td>
+              <td class="td">{{ moneyIn(o.debtSum, o.currency, t('common.currency')) }}</td>
               <td class="td"><SaleStatusBadge :status="o.orderStatus" /></td>
             </tr>
           </tbody>
@@ -85,7 +87,7 @@
               <tr v-for="row in bySeller" :key="row.name" class="border-b border-gray-100 dark:border-gray-800">
                 <td class="td">{{ row.name }}</td>
                 <td class="td">{{ row.count }}</td>
-                <td class="td">{{ money(row.sum) }}</td>
+                <td class="td">{{ fmt(row.sum) }}</td>
               </tr>
             </tbody>
           </table>
@@ -109,7 +111,7 @@
               <tr v-for="row in byClient" :key="row.name" class="border-b border-gray-100 dark:border-gray-800">
                 <td class="td">{{ row.name }}</td>
                 <td class="td">{{ row.count }}</td>
-                <td class="td">{{ money(row.sum) }}</td>
+                <td class="td">{{ fmt(row.sum) }}</td>
               </tr>
             </tbody>
           </table>
@@ -125,9 +127,12 @@ import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import SaleStatusBadge from '@/components/crm/SaleStatusBadge.vue'
+import ReportCurrencyToggle from '@/components/crm/ReportCurrencyToggle.vue'
 import { fetchSaleOrdersByDateRange, type SaleOrder } from '@/api/sales'
 import { formatApiError } from '@/api/http'
-import { formatDate, money, today } from '@/utils/format'
+import { formatDate, today } from '@/utils/format'
+import { moneyIn, type CurrencyCode } from '@/utils/currency'
+import { useReportCurrency } from '@/composables/useReportCurrency'
 
 interface GroupRow {
   name: string
@@ -136,6 +141,7 @@ interface GroupRow {
 }
 
 const { t } = useI18n()
+const { display, setDisplay, loadRates, conv, fmt, rateMissing } = useReportCurrency()
 const startDate = ref(monthStart())
 const endDate = ref(today())
 const loading = ref(false)
@@ -145,10 +151,19 @@ const orders = ref<SaleOrder[]>([])
 const activeOrders = computed(() => orders.value.filter((o) => o.orderStatus !== 'CANCELLED'))
 
 const totals = computed(() => ({
-  sales: activeOrders.value.reduce((s, o) => s + Number(o.totalSum || 0), 0),
-  paid: activeOrders.value.reduce((s, o) => s + Number(o.paidSum || 0), 0),
-  debt: activeOrders.value.reduce((s, o) => s + Number(o.debtSum || 0), 0),
+  sales: activeOrders.value.reduce((s, o) => s + inDisplay(o, o.totalSum), 0),
+  paid: activeOrders.value.reduce((s, o) => s + inDisplay(o, o.paidSum), 0),
+  debt: activeOrders.value.reduce((s, o) => s + inDisplay(o, o.debtSum), 0),
 }))
+
+function inDisplay(o: SaleOrder, v?: number | null) {
+  return conv(v, o.currency, o.exchangeRate, o.orderDate)
+}
+
+async function changeCurrency(c: CurrencyCode) {
+  setDisplay(c)
+  await load()
+}
 
 const bySeller = computed(() => groupBy(activeOrders.value, (o) => o.userFullName || '—'))
 const byClient = computed(() => groupBy(activeOrders.value, (o) => o.clientFullName || '—'))
@@ -164,7 +179,7 @@ function groupBy(list: SaleOrder[], keyFn: (o: SaleOrder) => string): GroupRow[]
     const name = keyFn(o)
     const cur = map.get(name) || { name, count: 0, sum: 0 }
     cur.count += 1
-    cur.sum += Number(o.totalSum || 0)
+    cur.sum += inDisplay(o, o.totalSum)
     map.set(name, cur)
   }
   return [...map.values()].sort((a, b) => b.sum - a.sum)
@@ -174,7 +189,10 @@ async function load() {
   loading.value = true
   error.value = null
   try {
-    const res = await fetchSaleOrdersByDateRange(`${startDate.value}T00:00:00`, `${endDate.value}T23:59:59`)
+    const [res] = await Promise.all([
+      fetchSaleOrdersByDateRange(`${startDate.value}T00:00:00`, `${endDate.value}T23:59:59`),
+      loadRates(startDate.value, endDate.value),
+    ])
     orders.value = [...(res.data || [])].sort((a, b) => String(b.orderDate || '').localeCompare(String(a.orderDate || '')))
   } catch (e) {
     error.value = formatApiError(e, t('salesReport.loadError'))

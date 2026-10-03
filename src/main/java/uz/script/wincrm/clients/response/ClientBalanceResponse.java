@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
+import uz.script.wincrm.currency.Currency;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -23,6 +24,9 @@ public class ClientBalanceResponse {
 
     @Schema(description = "Client full name", example = "John Doe")
     private String clientFullName;
+
+    @Schema(description = "Balans valyutasi; summalar shu valyutada", example = "USD")
+    private Currency currency;
 
     @Schema(
             description = "Total purchase amount. If periodFrom/periodTo are present, scoped to that period; " +

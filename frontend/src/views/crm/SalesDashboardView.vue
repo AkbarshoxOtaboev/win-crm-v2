@@ -27,9 +27,10 @@
         <button type="button" class="icon-btn" :title="t('salesDashboard.clear')" @click="clearFilters">
           <X class="h-4 w-4" />
         </button>
+        <ReportCurrencyToggle :model-value="display" class="ms-auto" @update:model-value="changeCurrency" />
         <button
           type="button"
-          class="icon-btn ms-auto"
+          class="icon-btn"
           :title="t('common.refresh')"
           :disabled="loading"
           @click="load"
@@ -37,6 +38,7 @@
           <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': loading }" />
         </button>
       </div>
+      <p v-if="rateMissing" class="mt-3 text-sm text-amber-600">{{ t('reportCurrency.rateMissing') }}</p>
       <div v-if="showFilters" class="mt-3 flex flex-wrap gap-2 border-t border-gray-100 pt-3 dark:border-gray-800">
         <select v-model="statusFilter" class="field sm:w-48" @change="load">
           <option value="">{{ t('salesDashboard.allStatuses') }}</option>
@@ -64,9 +66,7 @@
           <p class="text-sm font-medium text-gray-600 dark:text-gray-300">{{ s.label }}</p>
           <p class="mt-2 text-2xl font-bold text-gray-800 dark:text-white/90">{{ s.count }}</p>
           <p class="mt-0.5 text-xs text-gray-500">{{ t('salesDashboard.orders') }}</p>
-          <p class="mt-3 text-sm font-semibold text-gray-800 dark:text-white/90">
-            {{ money(s.sum) }} <span class="font-normal text-gray-500">{{ t('common.currency') }}</span>
-          </p>
+          <p class="mt-3 text-sm font-semibold text-gray-800 dark:text-white/90">{{ fmt(s.sum) }}</p>
           <div class="mt-3 flex items-center justify-between text-xs text-gray-500">
             <span>{{ t('salesDashboard.share') }}</span>
             <span class="font-medium text-gray-700 dark:text-gray-200">{{ s.share }}%</span>
@@ -200,15 +200,19 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
+import ReportCurrencyToggle from '@/components/crm/ReportCurrencyToggle.vue'
 import { fetchSaleOrdersByDateRange, type SaleOrder } from '@/api/sales'
 import { formatApiError } from '@/api/http'
-import { money, today } from '@/utils/format'
+import { today } from '@/utils/format'
+import type { CurrencyCode } from '@/utils/currency'
+import { useReportCurrency } from '@/composables/useReportCurrency'
 import VueApexCharts from 'vue3-apexcharts'
 import { CalendarDays, ListFilter, RefreshCw, X } from 'lucide-vue-next'
 import { useTheme } from '@/components/layout/ThemeProvider.vue'
 
 const { t } = useI18n()
 const { isDarkMode } = useTheme()
+const { display, setDisplay, loadRates, conv, fmt, compact: compactMoney, rateMissing } = useReportCurrency()
 const chartThemeKey = computed(() => (isDarkMode.value ? 'dark' : 'light'))
 
 const chartUi = computed(() => {
@@ -269,13 +273,13 @@ const filteredOrders = computed(() => {
 })
 
 const grandTotal = computed(() =>
-  filteredOrders.value.reduce((s, o) => s + amt(o.totalSum), 0),
+  filteredOrders.value.reduce((s, o) => s + oSum(o), 0),
 )
 
 const statusStats = computed(() =>
   STATUS_DEFS.value.map((def) => {
     const list = filteredOrders.value.filter((o) => normStatus(o) === def.key)
-    const sum = list.reduce((s, o) => s + amt(o.totalSum), 0)
+    const sum = list.reduce((s, o) => s + oSum(o), 0)
     const share = grandTotal.value > 0 ? Math.round((sum / grandTotal.value) * 100) : 0
     return { ...def, count: list.length, sum, share }
   }),
@@ -285,10 +289,10 @@ const kpi = computed(() => {
   const list = filteredOrders.value
   const completed = list.filter((o) => normStatus(o) === 'COMPLETED')
   return {
-    total: list.reduce((s, o) => s + amt(o.totalSum), 0),
-    debt: list.reduce((s, o) => s + amt(o.debtSum), 0),
+    total: list.reduce((s, o) => s + oSum(o), 0),
+    debt: list.reduce((s, o) => s + oDebt(o), 0),
     count: list.length,
-    completedSum: completed.reduce((s, o) => s + amt(o.totalSum), 0),
+    completedSum: completed.reduce((s, o) => s + oSum(o), 0),
     completedCount: completed.length,
     inProgress: list.filter((o) => IN_PROGRESS.has(normStatus(o))).length,
   }
@@ -320,7 +324,7 @@ const statusBarOptions = computed(() => ({
   },
   yaxis: { labels: { style: { colors: chartUi.value.fore, fontSize: '12px' } } },
   grid: { borderColor: chartUi.value.grid, xaxis: { lines: { show: true } }, yaxis: { lines: { show: false } } },
-  tooltip: { theme: chartUi.value.mode, y: { formatter: (v: number) => `${money(v)} ${t('common.currency')}` } },
+  tooltip: { theme: chartUi.value.mode, y: { formatter: (v: number) => fmt(v) } },
 }))
 
 const statusDonutSeries = computed(() => statusStats.value.map((s) => s.sum))
@@ -363,7 +367,7 @@ const statusDonutOptions = computed(() => ({
       },
     },
   },
-  tooltip: { theme: chartUi.value.mode, y: { formatter: (v: number) => `${money(v)} ${t('common.currency')}` } },
+  tooltip: { theme: chartUi.value.mode, y: { formatter: (v: number) => fmt(v) } },
 }))
 
 const dailyBuckets = computed(() => {
@@ -383,8 +387,8 @@ const dailyBuckets = computed(() => {
   for (const o of filteredOrders.value) {
     const key = isoDate(new Date(o.orderDate || ''))
     if (key in salesMap) {
-      salesMap[key] += amt(o.totalSum)
-      debtMap[key] += amt(o.debtSum)
+      salesMap[key] += oSum(o)
+      debtMap[key] += oDebt(o)
     }
   }
   return {
@@ -424,7 +428,7 @@ const dynamicsOptions = computed(() => ({
   },
   yaxis: { labels: { style: { colors: chartUi.value.fore }, formatter: (v: number) => compactNum(v) } },
   grid: { borderColor: chartUi.value.grid },
-  tooltip: { theme: chartUi.value.mode, y: { formatter: (v: number) => `${money(v)} ${t('common.currency')}` } },
+  tooltip: { theme: chartUi.value.mode, y: { formatter: (v: number) => fmt(v) } },
 }))
 
 const sellerStats = computed(() => {
@@ -433,8 +437,8 @@ const sellerStats = computed(() => {
     const name = o.userFullName || t('salesDashboard.userFallback', { id: o.userId || '?' })
     const cur = map.get(name) || { name, count: 0, sales: 0, debt: 0 }
     cur.count += 1
-    cur.sales += amt(o.totalSum)
-    cur.debt += amt(o.debtSum)
+    cur.sales += oSum(o)
+    cur.debt += oDebt(o)
     map.set(name, cur)
   }
   return [...map.values()].sort((a, b) => b.sales - a.sales)
@@ -489,7 +493,7 @@ const sellerScatterOptions = computed(() => ({
       const bg = isDarkMode.value ? '#111827' : '#ffffff'
       const fg = isDarkMode.value ? '#f3f4f6' : '#111827'
       const border = isDarkMode.value ? '#374151' : '#e5e7eb'
-      return `<div style="padding:8px 10px;background:${bg};color:${fg};border:1px solid ${border};border-radius:8px"><b>${s.name}</b><br/>${label}: ${money(val)} ${t('common.currency')}</div>`
+      return `<div style="padding:8px 10px;background:${bg};color:${fg};border:1px solid ${border};border-radius:8px"><b>${s.name}</b><br/>${label}: ${fmt(val)}</div>`
     },
   },
 }))
@@ -552,8 +556,12 @@ function addDays(d: Date, n: number) {
   return x
 }
 
-function amt(v?: number | null) {
-  return Number(v || 0)
+function oSum(o: SaleOrder) {
+  return conv(o.totalSum, o.currency, o.exchangeRate, o.orderDate)
+}
+
+function oDebt(o: SaleOrder) {
+  return conv(o.debtSum, o.currency, o.exchangeRate, o.orderDate)
 }
 
 function normStatus(o: SaleOrder) {
@@ -568,7 +576,12 @@ function compactNum(v: number) {
 }
 
 function compactSom(v: number) {
-  return `${compactNum(v)} ${t('common.currency')}`
+  return compactMoney(v)
+}
+
+async function changeCurrency(c: CurrencyCode) {
+  setDisplay(c)
+  await load()
 }
 
 function clearFilters() {
@@ -583,10 +596,10 @@ async function load() {
   loading.value = true
   error.value = null
   try {
-    const res = await fetchSaleOrdersByDateRange(
-      `${startDate.value}T00:00:00`,
-      `${endDate.value}T23:59:59`,
-    )
+    const [res] = await Promise.all([
+      fetchSaleOrdersByDateRange(`${startDate.value}T00:00:00`, `${endDate.value}T23:59:59`),
+      loadRates(startDate.value, endDate.value),
+    ])
     orders.value = res.data || []
   } catch (e) {
     error.value = formatApiError(e, t('salesDashboard.loadError'))

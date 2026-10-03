@@ -285,8 +285,18 @@
           <template v-if="isCross">
             <label class="lbl">
               {{ t('suppliersBalance.rate') }} *
-              <input :value="rateText" inputmode="decimal" class="field" placeholder="0" @input="onRateInput" />
-              <span class="text-[11px] font-normal">{{ t('suppliersBalance.rateHint') }}</span>
+              <input
+                :value="rateLoading ? t('exchangeRates.rateLoading') : form.exchangeRate > 0 ? formatRate(form.exchangeRate) : '—'"
+                readonly
+                tabindex="-1"
+                class="field cursor-default bg-gray-50 dark:bg-white/[0.03]"
+                :title="t('exchangeRates.rateAuto')"
+              />
+              <span class="text-[11px] font-normal">
+                <template v-if="cbuRateDate">{{ t('exchangeRates.cbuRate') }} · {{ cbuRateDate.split('-').reverse().join('.') }}. </template>
+                <template v-else-if="!rateLoading">{{ t('suppliersBalance.rateRequired') }}</template>
+                {{ t('suppliersBalance.rateHint') }}
+              </span>
             </label>
             <div v-if="form.paidSumm > 0 && form.exchangeRate > 0" class="close-preview">
               {{ t('suppliersBalance.willClose', { value: fmt(appliedPreview, form.debtCurrency) }) }}
@@ -330,9 +340,9 @@ import { fetchPaymentTypes, type PaymentType } from '@/api/payments'
 import { formatApiError } from '@/api/http'
 import { useAuthStore } from '@/stores/auth'
 import { useFilialScope } from '@/composables/useFilialScope'
-import { amountToText, formatAmountInput, formatDate, nowLocal, toApiDate } from '@/utils/format'
+import { formatAmountInput, formatDate, nowLocal, toApiDate } from '@/utils/format'
 import { CURRENCIES, currencySymbol, formatRate, moneyIn, type CurrencyCode } from '@/utils/currency'
-import { fetchCurrentRate } from '@/api/exchangeRates'
+import { useCbuRate } from '@/composables/useCbuRate'
 
 const { t } = useI18n()
 const auth = useAuthStore()
@@ -361,7 +371,6 @@ const editingPaymentId = ref<number | null>(null)
 const saving = ref(false)
 const formError = ref<string | null>(null)
 const amountText = ref('')
-const rateText = ref('')
 const form = reactive({
   supplierId: 0,
   paidSumm: 0,
@@ -486,31 +495,18 @@ function setAmount(value: number) {
   amountText.value = formatAmountInput(String(value)).text
 }
 
-function setRate(value: number) {
-  form.exchangeRate = value
-  rateText.value = amountToText(value)
-}
+const { rate: cbuRate, rateDate: cbuRateDate, loading: rateLoading } = useCbuRate(
+  () => (isCross.value ? (paymentCurrency.value !== 'UZS' ? paymentCurrency.value : form.debtCurrency) : null),
+  () => form.paidDate,
+)
 
-function onRateInput(e: Event) {
-  const el = e.target as HTMLInputElement
-  const { text, value } = formatAmountInput(el.value)
-  rateText.value = text
-  el.value = text
-  form.exchangeRate = value
-}
-
-watch(isCross, () => void ensureRate())
-
-async function ensureRate() {
-  if (!isCross.value || form.exchangeRate > 0) return
-  const foreign = paymentCurrency.value !== 'UZS' ? paymentCurrency.value : form.debtCurrency
-  try {
-    const rate = (await fetchCurrentRate(foreign)).data?.rate
-    if (rate && !(form.exchangeRate > 0)) setRate(Number(rate))
-  } catch {
-    /* kurs yo'q — qo'lda kiritiladi */
-  }
-}
+watch(
+  [isCross, cbuRate],
+  () => {
+    form.exchangeRate = isCross.value ? cbuRate.value : 0
+  },
+  { immediate: true },
+)
 
 function defaultPaymentTypeFor(currency: CurrencyCode) {
   return (paymentTypes.value.find((pt) => (pt.currency || 'UZS') === currency) || paymentTypes.value[0])?.id || 0
@@ -532,11 +528,9 @@ function openPayment(supplierId?: number, debt?: number, currency: CurrencyCode 
   form.debtCurrency = currency
   form.paymentTypeId = defaultPaymentTypeFor(currency)
   form.comment = ''
-  setRate(0)
   setAmount(debt && debt > 0 ? debt : 0)
   if (!debt) amountText.value = ''
   paymentModal.value = true
-  void ensureRate()
 }
 
 function openPaymentEdit(p: SupplierPayment) {
@@ -544,7 +538,6 @@ function openPaymentEdit(p: SupplierPayment) {
   formError.value = null
   form.supplierId = p.supplierId || 0
   form.paidDate = p.paidDate ? p.paidDate.slice(0, 16) : nowLocal()
-  setRate((p.currency || 'UZS') !== (p.debtCurrency || 'UZS') ? Number(p.exchangeRate || 0) : 0)
   form.debtCurrency = p.debtCurrency || 'UZS'
   form.paymentTypeId = p.paymentTypeId || 0
   form.comment = p.comment || ''
@@ -573,7 +566,6 @@ async function onPaymentSubmit() {
     paymentTypeId: form.paymentTypeId,
     comment: form.comment.trim() || undefined,
     debtCurrency: form.debtCurrency,
-    exchangeRate: isCross.value ? form.exchangeRate : undefined,
   }
   saving.value = true
   try {

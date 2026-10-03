@@ -22,8 +22,15 @@
           <tbody>
             <tr v-for="r in roles" :key="r.id" class="border-b border-gray-100 dark:border-gray-800">
               <td class="td">{{ r.id }}</td>
-              <td class="td font-medium text-gray-800 dark:text-white/90">{{ r.name }}</td>
-              <td class="td">{{ r.status || 'ACTIVE' }}</td>
+              <td class="td">
+                <p class="font-medium text-gray-800 dark:text-white/90">{{ roleLabel(r.name, t) }}</p>
+                <p v-if="roleLabel(r.name, t) !== r.name" class="role-code">{{ r.name }}</p>
+              </td>
+              <td class="td">
+                <span :class="['status-pill', (r.status || 'ACTIVE') === 'ACTIVE' ? 'on' : 'off']">
+                  {{ (r.status || 'ACTIVE') === 'ACTIVE' ? t('common.active') : t('common.inactive') }}
+                </span>
+              </td>
               <td class="td text-right">
                 <RowActions @edit="openEdit(r)" @delete="onDelete(r)">
                   <button
@@ -73,7 +80,7 @@
             <h3 class="text-lg font-semibold text-gray-800">{{ t('settings.roles.permissions') }}</h3>
             <i18n-t keypath="settings.roles.permsHint" tag="p" class="mt-1 text-sm text-gray-500">
               <template #name>
-                <span class="font-medium text-brand-500">{{ permRole.name }}</span>
+                <span class="font-medium text-brand-500">{{ roleLabel(permRole.name, t) }}</span>
               </template>
             </i18n-t>
           </div>
@@ -137,7 +144,7 @@ import {
   type RoleItem,
 } from '@/api/roles'
 import { formatApiError } from '@/api/http'
-import { permissionLabel } from '@/utils/permissions'
+import { permissionLabel, roleLabel } from '@/utils/permissions'
 
 const { t } = useI18n()
 const roles = ref<RoleItem[]>([])
@@ -204,7 +211,7 @@ async function onSaveName() {
 }
 
 async function onDelete(r: RoleItem) {
-  if (!confirm(t('common.deleteConfirmNamed', { name: r.name }))) return
+  if (!confirm(t('common.deleteConfirmNamed', { name: roleLabel(r.name, t) }))) return
   try {
     await deleteRole(r.id)
     if (permRole.value?.id === r.id) closePerms()
@@ -261,7 +268,7 @@ async function onSavePerms() {
   try {
     for (const id of toAdd) await assignPermission(roleId, id)
     for (const id of toRemove) await removePermission(roleId, id)
-    ok.value = t('settings.roles.permsSaved', { name: permRole.value.name })
+    ok.value = t('settings.roles.permsSaved', { name: roleLabel(permRole.value.name, t) })
     closePerms()
   } catch (e) {
     formError.value = formatApiError(e)
@@ -284,6 +291,36 @@ onMounted(load)
   padding: 0.75rem 1.25rem;
   font-size: 0.875rem;
   color: #4b5563;
+}
+.role-code {
+  margin-top: 0.15rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.02em;
+  color: #9ca3af;
+}
+.status-pill {
+  display: inline-flex;
+  border-radius: 9999px;
+  padding: 0.1rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+.status-pill.on {
+  background: #ecfdf3;
+  color: #027a48;
+}
+.status-pill.off {
+  background: #f2f4f7;
+  color: #667085;
+}
+.dark .status-pill.on {
+  background: rgb(18 183 106 / 12%);
+  color: #6ce9a6;
+}
+.dark .status-pill.off {
+  background: rgb(255 255 255 / 6%);
+  color: #98a2b3;
 }
 .empty {
   padding: 2rem;

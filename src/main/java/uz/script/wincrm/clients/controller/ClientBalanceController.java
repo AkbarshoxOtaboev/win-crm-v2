@@ -81,7 +81,7 @@ public class ClientBalanceController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate
     ) {
         return ResponseEntity.ok(
-                RestApiResponse.<ClientBalanceResponse>builder()
+                RestApiResponse.<List<ClientBalanceResponse>>builder()
                         .message("Client balance found successfully")
                         .data(service.findByClientId(clientId, fromDate, toDate))
                         .build()
@@ -107,7 +107,7 @@ public class ClientBalanceController {
         // recalculateClientBalance() har doim barcha vaqt (all-time) balansini qayta hisoblaydi,
         // shu sababli natija ham findByClientId (joriy oy) emas, findAllTimeByClientId orqali qaytariladi.
         return ResponseEntity.ok(
-                RestApiResponse.<ClientBalanceResponse>builder()
+                RestApiResponse.<List<ClientBalanceResponse>>builder()
                         .message("Client balance recalculated successfully")
                         .data(service.findAllTimeByClientId(clientId))
                         .build()

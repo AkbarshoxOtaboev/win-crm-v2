@@ -178,7 +178,12 @@
                   #{{ s.saleOrderId }}
                   <div v-if="s.clientFullName" class="text-xs text-gray-500">{{ s.clientFullName }}</div>
                 </td>
-                <td class="td whitespace-nowrap">{{ money(s.orderTotalSnapshot) }}</td>
+                <td class="td whitespace-nowrap">
+                  {{ money(s.orderTotalSnapshot) }}
+                  <div v-if="fxSnapshotText(s.sourceCurrency, s.sourceAmount, s.exchangeRate)" class="text-xs text-gray-500">
+                    {{ fxSnapshotText(s.sourceCurrency, s.sourceAmount, s.exchangeRate) }}
+                  </div>
+                </td>
                 <td class="td whitespace-nowrap text-xs">{{ t('transport.salary.split', { percent: s.percentSnapshot, n: s.workersCount }) }}</td>
                 <td class="td whitespace-nowrap font-medium">{{ money(s.amount) }}</td>
                 <td class="td">
@@ -289,6 +294,7 @@ import { formatApiError } from '@/api/http'
 import { useAuthStore } from '@/stores/auth'
 import { useFilialScope } from '@/composables/useFilialScope'
 import { formatDate, money } from '@/utils/format'
+import { fxSnapshotText } from '@/utils/currency'
 import { formatUzPhone, isCompleteUzPhone, phoneDigits } from '@/utils/phone'
 
 const { t } = useI18n()

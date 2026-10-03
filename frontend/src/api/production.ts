@@ -17,6 +17,31 @@ export interface ProductionOrder {
   route?: ProductionRouteStep[]
   nextWorkshopId?: number | null
   nextWorkshopName?: string | null
+  boardAssignmentId?: number
+  boardAssignmentStatus?: 'PENDING' | 'ACTIVE' | 'DONE' | 'REDIRECTED' | string
+  acceptedAt?: string
+  submittedAt?: string
+  orderDate?: string
+  plannedReadyDate?: string
+  saleOrderComment?: string
+  items?: ProductionOrderItem[]
+  images?: ProductionOrderImage[]
+}
+
+export interface ProductionOrderItem {
+  id: number
+  goodsId?: number
+  goodsName?: string
+  width?: number
+  height?: number
+  count?: number
+  pieces?: number
+}
+
+export interface ProductionOrderImage {
+  id: number
+  url: string
+  originalFileName?: string
 }
 
 export interface ProductionRouteStep {
@@ -54,10 +79,11 @@ export function fetchProductionOrders() {
   return apiRequest<RestApiResponse<ProductionOrder[]>>('/api/production-orders')
 }
 
-export function fetchProductionBoard(workshopId: number) {
-  return apiRequest<RestApiResponse<ProductionOrder[]>>(
-    `/api/production-orders/board?workshopId=${workshopId}`,
-  )
+export function fetchProductionBoard(workshopId: number, fromDate?: string, toDate?: string) {
+  const params = new URLSearchParams({ workshopId: String(workshopId) })
+  if (fromDate) params.set('fromDate', fromDate)
+  if (toDate) params.set('toDate', toDate)
+  return apiRequest<RestApiResponse<ProductionOrder[]>>(`/api/production-orders/board?${params}`)
 }
 
 export function fetchProductionBySaleOrder(saleOrderId: number) {

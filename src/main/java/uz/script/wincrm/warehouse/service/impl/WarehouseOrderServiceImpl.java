@@ -78,7 +78,9 @@ public class WarehouseOrderServiceImpl implements WarehouseOrderService {
         order.setCreatedUsername(username);
         Currency currency = dto.getCurrency() != null ? dto.getCurrency() : Currency.BASE;
         order.setCurrency(currency);
-        order.setExchangeRate(resolveRate(currency, dto.getExchangeRate(), dto.getArrivalDate()));
+        order.setExchangeRate(currency.isBase() || dto.getExchangeRate() == null
+                ? resolveRate(currency, dto.getArrivalDate())
+                : dto.getExchangeRate());
 
         // Order yaratilganda hali item yo'q, totalSum = 0/null.
         // Supplier balansi (totalPurchase/totalDebt) faqat item qo'shilganda
@@ -180,11 +182,18 @@ public class WarehouseOrderServiceImpl implements WarehouseOrderService {
             throw new BadRequestException("Pozitsiyalar kiritilgan hujjat valyutasini o'zgartirib bo'lmaydi. "
                     + "Avval pozitsiyalarni o'chiring yoki yangi hujjat yarating.");
         }
-        BigDecimal newRate = newCurrency != oldCurrency || dto.getExchangeRate() != null
-                ? resolveRate(newCurrency, dto.getExchangeRate(), dto.getArrivalDate())
-                : order.getExchangeRate();
-        if (order.getOrderStatus() == WarehouseOrderStatus.TRANSFERRED
-                && order.getExchangeRate().compareTo(newRate) != 0) {
+        boolean transferred = order.getOrderStatus() == WarehouseOrderStatus.TRANSFERRED;
+        boolean arrivalDayChanged = dto.getArrivalDate() != null && order.getArrivalDate() != null
+                && !dto.getArrivalDate().toLocalDate().equals(order.getArrivalDate().toLocalDate());
+        BigDecimal newRate;
+        if (newCurrency != null && !newCurrency.isBase() && dto.getExchangeRate() != null) {
+            newRate = dto.getExchangeRate();
+        } else if (newCurrency != oldCurrency || (arrivalDayChanged && !transferred)) {
+            newRate = resolveRate(newCurrency, dto.getArrivalDate() != null ? dto.getArrivalDate() : order.getArrivalDate());
+        } else {
+            newRate = order.getExchangeRate();
+        }
+        if (transferred && order.getExchangeRate().compareTo(newRate) != 0) {
             throw new BadRequestException("Omborga o'tkazilgan hujjat kursini o'zgartirib bo'lmaydi: "
                     + "ombordagi tannarx shu kurs bilan hisoblangan.");
         }
@@ -304,12 +313,9 @@ public class WarehouseOrderServiceImpl implements WarehouseOrderService {
         return mapper.toResponse(order);
     }
 
-    private BigDecimal resolveRate(Currency currency, BigDecimal requested, LocalDateTime arrivalDate) {
+    private BigDecimal resolveRate(Currency currency, LocalDateTime arrivalDate) {
         if (currency == null || currency.isBase()) {
             return BigDecimal.ONE;
-        }
-        if (requested != null) {
-            return requested;
         }
         return exchangeRateService.rateOn(currency, arrivalDate != null ? arrivalDate.toLocalDate() : LocalDate.now());
     }

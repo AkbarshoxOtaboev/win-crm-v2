@@ -4,6 +4,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
+import uz.script.wincrm.currency.Currency;
+import uz.script.wincrm.currency.CurrencyAmount;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -24,8 +26,11 @@ public class DebtorClientResponse {
     @Schema(description = "Client phone number", example = "998901234567")
     private String phone;
 
-    @Schema(description = "Mijozning barcha buyurtmalari bo'yicha umumiy qarzi", example = "1500000.00")
+    @Schema(description = "Mijozning so'mdagi umumiy qarzi", example = "1500000.00")
     private BigDecimal totalDebt;
+
+    @Schema(description = "Mijozning har bir valyutadagi umumiy qarzi (faqat musbatlari)")
+    private List<CurrencyAmount> debts;
 
     @Schema(description = "Mijozning qarzi bor buyurtmalari ro'yxati")
     private List<DebtOrderInfo> orders;
@@ -39,8 +44,11 @@ public class DebtorClientResponse {
         @Schema(description = "Sale order ID", example = "1")
         private Long saleOrderId;
 
-        @Schema(description = "Buyurtma bo'yicha qarz summasi", example = "500000.00")
+        @Schema(description = "Buyurtma bo'yicha qarz summasi (buyurtma valyutasida)", example = "500000.00")
         private BigDecimal debtSum;
+
+        @Schema(description = "Buyurtma valyutasi", example = "UZS")
+        private Currency currency;
 
         @Schema(description = "Buyurtma sanasi")
         private LocalDateTime orderDate;

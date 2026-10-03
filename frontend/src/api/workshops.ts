@@ -57,8 +57,14 @@ export function fetchActiveWorkshops() {
   return apiRequest<RestApiResponse<Workshop[]>>('/api/workshops/active')
 }
 
-export function fetchWorkshopDashboard(workshopId: number) {
-  return apiRequest<RestApiResponse<WorkshopDashboard>>(`/api/workshops/${workshopId}/dashboard`)
+export function fetchWorkshopDashboard(workshopId: number, fromDate?: string, toDate?: string) {
+  const params = new URLSearchParams()
+  if (fromDate) params.set('fromDate', fromDate)
+  if (toDate) params.set('toDate', toDate)
+  const qs = params.toString()
+  return apiRequest<RestApiResponse<WorkshopDashboard>>(
+    `/api/workshops/${workshopId}/dashboard${qs ? `?${qs}` : ''}`,
+  )
 }
 
 export function setAssignmentFeePercent(assignmentId: number, feePercent: number) {

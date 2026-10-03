@@ -33,10 +33,7 @@ public class SupplierPaymentDTO {
     @Schema(description = "Payment type id; paidSumm is in its cash desk currency", example = "1")
     private Long paymentTypeId;
 
-    @Schema(description = "Which debt currency to close; null - same as payment currency", example = "USD")
+    @Schema(description = "Which debt currency to close; null - same as payment currency. "
+            + "Conversion uses the Central Bank rate for the payment date.", example = "USD")
     private Currency debtCurrency;
-
-    @DecimalMin(value = "0.0001", message = "Exchange rate must be positive")
-    @Schema(description = "1 foreign unit = rate UZS; null - company rate for the payment date", example = "12850")
-    private BigDecimal exchangeRate;
 }

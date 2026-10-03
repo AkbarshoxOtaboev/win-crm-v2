@@ -16,6 +16,7 @@ import uz.script.wincrm.production.response.ProductionOrderResponse;
 import uz.script.wincrm.production.service.ProductionOrderService;
 import uz.script.wincrm.utils.RestApiResponse;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -49,11 +50,16 @@ public class ProductionOrderController {
 
     @GetMapping("/board")
     @PreAuthorize("hasAuthority('PRODUCTION_ORDER_VIEW')")
-    @Operation(summary = "Workshop board — pending/active assignments")
-    public ResponseEntity<?> board(@RequestParam Long workshopId) {
+    @Operation(summary = "Workshop board — pending/active assignments plus ones finished in [fromDate, toDate], "
+            + "with sale order items and images")
+    public ResponseEntity<?> board(
+            @RequestParam Long workshopId,
+            @RequestParam(required = false) LocalDate fromDate,
+            @RequestParam(required = false) LocalDate toDate
+    ) {
         return ResponseEntity.ok(RestApiResponse.<List<ProductionOrderResponse>>builder()
                 .message("Workshop board fetched")
-                .data(service.board(workshopId))
+                .data(service.board(workshopId, fromDate, toDate))
                 .build());
     }
 

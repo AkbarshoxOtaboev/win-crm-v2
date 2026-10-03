@@ -2,11 +2,14 @@ package uz.script.wincrm.goods;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.SuperBuilder;
+import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.SQLRestriction;
+import uz.script.wincrm.currency.Currency;
 import uz.script.wincrm.goods.enums.Type;
 import uz.script.wincrm.sale.SaleOrderItem;
 import uz.script.wincrm.sale.SaleOrderWaste;
@@ -47,6 +50,13 @@ public class Goods extends FilialScopedEntity {
 
     @Column(nullable = false)
     private BigDecimal priceSelling;
+
+    /** priceSelling valyutasi; priceCost doim so'mda (ombor tannarxi). */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "price_currency", nullable = false, length = 3)
+    @ColumnDefault("'UZS'")
+    @Builder.Default
+    private Currency priceCurrency = Currency.UZS;
 
 
     private String barcode;

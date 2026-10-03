@@ -6,6 +6,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import uz.script.wincrm.clients.Client;
+import uz.script.wincrm.currency.Currency;
+import uz.script.wincrm.currency.CurrencyAmount;
 import uz.script.wincrm.exceptions.BadRequestException;
 import uz.script.wincrm.exceptions.ResourceNotFoundException;
 import uz.script.wincrm.sale.SaleOrder;
@@ -20,6 +22,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Comparator;
+import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -59,27 +62,36 @@ public class SellerDebtServiceImpl implements SellerDebtService {
     private SellerDebtResponse toSellerResponse(List<SaleOrder> orders) {
         User seller = orders.getFirst().getUser();
 
-        Map<Long, List<SaleOrder>> byClient = orders.stream()
+        Map<String, List<SaleOrder>> byClientAndCurrency = orders.stream()
                 .collect(Collectors.groupingBy(
-                        o -> o.getClient() != null ? o.getClient().getId() : 0L,
+                        o -> (o.getClient() != null ? o.getClient().getId() : 0L) + ":" + o.currencyOrBase(),
                         LinkedHashMap::new,
                         Collectors.toList()));
 
-        List<SellerDebtResponse.ClientDebt> clients = byClient.values().stream()
+        List<SellerDebtResponse.ClientDebt> clients = byClientAndCurrency.values().stream()
                 .map(this::toClientDebt)
-                .sorted(Comparator.comparing(SellerDebtResponse.ClientDebt::getDebt).reversed())
+                .sorted(Comparator.comparing(SellerDebtResponse.ClientDebt::getCurrency)
+                        .thenComparing(SellerDebtResponse.ClientDebt::getDebt, Comparator.reverseOrder()))
+                .toList();
+
+        Map<Currency, BigDecimal> debtsByCurrency = new EnumMap<>(Currency.class);
+        clients.forEach(c -> debtsByCurrency.merge(c.getCurrency(), c.getDebt(), BigDecimal::add));
+        List<CurrencyAmount> debts = debtsByCurrency.entrySet().stream()
+                .map(e -> new CurrencyAmount(e.getKey(), e.getValue()))
                 .toList();
 
         return SellerDebtResponse.builder()
                 .userId(seller.getId())
                 .userFullName(seller.getFullName() != null ? seller.getFullName() : seller.getUsername())
-                .totalDebt(sum(clients.stream().map(SellerDebtResponse.ClientDebt::getDebt).toList()))
+                .totalDebt(debtsByCurrency.getOrDefault(Currency.BASE, BigDecimal.ZERO))
+                .debts(debts)
                 .clients(clients)
                 .build();
     }
 
     private SellerDebtResponse.ClientDebt toClientDebt(List<SaleOrder> orders) {
         Client client = orders.getFirst().getClient();
+        Currency currency = orders.getFirst().currencyOrBase();
 
         List<SellerDebtResponse.OrderDebt> orderDebts = orders.stream()
                 .sorted(Comparator.comparing(SaleOrder::getOrderDate))
@@ -89,6 +101,7 @@ public class SellerDebtServiceImpl implements SellerDebtService {
                         .totalSum(o.getTotalSum())
                         .paidSum(orZero(o.getPaidSum()))
                         .debtSum(orZero(o.getDebtSum()))
+                        .currency(currency)
                         .status(o.getSalesOrderStatus())
                         .build())
                 .toList();
@@ -97,6 +110,7 @@ public class SellerDebtServiceImpl implements SellerDebtService {
                 .clientId(client != null ? client.getId() : null)
                 .clientFullName(client != null ? client.getFullName() : null)
                 .phone(client != null ? client.getPhone() : null)
+                .currency(currency)
                 .totalSum(sum(orderDebts.stream().map(SellerDebtResponse.OrderDebt::getTotalSum).toList()))
                 .paidSum(sum(orderDebts.stream().map(SellerDebtResponse.OrderDebt::getPaidSum).toList()))
                 .debt(sum(orderDebts.stream().map(SellerDebtResponse.OrderDebt::getDebtSum).toList()))

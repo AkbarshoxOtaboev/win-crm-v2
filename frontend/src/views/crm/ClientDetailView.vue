@@ -65,6 +65,19 @@
           </div>
         </div>
 
+        <div v-if="clientCurrencies.length > 1" class="cur-switch mt-5">
+          <span class="text-sm text-gray-500">{{ t('clientDetail.viewCurrency') }}</span>
+          <button
+            v-for="c in clientCurrencies"
+            :key="c"
+            type="button"
+            class="cur-pill"
+            :class="{ active: viewCurrency === c }"
+            @click="viewCurrency = c"
+          >
+            {{ t(`exchangeRates.currencies.${c}`) }}
+          </button>
+        </div>
         <div class="mt-6 grid grid-cols-1 gap-4 border-t border-gray-100 pt-5 sm:grid-cols-3 dark:border-gray-800">
           <div>
             <p class="text-sm text-gray-500">{{ t('clientDetail.totalSales') }}</p>
@@ -435,8 +448,8 @@
                 <td class="td">{{ it.goodsName || '—' }}</td>
                 <td class="td">{{ it.warehouseName || '—' }}</td>
                 <td class="td">{{ it.count ?? '—' }}</td>
-                <td class="td">{{ moneySom(it.priceCost) }}</td>
-                <td class="td">{{ moneySom(it.priceSelling) }}</td>
+                <td class="td whitespace-nowrap">{{ moneySom(it.priceCost) }}</td>
+                <td class="td whitespace-nowrap">{{ moneySom(it.priceSelling) }}</td>
                 <td class="td">
                   <router-link
                     v-if="it.saleOrderId"
@@ -504,7 +517,10 @@
                       <div class="font-medium text-gray-800 dark:text-white/90">#{{ p.id }} · {{ p.paymentTypeName || '—' }}</div>
                       <div class="text-xs text-gray-500">{{ formatDate(p.paymentDate) }}<template v-if="p.comment"> · {{ p.comment }}</template></div>
                     </td>
-                    <td class="td text-end font-semibold text-success-600">{{ moneySom(p.paymentAmount) }}</td>
+                    <td class="td whitespace-nowrap text-end font-semibold text-success-600">
+                      {{ moneySom(applied(p)) }}
+                      <div v-if="(p.currency || 'UZS') !== viewCurrency" class="text-xs font-normal text-gray-400">{{ cashText(p) }}</div>
+                    </td>
                   </tr>
                 </tbody>
               </table>
@@ -528,7 +544,7 @@
                     <td class="td">
                       <router-link :to="`/sales/${o.id}`" class="font-medium text-brand-500">#{{ o.id }}</router-link>
                       <div class="text-xs text-gray-500">
-                        {{ formatDate(o.orderDate) }} · {{ t('clientDetail.allocation.debtLeft') }}: {{ money(o.debtSum) }}
+                        {{ formatDate(o.orderDate) }} · {{ t('clientDetail.allocation.debtLeft') }}: {{ moneySom(o.debtSum) }}
                       </div>
                     </td>
                     <td class="td w-36">
@@ -549,9 +565,9 @@
           </div>
 
           <div class="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
-            <span class="text-gray-500">{{ t('clientDetail.allocation.selected') }}: <b class="text-gray-800 dark:text-white/90">{{ money(selectedPool) }}</b></span>
-            <span class="text-gray-500">{{ t('clientDetail.allocation.allocating') }}: <b class="text-brand-500">{{ money(allocatingTotal) }}</b></span>
-            <span class="text-gray-500">{{ t('clientDetail.allocation.left') }}: <b :class="allocationLeft < 0 ? 'text-error-600' : 'text-gray-800 dark:text-white/90'">{{ money(allocationLeft) }}</b></span>
+            <span class="text-gray-500">{{ t('clientDetail.allocation.selected') }}: <b class="text-gray-800 dark:text-white/90">{{ moneySom(selectedPool) }}</b></span>
+            <span class="text-gray-500">{{ t('clientDetail.allocation.allocating') }}: <b class="text-brand-500">{{ moneySom(allocatingTotal) }}</b></span>
+            <span class="text-gray-500">{{ t('clientDetail.allocation.left') }}: <b :class="allocationLeft < 0 ? 'text-error-600' : 'text-gray-800 dark:text-white/90'">{{ moneySom(allocationLeft) }}</b></span>
             <button
               type="button"
               class="btn ms-auto"
@@ -588,18 +604,19 @@
                     <router-link v-if="row.orderId" :to="`/sales/${row.orderId}`" class="text-brand-500">{{ row.title }}</router-link>
                     <span v-else>{{ row.title }}</span>
                     <span v-if="row.badge" class="ms-1.5 inline-flex rounded-md bg-warning-50 px-1.5 py-0.5 text-xs text-warning-700 dark:bg-warning-500/10 dark:text-warning-400">{{ row.badge }}</span>
+                    <div v-if="row.cashNote" class="text-xs text-gray-400">{{ t('clientDetail.statement.paidIn', { amount: row.cashNote }) }}</div>
                   </td>
-                  <td class="td text-end">{{ row.debit ? money(row.debit) : '' }}</td>
-                  <td class="td text-end text-success-600">{{ row.credit ? money(row.credit) : '' }}</td>
-                  <td class="td text-end font-medium" :class="row.balance > 0 ? 'text-error-600' : 'text-gray-800 dark:text-white/90'">{{ money(row.balance) }}</td>
+                  <td class="td text-end">{{ row.debit ? stmtMoney(row.debit) : '' }}</td>
+                  <td class="td text-end text-success-600">{{ row.credit ? stmtMoney(row.credit) : '' }}</td>
+                  <td class="td text-end font-medium" :class="row.balance > 0 ? 'text-error-600' : 'text-gray-800 dark:text-white/90'">{{ stmtMoney(row.balance) }}</td>
                 </tr>
               </tbody>
               <tfoot v-if="statementRows.length">
                 <tr>
                   <td class="td font-semibold" colspan="2">{{ t('clientDetail.statement.total') }}</td>
-                  <td class="td text-end font-semibold">{{ money(statementTotals.debit) }}</td>
-                  <td class="td text-end font-semibold text-success-600">{{ money(statementTotals.credit) }}</td>
-                  <td class="td text-end font-semibold" :class="statementTotals.debit - statementTotals.credit > 0 ? 'text-error-600' : ''">{{ money(statementTotals.debit - statementTotals.credit) }}</td>
+                  <td class="td text-end font-semibold">{{ stmtMoney(statementTotals.debit) }}</td>
+                  <td class="td text-end font-semibold text-success-600">{{ stmtMoney(statementTotals.credit) }}</td>
+                  <td class="td text-end font-semibold" :class="statementTotals.debit - statementTotals.credit > 0 ? 'text-error-600' : ''">{{ stmtMoney(statementTotals.debit - statementTotals.credit) }}</td>
                 </tr>
               </tfoot>
             </table>
@@ -629,7 +646,10 @@
                 class="border-b border-gray-100 dark:border-gray-800"
               >
                 <td class="td">{{ p.id }}</td>
-                <td class="td font-semibold text-success-600">{{ moneySom(p.paymentAmount) }}</td>
+                <td class="td whitespace-nowrap font-semibold text-success-600">
+                  {{ cashText(p) }}
+                  <div v-if="(p.currency || 'UZS') !== viewCurrency" class="text-xs font-normal text-gray-400">→ {{ moneySom(applied(p)) }}</div>
+                </td>
                 <td class="td">{{ p.paymentTypeName || '—' }}</td>
                 <td class="td">
                   <router-link
@@ -746,7 +766,9 @@
         </div>
 
         <div class="mt-6 border-t border-gray-100 pt-4 dark:border-gray-800">
-          <h5 class="mb-3 font-medium text-gray-700">{{ t('clientDetail.balanceSettings') }}</h5>
+          <h5 class="mb-3 font-medium text-gray-700">
+            {{ t('clientDetail.balanceSettings') }}<template v-if="clientCurrencies.length > 1"> · {{ t(`exchangeRates.currencies.${viewCurrency}`) }}</template>
+          </h5>
           <div class="flex flex-wrap items-end gap-2">
             <button type="button" class="btn" @click="onRecalc">{{ t('clientDetail.recalc') }}</button>
             <form class="flex flex-wrap gap-2" @submit.prevent="onAdjust">
@@ -870,6 +892,7 @@ import RowActions from '@/components/crm/RowActions.vue'
 import { fetchClient, updateClient, type Client, type ClientPayload } from '@/api/clients'
 import {
   adjustClientBalance,
+  balanceIn,
   fetchClientBalance,
   recalculateClientBalance,
   type ClientBalance,
@@ -888,6 +911,7 @@ import { fetchDebtHistoryByClient, sendDebtSmsToClient, type DebtNotificationHis
 import { fetchSaleOrderItemsByClient, type SaleOrderItem } from '@/api/saleOrderItems'
 import { formatApiError } from '@/api/http'
 import { formatDate, money, today } from '@/utils/format'
+import { BASE_CURRENCY, CURRENCIES, moneyIn, type CurrencyCode } from '@/utils/currency'
 import { phoneDigits } from '@/utils/phone'
 
 type TabKey =
@@ -934,12 +958,48 @@ const loading = ref(true)
 const error = ref<string | null>(null)
 const formError = ref<string | null>(null)
 const client = ref<Client | null>(null)
-const balance = ref<ClientBalance | null>(null)
+const balances = ref<ClientBalance[]>([])
 const notes = ref<ClientNote[]>([])
-const sales = ref<SaleOrder[]>([])
-const payments = ref<Payment[]>([])
+const allSales = ref<SaleOrder[]>([])
+const allPayments = ref<Payment[]>([])
 const sms = ref<DebtNotificationHistory[]>([])
-const items = ref<SaleOrderItem[]>([])
+const allItems = ref<SaleOrderItem[]>([])
+
+/** Sahifa tanlangan valyutada ko'rsatiladi: turli valyutadagi summalar hech qachon qo'shilmaydi. */
+const viewCurrency = ref<CurrencyCode>(BASE_CURRENCY)
+const clientCurrencies = computed<CurrencyCode[]>(() => {
+  const set = new Set<CurrencyCode>([BASE_CURRENCY])
+  balances.value.forEach((b) => set.add(b.currency || BASE_CURRENCY))
+  allSales.value.forEach((o) => set.add(o.currency || BASE_CURRENCY))
+  allPayments.value.forEach((p) => set.add(p.debtCurrency || BASE_CURRENCY))
+  return CURRENCIES.filter((c) => set.has(c))
+})
+const balance = computed(() => balanceIn(balances.value, viewCurrency.value) || null)
+const sales = computed(() => allSales.value.filter((o) => (o.currency || BASE_CURRENCY) === viewCurrency.value))
+const payments = computed(() =>
+  allPayments.value.filter((p) => (p.debtCurrency || BASE_CURRENCY) === viewCurrency.value),
+)
+const salesById = computed(() => new Map(sales.value.map((o) => [o.id, o])))
+/** Pozitsiya tannarxi so'mda saqlanadi - xorijiy buyurtmada buyurtma kursi bo'yicha o'giriladi. */
+const items = computed(() =>
+  allItems.value
+    .filter((it) => it.saleOrderId != null && salesById.value.has(it.saleOrderId))
+    .map((it) => {
+      const order = salesById.value.get(it.saleOrderId as number)
+      const rate = Number(order?.exchangeRate || 0)
+      if (viewCurrency.value === BASE_CURRENCY || !(rate > 0) || it.priceCost == null) return it
+      return { ...it, priceCost: Math.round((Number(it.priceCost) / rate) * 100) / 100 }
+    }),
+)
+
+function applied(p: Payment) {
+  return Number(p.appliedAmount ?? p.paymentAmount ?? 0)
+}
+
+function cashText(p: Payment) {
+  const cur = p.currency || BASE_CURRENCY
+  return cur === BASE_CURRENCY ? `${money(p.paymentAmount)} ${t('clientDetail.currency')}` : moneyIn(p.paymentAmount, cur)
+}
 const smsSending = ref(false)
 const chartMounted = ref(false)
 const editOpen = ref(false)
@@ -967,7 +1027,12 @@ function clientId() {
 }
 
 function moneySom(v?: number | null) {
-  return `${money(v)} ${t('clientDetail.currency')}`
+  return viewCurrency.value === BASE_CURRENCY ? `${money(v)} ${t('clientDetail.currency')}` : moneyIn(v, viewCurrency.value)
+}
+
+/** Akt sverka jadvali: so'mda faqat raqam (eski ko'rinish), xorijiy valyutada belgisi bilan. */
+function stmtMoney(v?: number | null) {
+  return viewCurrency.value === BASE_CURRENCY ? money(v) : moneyIn(v, viewCurrency.value)
 }
 
 function initials(name: string) {
@@ -1015,7 +1080,7 @@ const unallocatedPayments = computed(() =>
   payments.value.filter((p) => !p.saleOrderId).sort(byDateAsc((p) => p.paymentDate)),
 )
 const unallocatedTotal = computed(() =>
-  unallocatedPayments.value.reduce((s, p) => s + Number(p.paymentAmount || 0), 0),
+  unallocatedPayments.value.reduce((s, p) => s + applied(p), 0),
 )
 const debtOrders = computed(() =>
   sales.value
@@ -1028,7 +1093,7 @@ const allPaymentsSelected = computed(
 const selectedPool = computed(() =>
   unallocatedPayments.value
     .filter((p) => selectedPaymentIds.value.includes(p.id))
-    .reduce((s, p) => s + Number(p.paymentAmount || 0), 0),
+    .reduce((s, p) => s + applied(p), 0),
 )
 const allocatingTotal = computed(() =>
   selectedOrderIds.value.reduce((s, id) => s + Number(allocationAmounts[id] || 0), 0),
@@ -1083,7 +1148,7 @@ async function onAllocate() {
     const total = allocatingTotal.value
     resetAllocation()
     await load()
-    allocationMessage.value = t('clientDetail.allocation.success', { amount: money(total) })
+    allocationMessage.value = t('clientDetail.allocation.success', { amount: moneySom(total) })
   } catch (e) {
     error.value = formatApiError(e)
   } finally {
@@ -1108,6 +1173,8 @@ type StatementRow = {
   date: string
   title: string
   badge?: string
+  /** Boshqa valyutada to'langan bo'lsa, kassaga tushgan summa. */
+  cashNote?: string
   orderId?: number
   debit: number
   credit: number
@@ -1135,8 +1202,9 @@ const statementRows = computed<StatementRow[]>(() => {
         ? t('clientDetail.statement.paymentFor', { id: p.id, type: p.paymentTypeName || '—', order: p.saleOrderId })
         : t('clientDetail.statement.payment', { id: p.id, type: p.paymentTypeName || '—' }),
       badge: p.saleOrderId ? undefined : t('clientDetail.allocation.unallocatedShort'),
+      cashNote: (p.currency || BASE_CURRENCY) !== viewCurrency.value ? cashText(p) : undefined,
       debit: 0,
-      credit: Number(p.paymentAmount || 0),
+      credit: applied(p),
     })
   }
   entries.sort((a, b) => a.date.localeCompare(b.date) || b.debit - a.debit)
@@ -1299,7 +1367,7 @@ const activityEvents = computed(() => {
     events.push({
       key: `p-${p.id}`,
       title: t('clientDetail.paymentN', { id: p.id }),
-      meta: `${moneySom(p.paymentAmount)} · ${formatDate(p.paymentDate)}`,
+      meta: `${cashText(p)} · ${formatDate(p.paymentDate)}`,
       color: '#12b76a',
       at: p.paymentDate || '',
     })
@@ -1330,20 +1398,20 @@ async function load() {
       fetchDebtHistoryByClient(id, 0, 100),
     ])
     client.value = c.data
-    balance.value = b.data
+    balances.value = b.data || []
     notes.value = n.data || []
-    sales.value = s.data?.content || []
-    payments.value = p.data?.content || []
+    allSales.value = s.data?.content || []
+    allPayments.value = p.data?.content || []
     sms.value = h.data?.content || []
-    adjPurchase.value = Number(balance.value?.totalPurchase || 0)
-    adjPaid.value = Number(balance.value?.totalPaid || 0)
+    if (!clientCurrencies.value.includes(viewCurrency.value)) viewCurrency.value = BASE_CURRENCY
+    syncAdjustForm()
     nextPaymentDate.value = localStorage.getItem(paymentKey()) || ''
 
     try {
       const it = await fetchSaleOrderItemsByClient(id, 0, 500)
-      items.value = it.data?.content || []
+      allItems.value = it.data?.content || []
     } catch {
-      items.value = []
+      allItems.value = []
     }
   } catch (e) {
     error.value = formatApiError(e)
@@ -1378,10 +1446,21 @@ async function onSendSms() {
   }
 }
 
+function syncAdjustForm() {
+  adjPurchase.value = Number(balance.value?.totalPurchase || 0)
+  adjPaid.value = Number(balance.value?.totalPaid || 0)
+}
+
+watch(viewCurrency, () => {
+  resetAllocation()
+  syncAdjustForm()
+})
+
 async function onRecalc() {
   try {
     const res = await recalculateClientBalance(clientId())
-    balance.value = res.data
+    balances.value = res.data || []
+    syncAdjustForm()
   } catch (e) {
     error.value = formatApiError(e)
   }
@@ -1392,8 +1471,13 @@ async function onAdjust() {
     const res = await adjustClientBalance(clientId(), {
       totalPurchase: adjPurchase.value,
       totalPaid: adjPaid.value,
+      currency: viewCurrency.value,
     })
-    balance.value = res.data
+    const updated = res.data
+    if (updated) {
+      const cur = updated.currency || BASE_CURRENCY
+      balances.value = [...balances.value.filter((b) => (b.currency || BASE_CURRENCY) !== cur), updated]
+    }
   } catch (e) {
     error.value = formatApiError(e)
   }
@@ -1559,6 +1643,34 @@ onMounted(() => {
 }
 .dark .tab-pill.active {
   background: #1f2937;
+  color: #fff;
+}
+.cur-switch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.cur-pill {
+  border-radius: 9999px;
+  border: 1px solid #e5e7eb;
+  padding: 0.3rem 0.85rem;
+  font-size: 0.8125rem;
+  color: #4b5563;
+}
+.cur-pill.active {
+  border-color: #465fff;
+  background: #465fff;
+  color: #fff;
+  font-weight: 600;
+}
+.dark .cur-pill {
+  border-color: #374151;
+  color: #d1d5db;
+}
+.dark .cur-pill.active {
+  border-color: #465fff;
+  background: #465fff;
   color: #fff;
 }
 .kpi-card {

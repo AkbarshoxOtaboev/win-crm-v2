@@ -10,6 +10,8 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import uz.script.wincrm.clients.Client;
 import uz.script.wincrm.clients.repository.ClientRepository;
+import uz.script.wincrm.currency.Currency;
+import uz.script.wincrm.currency.CurrencyMath;
 import uz.script.wincrm.telegram.TelegramUser;
 import uz.script.wincrm.telegram.TelegramUserRole;
 import uz.script.wincrm.telegram.keyboard.TelegramKeyboards;
@@ -17,6 +19,7 @@ import uz.script.wincrm.telegram.repository.TelegramUserRepository;
 import uz.script.wincrm.telegram.service.TelegramBotDataService;
 import uz.script.wincrm.telegram.session.BotConversationState;
 import uz.script.wincrm.telegram.session.BotSessionService;
+import uz.script.wincrm.telegram.view.ClientBalanceView;
 import uz.script.wincrm.telegram.view.PaymentView;
 import uz.script.wincrm.telegram.view.SaleOrderView;
 import uz.script.wincrm.utils.Status;
@@ -210,9 +213,9 @@ public class CrmTelegramBot extends TelegramLongPollingBot {
         orders.forEach(order ->
                 sb.append("\u2022 №").append(order.id())
                         .append(" | ").append(order.orderDate() != null ? order.orderDate().format(DATE_FORMAT) : "-")
-                        .append(" | Jami: ").append(formatSum(order.totalSum()))
-                        .append(" | To'langan: ").append(formatSum(order.paidSum()))
-                        .append(" | Qarz: ").append(formatSum(order.debtSum()))
+                        .append(" | Jami: ").append(formatSum(order.totalSum(), order.currency()))
+                        .append(" | To'langan: ").append(formatSum(order.paidSum(), order.currency()))
+                        .append(" | Qarz: ").append(formatSum(order.debtSum(), order.currency()))
                         .append(" | Holat: ").append(order.salesOrderStatus())
                         .append("\n")
         );
@@ -239,7 +242,7 @@ public class CrmTelegramBot extends TelegramLongPollingBot {
                     ? " (Buyurtma №" + payment.saleOrderId() + ")"
                     : "";
             sb.append("\u2022 ").append(payment.paymentDate() != null ? payment.paymentDate().format(DATE_FORMAT) : "-")
-                    .append(" | ").append(formatSum(payment.paymentAmount()))
+                    .append(" | ").append(formatSum(payment.paymentAmount(), payment.currency()))
                     .append(orderInfo)
                     .append("\n");
         });
@@ -254,14 +257,24 @@ public class CrmTelegramBot extends TelegramLongPollingBot {
             return;
         }
 
-        String text = botDataService.findBalanceByClientId(client.getId())
-                .map(balance -> "\uD83D\uDCB0 Umumiy hisobot:\n\n" +
-                        "Jami xaridlar summasi: " + formatSum(balance.totalPurchase()) + "\n" +
-                        "Jami to'langan summa: " + formatSum(balance.totalPaid()) + "\n" +
-                        "Umumiy qarzdorlik: " + formatSum(balance.totalDebt()))
-                .orElse("\uD83D\uDCB0 Sizning balansingiz hali hisoblanmagan.");
+        List<ClientBalanceView> balances = botDataService.findBalancesByClientId(client.getId());
+        if (balances.isEmpty()) {
+            sendPlain(user.getChatId(), "\uD83D\uDCB0 Sizning balansingiz hali hisoblanmagan.");
+            return;
+        }
 
-        sendPlain(user.getChatId(), text);
+        StringBuilder sb = new StringBuilder("\uD83D\uDCB0 Umumiy hisobot:");
+        for (ClientBalanceView balance : balances) {
+            sb.append("\n\n");
+            if (balances.size() > 1) {
+                sb.append("[").append(balance.currency()).append("]\n");
+            }
+            sb.append("Jami xaridlar summasi: ").append(formatSum(balance.totalPurchase(), balance.currency())).append("\n")
+                    .append("Jami to'langan summa: ").append(formatSum(balance.totalPaid(), balance.currency())).append("\n")
+                    .append("Umumiy qarzdorlik: ").append(formatSum(balance.totalDebt(), balance.currency()));
+        }
+
+        sendPlain(user.getChatId(), sb.toString());
     }
 
     private void sendAktOrderSelection(TelegramUser user) {
@@ -331,13 +344,16 @@ public class CrmTelegramBot extends TelegramLongPollingBot {
         }
 
         StringBuilder sb = new StringBuilder("\uD83E\uDDFE Akt sverka — Buyurtma №" + orderId + "\n\n" +
-                "Buyurtma summasi: " + formatSum(order.totalSum()) + "\n\n" +
+                "Buyurtma summasi: " + formatSum(order.totalSum(), order.currency()) + "\n\n" +
                 "To'langan summalar ro'yxati:\n");
 
         BigDecimal total = BigDecimal.ZERO;
         for (PaymentView payment : payments) {
             sb.append("\u2022 ").append(payment.paymentDate() != null ? payment.paymentDate().format(DATE_FORMAT) : "-")
-                    .append(" | ").append(formatSum(payment.paymentAmount()));
+                    .append(" | ").append(formatSum(payment.paymentAmount(), payment.currency()));
+            if (payment.currency() != payment.debtCurrency()) {
+                sb.append(" (→ ").append(formatSum(payment.appliedAmount(), payment.debtCurrency())).append(")");
+            }
             if (payment.paymentTypeName() != null) {
                 sb.append(" | ").append(payment.paymentTypeName());
             }
@@ -345,11 +361,11 @@ public class CrmTelegramBot extends TelegramLongPollingBot {
                 sb.append(" | ").append(payment.comment());
             }
             sb.append("\n");
-            total = total.add(nvl(payment.paymentAmount()));
+            total = total.add(nvl(payment.appliedAmount()));
         }
 
-        sb.append("\nJami to'langan: ").append(formatSum(total))
-                .append("\nQoldiq qarz: ").append(formatSum(order.debtSum()));
+        sb.append("\nJami to'langan: ").append(formatSum(total, order.currency()))
+                .append("\nQoldiq qarz: ").append(formatSum(order.debtSum(), order.currency()));
 
         sendPlain(chatId, sb.toString());
         sessionService.setState(chatId, BotConversationState.MAIN_MENU);
@@ -392,8 +408,8 @@ public class CrmTelegramBot extends TelegramLongPollingBot {
         return value == null ? BigDecimal.ZERO : value;
     }
 
-    private String formatSum(BigDecimal value) {
-        return nvl(value).toPlainString() + " so'm";
+    private String formatSum(BigDecimal value, Currency currency) {
+        return CurrencyMath.format(nvl(value), currency);
     }
 
     private void sendPlain(Long chatId, String text) {

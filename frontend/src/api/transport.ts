@@ -1,5 +1,6 @@
 import { apiRequest } from './http'
 import type { RestApiResponse } from './types'
+import type { CurrencyCode } from '@/utils/currency'
 
 export const DELIVERY_STATUSES = [
   'PENDING',
@@ -111,6 +112,10 @@ export interface WorkerSalary {
   workerId: number
   workerFullName?: string | null
   orderTotalSnapshot: number
+  /** Xorijiy valyutadagi buyurtma: orderTotalSnapshot = sourceAmount × exchangeRate. */
+  sourceCurrency?: CurrencyCode
+  sourceAmount?: number | null
+  exchangeRate?: number
   percentSnapshot: number
   workersCount: number
   amount: number

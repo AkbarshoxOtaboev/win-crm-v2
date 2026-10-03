@@ -5,6 +5,9 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
+import uz.script.wincrm.currency.Currency;
+import uz.script.wincrm.currency.CurrencyMath;
+import uz.script.wincrm.currency.service.ExchangeRateService;
 import uz.script.wincrm.exceptions.BadRequestException;
 import uz.script.wincrm.goods.Goods;
 import uz.script.wincrm.sale.SaleOrder;
@@ -14,10 +17,8 @@ import uz.script.wincrm.utils.Status;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.text.DecimalFormat;
-import java.text.DecimalFormatSymbols;
+import java.time.LocalDate;
 import java.util.List;
-import java.util.Locale;
 
 /**
  * Mahsulotdagi {@code maxDiscountPercent} chegarasini sotuvchilar uchun majburlaydi.
@@ -35,6 +36,7 @@ public class DiscountLimitPolicy {
     private static final BigDecimal TOLERANCE = new BigDecimal("0.0001");
 
     private final SaleOrderItemRepository itemRepository;
+    private final ExchangeRateService exchangeRateService;
 
     public boolean canBypass() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -49,12 +51,13 @@ public class DiscountLimitPolicy {
         return false;
     }
 
-    public void checkItemPrice(Goods goods, BigDecimal priceSelling) {
+    /** {@code priceSelling} buyurtma valyutasida; katalog narxi shu valyutaga buyurtma kursida o'giriladi. */
+    public void checkItemPrice(Goods goods, BigDecimal priceSelling, SaleOrder order) {
         if (goods == null || priceSelling == null || canBypass()) {
             return;
         }
         BigDecimal limit = limitFraction(goods);
-        BigDecimal list = goods.getPriceSelling();
+        BigDecimal list = listPriceIn(goods, order);
         if (limit == null || list == null || list.signum() <= 0) {
             return;
         }
@@ -62,9 +65,32 @@ public class DiscountLimitPolicy {
         if (reduction.compareTo(limit.add(TOLERANCE)) > 0) {
             BigDecimal minPrice = list.multiply(BigDecimal.ONE.subtract(limit)).setScale(2, RoundingMode.HALF_UP);
             throw new BadRequestException(String.format(
-                    "«%s» uchun ruxsat etilgan maksimal chegirma %s%%. Kiritilgan narx bilan chegirma %s%% bo'ladi. Minimal narx: %s so'm",
-                    goods.getName(), percent(limit), percent(reduction), money(minPrice)));
+                    "«%s» uchun ruxsat etilgan maksimal chegirma %s%%. Kiritilgan narx bilan chegirma %s%% bo'ladi. Minimal narx: %s",
+                    goods.getName(), percent(limit), percent(reduction),
+                    CurrencyMath.format(minPrice, order != null ? order.currencyOrBase() : null)));
         }
+    }
+
+    /**
+     * So'mdagi buyurtmaning kursi 1, shuning uchun xorijiy narxli mahsulot buyurtma sanasidagi kurs bilan
+     * o'giriladi. Kurs kiritilmagan bo'lsa null - tekshiruv o'tkazib yuboriladi.
+     */
+    private BigDecimal listPriceIn(Goods goods, SaleOrder order) {
+        BigDecimal list = goods.getPriceSelling();
+        Currency goodsCurrency = CurrencyMath.orBase(goods.getPriceCurrency());
+        if (list == null || order == null || goodsCurrency == order.currencyOrBase()) {
+            return list;
+        }
+        BigDecimal rate = order.getExchangeRate();
+        if (order.currencyOrBase().isBase()) {
+            try {
+                LocalDate date = order.getOrderDate() != null ? order.getOrderDate().toLocalDate() : LocalDate.now();
+                rate = exchangeRateService.rateOn(goodsCurrency, date);
+            } catch (BadRequestException e) {
+                return null;
+            }
+        }
+        return CurrencyMath.convert(list, goodsCurrency, order.currencyOrBase(), rate);
     }
 
     public void checkOrderDiscount(SaleOrder order, BigDecimal discountAmount) {
@@ -85,9 +111,9 @@ public class DiscountLimitPolicy {
         if (actual.compareTo(allowed.add(TOLERANCE)) > 0) {
             BigDecimal maxAmount = original.multiply(allowed).setScale(2, RoundingMode.HALF_UP);
             throw new BadRequestException(String.format(
-                    "Chegirma %s%% — bu buyurtma uchun ruxsat etilgan maksimal chegirma %s%% (%s so'm). "
+                    "Chegirma %s%% — bu buyurtma uchun ruxsat etilgan maksimal chegirma %s%% (%s). "
                             + "Kattaroq chegirma uchun administratorga murojaat qiling",
-                    percent(actual), percent(allowed), money(maxAmount)));
+                    percent(actual), percent(allowed), CurrencyMath.format(maxAmount, order.currencyOrBase())));
         }
     }
 
@@ -112,7 +138,7 @@ public class DiscountLimitPolicy {
                 remaining = BigDecimal.ONE;
             } else {
                 anyLimited = true;
-                BigDecimal list = goods.getPriceSelling();
+                BigDecimal list = listPriceIn(goods, item.getSaleOrder());
                 BigDecimal used = list != null && list.signum() > 0
                         ? reduction(list, item.getPriceSelling())
                         : BigDecimal.ZERO;
@@ -155,9 +181,4 @@ public class DiscountLimitPolicy {
         return fraction.multiply(HUNDRED).setScale(2, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString();
     }
 
-    private String money(BigDecimal value) {
-        DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.ROOT);
-        symbols.setGroupingSeparator(' ');
-        return new DecimalFormat("#,##0.##", symbols).format(value);
-    }
 }

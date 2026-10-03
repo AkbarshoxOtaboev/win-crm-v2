@@ -13,6 +13,7 @@ public class ClientBalanceMapper {
                 .id(balance.getId())
                 .clientId(balance.getClient().getId())
                 .clientFullName(balance.getClient().getFullName())
+                .currency(balance.getCurrency())
                 .totalPurchase(balance.getTotalPurchase())
                 .totalPaid(balance.getTotalPaid())
                 .totalDebt(balance.getTotalDebt())

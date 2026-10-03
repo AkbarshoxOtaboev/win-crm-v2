@@ -18,6 +18,8 @@ public class ExchangeRateResponse {
     private Currency currency;
     private LocalDate rateDate;
     private BigDecimal rate;
+    /** Oldingi kursga nisbatan o'zgarish (so'm); oldingi kurs bo'lmasa null. */
+    private BigDecimal change;
     private ExchangeRateSource source;
     private String createdUsername;
     private LocalDateTime updatedAt;

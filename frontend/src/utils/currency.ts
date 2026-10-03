@@ -18,6 +18,16 @@ export function currencySymbol(currency: CurrencyCode | null | undefined, somLab
   return currency === 'USD' ? '$' : somLabel
 }
 
+/** Maosh yozuvidagi o'girish izohi: "$800 × 12 850"; so'mdagi yozuvda bo'sh. */
+export function fxSnapshotText(
+  currency: CurrencyCode | null | undefined,
+  amount: number | null | undefined,
+  rate: number | null | undefined,
+) {
+  if (!currency || currency === BASE_CURRENCY || amount == null) return ''
+  return `${moneyIn(amount, currency)} × ${formatRate(rate)}`
+}
+
 /** Kurs: "1 USD = 11 772.95 so'm". */
 export function formatRate(rate: number | null | undefined) {
   if (rate == null) return '—'

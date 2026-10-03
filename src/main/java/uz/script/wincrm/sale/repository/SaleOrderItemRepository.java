@@ -6,8 +6,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
-import uz.script.wincrm.dashboard.responses.GoodsGroupSummaryResponse;
-import uz.script.wincrm.dashboard.responses.TopGoodsResponse;
 import uz.script.wincrm.goods.enums.Type;
 import uz.script.wincrm.sale.SaleOrderItem;
 
@@ -67,55 +65,19 @@ public interface SaleOrderItemRepository extends JpaRepository<SaleOrderItem, Lo
     // buyurtma DELETED bo'lsa ham qator ACTIVE qolishi mumkin.
 
     /**
-     * Berilgan sana oralig'ida eng ko'p miqdorda sotilgan mahsulotlar (kamayish tartibida).
-     * TOP N olish uchun Pageable ishlatiladi, masalan PageRequest.of(0, 10).
+     * Mahsulot bo'yicha sotuv qatorlari, buyurtma valyutasi, kursi va kuni bo'yicha alohida -
+     * summalar valyutaga o'girilgandan keyin jamlanadi (TOP mahsulotlar, guruhlar).
      * O'chirilgan (DELETED) va bekor qilingan (CANCELLED) buyurtmalar chiqarib tashlanadi.
+     * row: goodsId, goodsName, groupId, groupName, currency, exchangeRate, orderDay, SUM(count), SUM(count*price)
      */
-    @Query("SELECT new uz.script.wincrm.dashboard.responses.TopGoodsResponse(" +
-            "soi.goods.id, soi.goods.name, SUM(soi.count), SUM(soi.count * soi.priceSelling)) " +
-            "FROM SaleOrderItem soi " +
+    @Query("SELECT g.id, g.name, gg.id, gg.name, so.currency, so.exchangeRate, CAST(so.orderDate AS LocalDate), " +
+            "SUM(soi.count), SUM(soi.count * soi.priceSelling) " +
+            "FROM SaleOrderItem soi JOIN soi.saleOrder so JOIN soi.goods g LEFT JOIN g.goodsGroup gg " +
             "WHERE soi.arrivalDate BETWEEN :startDate AND :endDate " +
-            "AND soi.saleOrder.status <> 'DELETED' " +
-            "AND soi.saleOrder.salesOrderStatus <> uz.script.wincrm.sale.enums.SalesOrderStatus.CANCELLED " +
-            "GROUP BY soi.goods.id, soi.goods.name " +
-            "ORDER BY SUM(soi.count) DESC")
-    List<TopGoodsResponse> findTopGoodsByQuantity(
-            @Param("startDate") LocalDateTime startDate,
-            @Param("endDate") LocalDateTime endDate,
-            Pageable pageable
-    );
-
-    /**
-     * Berilgan sana oralig'ida eng ko'p summada sotilgan mahsulotlar (kamayish tartibida).
-     * O'chirilgan (DELETED) va bekor qilingan (CANCELLED) buyurtmalar chiqarib tashlanadi.
-     */
-    @Query("SELECT new uz.script.wincrm.dashboard.responses.TopGoodsResponse(" +
-            "soi.goods.id, soi.goods.name, SUM(soi.count), SUM(soi.count * soi.priceSelling)) " +
-            "FROM SaleOrderItem soi " +
-            "WHERE soi.arrivalDate BETWEEN :startDate AND :endDate " +
-            "AND soi.saleOrder.status <> 'DELETED' " +
-            "AND soi.saleOrder.salesOrderStatus <> uz.script.wincrm.sale.enums.SalesOrderStatus.CANCELLED " +
-            "GROUP BY soi.goods.id, soi.goods.name " +
-            "ORDER BY SUM(soi.count * soi.priceSelling) DESC")
-    List<TopGoodsResponse> findTopGoodsByAmount(
-            @Param("startDate") LocalDateTime startDate,
-            @Param("endDate") LocalDateTime endDate,
-            Pageable pageable
-    );
-
-    /**
-     * Berilgan sana oralig'ida GoodsGroup bo'yicha jamlangan miqdor va summa (kamayish tartibida).
-     * O'chirilgan (DELETED) va bekor qilingan (CANCELLED) buyurtmalar chiqarib tashlanadi.
-     */
-    @Query("SELECT new uz.script.wincrm.dashboard.responses.GoodsGroupSummaryResponse(" +
-            "soi.goods.goodsGroup.id, soi.goods.goodsGroup.name, SUM(soi.count), SUM(soi.count * soi.priceSelling)) " +
-            "FROM SaleOrderItem soi " +
-            "WHERE soi.arrivalDate BETWEEN :startDate AND :endDate " +
-            "AND soi.saleOrder.status <> 'DELETED' " +
-            "AND soi.saleOrder.salesOrderStatus <> uz.script.wincrm.sale.enums.SalesOrderStatus.CANCELLED " +
-            "GROUP BY soi.goods.goodsGroup.id, soi.goods.goodsGroup.name " +
-            "ORDER BY SUM(soi.count * soi.priceSelling) DESC")
-    List<GoodsGroupSummaryResponse> findGoodsGroupSummary(
+            "AND so.status <> 'DELETED' " +
+            "AND so.salesOrderStatus <> uz.script.wincrm.sale.enums.SalesOrderStatus.CANCELLED " +
+            "GROUP BY g.id, g.name, gg.id, gg.name, so.currency, so.exchangeRate, CAST(so.orderDate AS LocalDate)")
+    List<Object[]> findGoodsSalesRows(
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate
     );

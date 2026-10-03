@@ -25,6 +25,7 @@ import uz.script.wincrm.utils.PageUtils;
 import uz.script.wincrm.utils.RestApiResponse;
 import uz.script.wincrm.utils.response.PageResponse;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -68,7 +69,8 @@ public class PaymentController {
     @PreAuthorize("hasAuthority('PAYMENT_VIEW')")
     @Operation(
             summary = "Fetch all payments",
-            description = "Only users with PAYMENT_VIEW permission can use this endpoint."
+            description = "Only users with PAYMENT_VIEW permission can use this endpoint. " +
+                    "Optional filters: clientId, paymentTypeId, fromDate and toDate (inclusive, yyyy-MM-dd)."
     )
     @ApiResponse(
             responseCode = "200",
@@ -78,6 +80,10 @@ public class PaymentController {
             )
     )
     public ResponseEntity<RestApiResponse<PageResponse<PaymentResponse>>> fetchAll(
+            @RequestParam(required = false) Long clientId,
+            @RequestParam(required = false) Long paymentTypeId,
+            @RequestParam(required = false) LocalDate fromDate,
+            @RequestParam(required = false) LocalDate toDate,
             @ParameterObject
             @PageableDefault(size = 20, page = 0, sort = "id", direction = Sort.Direction.DESC)
             Pageable pageable
@@ -85,7 +91,7 @@ public class PaymentController {
         return ResponseEntity.ok(
                 RestApiResponse.<PageResponse<PaymentResponse>>builder()
                         .message("All payments fetched successfully")
-                        .data(PageUtils.from(service.fetchAll(pageable)))
+                        .data(PageUtils.from(service.search(clientId, paymentTypeId, fromDate, toDate, pageable)))
                         .build()
         );
     }

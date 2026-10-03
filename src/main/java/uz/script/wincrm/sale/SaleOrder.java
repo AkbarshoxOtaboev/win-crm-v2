@@ -2,12 +2,15 @@ package uz.script.wincrm.sale;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.SuperBuilder;
+import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.SQLRestriction;
 import uz.script.wincrm.clients.Client;
+import uz.script.wincrm.currency.Currency;
 import uz.script.wincrm.filial.FilialScopedEntity;
 import uz.script.wincrm.payment.Payment;
 import uz.script.wincrm.sale.enums.DeliveryType;
@@ -18,6 +21,7 @@ import uz.script.wincrm.utils.TableName;
 import uz.script.wincrm.warehouse.Warehouse;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -118,6 +122,19 @@ public class SaleOrder extends FilialScopedEntity {
 
     private BigDecimal debtSum;
 
+    /** Barcha summalar (narxlar, chegirma, yetkazish, to'langan, qarz) shu valyutada. */
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 3)
+    @ColumnDefault("'UZS'")
+    @Builder.Default
+    private Currency currency = Currency.UZS;
+
+    /** Buyurtma yaratilgan kungi kurs: 1 birlik valyuta = exchangeRate so'm (UZS uchun 1). */
+    @Column(name = "exchange_rate", nullable = false, precision = 19, scale = 4)
+    @ColumnDefault("1")
+    @Builder.Default
+    private BigDecimal exchangeRate = BigDecimal.ONE;
+
     @Enumerated(EnumType.STRING)
     private SalesOrderStatus salesOrderStatus;
 
@@ -137,6 +154,21 @@ public class SaleOrder extends FilialScopedEntity {
 
     @OneToMany(mappedBy = "saleOrder")
     private List<SaleOrderImage> saleOrderImages;
+
+    public Currency currencyOrBase() {
+        return currency != null ? currency : Currency.BASE;
+    }
+
+    /** Buyurtma kursida so'm ekvivalenti (hisobotlar uchun). */
+    public BigDecimal toBase(BigDecimal amount) {
+        if (amount == null) {
+            return null;
+        }
+        if (currencyOrBase().isBase() || exchangeRate == null) {
+            return amount;
+        }
+        return amount.multiply(exchangeRate).setScale(2, RoundingMode.HALF_UP);
+    }
 
     public BigDecimal deliveryFeeOrZero() {
         return deliveryFee != null ? deliveryFee : BigDecimal.ZERO;

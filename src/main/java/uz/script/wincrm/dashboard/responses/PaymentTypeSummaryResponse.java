@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
+import uz.script.wincrm.currency.Currency;
 
 import java.math.BigDecimal;
 
@@ -21,6 +22,9 @@ public class PaymentTypeSummaryResponse {
 
     @Schema(description = "Shu davrda shu turdagi to'lovlar umumiy summasi", example = "24500000.00")
     private BigDecimal totalAmount;
+
+    @Schema(description = "totalAmount valyutasi - kassa valyutasi", example = "UZS")
+    private Currency currency;
 
     @Schema(description = "Shu davrda shu turdagi to'lovlar soni", example = "37")
     private long paymentCount;

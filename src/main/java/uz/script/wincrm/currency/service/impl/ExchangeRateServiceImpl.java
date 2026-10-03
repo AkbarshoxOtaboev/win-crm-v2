@@ -7,18 +7,18 @@ import org.springframework.stereotype.Service;
 import uz.script.wincrm.currency.Currency;
 import uz.script.wincrm.currency.ExchangeRate;
 import uz.script.wincrm.currency.ExchangeRateSource;
-import uz.script.wincrm.currency.dto.ExchangeRateDTO;
 import uz.script.wincrm.currency.repository.ExchangeRateRepository;
 import uz.script.wincrm.currency.response.CbuRateResponse;
 import uz.script.wincrm.currency.response.ExchangeRateResponse;
 import uz.script.wincrm.currency.service.CbuRateClient;
 import uz.script.wincrm.currency.service.ExchangeRateService;
 import uz.script.wincrm.exceptions.BadRequestException;
-import uz.script.wincrm.exceptions.ResourceNotFoundException;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -39,48 +39,66 @@ public class ExchangeRateServiceImpl implements ExchangeRateService {
         if (start.isAfter(end)) {
             throw new BadRequestException("Boshlanish sanasi tugash sanasidan keyin bo'lishi mumkin emas");
         }
-        return repository.findAllByCurrencyAndRateDateBetweenOrderByRateDateDesc(currency, start, end)
-                .stream().map(this::toResponse).toList();
+        List<ExchangeRate> rows = repository.findAllByCurrencyAndRateDateBetweenOrderByRateDateDesc(currency, start, end);
+        BigDecimal beforeStart = repository.findFirstByCurrencyAndRateDateLessThanOrderByRateDateDesc(currency, start)
+                .map(ExchangeRate::getRate)
+                .orElse(null);
+        List<ExchangeRateResponse> result = new ArrayList<>(rows.size());
+        for (int i = 0; i < rows.size(); i++) {
+            BigDecimal previous = i + 1 < rows.size() ? rows.get(i + 1).getRate() : beforeStart;
+            result.add(toResponse(rows.get(i), previous));
+        }
+        return result;
     }
 
     @Override
     public ExchangeRateResponse current(Currency currency) {
-        requireForeign(currency);
-        return repository.findFirstByCurrencyAndRateDateLessThanEqualOrderByRateDateDesc(currency, LocalDate.now())
-                .map(this::toResponse)
-                .orElse(null);
+        return on(currency, LocalDate.now());
     }
 
     @Override
-    public ExchangeRateResponse save(ExchangeRateDTO dto) {
-        requireForeign(dto.getCurrency());
-        if (dto.getRateDate().isAfter(LocalDate.now().plusDays(1))) {
-            throw new BadRequestException("Kursni faqat bugun va ertangi kun uchun oldindan kiritish mumkin");
+    public ExchangeRateResponse on(Currency currency, LocalDate date) {
+        requireForeign(currency);
+        LocalDate day = date != null ? date : LocalDate.now();
+        Optional<ExchangeRate> row = repository.findFirstByCurrencyAndRateDateLessThanEqualOrderByRateDateDesc(currency, day);
+        if (row.isEmpty()) {
+            try {
+                rateOn(currency, day);
+            } catch (BadRequestException ignored) {
+                return null;
+            }
+            row = repository.findFirstByCurrencyAndRateDateLessThanEqualOrderByRateDateDesc(currency, day);
         }
-        ExchangeRate entity = repository.findByCurrencyAndRateDate(dto.getCurrency(), dto.getRateDate())
+        return row.map(this::withPrevious).orElse(null);
+    }
+
+    @Override
+    public ExchangeRateResponse storeCbu(CbuRateResponse cbu) {
+        requireForeign(cbu.getCurrency());
+        ExchangeRate entity = repository.findByCurrencyAndRateDate(cbu.getCurrency(), cbu.getRateDate())
                 .orElseGet(() -> ExchangeRate.builder()
-                        .currency(dto.getCurrency())
-                        .rateDate(dto.getRateDate())
+                        .currency(cbu.getCurrency())
+                        .rateDate(cbu.getRateDate())
                         .build());
-        entity.setRate(dto.getRate());
-        entity.setSource(dto.getSource() != null ? dto.getSource() : ExchangeRateSource.MANUAL);
-        entity = repository.save(entity);
-        log.info("Exchange rate {} {} = {} ({})", entity.getCurrency(), entity.getRateDate(), entity.getRate(), entity.getSource());
-        return toResponse(entity);
+        boolean changed = entity.getId() == null
+                || entity.getSource() != ExchangeRateSource.CBU
+                || entity.getRate() == null
+                || entity.getRate().compareTo(cbu.getRate()) != 0;
+        if (changed) {
+            entity.setRate(cbu.getRate());
+            entity.setSource(ExchangeRateSource.CBU);
+            entity = repository.save(entity);
+            log.info("CBU rate stored: {} {} = {}", entity.getCurrency(), entity.getRateDate(), entity.getRate());
+        }
+        return withPrevious(entity);
     }
 
     @Override
-    public void delete(Long id) {
-        ExchangeRate entity = repository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Exchange rate not found with id: " + id));
-        repository.delete(entity);
-        log.info("Exchange rate {} {} deleted", entity.getCurrency(), entity.getRateDate());
-    }
-
-    @Override
-    public CbuRateResponse cbu(Currency currency, LocalDate date) {
+    public ExchangeRateResponse syncLatest(Currency currency) {
         requireForeign(currency);
-        return cbuRateClient.fetch(currency, date != null ? date : LocalDate.now());
+        // Ertangi sana so'ralsa CBU oxirgi e'lon qilingan kursni (oldindan e'lon qilingan bo'lsa ertangisini) qaytaradi
+        storeCbu(cbuRateClient.fetch(currency, LocalDate.now().plusDays(1)));
+        return current(currency);
     }
 
     @Override
@@ -88,10 +106,28 @@ public class ExchangeRateServiceImpl implements ExchangeRateService {
         if (currency == null || currency.isBase()) {
             return BigDecimal.ONE;
         }
-        return repository.findFirstByCurrencyAndRateDateLessThanEqualOrderByRateDateDesc(currency, date)
+        Optional<ExchangeRate> stored = repository.findFirstByCurrencyAndRateDateLessThanEqualOrderByRateDateDesc(currency, date);
+        if (stored.isPresent()) {
+            return stored.get().getRate();
+        }
+        try {
+            CbuRateResponse cbu = cbuRateClient.fetch(currency, date);
+            if (!cbu.getRateDate().isAfter(date)) {
+                return storeCbu(cbu).getRate();
+            }
+        } catch (BadRequestException e) {
+            log.warn("CBU rate for {} {} unavailable: {}", currency, date, e.getMessage());
+        }
+        throw new BadRequestException(currency + " kursi hali Markaziy bankdan olinmagan. "
+                + "Internet aloqasini tekshirib, «Valyuta» sahifasida «Yangilash» tugmasini bosing.");
+    }
+
+    private ExchangeRateResponse withPrevious(ExchangeRate e) {
+        BigDecimal previous = repository
+                .findFirstByCurrencyAndRateDateLessThanOrderByRateDateDesc(e.getCurrency(), e.getRateDate())
                 .map(ExchangeRate::getRate)
-                .orElseThrow(() -> new BadRequestException(
-                        currency + " kursi kiritilmagan. Sozlamalar → Valyuta kurslari bo'limida kursni kiriting."));
+                .orElse(null);
+        return toResponse(e, previous);
     }
 
     private void requireForeign(Currency currency) {
@@ -100,12 +136,13 @@ public class ExchangeRateServiceImpl implements ExchangeRateService {
         }
     }
 
-    private ExchangeRateResponse toResponse(ExchangeRate e) {
+    private ExchangeRateResponse toResponse(ExchangeRate e, BigDecimal previous) {
         return ExchangeRateResponse.builder()
                 .id(e.getId())
                 .currency(e.getCurrency())
                 .rateDate(e.getRateDate())
                 .rate(e.getRate())
+                .change(previous != null ? e.getRate().subtract(previous) : null)
                 .source(e.getSource())
                 .createdUsername(e.getCreatedUsername())
                 .updatedAt(e.getUpdatedAt())

@@ -39,7 +39,7 @@
       </article>
       <article class="stat">
         <p class="stat-label">{{ t('sellerDebts.totalDebt') }}</p>
-        <h4 class="stat-value debt">{{ money(grandTotal) }}</h4>
+        <h4 class="stat-value debt">{{ totalsText(grandTotals) }}</h4>
       </article>
     </div>
 
@@ -52,7 +52,7 @@
           <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ s.userFullName || '—' }}</h3>
           <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('sellerDebts.clientsCount', { n: s.clients.length }) }}</p>
         </div>
-        <span class="text-lg font-bold text-error-600 dark:text-error-400">{{ money(s.totalDebt) }}</span>
+        <span class="text-lg font-bold text-error-600 dark:text-error-400">{{ totalsText(debtTotals(s.clients)) }}</span>
       </div>
       <div class="overflow-x-auto">
         <table class="min-w-full">
@@ -66,7 +66,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="c in s.clients" :key="`${s.userId}-${c.clientId ?? 0}`" class="border-b border-gray-100 align-top dark:border-gray-800">
+            <tr v-for="c in s.clients" :key="`${s.userId}-${c.clientId ?? 0}-${c.currency || 'UZS'}`" class="border-b border-gray-100 align-top dark:border-gray-800">
               <td class="td">
                 <router-link v-if="c.clientId" :to="`/clients/${c.clientId}`" class="font-medium text-brand-500 hover:underline">
                   {{ c.clientFullName }}
@@ -81,15 +81,15 @@
                     :key="o.saleOrderId"
                     :to="`/sales/${o.saleOrderId}`"
                     class="order-chip"
-                    :title="`${formatDate(o.orderDate)} · ${money(o.totalSum)}`"
+                    :title="`${formatDate(o.orderDate)} · ${amt(o.totalSum, o.currency)}`"
                   >
-                    #{{ o.saleOrderId }} · {{ money(o.debtSum) }}
+                    #{{ o.saleOrderId }} · {{ amt(o.debtSum, o.currency) }}
                   </router-link>
                 </div>
               </td>
-              <td class="td whitespace-nowrap">{{ money(c.totalSum) }}</td>
-              <td class="td whitespace-nowrap text-success-600 dark:text-success-400">{{ money(c.paidSum) }}</td>
-              <td class="td whitespace-nowrap font-semibold text-error-600 dark:text-error-400">{{ money(c.debt) }}</td>
+              <td class="td whitespace-nowrap">{{ amt(c.totalSum, c.currency) }}</td>
+              <td class="td whitespace-nowrap text-success-600 dark:text-success-400">{{ amt(c.paidSum, c.currency) }}</td>
+              <td class="td whitespace-nowrap font-semibold text-error-600 dark:text-error-400">{{ amt(c.debt, c.currency) }}</td>
             </tr>
           </tbody>
         </table>
@@ -103,7 +103,8 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
-import { fetchSellerDebts, type SellerDebt } from '@/api/sales'
+import { fetchSellerDebts, type SellerClientDebt, type SellerDebt } from '@/api/sales'
+import { BASE_CURRENCY, CURRENCIES, moneyIn, type CurrencyCode } from '@/utils/currency'
 import { fetchUserOptions, type UserItem } from '@/api/users'
 import { formatApiError } from '@/api/http'
 import { useAuthStore } from '@/stores/auth'
@@ -133,13 +134,35 @@ const filtered = computed(() => {
           String(v || '').toLowerCase().includes(q),
         ),
       )
-      return { ...s, clients, totalDebt: clients.reduce((sum, c) => sum + Number(c.debt || 0), 0) }
+      return { ...s, clients }
     })
     .filter((s) => s.clients.length > 0 || String(s.userFullName || '').toLowerCase().includes(q))
 })
 
-const clientCount = computed(() => filtered.value.reduce((n, s) => n + s.clients.length, 0))
-const grandTotal = computed(() => filtered.value.reduce((sum, s) => sum + Number(s.totalDebt || 0), 0))
+const clientCount = computed(
+  () => new Set(filtered.value.flatMap((s) => s.clients.map((c) => `${s.userId}-${c.clientId ?? 0}`))).size,
+)
+
+function amt(v: number | null | undefined, currency?: CurrencyCode) {
+  return currency && currency !== BASE_CURRENCY ? moneyIn(v, currency) : money(v)
+}
+
+/** Valyuta bo'yicha alohida jami: so'm va dollar qo'shilmaydi. */
+function debtTotals(clients: SellerClientDebt[]) {
+  const totals = new Map<CurrencyCode, number>()
+  for (const c of clients) {
+    const cur = c.currency || BASE_CURRENCY
+    totals.set(cur, (totals.get(cur) || 0) + Number(c.debt || 0))
+  }
+  return CURRENCIES.filter((c) => totals.has(c)).map((c) => ({ currency: c, amount: totals.get(c) || 0 }))
+}
+
+function totalsText(totals: { currency: CurrencyCode; amount: number }[]) {
+  if (!totals.length) return money(0)
+  return totals.map((x) => amt(x.amount, x.currency)).join(' · ')
+}
+
+const grandTotals = computed(() => debtTotals(filtered.value.flatMap((s) => s.clients)))
 
 async function load() {
   loading.value = true

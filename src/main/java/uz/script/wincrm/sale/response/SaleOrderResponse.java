@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
+import uz.script.wincrm.currency.Currency;
 import uz.script.wincrm.sale.enums.DeliveryType;
 import uz.script.wincrm.sale.enums.DiscountType;
 import uz.script.wincrm.sale.enums.SalesOrderStatus;
@@ -77,6 +78,15 @@ public class SaleOrderResponse {
 
     @Schema(description = "Remaining debt sum of the sale order", example = "1500.00")
     private BigDecimal debtSum;
+
+    @Schema(description = "Buyurtma valyutasi; barcha summalar shu valyutada", example = "USD")
+    private Currency currency;
+
+    @Schema(description = "Buyurtma kursi: 1 birlik valyuta = ? so'm", example = "12850")
+    private BigDecimal exchangeRate;
+
+    @Schema(description = "totalSum ning buyurtma kursidagi so'm ekvivalenti", example = "19275000")
+    private BigDecimal totalSumBase;
 
     @Schema(description = "Current sale order status", example = "ACTIVE")
     private Status status;

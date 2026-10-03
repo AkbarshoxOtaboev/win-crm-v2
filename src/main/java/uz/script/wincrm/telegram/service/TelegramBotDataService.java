@@ -28,5 +28,6 @@ public interface TelegramBotDataService {
 
     List<PaymentView> findPaymentsByOrderId(Long orderId);
 
-    Optional<ClientBalanceView> findBalanceByClientId(Long clientId);
+    /** Har bir valyuta bo'yicha alohida balans. */
+    List<ClientBalanceView> findBalancesByClientId(Long clientId);
 }

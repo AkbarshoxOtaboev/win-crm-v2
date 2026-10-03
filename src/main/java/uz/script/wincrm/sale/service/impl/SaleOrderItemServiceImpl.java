@@ -65,7 +65,9 @@ public class SaleOrderItemServiceImpl implements SaleOrderItemService {
 
         Goods goods = goodsRepository.findById(dto.getGoodsId())
                 .orElseThrow(() -> new ResourceNotFoundException("Goods not found with id: " + dto.getGoodsId()));
-        discountLimitPolicy.checkItemPrice(goods, dto.getPriceSelling());
+        SaleOrder saleOrder = saleOrderRepository.findById(dto.getSaleOrderId())
+                .orElseThrow(() -> new ResourceNotFoundException("Sale order not found with id: " + dto.getSaleOrderId()));
+        discountLimitPolicy.checkItemPrice(goods, dto.getPriceSelling(), saleOrder);
 
         // ⭐ WINDOW (Oyna) turi uchun count = width * height (kv.m) qilib hisoblanadi.
         //    Hisoblangan qiymat dto.count ga yoziladi, shundan keyin stock validatsiya,
@@ -86,8 +88,6 @@ public class SaleOrderItemServiceImpl implements SaleOrderItemService {
         Client client = clientRepository.findById(dto.getClientId())
                 .orElseThrow(() -> new ResourceNotFoundException("Client not found with id: " + dto.getClientId()));
 
-        SaleOrder saleOrder = saleOrderRepository.findById(dto.getSaleOrderId())
-                .orElseThrow(() -> new ResourceNotFoundException("Sale order not found with id: " + dto.getSaleOrderId()));
         validateSaleOrderStatus(saleOrder);
 
         SaleOrderItem entity = mapper.toEntity(dto);
@@ -219,7 +219,8 @@ public class SaleOrderItemServiceImpl implements SaleOrderItemService {
                 && (entity.getPriceSelling() == null || dto.getPriceSelling().compareTo(entity.getPriceSelling()) != 0);
         if (goodsChanged || priceChanged) {
             discountLimitPolicy.checkItemPrice(newGoods,
-                    dto.getPriceSelling() != null ? dto.getPriceSelling() : entity.getPriceSelling());
+                    dto.getPriceSelling() != null ? dto.getPriceSelling() : entity.getPriceSelling(),
+                    entity.getSaleOrder());
         }
 
         // WINDOW uchun dto.count - dona (bo'laklar soni), entity.count esa kv.m.

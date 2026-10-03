@@ -45,12 +45,15 @@ public class TelegramBotDataServiceImpl implements TelegramBotDataService {
     }
 
     @Override
-    public Optional<ClientBalanceView> findBalanceByClientId(Long clientId) {
-        return clientBalanceRepository.findByClient_Id(clientId).map(this::toView);
+    public List<ClientBalanceView> findBalancesByClientId(Long clientId) {
+        return clientBalanceRepository.findAllByClient_IdOrderByCurrencyAsc(clientId).stream()
+                .map(this::toView)
+                .toList();
     }
 
     private ClientBalanceView toView(ClientBalance balance) {
         return new ClientBalanceView(
+                balance.getCurrency(),
                 balance.getTotalPurchase(),
                 balance.getTotalPaid(),
                 balance.getTotalDebt(),

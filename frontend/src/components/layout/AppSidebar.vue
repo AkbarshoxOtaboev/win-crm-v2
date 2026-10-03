@@ -230,6 +230,7 @@ import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import {
   ArrowLeftRight,
+  Banknote,
   Box,
   Building2,
   ClipboardList,
@@ -389,6 +390,7 @@ const rawMenuGroups = computed<MenuGroup[]>(() => {
           },
           { name: t('nav.salesReport'), path: '/sales/report', icon: List, exact: true, perm: ['SALE_ORDER_VIEW'] },
           { name: t('nav.sellerDebts'), path: '/sales/debts', icon: HandCoins, exact: true, perm: ['SALE_ORDER_VIEW'] },
+          { name: t('nav.fxDifference'), path: '/sales/fx-difference', icon: DollarSign, exact: true, perm: ['DASHBOARD_VIEW'] },
           { name: t('nav.salesWaste'), path: '/sales/wastes', icon: FileText, exact: true, perm: ['SALE_ORDER_WASTE_VIEW'] },
         ],
       },
@@ -425,6 +427,7 @@ const rawMenuGroups = computed<MenuGroup[]>(() => {
   {
     title: t('nav.finance'),
     items: [
+      { icon: Banknote, name: t('nav.currency'), path: '/currency' },
       { icon: TaskIcon, name: t('nav.expenses'), path: '/expenses', perm: ['EXPENSE_VIEW'] },
       { icon: DocsIcon, name: t('nav.salary'), path: '/salary', perm: ['SALARY_CONFIG_VIEW', 'SALARY_TRANSACTION_VIEW', 'SALARY_SLIP_VIEW'] },
       { icon: TrendingUp, name: t('nav.kpi'), path: '/kpi', perm: ['KPI_VIEW'] },
@@ -443,7 +446,6 @@ const rawMenuGroups = computed<MenuGroup[]>(() => {
                 { name: t('nav.users'), path: '/settings/users', icon: UserCircle },
                 { name: t('nav.roles'), path: '/settings/roles', icon: Shield },
                 { name: t('nav.discountRules'), path: '/settings/discount-rules', icon: Percent },
-                { name: t('nav.exchangeRates'), path: '/settings/exchange-rates', icon: DollarSign },
                 { name: t('nav.filials'), path: '/settings/filials', icon: Building2 },
                 { name: t('nav.company'), path: '/settings/company', icon: Files },
                 { name: t('nav.telegram'), path: '/settings/telegram', icon: Plug },

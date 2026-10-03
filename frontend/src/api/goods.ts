@@ -1,5 +1,6 @@
 import { apiRequest } from './http'
 import type { RestApiResponse } from './types'
+import type { CurrencyCode } from '@/utils/currency'
 
 export interface Goods {
   id: number
@@ -12,6 +13,8 @@ export interface Goods {
   typeLabel?: string
   priceCost?: number
   priceSelling?: number
+  /** Sotish narxi valyutasi; tannarx doim so'mda. */
+  priceCurrency?: CurrencyCode
   barcode?: string
   maxDiscountPercent?: number | null
   photo?: string
