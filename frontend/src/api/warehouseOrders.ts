@@ -1,5 +1,6 @@
 import { apiRequest } from './http'
 import type { RestApiResponse } from './types'
+import type { CurrencyCode } from '@/utils/currency'
 
 export interface WarehouseOrder {
   id: number
@@ -9,7 +10,13 @@ export interface WarehouseOrder {
   warehouseName?: string
   comment?: string
   arrivalDate?: string
+  /** Hujjat valyutasida (narxlar, xizmat haqi, qarz) */
+  currency?: CurrencyCode
+  /** 1 xorijiy birlik = exchangeRate so'm */
+  exchangeRate?: number
   totalSum?: number
+  /** totalSum so'mda (kirim kunidagi kurs bilan) */
+  totalSumBase?: number
   serviceFee?: number
   paidSum?: number
   debtSum?: number
@@ -24,6 +31,8 @@ export interface WarehouseOrderPayload {
   arrivalDate: string
   comment?: string
   serviceFee?: number
+  currency?: CurrencyCode
+  exchangeRate?: number
 }
 
 export interface WarehouseOrderItem {

@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import uz.script.wincrm.audit.AuditAction;
 import uz.script.wincrm.audit.Auditable;
+import uz.script.wincrm.currency.Currency;
 import uz.script.wincrm.exceptions.ResourceNotFoundException;
 import uz.script.wincrm.suppliers.Supplier;
 import uz.script.wincrm.suppliers.SupplierBalance;
@@ -23,6 +24,7 @@ import uz.script.wincrm.utils.Status;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -35,9 +37,9 @@ public class SupplierBalanceServiceImpl implements SupplierBalanceService {
     @Override
     @Transactional
     @Auditable(action = AuditAction.UPDATE, entity = "SupplierBalance")
-    public void increasePurchase(Long supplierId, BigDecimal amount) {
+    public void increasePurchase(Long supplierId, Currency currency, BigDecimal amount) {
 
-        SupplierBalance balance = getOrCreateBalance(supplierId);
+        SupplierBalance balance = getOrCreateBalance(supplierId, currency);
 
         balance.setTotalPurchase(balance.getTotalPurchase().add(amount));
         balance.setTotalDebt(balance.getTotalDebt().add(amount));
@@ -45,15 +47,15 @@ public class SupplierBalanceServiceImpl implements SupplierBalanceService {
 
         balanceRepository.save(balance);
 
-        log.info("Supplier balance updated: purchase +{} (supplierId={})", amount, supplierId);
+        log.info("Supplier balance updated: purchase +{} {} (supplierId={})", amount, balance.getCurrency(), supplierId);
     }
 
     @Override
     @Transactional
     @Auditable(action = AuditAction.UPDATE, entity = "SupplierBalance")
-    public void decreasePurchase(Long supplierId, BigDecimal amount) {
+    public void decreasePurchase(Long supplierId, Currency currency, BigDecimal amount) {
 
-        SupplierBalance balance = getOrCreateBalance(supplierId);
+        SupplierBalance balance = getOrCreateBalance(supplierId, currency);
 
         balance.setTotalPurchase(balance.getTotalPurchase().subtract(amount));
         balance.setTotalDebt(balance.getTotalDebt().subtract(amount));
@@ -61,15 +63,15 @@ public class SupplierBalanceServiceImpl implements SupplierBalanceService {
 
         balanceRepository.save(balance);
 
-        log.info("Supplier balance updated: purchase -{} (supplierId={})", amount, supplierId);
+        log.info("Supplier balance updated: purchase -{} {} (supplierId={})", amount, balance.getCurrency(), supplierId);
     }
 
     @Override
     @Transactional
     @Auditable(action = AuditAction.UPDATE, entity = "SupplierBalance")
-    public void increasePayment(Long supplierId, BigDecimal amount) {
+    public void increasePayment(Long supplierId, Currency currency, BigDecimal amount) {
 
-        SupplierBalance balance = getOrCreateBalance(supplierId);
+        SupplierBalance balance = getOrCreateBalance(supplierId, currency);
 
         balance.setTotalPaid(balance.getTotalPaid().add(amount));
         balance.setTotalDebt(balance.getTotalDebt().subtract(amount));
@@ -77,15 +79,15 @@ public class SupplierBalanceServiceImpl implements SupplierBalanceService {
 
         balanceRepository.save(balance);
 
-        log.info("Supplier balance updated: payment +{} (supplierId={})", amount, supplierId);
+        log.info("Supplier balance updated: payment +{} {} (supplierId={})", amount, balance.getCurrency(), supplierId);
     }
 
     @Override
     @Transactional
     @Auditable(action = AuditAction.UPDATE, entity = "SupplierBalance")
-    public void decreasePayment(Long supplierId, BigDecimal amount) {
+    public void decreasePayment(Long supplierId, Currency currency, BigDecimal amount) {
 
-        SupplierBalance balance = getOrCreateBalance(supplierId);
+        SupplierBalance balance = getOrCreateBalance(supplierId, currency);
 
         balance.setTotalPaid(balance.getTotalPaid().subtract(amount));
         balance.setTotalDebt(balance.getTotalDebt().add(amount));
@@ -93,7 +95,7 @@ public class SupplierBalanceServiceImpl implements SupplierBalanceService {
 
         balanceRepository.save(balance);
 
-        log.info("Supplier balance updated: payment -{} (supplierId={})", amount, supplierId);
+        log.info("Supplier balance updated: payment -{} {} (supplierId={})", amount, balance.getCurrency(), supplierId);
     }
 
     // MUHIM: readOnly = true OLIB TASHLANDI.
@@ -102,15 +104,16 @@ public class SupplierBalanceServiceImpl implements SupplierBalanceService {
     @Override
     @Transactional
     @Auditable(action = AuditAction.READ, entity = "SupplierBalance")
-    public SupplierBalanceResponse findBySupplierId(Long supplierId) {
+    public List<SupplierBalanceResponse> findBySupplierId(Long supplierId) {
 
-        log.info("Fetching balance for supplierId: {}", supplierId);
+        log.info("Fetching balances for supplierId: {}", supplierId);
 
-        SupplierBalance balance = balanceRepository.findBySupplierId(supplierId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Balance not found for supplier: " + supplierId));
-
-        return SupplierBalanceMapper.toResponse(balance);
+        if (!supplierRepository.existsById(supplierId)) {
+            throw new ResourceNotFoundException("Supplier not found: " + supplierId);
+        }
+        return balanceRepository.findAllBySupplierIdOrderByCurrencyAsc(supplierId).stream()
+                .map(SupplierBalanceMapper::toResponse)
+                .toList();
     }
 
     @Override
@@ -149,14 +152,15 @@ public class SupplierBalanceServiceImpl implements SupplierBalanceService {
     /**
      * Balansni pessimistic lock bilan olib keladi, mavjud bo'lmasa yaratadi.
      * Parallel so'rovlarda ikkita balans yaratilib qolmasligi uchun
-     * unique constraint (supplier_id) buzilsa, qayta o'qib olinadi.
+     * unique constraint (supplier_id, currency) buzilsa, qayta o'qib olinadi.
      */
-    private SupplierBalance getOrCreateBalance(Long supplierId) {
-        return balanceRepository.findBySupplierIdForUpdate(supplierId)
-                .orElseGet(() -> createBalance(supplierId));
+    private SupplierBalance getOrCreateBalance(Long supplierId, Currency currency) {
+        Currency resolved = currency != null ? currency : Currency.BASE;
+        return balanceRepository.findBySupplierIdAndCurrencyForUpdate(supplierId, resolved)
+                .orElseGet(() -> createBalance(supplierId, resolved));
     }
 
-    private SupplierBalance createBalance(Long supplierId) {
+    private SupplierBalance createBalance(Long supplierId, Currency currency) {
         try {
             Supplier supplier = supplierRepository.findById(supplierId)
                     .orElseThrow(() -> new ResourceNotFoundException(
@@ -164,6 +168,7 @@ public class SupplierBalanceServiceImpl implements SupplierBalanceService {
 
             SupplierBalance newBalance = SupplierBalance.builder()
                     .supplier(supplier)
+                    .currency(currency)
                     .totalPurchase(BigDecimal.ZERO)
                     .totalPaid(BigDecimal.ZERO)
                     .totalDebt(BigDecimal.ZERO)
@@ -173,7 +178,7 @@ public class SupplierBalanceServiceImpl implements SupplierBalanceService {
 
             return balanceRepository.saveAndFlush(newBalance);
         } catch (DataIntegrityViolationException e) {
-            return balanceRepository.findBySupplierIdForUpdate(supplierId)
+            return balanceRepository.findBySupplierIdAndCurrencyForUpdate(supplierId, currency)
                     .orElseThrow(() -> e);
         }
     }

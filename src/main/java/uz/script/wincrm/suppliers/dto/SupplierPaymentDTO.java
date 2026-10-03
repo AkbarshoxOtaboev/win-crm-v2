@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
+import uz.script.wincrm.currency.Currency;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -29,6 +30,13 @@ public class SupplierPaymentDTO {
     private String comment;
 
     @NotNull(message = "Payment type is required")
-    @Schema(description = "Payment type id", example = "1")
+    @Schema(description = "Payment type id; paidSumm is in its cash desk currency", example = "1")
     private Long paymentTypeId;
+
+    @Schema(description = "Which debt currency to close; null - same as payment currency", example = "USD")
+    private Currency debtCurrency;
+
+    @DecimalMin(value = "0.0001", message = "Exchange rate must be positive")
+    @Schema(description = "1 foreign unit = rate UZS; null - company rate for the payment date", example = "12850")
+    private BigDecimal exchangeRate;
 }

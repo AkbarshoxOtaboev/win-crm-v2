@@ -44,9 +44,12 @@
               <td class="td">{{ o.supplierName || o.supplierId }}</td>
               <td class="td">{{ o.warehouseName || o.warehouseId }}</td>
               <td class="td">{{ formatDate(o.arrivalDate) }}</td>
-              <td class="td">{{ money(orderSum(o)) }}</td>
-              <td class="td">{{ money(orderPaid(o)) }}</td>
-              <td class="td">{{ money(orderDebt(o)) }}</td>
+              <td class="td">
+                {{ amt(orderSum(o), o) }}
+                <span v-if="isForeign(o)" class="rate-sub">{{ t('warehouseOrders.rateLabel', { value: formatRate(o.exchangeRate) }) }}</span>
+              </td>
+              <td class="td">{{ amt(orderPaid(o), o) }}</td>
+              <td class="td">{{ amt(orderDebt(o), o) }}</td>
               <td class="td text-center">
                 <button type="button" class="view-btn" @click="openView(o)">
                   <EyeIcon :size="16" />
@@ -106,6 +109,7 @@ import { fetchSuppliers, type Supplier } from '@/api/suppliers'
 import { formatApiError } from '@/api/http'
 import { useFilialScope } from '@/composables/useFilialScope'
 import { formatDate, money } from '@/utils/format'
+import { formatRate, moneyIn } from '@/utils/currency'
 import Swal from 'sweetalert2'
 
 const { t } = useI18n()
@@ -131,6 +135,12 @@ const viewSupplier = computed(() => {
   return suppliers.value.find((s) => s.id === order.supplierId) || null
 })
 
+function isForeign(o: WarehouseOrder) {
+  return !!o.currency && o.currency !== 'UZS'
+}
+function amt(v: number, o: WarehouseOrder) {
+  return isForeign(o) ? moneyIn(v, o.currency) : money(v)
+}
 function orderSum(o: WarehouseOrder) {
   return Number(o.totalSum || 0)
 }
@@ -272,6 +282,7 @@ onMounted(load)
 .card { border-radius: 1rem; border: 1px solid #e5e7eb; background: #fff; }
 .th { padding: 0.75rem 1.25rem; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; }
 .td { padding: 0.75rem 1.25rem; font-size: 0.875rem; color: #4b5563; }
+.rate-sub { display: block; font-size: 0.6875rem; color: #9ca3af; }
 .empty { padding: 2rem 1.25rem; text-align: center; font-size: 0.875rem; color: #6b7280; }
 .field { height: 2.5rem; border-radius: 0.5rem; border: 1px solid #d1d5db; background: transparent; padding: 0 0.75rem; font-size: 0.875rem; }
 .btn { display: inline-flex; height: 2.5rem; align-items: center; border-radius: 0.5rem; background: #465fff; padding: 0 1.25rem; font-size: 0.875rem; font-weight: 500; color: #fff; white-space: nowrap; }

@@ -16,6 +16,7 @@ public class SupplierBalanceMapper {
                 .id(balance.getId())
                 .supplierId(balance.getSupplier() != null ? balance.getSupplier().getId() : null)
                 .supplierName(balance.getSupplier() != null ? balance.getSupplier().getName() : null)
+                .currency(balance.getCurrency())
                 .totalPurchase(balance.getTotalPurchase())
                 .totalPaid(balance.getTotalPaid())
                 .totalDebt(balance.getTotalDebt())

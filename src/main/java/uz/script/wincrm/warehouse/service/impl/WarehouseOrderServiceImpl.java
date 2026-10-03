@@ -7,6 +7,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import uz.script.wincrm.audit.AuditAction;
 import uz.script.wincrm.audit.Auditable;
+import uz.script.wincrm.currency.Currency;
+import uz.script.wincrm.currency.service.ExchangeRateService;
 import uz.script.wincrm.exceptions.ResourceNotFoundException;
 import uz.script.wincrm.exceptions.BadRequestException;
 import uz.script.wincrm.sms.SmsSendException;
@@ -31,6 +33,8 @@ import uz.script.wincrm.warehouse.response.WarehouseOrderResponse;
 import uz.script.wincrm.warehouse.service.WarehouseOrderService;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
 
@@ -49,6 +53,7 @@ public class WarehouseOrderServiceImpl implements WarehouseOrderService {
     private final StockService stockService;
     private final SmsService smsService;
     private final TelegramBotLifecycleService telegramBotLifecycleService;
+    private final ExchangeRateService exchangeRateService;
 
     @Override
     @Auditable(
@@ -71,6 +76,9 @@ public class WarehouseOrderServiceImpl implements WarehouseOrderService {
 
         WarehouseOrder order = mapper.toEntity(dto, supplier, warehouse);
         order.setCreatedUsername(username);
+        Currency currency = dto.getCurrency() != null ? dto.getCurrency() : Currency.BASE;
+        order.setCurrency(currency);
+        order.setExchangeRate(resolveRate(currency, dto.getExchangeRate(), dto.getArrivalDate()));
 
         // Order yaratilganda hali item yo'q, totalSum = 0/null.
         // Supplier balansi (totalPurchase/totalDebt) faqat item qo'shilganda
@@ -79,9 +87,9 @@ public class WarehouseOrderServiceImpl implements WarehouseOrderService {
 
         BigDecimal serviceFee = order.getServiceFee() != null ? order.getServiceFee() : BigDecimal.ZERO;
         if (serviceFee.compareTo(BigDecimal.ZERO) > 0) {
-            supplierBalanceService.increasePurchase(supplier.getId(), serviceFee);
-            log.info("Supplier balance increased by service fee. SupplierId: {}, Fee: {}",
-                    supplier.getId(), serviceFee);
+            supplierBalanceService.increasePurchase(supplier.getId(), currency, serviceFee);
+            log.info("Supplier balance increased by service fee. SupplierId: {}, Fee: {} {}",
+                    supplier.getId(), serviceFee, currency);
         }
 
         return mapper.toResponse(order);
@@ -154,20 +162,40 @@ public class WarehouseOrderServiceImpl implements WarehouseOrderService {
                         new ResourceNotFoundException("Warehouse not found with id: " + dto.getWarehouseId()));
 
         // WarehouseOrderDTO totalSum saqlamaydi (u item'lardan avtomatik hisoblanadi),
-        // shuning uchun bu yerda faqat supplier o'zgarganda balansni ko'chiramiz.
+        // shuning uchun bu yerda faqat supplier/valyuta o'zgarganda balansni ko'chiramiz.
         Long oldSupplierId = order.getSupplier().getId();
         Long newSupplierId = newSupplier.getId();
+        Currency oldCurrency = order.getCurrency();
         BigDecimal currentTotalSum = order.getTotalSum() != null ? order.getTotalSum() : BigDecimal.ZERO;
 
         BigDecimal oldServiceFee = order.getServiceFee() != null ? order.getServiceFee() : BigDecimal.ZERO;
 
+        List<WarehouseOrderItem> activeItems = warehouseOrderItemRepository.findAllByWarehouseOrderId(id)
+                .stream()
+                .filter(i -> i.getStatus() == Status.ACTIVE)
+                .toList();
+
+        Currency newCurrency = dto.getCurrency() != null ? dto.getCurrency() : oldCurrency;
+        if (newCurrency != oldCurrency && !activeItems.isEmpty()) {
+            throw new BadRequestException("Pozitsiyalar kiritilgan hujjat valyutasini o'zgartirib bo'lmaydi. "
+                    + "Avval pozitsiyalarni o'chiring yoki yangi hujjat yarating.");
+        }
+        BigDecimal newRate = newCurrency != oldCurrency || dto.getExchangeRate() != null
+                ? resolveRate(newCurrency, dto.getExchangeRate(), dto.getArrivalDate())
+                : order.getExchangeRate();
+        if (order.getOrderStatus() == WarehouseOrderStatus.TRANSFERRED
+                && order.getExchangeRate().compareTo(newRate) != 0) {
+            throw new BadRequestException("Omborga o'tkazilgan hujjat kursini o'zgartirib bo'lmaydi: "
+                    + "ombordagi tannarx shu kurs bilan hisoblangan.");
+        }
+
         mapper.updateEntity(order, dto, newSupplier, warehouse);
+        order.setCurrency(newCurrency);
+        order.setExchangeRate(newRate);
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         order.setCreatedUsername(username);
 
-        BigDecimal itemsTotal = warehouseOrderItemRepository.findAllByWarehouseOrderId(id)
-                .stream()
-                .filter(i -> i.getStatus() == Status.ACTIVE)
+        BigDecimal itemsTotal = activeItems.stream()
                 .map(i -> i.getPriceCost().multiply(i.getCount()))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal newServiceFee = order.getServiceFee() != null ? order.getServiceFee() : BigDecimal.ZERO;
@@ -175,28 +203,26 @@ public class WarehouseOrderServiceImpl implements WarehouseOrderService {
         order.setTotalSum(newTotalSum);
         order = repository.save(order);
 
-        BigDecimal totalDiff = newTotalSum.subtract(currentTotalSum);
-        if (totalDiff.compareTo(BigDecimal.ZERO) != 0) {
-            if (!Objects.equals(oldSupplierId, newSupplierId)) {
-                supplierBalanceService.decreasePurchase(oldSupplierId, currentTotalSum);
-                supplierBalanceService.increasePurchase(newSupplierId, newTotalSum);
-                log.info("Order supplier changed, balance transferred. Old supplierId: {} (-{}), New supplierId: {} (+{})",
-                        oldSupplierId, currentTotalSum, newSupplierId, newTotalSum);
-            } else {
-                if (totalDiff.compareTo(BigDecimal.ZERO) > 0) {
-                    supplierBalanceService.increasePurchase(newSupplierId, totalDiff);
-                } else {
-                    supplierBalanceService.decreasePurchase(newSupplierId, totalDiff.abs());
-                }
-                log.info("Order total updated. SupplierId: {}, Diff: {}, ServiceFee: {} -> {}",
-                        newSupplierId, totalDiff, oldServiceFee, newServiceFee);
+        if (!Objects.equals(oldSupplierId, newSupplierId) || newCurrency != oldCurrency) {
+            if (currentTotalSum.signum() != 0) {
+                supplierBalanceService.decreasePurchase(oldSupplierId, oldCurrency, currentTotalSum);
             }
-        } else if (!Objects.equals(oldSupplierId, newSupplierId)
-                && currentTotalSum.compareTo(BigDecimal.ZERO) != 0) {
-            supplierBalanceService.decreasePurchase(oldSupplierId, currentTotalSum);
-            supplierBalanceService.increasePurchase(newSupplierId, currentTotalSum);
-            log.info("Order's supplier changed, balance transferred. Old supplierId: {} (-{}), New supplierId: {} (+{})",
-                    oldSupplierId, currentTotalSum, newSupplierId, currentTotalSum);
+            if (newTotalSum.signum() != 0) {
+                supplierBalanceService.increasePurchase(newSupplierId, newCurrency, newTotalSum);
+            }
+            log.info("Order balance moved. {} {} (-{}) -> {} {} (+{})",
+                    oldSupplierId, oldCurrency, currentTotalSum, newSupplierId, newCurrency, newTotalSum);
+        } else {
+            BigDecimal totalDiff = newTotalSum.subtract(currentTotalSum);
+            if (totalDiff.signum() > 0) {
+                supplierBalanceService.increasePurchase(newSupplierId, newCurrency, totalDiff);
+            } else if (totalDiff.signum() < 0) {
+                supplierBalanceService.decreasePurchase(newSupplierId, newCurrency, totalDiff.abs());
+            }
+            if (totalDiff.signum() != 0) {
+                log.info("Order total updated. SupplierId: {}, Diff: {} {}, ServiceFee: {} -> {}",
+                        newSupplierId, totalDiff, newCurrency, oldServiceFee, newServiceFee);
+            }
         }
 
         return mapper.toResponse(order);
@@ -234,7 +260,7 @@ public class WarehouseOrderServiceImpl implements WarehouseOrderService {
 
         BigDecimal totalSum = order.getTotalSum() != null ? order.getTotalSum() : BigDecimal.ZERO;
         if (totalSum.compareTo(BigDecimal.ZERO) != 0) {
-            supplierBalanceService.decreasePurchase(order.getSupplier().getId(), totalSum);
+            supplierBalanceService.decreasePurchase(order.getSupplier().getId(), order.getCurrency(), totalSum);
             log.info("Supplier balance decreased by purchase. SupplierId: {}, Sum: {}",
                     order.getSupplier().getId(), totalSum);
         }
@@ -268,7 +294,7 @@ public class WarehouseOrderServiceImpl implements WarehouseOrderService {
                     item.getWarehouse().getId(),
                     item.getCount(),
                     pieces,
-                    item.getPriceCost());
+                    order.toBase(item.getPriceCost()));
         }
 
         order.setOrderStatus(WarehouseOrderStatus.TRANSFERRED);
@@ -276,6 +302,16 @@ public class WarehouseOrderServiceImpl implements WarehouseOrderService {
 
         log.info("Order transferred to stock. OrderId: {}, items: {}", id, items.size());
         return mapper.toResponse(order);
+    }
+
+    private BigDecimal resolveRate(Currency currency, BigDecimal requested, LocalDateTime arrivalDate) {
+        if (currency == null || currency.isBase()) {
+            return BigDecimal.ONE;
+        }
+        if (requested != null) {
+            return requested;
+        }
+        return exchangeRateService.rateOn(currency, arrivalDate != null ? arrivalDate.toLocalDate() : LocalDate.now());
     }
 
     @Override

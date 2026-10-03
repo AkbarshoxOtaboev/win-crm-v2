@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
+import uz.script.wincrm.currency.Currency;
 import uz.script.wincrm.utils.Status;
 import uz.script.wincrm.warehouse.enums.WarehouseOrderStatus;
 
@@ -42,6 +43,15 @@ public class WarehouseOrderResponse {
 
     @Schema(description = "Optional service fee", example = "50000.00")
     private BigDecimal serviceFee;
+
+    @Schema(description = "Document currency", example = "USD")
+    private Currency currency;
+
+    @Schema(description = "1 unit = rate UZS (1 for UZS)", example = "12850")
+    private BigDecimal exchangeRate;
+
+    @Schema(description = "totalSum converted to UZS at the document rate", example = "16062500.00")
+    private BigDecimal totalSumBase;
 
     @Schema(description = "NEW - hali omborga tushmagan, TRANSFERRED - Stock'ga qo'shilgan", example = "NEW", implementation = WarehouseOrderStatus.class)
     private WarehouseOrderStatus orderStatus;

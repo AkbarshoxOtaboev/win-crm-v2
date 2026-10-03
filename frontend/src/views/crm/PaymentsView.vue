@@ -247,6 +247,12 @@
                     <component :is="paymentTypeIcon(pt.icon)" class="h-4 w-4" />
                   </span>
                   <span class="font-medium text-gray-800 dark:text-white/90">{{ pt.name }}</span>
+                  <span
+                    class="rounded-full px-2 py-0.5 text-xs font-semibold"
+                    :class="pt.currency === 'USD'
+                      ? 'bg-success-50 text-success-700 dark:bg-success-500/15 dark:text-success-400'
+                      : 'bg-gray-100 text-gray-600 dark:bg-white/[0.06] dark:text-gray-300'"
+                  >{{ pt.currency || 'UZS' }}</span>
                 </div>
               </td>
               <td class="td td-actions">
@@ -530,6 +536,17 @@
             </div>
           </div>
           <div>
+            <label for="type-currency" class="lbl">{{ t('exchangeRates.paymentTypeCurrency') }}</label>
+            <div class="relative">
+              <Coins class="field-icon" />
+              <select id="type-currency" v-model="typeCurrency" class="field field-select">
+                <option v-for="c in CURRENCIES" :key="c" :value="c">{{ t(`exchangeRates.currencies.${c}`) }}</option>
+              </select>
+              <ChevronDown class="select-chevron" />
+            </div>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('exchangeRates.paymentTypeCurrencyHint') }}</p>
+          </div>
+          <div>
             <span class="lbl">{{ t('payments.typeIcon') }}</span>
             <div class="icon-grid" role="radiogroup" :aria-label="t('payments.typeIcon')">
               <button
@@ -568,6 +585,7 @@ import {
   CalendarDays,
   Check,
   ChevronDown,
+  Coins,
   CreditCard,
   ListFilter,
   MessageSquare,
@@ -612,6 +630,7 @@ import {
   paymentTypeIcon,
   type PaymentTypeIconKey,
 } from '@/utils/paymentTypeIcons'
+import { BASE_CURRENCY, CURRENCIES, type CurrencyCode } from '@/utils/currency'
 
 const { t } = useI18n()
 const { writeBlocked } = useFilialScope()
@@ -639,6 +658,7 @@ const typeModal = ref(false)
 const typeEditingId = ref<number | null>(null)
 const typeName = ref('')
 const typeIcon = ref<PaymentTypeIconKey>(DEFAULT_PAYMENT_TYPE_ICON)
+const typeCurrency = ref<CurrencyCode>(BASE_CURRENCY)
 const amountText = ref('')
 const auth = useAuthStore()
 const form = reactive({
@@ -880,6 +900,7 @@ function openTypeCreate() {
   typeEditingId.value = null
   typeName.value = ''
   typeIcon.value = DEFAULT_PAYMENT_TYPE_ICON
+  typeCurrency.value = BASE_CURRENCY
   typeFormError.value = null
   typeModal.value = true
 }
@@ -888,6 +909,7 @@ function openTypeEdit(t: PaymentType) {
   typeEditingId.value = t.id
   typeName.value = t.name
   typeIcon.value = (t.icon as PaymentTypeIconKey) || DEFAULT_PAYMENT_TYPE_ICON
+  typeCurrency.value = t.currency || BASE_CURRENCY
   typeFormError.value = null
   typeModal.value = true
 }
@@ -896,8 +918,8 @@ async function onTypeSubmit() {
   typeSaving.value = true
   typeFormError.value = null
   try {
-    if (typeEditingId.value) await updatePaymentType(typeEditingId.value, typeName.value.trim(), typeIcon.value)
-    else await createPaymentType(typeName.value.trim(), typeIcon.value)
+    if (typeEditingId.value) await updatePaymentType(typeEditingId.value, typeName.value.trim(), typeIcon.value, typeCurrency.value)
+    else await createPaymentType(typeName.value.trim(), typeIcon.value, typeCurrency.value)
     typeModal.value = false
     await load()
   } catch (e) {

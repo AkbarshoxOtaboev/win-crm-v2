@@ -1,5 +1,6 @@
 import { apiRequest } from './http'
 import type { PageResponse, RestApiResponse, SpringPage } from './types'
+import type { CurrencyCode } from '@/utils/currency'
 
 export interface Payment {
   id: number
@@ -47,6 +48,7 @@ export interface PaymentType {
   id: number
   name: string
   icon?: string | null
+  currency?: CurrencyCode
   status?: string
 }
 
@@ -82,17 +84,17 @@ export function fetchPaymentTypes() {
   )
 }
 
-export function createPaymentType(name: string, icon?: string) {
+export function createPaymentType(name: string, icon?: string, currency?: CurrencyCode) {
   return apiRequest<RestApiResponse<PaymentType>>('/api/payment-types/create', {
     method: 'POST',
-    body: { name, icon },
+    body: { name, icon, currency },
   })
 }
 
-export function updatePaymentType(id: number, name: string, icon?: string) {
+export function updatePaymentType(id: number, name: string, icon?: string, currency?: CurrencyCode) {
   return apiRequest<RestApiResponse<PaymentType>>(`/api/payment-types/update/${id}`, {
     method: 'PUT',
-    body: { name, icon },
+    body: { name, icon, currency },
   })
 }
 

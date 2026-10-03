@@ -3,6 +3,7 @@ package uz.script.wincrm.suppliers.dto;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import org.springframework.format.annotation.DateTimeFormat;
+import uz.script.wincrm.currency.Currency;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -13,6 +14,9 @@ public class SupplierBalanceFilterDTO {
 
     @Schema(description = "Supplier name", example = "Artel")
     private String supplierName;
+
+    @Schema(description = "Currency (null - all)", example = "USD")
+    private Currency currency;
 
     @Schema(description = "Minimum debt", example = "0")
     private BigDecimal minDebt;

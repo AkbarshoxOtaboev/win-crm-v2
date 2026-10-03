@@ -336,6 +336,12 @@ const router = createRouter({
       meta: { title: 'Chegirma qoidalari', requiresAuth: true, settingsAdmin: true },
     },
     {
+      path: '/settings/exchange-rates',
+      name: 'SettingsExchangeRates',
+      component: () => import('../views/crm/settings/ExchangeRatesSettingsView.vue'),
+      meta: { title: 'Valyuta kurslari', requiresAuth: true, settingsAdmin: true },
+    },
+    {
       path: '/profile',
       name: 'Profile',
       component: () => import('../views/Others/UserProfile.vue'),

@@ -1,5 +1,6 @@
 import { apiRequest } from './http'
 import type { RestApiResponse, SpringPage } from './types'
+import type { CurrencyCode } from '@/utils/currency'
 
 export interface Supplier {
   id: number
@@ -63,10 +64,12 @@ export function changeSupplierStatus(id: number, status: string) {
   )
 }
 
+/** Har bir ta'minotchi uchun valyuta bo'yicha alohida qator; summalar shu valyutada. */
 export interface SupplierBalance {
   id?: number
   supplierId?: number
   supplierName?: string
+  currency?: CurrencyCode
   totalPurchase?: number
   totalPaid?: number
   totalDebt?: number
@@ -83,14 +86,21 @@ export function fetchSupplierBalances(page = 0, size = 50) {
 }
 
 export function fetchSupplierBalance(supplierId: number) {
-  return apiRequest<RestApiResponse<SupplierBalance>>(`/api/supplier-balances/${supplierId}`)
+  return apiRequest<RestApiResponse<SupplierBalance[]>>(`/api/supplier-balances/${supplierId}`)
 }
 
 export interface SupplierPayment {
   id: number
   supplierId?: number
   supplierName?: string
+  /** Kassadan chiqqan summa, `currency` da */
   paidSumm?: number
+  currency?: CurrencyCode
+  /** Qaysi valyutadagi qarz yopildi */
+  debtCurrency?: CurrencyCode
+  exchangeRate?: number
+  /** Qarzdan yopilgan summa, `debtCurrency` da */
+  appliedAmount?: number
   paidDate?: string
   comment?: string
   paymentTypeId?: number
@@ -119,6 +129,10 @@ export interface SupplierPaymentPayload {
   paidDate: string
   paymentTypeId: number
   comment?: string
+  /** Bo'sh bo'lsa - kassa valyutasi */
+  debtCurrency?: CurrencyCode
+  /** Valyutalar farq qilsa; bo'sh bo'lsa - to'lov kunidagi kompaniya kursi */
+  exchangeRate?: number
 }
 
 export function fetchSupplierPayments(page = 0, size = 50) {

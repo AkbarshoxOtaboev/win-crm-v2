@@ -14,7 +14,9 @@ import uz.script.wincrm.exceptions.ResourceNotFoundException;
 import uz.script.wincrm.payment.PaymentType;
 import uz.script.wincrm.payment.dto.PaymentTypeDTO;
 import uz.script.wincrm.payment.mapper.PaymentTypeMapper;
+import uz.script.wincrm.payment.repository.PaymentRepository;
 import uz.script.wincrm.payment.repository.PaymentTypeRepository;
+import uz.script.wincrm.suppliers.repository.SupplierPaymentRepository;
 import uz.script.wincrm.payment.response.PaymentTypeResponse;
 import uz.script.wincrm.payment.service.PaymentTypeService;
 import uz.script.wincrm.utils.Status;
@@ -29,6 +31,8 @@ public class PaymentTypeServiceImpl implements PaymentTypeService {
 
     private final PaymentTypeRepository repository;
     private final PaymentTypeMapper mapper;
+    private final PaymentRepository paymentRepository;
+    private final SupplierPaymentRepository supplierPaymentRepository;
 
     @Override
     @Auditable(
@@ -86,6 +90,12 @@ public class PaymentTypeServiceImpl implements PaymentTypeService {
                     .ifPresent(existing -> {
                         throw new BadRequestException("Payment type already exists with name: " + dto.getName());
                     });
+        }
+
+        if (dto.getCurrency() != null && dto.getCurrency() != entity.getCurrency()
+                && (paymentRepository.existsByPaymentTypeId(id) || supplierPaymentRepository.existsByPaymentTypeId(id))) {
+            throw new BadRequestException("Bu to'lov turi bo'yicha to'lovlar mavjud, valyutasini o'zgartirib bo'lmaydi. "
+                    + "Boshqa valyuta uchun yangi to'lov turi yarating.");
         }
 
         mapper.updateEntity(entity, dto);

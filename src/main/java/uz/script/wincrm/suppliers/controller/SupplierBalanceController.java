@@ -20,6 +20,8 @@ import uz.script.wincrm.utils.PageUtils;
 import uz.script.wincrm.utils.RestApiResponse;
 import uz.script.wincrm.utils.response.PageResponse;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/supplier-balances")
 @RequiredArgsConstructor
@@ -31,7 +33,7 @@ public class SupplierBalanceController {
     @GetMapping("/{supplierId}")
     @PreAuthorize("hasAuthority('SUPPLIER_BALANCE_VIEW')")
     @Operation(
-            summary = "Fetch supplier balance by supplier id",
+            summary = "Fetch supplier balances (one per currency) by supplier id",
             description = "Only users with SUPPLIER_BALANCE_VIEW permission can use it. " +
                     "Balance is calculated automatically from warehouse orders and payments."
     )
@@ -45,7 +47,7 @@ public class SupplierBalanceController {
     public ResponseEntity<?> findBySupplierId(@PathVariable Long supplierId) {
 
         return ResponseEntity.ok(
-                RestApiResponse.<SupplierBalanceResponse>builder()
+                RestApiResponse.<List<SupplierBalanceResponse>>builder()
                         .message("Supplier balance found successfully")
                         .data(service.findBySupplierId(supplierId))
                         .build()

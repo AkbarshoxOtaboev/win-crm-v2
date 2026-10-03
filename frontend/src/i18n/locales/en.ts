@@ -30,6 +30,7 @@ export default {
     salary: 'Salary',
     kpi: 'KPI',
     discountRules: 'Discount rules',
+    exchangeRates: 'Exchange rates',
     settings: 'Settings',
     profile: 'Profile',
     generalSettings: 'General settings',

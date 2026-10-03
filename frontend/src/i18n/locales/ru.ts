@@ -30,6 +30,7 @@ export default {
     salary: 'Зарплата',
     kpi: 'KPI',
     discountRules: 'Правила скидок',
+    exchangeRates: 'Курсы валют',
     settings: 'Настройки',
     profile: 'Профиль',
     generalSettings: 'Общие настройки',

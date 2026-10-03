@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
+import uz.script.wincrm.currency.Currency;
 import uz.script.wincrm.utils.Status;
 
 import java.time.LocalDateTime;
@@ -22,6 +23,9 @@ public class PaymentTypeResponse {
 
     @Schema(description = "Icon key", example = "CASH")
     private String icon;
+
+    @Schema(description = "Kassa valyutasi", example = "UZS")
+    private Currency currency;
 
     @Schema(description = "Current status", example = "ACTIVE")
     private Status status;

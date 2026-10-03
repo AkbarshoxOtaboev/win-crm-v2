@@ -54,6 +54,13 @@
               :placeholder="t('suppliersBalance.searchPlaceholder')"
             />
           </label>
+          <label class="lbl w-44">
+            {{ t('suppliersBalance.currency') }}
+            <select v-model="currencyFilter" class="field">
+              <option value="">{{ t('suppliersBalance.allCurrencies') }}</option>
+              <option v-for="c in CURRENCIES" :key="c" :value="c">{{ t(`exchangeRates.currencies.${c}`) }}</option>
+            </select>
+          </label>
           <label class="check">
             <input v-model="onlyDebtors" type="checkbox" class="h-4 w-4 rounded border-gray-300" />
             {{ t('suppliersBalance.onlyDebtors') }}
@@ -64,15 +71,15 @@
       <div class="stats">
         <div class="stat stat-blue">
           <div class="stat-label">{{ t('suppliersBalance.purchaseSum') }}</div>
-          <div class="stat-value">{{ moneySom(totals.purchase) }}</div>
+          <div v-for="c in totalsCurrencies" :key="c" class="stat-value">{{ fmt(totals[c]?.purchase, c) }}</div>
         </div>
         <div class="stat stat-green">
           <div class="stat-label">{{ t('suppliersBalance.paid') }}</div>
-          <div class="stat-value paid">{{ moneySom(totals.paid) }}</div>
+          <div v-for="c in totalsCurrencies" :key="c" class="stat-value paid">{{ fmt(totals[c]?.paid, c) }}</div>
         </div>
         <div class="stat stat-red">
           <div class="stat-label">{{ t('suppliersBalance.debt') }}</div>
-          <div class="stat-value debt">{{ moneySom(totals.debt) }}</div>
+          <div v-for="c in totalsCurrencies" :key="c" class="stat-value debt">{{ fmt(totals[c]?.debt, c) }}</div>
         </div>
       </div>
 
@@ -94,16 +101,17 @@
           <tbody>
             <tr v-if="loading"><td colspan="7" class="empty">{{ t('common.loading') }}</td></tr>
             <tr v-else-if="filtered.length === 0"><td colspan="7" class="empty">{{ t('suppliersBalance.empty') }}</td></tr>
-            <tr v-for="b in filtered" :key="b.supplierId || b.id" class="border-b border-gray-100 dark:border-gray-800">
+            <tr v-for="b in filtered" :key="b.id || `${b.supplierId}-${b.currency}`" class="border-b border-gray-100 dark:border-gray-800">
               <td class="td">{{ b.supplierId || b.id }}</td>
               <td class="td">
                 <router-link class="link" :to="{ path: '/suppliers', query: { id: String(b.supplierId || '') } }">
                   {{ b.supplierName || b.supplierId }}
                 </router-link>
+                <span v-if="curOf(b) !== 'UZS'" class="cur-badge">{{ curOf(b) }}</span>
               </td>
-              <td class="td">{{ moneySom(b.totalPurchase) }}</td>
-              <td class="td text-emerald-600 dark:text-emerald-400">{{ moneySom(b.totalPaid) }}</td>
-              <td class="td text-red-600 dark:text-red-400">{{ moneySom(debtOf(b)) }}</td>
+              <td class="td">{{ fmt(b.totalPurchase, curOf(b)) }}</td>
+              <td class="td text-emerald-600 dark:text-emerald-400">{{ fmt(b.totalPaid, curOf(b)) }}</td>
+              <td class="td text-red-600 dark:text-red-400">{{ fmt(debtOf(b), curOf(b)) }}</td>
               <td class="td">{{ formatDateTime(b.lastUpdated || b.updatedAt) }}</td>
               <td class="td text-end">
                 <div class="inline-flex items-center gap-3">
@@ -112,7 +120,7 @@
                     type="button"
                     class="pay-btn"
                     :disabled="writeBlocked"
-                    @click="openPayment(b.supplierId, debtOf(b))"
+                    @click="openPayment(b.supplierId, debtOf(b), curOf(b))"
                   >
                     {{ t('suppliersBalance.pay') }}
                   </button>
@@ -169,7 +177,11 @@
 
       <div class="px-5 pt-4 text-sm text-gray-600 dark:text-gray-400">
         {{ t('suppliersBalance.paymentsTotal') }}:
-        <span class="font-semibold text-gray-800 dark:text-white/90">{{ moneySom(paymentsTotal) }}</span>
+        <span
+          v-for="(c, i) in paymentsTotalCurrencies"
+          :key="c"
+          class="font-semibold text-gray-800 dark:text-white/90"
+        >{{ i > 0 ? ' · ' : '' }}{{ fmt(paymentsTotal[c], c) }}</span>
       </div>
 
       <div v-if="paymentsError" class="err mx-5 mt-4">{{ paymentsError }}</div>
@@ -195,7 +207,12 @@
               <td class="td">{{ p.id }}</td>
               <td class="td">{{ formatDate(p.paidDate) }}</td>
               <td class="td font-medium text-gray-800 dark:text-white/90">{{ p.supplierName || p.supplierId }}</td>
-              <td class="td font-semibold text-emerald-600 dark:text-emerald-400">{{ moneySom(p.paidSumm) }}</td>
+              <td class="td">
+                <span class="font-semibold text-emerald-600 dark:text-emerald-400">{{ fmt(p.paidSumm, p.currency) }}</span>
+                <span v-if="p.debtCurrency && p.debtCurrency !== (p.currency || 'UZS')" class="sub-line">
+                  {{ t('suppliersBalance.closedDebt', { value: fmt(p.appliedAmount, p.debtCurrency), rate: formatRate(p.exchangeRate) }) }}
+                </span>
+              </td>
               <td class="td">{{ p.paymentTypeName || '—' }}</td>
               <td class="td">{{ p.comment || '—' }}</td>
               <td class="td">{{ p.createdUsername || '—' }}</td>
@@ -228,35 +245,53 @@
               <option v-for="s in suppliers" :key="s.id" :value="s.id">{{ s.name }}</option>
             </select>
           </label>
+          <label class="lbl">
+            {{ t('suppliersBalance.debtCurrency') }}
+            <select v-model="form.debtCurrency" class="field">
+              <option v-for="c in CURRENCIES" :key="c" :value="c">{{ t(`exchangeRates.currencies.${c}`) }}</option>
+            </select>
+          </label>
           <div v-if="form.supplierId && !editingPaymentId" class="debt-hint">
             {{ t('suppliersBalance.currentDebt') }}:
-            <strong>{{ moneySom(selectedSupplierDebt) }}</strong>
+            <strong>{{ fmt(selectedSupplierDebt, form.debtCurrency) }}</strong>
             <button
-              v-if="selectedSupplierDebt > 0"
+              v-if="selectedSupplierDebt > 0 && (!isCross || form.exchangeRate > 0)"
               type="button"
               class="link ms-2 text-xs"
-              @click="setAmount(selectedSupplierDebt)"
+              @click="payFull"
             >
               {{ t('suppliersBalance.payFull') }}
             </button>
           </div>
-          <label class="lbl">
-            {{ t('common.amount') }} *
-            <input :value="amountText" inputmode="decimal" required class="field" placeholder="0" @input="onAmountInput" />
-          </label>
           <div class="grid grid-cols-2 gap-3">
-            <label class="lbl">
-              {{ t('common.date') }} *
-              <input v-model="form.paidDate" type="datetime-local" required class="field" />
-            </label>
             <label class="lbl">
               {{ t('suppliersBalance.paymentType') }} *
               <select v-model.number="form.paymentTypeId" required class="field">
                 <option :value="0" disabled>{{ t('common.select') }}</option>
-                <option v-for="pt in paymentTypes" :key="pt.id" :value="pt.id">{{ pt.name }}</option>
+                <option v-for="pt in paymentTypes" :key="pt.id" :value="pt.id">
+                  {{ pt.name }}{{ pt.currency && pt.currency !== 'UZS' ? ` (${pt.currency})` : '' }}
+                </option>
               </select>
             </label>
+            <label class="lbl">
+              {{ t('common.date') }} *
+              <input v-model="form.paidDate" type="datetime-local" required class="field" />
+            </label>
           </div>
+          <label class="lbl">
+            {{ t('common.amount') }} ({{ currencySymbol(paymentCurrency, t('common.currency')) }}) *
+            <input :value="amountText" inputmode="decimal" required class="field" placeholder="0" @input="onAmountInput" />
+          </label>
+          <template v-if="isCross">
+            <label class="lbl">
+              {{ t('suppliersBalance.rate') }} *
+              <input :value="rateText" inputmode="decimal" class="field" placeholder="0" @input="onRateInput" />
+              <span class="text-[11px] font-normal">{{ t('suppliersBalance.rateHint') }}</span>
+            </label>
+            <div v-if="form.paidSumm > 0 && form.exchangeRate > 0" class="close-preview">
+              {{ t('suppliersBalance.willClose', { value: fmt(appliedPreview, form.debtCurrency) }) }}
+            </div>
+          </template>
           <label class="lbl">
             {{ t('common.note') }}
             <textarea v-model="form.comment" rows="2" class="field textarea" maxlength="400" />
@@ -295,7 +330,9 @@ import { fetchPaymentTypes, type PaymentType } from '@/api/payments'
 import { formatApiError } from '@/api/http'
 import { useAuthStore } from '@/stores/auth'
 import { useFilialScope } from '@/composables/useFilialScope'
-import { formatAmountInput, formatDate, money, nowLocal, toApiDate } from '@/utils/format'
+import { amountToText, formatAmountInput, formatDate, nowLocal, toApiDate } from '@/utils/format'
+import { CURRENCIES, currencySymbol, formatRate, moneyIn, type CurrencyCode } from '@/utils/currency'
+import { fetchCurrentRate } from '@/api/exchangeRates'
 
 const { t } = useI18n()
 const auth = useAuthStore()
@@ -308,6 +345,7 @@ const error = ref<string | null>(null)
 const showFilters = ref(true)
 const search = ref('')
 const onlyDebtors = ref(false)
+const currencyFilter = ref<CurrencyCode | ''>('')
 
 const suppliers = ref<Supplier[]>([])
 const paymentTypes = ref<PaymentType[]>([])
@@ -323,12 +361,15 @@ const editingPaymentId = ref<number | null>(null)
 const saving = ref(false)
 const formError = ref<string | null>(null)
 const amountText = ref('')
+const rateText = ref('')
 const form = reactive({
   supplierId: 0,
   paidSumm: 0,
   paidDate: nowLocal(),
   paymentTypeId: 0,
   comment: '',
+  debtCurrency: 'UZS' as CurrencyCode,
+  exchangeRate: 0,
 })
 
 function debtOf(b: SupplierBalance) {
@@ -337,8 +378,12 @@ function debtOf(b: SupplierBalance) {
   return Math.max(0, Number(b.totalPurchase || 0) - Number(b.totalPaid || 0))
 }
 
-function moneySom(v?: number | null) {
-  return `${money(Number(v || 0))} ${t('common.currency')}`
+function curOf(b: SupplierBalance): CurrencyCode {
+  return b.currency || 'UZS'
+}
+
+function fmt(v: number | null | undefined, currency?: CurrencyCode | null) {
+  return moneyIn(Number(v || 0), currency, t('common.currency'))
 }
 
 function formatDateTime(v?: string | null) {
@@ -354,24 +399,36 @@ const filtered = computed(() => {
   return [...items.value]
     .filter((b) => {
       if (onlyDebtors.value && debtOf(b) <= 0) return false
+      if (currencyFilter.value && curOf(b) !== currencyFilter.value) return false
       if (!q) return true
       const id = String(b.supplierId || b.id || '')
       const name = (b.supplierName || '').toLowerCase()
       return id.includes(q) || name.includes(q)
     })
-    .sort((a, b) => Number(a.supplierId || a.id || 0) - Number(b.supplierId || b.id || 0))
+    .sort(
+      (a, b) =>
+        Number(a.supplierId || a.id || 0) - Number(b.supplierId || b.id || 0) ||
+        CURRENCIES.indexOf(curOf(a)) - CURRENCIES.indexOf(curOf(b)),
+    )
 })
 
+type Totals = { purchase: number; paid: number; debt: number }
+
 const totals = computed(() => {
-  return filtered.value.reduce(
-    (acc, b) => {
-      acc.purchase += Number(b.totalPurchase || 0)
-      acc.paid += Number(b.totalPaid || 0)
-      acc.debt += debtOf(b)
-      return acc
-    },
-    { purchase: 0, paid: 0, debt: 0 },
-  )
+  const acc: Partial<Record<CurrencyCode, Totals>> = {}
+  for (const b of filtered.value) {
+    const row = (acc[curOf(b)] ??= { purchase: 0, paid: 0, debt: 0 })
+    row.purchase += Number(b.totalPurchase || 0)
+    row.paid += Number(b.totalPaid || 0)
+    row.debt += debtOf(b)
+  }
+  return acc
+})
+
+/** Valyutalar hech qachon qo'shilmaydi - har biri alohida qatorda; bo'sh bo'lsa so'mda 0. */
+const totalsCurrencies = computed<CurrencyCode[]>(() => {
+  const list = CURRENCIES.filter((c) => totals.value[c])
+  return list.length ? list : ['UZS']
 })
 
 const filteredPayments = computed(() => {
@@ -383,18 +440,80 @@ const filteredPayments = computed(() => {
   )
 })
 
-const paymentsTotal = computed(() =>
-  filteredPayments.value.reduce((sum, p) => sum + Number(p.paidSumm || 0), 0),
-)
+const paymentsTotal = computed(() => {
+  const acc: Partial<Record<CurrencyCode, number>> = {}
+  for (const p of filteredPayments.value) {
+    const c = p.currency || 'UZS'
+    acc[c] = (acc[c] || 0) + Number(p.paidSumm || 0)
+  }
+  return acc
+})
+
+const paymentsTotalCurrencies = computed<CurrencyCode[]>(() => {
+  const list = CURRENCIES.filter((c) => paymentsTotal.value[c] != null)
+  return list.length ? list : ['UZS']
+})
 
 const selectedSupplierDebt = computed(() => {
-  const b = items.value.find((x) => x.supplierId === form.supplierId)
+  const b = items.value.find((x) => x.supplierId === form.supplierId && curOf(x) === form.debtCurrency)
   return b ? debtOf(b) : 0
 })
+
+const paymentCurrency = computed<CurrencyCode>(
+  () => paymentTypes.value.find((pt) => pt.id === form.paymentTypeId)?.currency || 'UZS',
+)
+const isCross = computed(() => paymentCurrency.value !== form.debtCurrency)
+
+function round2(v: number) {
+  return Math.round(v * 100) / 100
+}
+
+/** Backend bilan bir xil: so'm → $ bo'lishda, $ → so'm ko'paytirishda, 2 xonagacha. */
+function convert(amount: number, from: CurrencyCode, to: CurrencyCode) {
+  if (from === to) return amount
+  if (!(form.exchangeRate > 0)) return 0
+  return from === 'UZS' ? round2(amount / form.exchangeRate) : round2(amount * form.exchangeRate)
+}
+
+const appliedPreview = computed(() => convert(form.paidSumm, paymentCurrency.value, form.debtCurrency))
+
+function payFull() {
+  setAmount(convert(selectedSupplierDebt.value, form.debtCurrency, paymentCurrency.value))
+}
 
 function setAmount(value: number) {
   form.paidSumm = value
   amountText.value = formatAmountInput(String(value)).text
+}
+
+function setRate(value: number) {
+  form.exchangeRate = value
+  rateText.value = amountToText(value)
+}
+
+function onRateInput(e: Event) {
+  const el = e.target as HTMLInputElement
+  const { text, value } = formatAmountInput(el.value)
+  rateText.value = text
+  el.value = text
+  form.exchangeRate = value
+}
+
+watch(isCross, () => void ensureRate())
+
+async function ensureRate() {
+  if (!isCross.value || form.exchangeRate > 0) return
+  const foreign = paymentCurrency.value !== 'UZS' ? paymentCurrency.value : form.debtCurrency
+  try {
+    const rate = (await fetchCurrentRate(foreign)).data?.rate
+    if (rate && !(form.exchangeRate > 0)) setRate(Number(rate))
+  } catch {
+    /* kurs yo'q — qo'lda kiritiladi */
+  }
+}
+
+function defaultPaymentTypeFor(currency: CurrencyCode) {
+  return (paymentTypes.value.find((pt) => (pt.currency || 'UZS') === currency) || paymentTypes.value[0])?.id || 0
 }
 
 function onAmountInput(e: Event) {
@@ -405,16 +524,19 @@ function onAmountInput(e: Event) {
   form.paidSumm = value
 }
 
-function openPayment(supplierId?: number, debt?: number) {
+function openPayment(supplierId?: number, debt?: number, currency: CurrencyCode = 'UZS') {
   editingPaymentId.value = null
   formError.value = null
   form.supplierId = supplierId || 0
   form.paidDate = nowLocal()
-  form.paymentTypeId = paymentTypes.value[0]?.id || 0
+  form.debtCurrency = currency
+  form.paymentTypeId = defaultPaymentTypeFor(currency)
   form.comment = ''
+  setRate(0)
   setAmount(debt && debt > 0 ? debt : 0)
   if (!debt) amountText.value = ''
   paymentModal.value = true
+  void ensureRate()
 }
 
 function openPaymentEdit(p: SupplierPayment) {
@@ -422,6 +544,8 @@ function openPaymentEdit(p: SupplierPayment) {
   formError.value = null
   form.supplierId = p.supplierId || 0
   form.paidDate = p.paidDate ? p.paidDate.slice(0, 16) : nowLocal()
+  setRate((p.currency || 'UZS') !== (p.debtCurrency || 'UZS') ? Number(p.exchangeRate || 0) : 0)
+  form.debtCurrency = p.debtCurrency || 'UZS'
   form.paymentTypeId = p.paymentTypeId || 0
   form.comment = p.comment || ''
   setAmount(Number(p.paidSumm || 0))
@@ -438,12 +562,18 @@ async function onPaymentSubmit() {
     formError.value = t('suppliersBalance.amountRequired')
     return
   }
+  if (isCross.value && !(form.exchangeRate > 0)) {
+    formError.value = t('suppliersBalance.rateRequired')
+    return
+  }
   const payload = {
     supplierId: form.supplierId,
     paidSumm: form.paidSumm,
     paidDate: toApiDate(form.paidDate),
     paymentTypeId: form.paymentTypeId,
     comment: form.comment.trim() || undefined,
+    debtCurrency: form.debtCurrency,
+    exchangeRate: isCross.value ? form.exchangeRate : undefined,
   }
   saving.value = true
   try {
@@ -556,6 +686,9 @@ onMounted(() => {
 .pay-btn { border-radius: 0.5rem; background: #ecfdf5; padding: 0.3rem 0.75rem; font-size: 0.8125rem; font-weight: 600; color: #059669; }
 .pay-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .debt-hint { border-radius: 0.5rem; background: #fef2f2; padding: 0.5rem 0.75rem; font-size: 0.8125rem; color: #b91c1c; }
+.close-preview { border-radius: 0.5rem; background: #eff6ff; padding: 0.5rem 0.75rem; font-size: 0.8125rem; font-weight: 500; color: #1d4ed8; }
+.cur-badge { margin-inline-start: 0.4rem; border-radius: 0.375rem; background: #ecfdf5; padding: 0.05rem 0.4rem; font-size: 0.6875rem; font-weight: 600; color: #047857; }
+.sub-line { display: block; font-size: 0.75rem; color: #6b7280; }
 .dark .card { border-color: #1f2937; background: rgba(255, 255, 255, 0.03); }
 .dark .head, .dark .filters { border-bottom-color: #1f2937; }
 .dark .title { color: rgba(255, 255, 255, 0.9); }
@@ -576,6 +709,9 @@ onMounted(() => {
 .dark .tab.active { border-color: #465fff; background: #465fff; color: #fff; }
 .dark .pay-btn { background: rgba(16, 185, 129, 0.12); color: #34d399; }
 .dark .debt-hint { background: rgba(239, 68, 68, 0.12); color: #fca5a5; }
+.dark .close-preview { background: rgba(59, 130, 246, 0.12); color: #93c5fd; }
+.dark .cur-badge { background: rgba(16, 185, 129, 0.12); color: #34d399; }
+.dark .sub-line { color: #9ca3af; }
 .dark .err { border-color: rgba(239, 68, 68, 0.3); background: rgba(239, 68, 68, 0.1); color: #fca5a5; }
 @media (max-width: 768px) {
   .stats { grid-template-columns: 1fr; }

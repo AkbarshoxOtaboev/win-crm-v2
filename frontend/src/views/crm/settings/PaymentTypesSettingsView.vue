@@ -12,6 +12,7 @@
           <tr class="border-b border-gray-100 dark:border-gray-800">
             <th class="th">#</th>
             <th class="th">{{ t('common.name') }}</th>
+            <th class="th">{{ t('exchangeRates.paymentTypeCurrency') }}</th>
             <th class="th text-right">{{ t('common.actions') }}</th>
           </tr>
         </thead>
@@ -24,9 +25,10 @@
                 {{ pt.name }}
               </span>
             </td>
+            <td class="td"><span class="cur-badge" :class="{ usd: pt.currency === 'USD' }">{{ pt.currency || 'UZS' }}</span></td>
             <td class="td text-right"><RowActions @edit="openEdit(pt)" @delete="onDelete(pt)" /></td>
           </tr>
-          <tr v-if="items.length === 0"><td colspan="3" class="empty">{{ t('settings.paymentTypes.empty') }}</td></tr>
+          <tr v-if="items.length === 0"><td colspan="4" class="empty">{{ t('settings.paymentTypes.empty') }}</td></tr>
         </tbody>
       </table>
     </div>
@@ -35,6 +37,13 @@
       <div class="modal">
         <form class="space-y-3" @submit.prevent="onSave">
           <input v-model="name" required class="field" :placeholder="t('shared.nameRequired')" />
+          <div>
+            <span class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">{{ t('exchangeRates.paymentTypeCurrency') }}</span>
+            <select v-model="currency" class="field">
+              <option v-for="c in CURRENCIES" :key="c" :value="c">{{ t(`exchangeRates.currencies.${c}`) }}</option>
+            </select>
+            <p class="mt-1 text-xs text-gray-500">{{ t('exchangeRates.paymentTypeCurrencyHint') }}</p>
+          </div>
           <div>
             <span class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">{{ t('payments.typeIcon') }}</span>
             <div class="icon-grid" role="radiogroup" :aria-label="t('payments.typeIcon')">
@@ -84,6 +93,7 @@ import {
   paymentTypeIcon,
   type PaymentTypeIconKey,
 } from '@/utils/paymentTypeIcons'
+import { BASE_CURRENCY, CURRENCIES, type CurrencyCode } from '@/utils/currency'
 
 const { t } = useI18n()
 const { writeBlocked } = useFilialScope()
@@ -93,6 +103,7 @@ const modal = ref(false)
 const editingId = ref<number | null>(null)
 const name = ref('')
 const icon = ref<PaymentTypeIconKey>(DEFAULT_PAYMENT_TYPE_ICON)
+const currency = ref<CurrencyCode>(BASE_CURRENCY)
 
 async function load() {
   try {
@@ -107,6 +118,7 @@ function openCreate() {
   editingId.value = null
   name.value = ''
   icon.value = DEFAULT_PAYMENT_TYPE_ICON
+  currency.value = BASE_CURRENCY
   modal.value = true
 }
 
@@ -114,13 +126,14 @@ function openEdit(pt: PaymentType) {
   editingId.value = pt.id
   name.value = pt.name
   icon.value = (pt.icon as PaymentTypeIconKey) || DEFAULT_PAYMENT_TYPE_ICON
+  currency.value = pt.currency || BASE_CURRENCY
   modal.value = true
 }
 
 async function onSave() {
   try {
-    if (editingId.value) await updatePaymentType(editingId.value, name.value.trim(), icon.value)
-    else await createPaymentType(name.value.trim(), icon.value)
+    if (editingId.value) await updatePaymentType(editingId.value, name.value.trim(), icon.value, currency.value)
+    else await createPaymentType(name.value.trim(), icon.value, currency.value)
     modal.value = false
     await load()
   } catch (e) {
@@ -155,6 +168,10 @@ onMounted(load)
 .icon-opt { display: flex; flex-direction: column; align-items: center; gap: 0.35rem; border-radius: 0.625rem; border: 1px solid #e5e7eb; padding: 0.65rem 0.5rem; font-size: 0.75rem; font-weight: 500; color: #4b5563; }
 .icon-opt:hover { border-color: #9cb0ff; }
 .icon-opt.active { border-color: #465fff; background: #eff4ff; color: #465fff; box-shadow: 0 0 0 3px rgb(70 95 255 / 12%); }
+.cur-badge { display: inline-flex; border-radius: 9999px; background: #f3f4f6; padding: 0.125rem 0.5rem; font-size: 0.75rem; font-weight: 600; color: #4b5563; }
+.cur-badge.usd { background: #dcfce7; color: #15803d; }
+.dark .cur-badge { background: rgba(255, 255, 255, 0.08); color: #d1d5db; }
+.dark .cur-badge.usd { background: rgba(22, 163, 74, 0.2); color: #86efac; }
 .dark .icon-opt { border-color: #344054; color: #d1d5db; }
 .dark .icon-opt.active { border-color: #465fff; background: rgb(70 95 255 / 15%); color: #9cb0ff; }
 </style>

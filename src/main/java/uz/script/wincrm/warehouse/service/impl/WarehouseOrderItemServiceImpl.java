@@ -7,6 +7,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import uz.script.wincrm.audit.AuditAction;
 import uz.script.wincrm.audit.Auditable;
+import uz.script.wincrm.currency.Currency;
 import uz.script.wincrm.exceptions.BadRequestException;
 import uz.script.wincrm.exceptions.ResourceNotFoundException;
 import uz.script.wincrm.goods.Goods;
@@ -84,7 +85,7 @@ public class WarehouseOrderItemServiceImpl implements WarehouseOrderItemService 
                     dto.getWarehouseId(),
                     dto.getCount(),
                     dto.getPieceCount(),
-                    dto.getPriceCost());
+                    warehouseOrder.toBase(dto.getPriceCost()));
         }
         recalculateOrderTotalSum(warehouseOrder);
 
@@ -160,6 +161,9 @@ public class WarehouseOrderItemServiceImpl implements WarehouseOrderItemService 
         applyWindowQuantities(goods, dto);
 
         WarehouseOrder previousOrder = item.getWarehouseOrder();
+        if (previousOrder.getCurrency() != warehouseOrder.getCurrency()) {
+            throw new BadRequestException("Pozitsiyani boshqa valyutadagi hujjatga ko'chirib bo'lmaydi");
+        }
 
         boolean wasInStock = previousOrder.getOrderStatus() == WarehouseOrderStatus.TRANSFERRED;
         boolean willBeInStock = warehouseOrder.getOrderStatus() == WarehouseOrderStatus.TRANSFERRED;
@@ -185,7 +189,7 @@ public class WarehouseOrderItemServiceImpl implements WarehouseOrderItemService 
                     dto.getWarehouseId(),
                     dto.getCount(),
                     dto.getPieceCount(),
-                    dto.getPriceCost());
+                    warehouseOrder.toBase(dto.getPriceCost()));
         }
 
         recalculateOrderTotalSum(warehouseOrder);
@@ -267,14 +271,16 @@ public class WarehouseOrderItemServiceImpl implements WarehouseOrderItemService 
         BigDecimal diff = newTotal.subtract(oldTotal);
         Long supplierId = warehouseOrder.getSupplier().getId();
 
+        Currency currency = warehouseOrder.getCurrency();
+
         if (diff.compareTo(BigDecimal.ZERO) > 0) {
-            supplierBalanceService.increasePurchase(supplierId, diff);
-            log.info("Supplier balance increased by purchase diff. SupplierId: {}, Diff: {}",
-                    supplierId, diff);
+            supplierBalanceService.increasePurchase(supplierId, currency, diff);
+            log.info("Supplier balance increased by purchase diff. SupplierId: {}, Diff: {} {}",
+                    supplierId, diff, currency);
         } else if (diff.compareTo(BigDecimal.ZERO) < 0) {
-            supplierBalanceService.decreasePurchase(supplierId, diff.abs());
-            log.info("Supplier balance decreased by purchase diff. SupplierId: {}, Diff: {}",
-                    supplierId, diff.abs());
+            supplierBalanceService.decreasePurchase(supplierId, currency, diff.abs());
+            log.info("Supplier balance decreased by purchase diff. SupplierId: {}, Diff: {} {}",
+                    supplierId, diff.abs(), currency);
         }
     }
 

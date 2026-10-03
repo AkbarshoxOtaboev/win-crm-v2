@@ -30,6 +30,7 @@ export default {
     salary: 'Maosh',
     kpi: 'KPI',
     discountRules: 'Chegirma qoidalari',
+    exchangeRates: 'Valyuta kurslari',
     settings: 'Sozlamalar',
     profile: 'Profil',
     generalSettings: 'Umumiy sozlamalar',

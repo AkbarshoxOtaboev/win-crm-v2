@@ -7,4 +7,6 @@ import uz.script.wincrm.suppliers.SupplierPayment;
 public interface SupplierPaymentRepository extends
         JpaRepository<SupplierPayment, Long>,
         JpaSpecificationExecutor<SupplierPayment> {
+
+    boolean existsByPaymentTypeId(Long paymentTypeId);
 }

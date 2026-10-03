@@ -7,6 +7,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import uz.script.wincrm.currency.Currency;
 
 @Getter
 @Setter
@@ -22,4 +23,7 @@ public class PaymentTypeDTO {
 
     @Schema(description = "Icon key: CASH, CARD, ONLINE, BANK, TRANSFER, WALLET", example = "CASH")
     private String icon;
+
+    @Schema(description = "Kassa valyutasi; yaratishda null bo'lsa UZS", example = "USD")
+    private Currency currency;
 }

@@ -32,6 +32,10 @@ public final class SupplierBalanceSpecification {
                 );
             }
 
+            if (filter.getCurrency() != null) {
+                predicates.add(criteriaBuilder.equal(root.get("currency"), filter.getCurrency()));
+            }
+
             if (filter.getMinDebt() != null) {
                 predicates.add(
                         criteriaBuilder.greaterThanOrEqualTo(root.get("totalDebt"), filter.getMinDebt())

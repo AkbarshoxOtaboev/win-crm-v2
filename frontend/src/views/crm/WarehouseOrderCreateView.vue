@@ -50,6 +50,36 @@
             />
           </label>
         </div>
+
+        <div class="form-row mt-3">
+          <label class="lbl min-w-0 w-full sm:w-44 sm:flex-none">
+            {{ t('warehouseOrders.currency') }}
+            <select
+              v-model="form.currency"
+              class="field"
+              :disabled="headerLocked || items.length > 0"
+              :title="items.length > 0 ? t('warehouseOrders.currencyLocked') : undefined"
+            >
+              <option v-for="c in CURRENCIES" :key="c" :value="c">{{ t(`exchangeRates.currencies.${c}`) }}</option>
+            </select>
+          </label>
+          <label v-if="isForeign" class="lbl min-w-0 w-full sm:w-44 sm:flex-none">
+            {{ t('warehouseOrders.rate') }}
+            <input
+              :value="rateText"
+              inputmode="decimal"
+              autocomplete="off"
+              placeholder="0"
+              class="field"
+              :disabled="isTransferred || (!!orderId && !isEditMode)"
+              @input="onRateInput"
+            />
+          </label>
+          <p v-if="isForeign" class="cur-hint">
+            <span v-if="!(form.exchangeRate > 0)" class="text-amber-600">{{ t('warehouseOrders.rateMissing') }}</span>
+            <span v-else>{{ t('warehouseOrders.currencyHint') }}</span>
+          </p>
+        </div>
         <p v-if="isTransferred" class="mt-3 text-xs text-amber-600">
           {{ t('warehouseOrders.transferredLocked') }}
         </p>
@@ -116,7 +146,10 @@
           </label>
           <label class="lbl min-w-0 w-40 sm:flex-none">
             {{ t('warehouseOrders.totalSum') }}
-            <input :value="money(computedSum)" class="field" readonly />
+            <input :value="amt(computedSum)" class="field" readonly />
+            <span v-if="isForeign && computedSum > 0 && form.exchangeRate > 0" class="base-eq">
+              {{ t('warehouseOrders.baseEquivalent', { value: moneyIn(computedSum * form.exchangeRate, 'UZS', t('common.currency')) }) }}
+            </span>
           </label>
 
           <div v-if="!isTransferred" class="flex items-end">
@@ -156,8 +189,8 @@
               <td class="td">{{ row.height != null ? formatNum(row.height) : '—' }}</td>
               <td class="td">{{ row.pieces != null ? formatNum(row.pieces) : formatNum(row.count) }}</td>
               <td class="td">{{ row.isWindow ? formatNum(row.count) : '—' }}</td>
-              <td class="td">{{ money(row.priceCost) }}</td>
-              <td class="td">{{ money(row.sum) }}</td>
+              <td class="td">{{ amt(row.priceCost) }}</td>
+              <td class="td">{{ amt(row.sum) }}</td>
               <td class="td text-right">
                 <button
                   v-if="!isTransferred"
@@ -174,7 +207,12 @@
           <tfoot v-if="displayItems.length">
             <tr class="border-t border-gray-200 bg-gray-50">
               <td class="td font-semibold" colspan="7">{{ t('common.total') }}</td>
-              <td class="td font-semibold">{{ money(itemsTotalSum) }}</td>
+              <td class="td font-semibold">
+                {{ amt(itemsTotalSum) }}
+                <div v-if="isForeign && form.exchangeRate > 0" class="base-eq">
+                  {{ t('warehouseOrders.baseEquivalent', { value: moneyIn(itemsTotalSum * form.exchangeRate, 'UZS', t('common.currency')) }) }}
+                </div>
+              </td>
               <td class="td" />
             </tr>
           </tfoot>
@@ -217,6 +255,8 @@ import { fetchSuppliers, type Supplier } from '@/api/suppliers'
 import { fetchGoods, type Goods } from '@/api/goods'
 import { formatApiError } from '@/api/http'
 import { amountToText, formatAmountInput, money } from '@/utils/format'
+import { CURRENCIES, moneyIn, type CurrencyCode } from '@/utils/currency'
+import { fetchCurrentRate } from '@/api/exchangeRates'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -251,7 +291,40 @@ const form = reactive({
   warehouseId: 0,
   arrivalDate: todayLocal(),
   comment: '',
+  currency: 'UZS' as CurrencyCode,
+  exchangeRate: 0,
 })
+
+const isForeign = computed(() => form.currency !== 'UZS')
+const rateText = ref('')
+
+function amt(v?: number | null) {
+  return isForeign.value ? moneyIn(v, form.currency) : money(v)
+}
+
+function onRateInput(e: Event) {
+  const el = e.target as HTMLInputElement
+  const { text, value } = formatAmountInput(el.value)
+  rateText.value = text
+  el.value = text
+  form.exchangeRate = value
+}
+
+watch(
+  () => form.currency,
+  async (cur) => {
+    if (cur === 'UZS' || form.exchangeRate > 0) return
+    try {
+      const rate = (await fetchCurrentRate(cur)).data?.rate
+      if (rate && !(form.exchangeRate > 0)) {
+        form.exchangeRate = Number(rate)
+        rateText.value = amountToText(form.exchangeRate)
+      }
+    } catch {
+      /* kurs yo'q — foydalanuvchi qo'lda kiritadi */
+    }
+  },
+)
 
 const itemForm = reactive({
   goodsId: 0,
@@ -324,7 +397,11 @@ const goodsOptions = computed(() =>
 )
 
 const headerReady = computed(
-  () => form.supplierId > 0 && form.warehouseId > 0 && !!form.arrivalDate,
+  () =>
+    form.supplierId > 0 &&
+    form.warehouseId > 0 &&
+    !!form.arrivalDate &&
+    (!isForeign.value || form.exchangeRate > 0),
 )
 
 const canAddItem = computed(() => {
@@ -371,6 +448,8 @@ function buildOrderPayload() {
     arrivalDate: dateToApi(form.arrivalDate),
     comment: form.comment.trim() || undefined,
     serviceFee: 0,
+    currency: form.currency,
+    exchangeRate: isForeign.value ? form.exchangeRate : undefined,
   }
 }
 
@@ -379,7 +458,12 @@ watch(
   (id) => {
     const g = goods.value.find((x) => x.id === id)
     if (!g) return
-    itemForm.priceCost = Number(g.priceCost || 0)
+    const baseCost = Number(g.priceCost || 0)
+    itemForm.priceCost = isForeign.value
+      ? form.exchangeRate > 0
+        ? Math.round((baseCost / form.exchangeRate) * 100) / 100
+        : 0
+      : baseCost
     itemForm.priceSelling = Number(g.priceSelling || 0)
     priceCostText.value = amountToText(itemForm.priceCost)
     itemForm.count = 1
@@ -400,6 +484,8 @@ function applyOrderToForm(order: {
   arrivalDate?: string
   comment?: string
   orderStatus?: string
+  currency?: CurrencyCode
+  exchangeRate?: number
 }) {
   orderId.value = order.id ?? null
   orderStatus.value = order.orderStatus || null
@@ -407,6 +493,9 @@ function applyOrderToForm(order: {
   form.warehouseId = order.warehouseId || 0
   form.arrivalDate = (order.arrivalDate || '').slice(0, 10) || todayLocal()
   form.comment = order.comment || ''
+  form.exchangeRate = order.currency && order.currency !== 'UZS' ? Number(order.exchangeRate || 0) : 0
+  rateText.value = amountToText(form.exchangeRate)
+  form.currency = order.currency || 'UZS'
 }
 
 async function load() {
@@ -526,6 +615,8 @@ onMounted(load)
 .btn:disabled { opacity: 0.55; cursor: not-allowed; }
 .ghost { display: inline-flex; height: 2.5rem; align-items: center; border-radius: 0.5rem; border: 1px solid #d1d5db; padding: 0 0.75rem; font-size: 0.875rem; color: #374151; }
 .danger { font-size: 0.8125rem; font-weight: 500; color: #dc2626; }
+.cur-hint { flex: 1 1 16rem; align-self: center; font-size: 0.75rem; color: #6b7280; }
+.base-eq { font-size: 0.6875rem; font-weight: 400; color: #6b7280; }
 .th { padding: 0.75rem 1rem; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; white-space: nowrap; }
 .td { padding: 0.75rem 1rem; font-size: 0.875rem; color: #4b5563; }
 .empty { padding: 2rem 1.25rem; text-align: center; font-size: 0.875rem; color: #6b7280; }

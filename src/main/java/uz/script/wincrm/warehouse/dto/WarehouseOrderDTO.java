@@ -1,9 +1,11 @@
 package uz.script.wincrm.warehouse.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
+import uz.script.wincrm.currency.Currency;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -48,4 +50,11 @@ public class WarehouseOrderDTO {
             example = "50000.00"
     )
     private BigDecimal serviceFee;
+
+    @Schema(description = "Document currency; null on create - UZS, on update - unchanged", example = "USD")
+    private Currency currency;
+
+    @DecimalMin(value = "0.0001", message = "Exchange rate must be positive")
+    @Schema(description = "1 unit = rate UZS; null - company rate for the arrival date", example = "12850")
+    private BigDecimal exchangeRate;
 }

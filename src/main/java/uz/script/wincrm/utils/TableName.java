@@ -58,4 +58,5 @@ public interface TableName {
     String DISCOUNT_RULES = "discount_rules";
     String KPI_RATES = "kpi_rates";
     String KPI_ENTRIES = "kpi_entries";
+    String EXCHANGE_RATES = "exchange_rates";
 }

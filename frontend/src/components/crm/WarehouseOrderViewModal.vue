@@ -23,9 +23,19 @@
             <div><span class="lbl">{{ t('common.warehouse') }}</span>{{ order.warehouseName || '—' }}</div>
             <div><span class="lbl">{{ t('common.date') }}</span>{{ formatDate(order.arrivalDate) }}</div>
             <div><span class="lbl">{{ t('common.status') }}</span>{{ statusLabel }}</div>
-            <div><span class="lbl">{{ t('warehouseOrders.grandTotal') }}</span>{{ money(orderTotal) }}</div>
+            <div>
+              <span class="lbl">{{ t('warehouseOrders.grandTotal') }}</span>{{ amt(orderTotal) }}
+              <span v-if="isForeign && order.totalSumBase != null" class="base-eq">
+                {{ t('warehouseOrders.baseEquivalent', { value: moneyIn(order.totalSumBase, 'UZS', t('common.currency')) }) }}
+              </span>
+            </div>
+            <div v-if="isForeign">
+              <span class="lbl">{{ t('warehouseOrders.currency') }}</span>
+              {{ t(`exchangeRates.currencies.${order.currency}`) }} ·
+              {{ t('warehouseOrders.rateLabel', { value: formatRate(order.exchangeRate) }) }}
+            </div>
             <div v-if="Number(order.serviceFee) > 0">
-              <span class="lbl">{{ t('warehouseOrders.serviceFee') }}</span>{{ money(order.serviceFee) }}
+              <span class="lbl">{{ t('warehouseOrders.serviceFee') }}</span>{{ amt(order.serviceFee) }}
             </div>
             <div v-if="order.comment"><span class="lbl">{{ t('common.comment') }}</span>{{ order.comment }}</div>
           </div>
@@ -56,22 +66,22 @@
                   <td class="td">{{ row.height != null ? formatNum(row.height) : '—' }}</td>
                   <td class="td">{{ row.pieces != null ? formatNum(row.pieces) : formatNum(row.count) }}</td>
                   <td class="td">{{ row.isWindow ? formatNum(row.count) : '—' }}</td>
-                  <td class="td">{{ money(row.priceCost) }}</td>
-                  <td class="td">{{ money(row.sum) }}</td>
+                  <td class="td">{{ amt(row.priceCost) }}</td>
+                  <td class="td">{{ amt(row.sum) }}</td>
                 </tr>
               </tbody>
               <tfoot v-if="displayItems.length || Number(order.serviceFee) > 0">
                 <tr v-if="displayItems.length" class="border-t border-gray-200 bg-gray-50">
                   <td class="td font-medium" colspan="7">{{ t('warehouseOrders.itemsTotal') }}</td>
-                  <td class="td font-medium">{{ money(itemsTotalSum) }}</td>
+                  <td class="td font-medium">{{ amt(itemsTotalSum) }}</td>
                 </tr>
                 <tr v-if="Number(order.serviceFee) > 0" class="border-t border-gray-100 bg-gray-50">
                   <td class="td font-medium" colspan="7">{{ t('warehouseOrders.serviceFee') }}</td>
-                  <td class="td font-medium">{{ money(order.serviceFee) }}</td>
+                  <td class="td font-medium">{{ amt(order.serviceFee) }}</td>
                 </tr>
                 <tr class="border-t border-gray-200 bg-gray-50">
                   <td class="td font-semibold" colspan="7">{{ t('common.total') }}</td>
-                  <td class="td font-semibold">{{ money(orderTotal) }}</td>
+                  <td class="td font-semibold">{{ amt(orderTotal) }}</td>
                 </tr>
               </tfoot>
             </table>
@@ -128,6 +138,7 @@ import type { Supplier } from '@/api/suppliers'
 import { fetchGoods, type Goods } from '@/api/goods'
 import { formatApiError } from '@/api/http'
 import { formatDate, money } from '@/utils/format'
+import { formatRate, moneyIn } from '@/utils/currency'
 import MailIcon from '@/icons/MailIcon.vue'
 import SendIcon from '@/icons/SendIcon.vue'
 import DocsIcon from '@/icons/DocsIcon.vue'
@@ -155,6 +166,11 @@ const printAreaRef = ref<HTMLElement | null>(null)
 
 const supplierPhone = computed(() => props.supplier?.phone || '')
 const orderTotal = computed(() => Number(order.value?.totalSum || 0))
+const isForeign = computed(() => !!order.value?.currency && order.value.currency !== 'UZS')
+
+function amt(v?: number | null) {
+  return isForeign.value ? moneyIn(v, order.value?.currency) : money(v)
+}
 const statusLabel = computed(() => {
   if (order.value?.orderStatus === 'TRANSFERRED') return t('warehouseOrders.statusTransferred')
   return order.value?.orderStatus || t('warehouseOrders.statusNew')
@@ -209,13 +225,13 @@ function buildDefaultMessage(o: WarehouseOrder, rows: typeof displayItems.value)
   ]
   rows.forEach((row, idx) => {
     lines.push(
-      `${idx + 1}. ${row.goodsName} — ${row.isWindow ? `${formatNum(row.count)} ${t('warehouseOrders.kvmUnit')}` : `${formatNum(row.count)} ${t('common.pcs')}`} — ${money(row.sum)}`,
+      `${idx + 1}. ${row.goodsName} — ${row.isWindow ? `${formatNum(row.count)} ${t('warehouseOrders.kvmUnit')}` : `${formatNum(row.count)} ${t('common.pcs')}`} — ${amt(row.sum)}`,
     )
   })
   if (Number(o.serviceFee) > 0) {
-    lines.push(t('warehouseOrders.msgServiceFee', { value: money(o.serviceFee) }))
+    lines.push(t('warehouseOrders.msgServiceFee', { value: amt(o.serviceFee) }))
   }
-  lines.push(t('warehouseOrders.msgTotal', { value: money(o.totalSum) }))
+  lines.push(t('warehouseOrders.msgTotal', { value: amt(o.totalSum) }))
   return lines.join('\n')
 }
 
@@ -349,6 +365,11 @@ watch(
   font-weight: 500;
   color: #6b7280;
   margin-bottom: 0.15rem;
+}
+.base-eq {
+  display: block;
+  font-size: 0.75rem;
+  color: #6b7280;
 }
 .section-title {
   margin: 0 0 0.75rem;
