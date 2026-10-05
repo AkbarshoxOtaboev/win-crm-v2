@@ -75,9 +75,13 @@ public class SaleOrderDTO {
             example = "DELIVERY")
     private DeliveryType deliveryType;
 
-    @Schema(description = "Buyurtma valyutasi (bo'sh — UZS). Barcha summalar shu valyutada keladi. "
-            + "Kurs buyurtma sanasidagi Markaziy bank kursidan avtomatik olinadi.", example = "USD")
+    @Schema(description = "Buyurtma valyutasi (bo'sh — UZS). Barcha summalar shu valyutada keladi.", example = "USD")
     private Currency currency;
+
+    @DecimalMin(value = "0.0001", message = "Kurs musbat bo'lishi kerak")
+    @Schema(description = "1 birlik valyuta = kurs so'm, foydalanuvchi qo'lda kiritgan; "
+            + "bo'sh — buyurtma sanasidagi Markaziy bank kursi", example = "12850")
+    private BigDecimal exchangeRate;
 
     @Schema(description = "Yetkazib berish xizmati haqi (faqat DELIVERY uchun, totalSum'ga qo'shiladi)", example = "150000")
     @PositiveOrZero(message = "Yetkazib berish haqi manfiy bo'lishi mumkin emas")

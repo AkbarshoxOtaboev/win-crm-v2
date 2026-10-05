@@ -25,6 +25,14 @@ export function formatDate(v?: string | null) {
   return v.replace('T', ' ').slice(0, 16)
 }
 
+/** "2026-10-05T10:16:00" -> "05.10.2026 10:16" */
+export function formatDmyTime(v?: string | null) {
+  if (!v) return '—'
+  const [y, m, d] = v.slice(0, 10).split('-')
+  const time = v.slice(11, 16)
+  return `${d}.${m}.${y}${time ? ` ${time}` : ''}`
+}
+
 export function toApiDate(local: string) {
   if (!local) return local
   return local.length === 16 ? `${local}:00` : local

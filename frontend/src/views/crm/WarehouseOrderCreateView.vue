@@ -166,6 +166,33 @@
             />
           </label>
           <label class="lbl min-w-0 w-40 sm:flex-none">
+            {{ isWindowGoods ? t('warehouseOrders.sellingPriceKvm') : t('warehouseOrders.sellingPrice') }}
+            <input
+              :value="sellingText"
+              inputmode="decimal"
+              autocomplete="off"
+              placeholder="0"
+              class="field"
+              @input="onSellingInput"
+            />
+          </label>
+          <label class="lbl min-w-0 w-28 sm:flex-none">
+            {{ t('warehouseOrders.markupPercent') }}
+            <div class="pct-field">
+              <input
+                :value="markupText"
+                inputmode="decimal"
+                autocomplete="off"
+                placeholder="0"
+                class="field"
+                :class="{ 'text-red-600': markupNegative }"
+                :disabled="!(itemForm.priceCost > 0)"
+                @input="onMarkupInput"
+              />
+              <span class="pct-sign">%</span>
+            </div>
+          </label>
+          <label class="lbl min-w-0 w-40 sm:flex-none">
             {{ t('warehouseOrders.totalSum') }}
             <input :value="amt(computedSum)" class="field" readonly />
             <span v-if="isForeign && computedSum > 0 && form.exchangeRate > 0" class="base-eq">
@@ -182,6 +209,12 @@
         <p v-if="!headerReady" class="mt-2 text-xs text-amber-600">
           {{ t('warehouseOrders.headerRequiredHint') }}
         </p>
+        <p v-else-if="itemForm.goodsId > 0 && itemForm.priceCost > 0 && !(itemForm.priceSelling > 0)" class="mt-2 text-xs text-amber-600">
+          {{ t('warehouseOrders.sellingRequired') }}
+        </p>
+        <p v-else-if="markupNegative" class="mt-2 text-xs text-red-600">
+          {{ t('warehouseOrders.sellingBelowCost') }}
+        </p>
       </div>
 
       <div class="overflow-x-auto">
@@ -196,6 +229,8 @@
               <th class="th">{{ t('warehouseOrders.kvm') }}</th>
               <th class="th">{{ isForeign ? t('warehouseOrders.colPriceUsd') : t('warehouseOrders.arrivalPrice') }}</th>
               <th v-if="isForeign" class="th">{{ t('warehouseOrders.colPriceSom') }}</th>
+              <th class="th">{{ t('warehouseOrders.sellingPrice') }}</th>
+              <th class="th">{{ t('warehouseOrders.markupPercent') }}</th>
               <th class="th">{{ isForeign ? t('warehouseOrders.colSumUsd') : t('common.sum') }}</th>
               <th v-if="isForeign" class="th">{{ t('warehouseOrders.colSumSom') }}</th>
               <th class="th text-right">{{ t('common.actions') }}</th>
@@ -203,7 +238,7 @@
           </thead>
           <tbody>
             <tr v-if="displayItems.length === 0">
-              <td :colspan="isForeign ? 11 : 9" class="empty">{{ t('warehouseOrders.noItemsYet') }}</td>
+              <td :colspan="isForeign ? 13 : 11" class="empty">{{ t('warehouseOrders.noItemsYet') }}</td>
             </tr>
             <tr v-for="(row, idx) in displayItems" :key="row.id" class="border-b border-gray-100">
               <td class="td">{{ idx + 1 }}</td>
@@ -214,6 +249,10 @@
               <td class="td">{{ row.isWindow ? formatNum(row.count) : '—' }}</td>
               <td class="td">{{ amt(row.priceCost) }}</td>
               <td v-if="isForeign" class="td">{{ money(row.priceSom) }}</td>
+              <td class="td">{{ row.priceSelling > 0 ? amt(row.priceSelling) : '—' }}</td>
+              <td class="td" :class="row.markup != null && row.markup < 0 ? 'text-red-600' : 'text-emerald-600'">
+                {{ row.markup != null ? `${formatPct(row.markup)}%` : '—' }}
+              </td>
               <td class="td">{{ amt(row.sum) }}</td>
               <td v-if="isForeign" class="td">{{ money(row.sumSom) }}</td>
               <td class="td text-right">
@@ -231,7 +270,7 @@
           </tbody>
           <tfoot v-if="displayItems.length">
             <tr class="border-t border-gray-200 bg-gray-50">
-              <td class="td font-semibold" :colspan="isForeign ? 8 : 7">{{ t('common.total') }}</td>
+              <td class="td font-semibold" :colspan="isForeign ? 10 : 9">{{ t('common.total') }}</td>
               <td class="td font-semibold">{{ amt(itemsTotalSum) }}</td>
               <td v-if="isForeign" class="td font-semibold">{{ moneyIn(itemsTotalSom, 'UZS', t('common.currency')) }}</td>
               <td class="td" />
@@ -448,6 +487,36 @@ const computedSum = computed(() => {
 })
 
 const priceCostText = ref('')
+const sellingText = ref('')
+const markupText = ref('')
+/** null - foiz kiritilmagan, sotish narxidan hisoblanadi. */
+const markupPercent = ref<number | null>(null)
+
+const round2 = (v: number) => Math.round(v * 100) / 100
+
+function formatPct(v: number) {
+  return new Intl.NumberFormat('uz-UZ', { maximumFractionDigits: 2 }).format(v)
+}
+
+function markupOf(cost: number, selling: number) {
+  return cost > 0 && selling > 0 ? round2(((selling - cost) / cost) * 100) : null
+}
+
+const markupNegative = computed(() => markupPercent.value != null && markupPercent.value < 0)
+
+function setSelling(v: number) {
+  itemForm.priceSelling = v > 0 ? round2(v) : 0
+  sellingText.value = amountToText(itemForm.priceSelling)
+}
+
+function setMarkup(v: number | null) {
+  markupPercent.value = v
+  markupText.value = v == null ? '' : String(v)
+}
+
+function syncMarkupFromSelling() {
+  setMarkup(markupOf(Number(itemForm.priceCost), Number(itemForm.priceSelling)))
+}
 
 function onPriceCostInput(e: Event) {
   const el = e.target as HTMLInputElement
@@ -455,6 +524,38 @@ function onPriceCostInput(e: Event) {
   priceCostText.value = text
   el.value = text
   itemForm.priceCost = value
+  if (markupPercent.value != null && value > 0) setSelling(value * (1 + markupPercent.value / 100))
+  else syncMarkupFromSelling()
+}
+
+function onSellingInput(e: Event) {
+  const el = e.target as HTMLInputElement
+  const { text, value } = formatAmountInput(el.value)
+  sellingText.value = text
+  el.value = text
+  itemForm.priceSelling = value
+  syncMarkupFromSelling()
+}
+
+function onMarkupInput(e: Event) {
+  const el = e.target as HTMLInputElement
+  const cleaned = el.value.replace(',', '.').replace(/[^\d.-]/g, '')
+  markupText.value = cleaned
+  el.value = cleaned
+  const pct = cleaned === '' || cleaned === '-' ? null : Number(cleaned)
+  markupPercent.value = pct != null && Number.isFinite(pct) ? pct : null
+  if (markupPercent.value != null && itemForm.priceCost > 0) {
+    setSelling(Number(itemForm.priceCost) * (1 + markupPercent.value / 100))
+  }
+}
+
+/** Mahsulotning oxirgi sotish narxi kirim valyutasida. */
+function goodsSellingIn(g: Goods) {
+  const price = Number(g.priceSelling || 0)
+  const from = g.priceCurrency || 'UZS'
+  if (from === form.currency || price <= 0) return price
+  if (!(form.exchangeRate > 0)) return 0
+  return from === 'UZS' ? price / form.exchangeRate : price * form.exchangeRate
 }
 
 const activeWarehouses = computed(() =>
@@ -483,7 +584,7 @@ const headerReady = computed(
 
 const canAddItem = computed(() => {
   if (!headerReady.value || itemForm.goodsId <= 0 || Number(itemForm.count) <= 0) return false
-  if (!(Number(itemForm.priceCost) > 0)) return false
+  if (!(Number(itemForm.priceCost) > 0) || !(Number(itemForm.priceSelling) > 0)) return false
   if (isWindowGoods.value) {
     return Number(itemForm.width) > 0 && Number(itemForm.height) > 0
   }
@@ -498,6 +599,7 @@ const displayItems = computed(() =>
     const height = it.height != null ? Number(it.height) : null
     const count = Number(it.count || 0)
     const priceCost = Number(it.priceCost || 0)
+    const priceSelling = Number(it.priceSelling || 0)
     let pieces: number | null = it.pieceCount != null ? Number(it.pieceCount) : null
     if (pieces == null && windowItem && width && height && width > 0 && height > 0) {
       pieces = (count * 10000) / (width * height)
@@ -510,6 +612,8 @@ const displayItems = computed(() =>
       pieces,
       count,
       priceCost,
+      priceSelling,
+      markup: markupOf(priceCost, priceSelling),
       isWindow: windowItem,
       sum: count * priceCost,
       priceSom: toSom(priceCost),
@@ -544,8 +648,9 @@ watch(
         ? Math.round((baseCost / form.exchangeRate) * 100) / 100
         : 0
       : baseCost
-    itemForm.priceSelling = Number(g.priceSelling || 0)
     priceCostText.value = amountToText(itemForm.priceCost)
+    setSelling(goodsSellingIn(g))
+    syncMarkupFromSelling()
     itemForm.count = 1
     if (isWindow(g)) {
       itemForm.width = Number(g.width || 0)
@@ -637,7 +742,7 @@ async function onAddItem() {
       supplierId: form.supplierId,
       goodsId: itemForm.goodsId,
       priceCost: Number(itemForm.priceCost),
-      priceSelling: Number(itemForm.priceSelling || 0),
+      priceSelling: Number(itemForm.priceSelling),
       count: Number(itemForm.count),
       weight: windowMode ? Number(itemForm.width) : undefined,
       height: windowMode ? Number(itemForm.height) : undefined,
@@ -648,9 +753,11 @@ async function onAddItem() {
     itemForm.width = 0
     itemForm.height = 0
     itemForm.priceCost = 0
-    itemForm.priceSelling = 0
     priceCostText.value = ''
+    setSelling(0)
+    setMarkup(null)
     await reloadItems()
+    goods.value = (await fetchGoods()).data || goods.value
   } catch (e) {
     error.value = formatApiError(e)
   } finally {
@@ -702,6 +809,9 @@ onMounted(load)
 .cur-hint { flex: 1 1 16rem; align-self: center; font-size: 0.75rem; color: #6b7280; }
 .base-eq { font-size: 0.6875rem; font-weight: 400; color: #6b7280; }
 .link-btn { font-weight: 500; color: #465fff; text-decoration: underline; }
+.pct-field { position: relative; }
+.pct-field .field { padding-right: 1.75rem; }
+.pct-sign { position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%); font-size: 0.875rem; color: #9ca3af; pointer-events: none; }
 .th { padding: 0.75rem 1rem; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; white-space: nowrap; }
 .td { padding: 0.75rem 1rem; font-size: 0.875rem; color: #4b5563; }
 .empty { padding: 2rem 1.25rem; text-align: center; font-size: 0.875rem; color: #6b7280; }

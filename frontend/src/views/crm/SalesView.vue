@@ -6,8 +6,35 @@
         <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('nav.salesOrders') }}</h3>
         <div class="toolbar mt-3">
           <input v-model="search" type="search" :placeholder="t('common.search')" class="field search" />
-          <input v-model="dateFrom" type="date" class="field date" :title="t('common.from')" />
-          <input v-model="dateTo" type="date" class="field date" :title="t('common.to')" />
+          <div class="range">
+            <CalendarDays class="h-4 w-4 shrink-0 text-gray-400" />
+            <input
+              v-model="dateFrom"
+              type="date"
+              class="range-input"
+              :max="dateTo || undefined"
+              :title="t('common.from')"
+              :aria-label="t('common.from')"
+            />
+            <span class="text-gray-400">—</span>
+            <input
+              v-model="dateTo"
+              type="date"
+              class="range-input"
+              :min="dateFrom || undefined"
+              :title="t('common.to')"
+              :aria-label="t('common.to')"
+            />
+            <button
+              v-if="!isDefaultRange"
+              type="button"
+              class="range-reset"
+              :title="t('sales.thisMonth')"
+              @click="resetRange"
+            >
+              <RotateCcw class="h-3.5 w-3.5" />
+            </button>
+          </div>
           <button type="button" class="btn create-btn" :disabled="writeBlocked" @click="goCreate">{{ t('sales.newSale') }}</button>
         </div>
       </div>
@@ -109,17 +136,17 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { Eye } from 'lucide-vue-next'
+import { CalendarDays, Eye, RotateCcw } from 'lucide-vue-next'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import RowActions from '@/components/crm/RowActions.vue'
 import SaleStatusBadge from '@/components/crm/SaleStatusBadge.vue'
 import {
   deleteSaleOrder,
-  fetchSaleOrders,
+  fetchSaleOrdersByDateRange,
   updateSaleOrder,
   type SaleOrder,
 } from '@/api/sales'
@@ -144,8 +171,25 @@ const saving = ref(false)
 const error = ref<string | null>(null)
 const formError = ref<string | null>(null)
 const search = ref('')
-const dateFrom = ref('')
-const dateTo = ref('')
+
+function localIso(d: Date) {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+function monthStartIso() {
+  const d = new Date()
+  return localIso(new Date(d.getFullYear(), d.getMonth(), 1))
+}
+
+const dateFrom = ref(monthStartIso())
+const dateTo = ref(localIso(new Date()))
+const isDefaultRange = computed(() => dateFrom.value === monthStartIso() && dateTo.value === localIso(new Date()))
+
+function resetRange() {
+  dateFrom.value = monthStartIso()
+  dateTo.value = localIso(new Date())
+}
 const modalOpen = ref(false)
 const editingId = ref<number | null>(null)
 
@@ -164,37 +208,55 @@ function amt(o: SaleOrder, v?: number | null) {
 
 const filtered = computed(() => {
   const q = search.value.trim().toLowerCase()
-  const from = dateFrom.value ? new Date(`${dateFrom.value}T00:00:00`) : null
-  const to = dateTo.value ? new Date(`${dateTo.value}T23:59:59`) : null
+  if (!q) return items.value
   return items.value.filter((o) => {
-    if (q) {
-      const statusText = o.orderStatus && te(`saleStatus.${o.orderStatus}`) ? t(`saleStatus.${o.orderStatus}`) : ''
-      const hit = [o.clientFullName, o.orderStatus, statusText, String(o.id)]
-        .filter(Boolean)
-        .some((v) => String(v).toLowerCase().includes(q))
-      if (!hit) return false
-    }
-    if (from || to) {
-      const d = o.orderDate ? new Date(o.orderDate) : null
-      if (!d || Number.isNaN(d.getTime())) return false
-      if (from && d < from) return false
-      if (to && d > to) return false
-    }
-    return true
+    const statusText = o.orderStatus && te(`saleStatus.${o.orderStatus}`) ? t(`saleStatus.${o.orderStatus}`) : ''
+    return [o.clientFullName, o.orderStatus, statusText, String(o.id)]
+      .filter(Boolean)
+      .some((v) => String(v).toLowerCase().includes(q))
   })
 })
+
+let salesSeq = 0
+
+async function loadSales() {
+  const id = ++salesSeq
+  const from = dateFrom.value || '2000-01-01'
+  const to = dateTo.value || '2100-12-31'
+  if (from > to) {
+    error.value = t('sales.invalidRange')
+    items.value = []
+    return
+  }
+  const res = await fetchSaleOrdersByDateRange(`${from}T00:00:00`, `${to}T23:59:59`)
+  if (id !== salesSeq) return
+  items.value = [...(res.data || [])].sort((a, b) => b.id - a.id)
+}
+
+async function reloadSales() {
+  loading.value = true
+  error.value = null
+  try {
+    await loadSales()
+  } catch (e) {
+    error.value = formatApiError(e, t('common.loadError'))
+  } finally {
+    loading.value = false
+  }
+}
+
+watch([dateFrom, dateTo], () => void reloadSales())
 
 async function load() {
   loading.value = true
   error.value = null
   try {
-    const [salesRes, whRes, clientsRes, usersRes] = await Promise.all([
-      fetchSaleOrders(),
+    const [, whRes, clientsRes, usersRes] = await Promise.all([
+      loadSales(),
       fetchWarehouses(),
       fetchClients(),
       fetchUserOptions(),
     ])
-    items.value = salesRes.data?.content || []
     warehouses.value = whRes.data || []
     clients.value = clientsRes.data || []
     users.value = usersRes.data || []
@@ -268,7 +330,13 @@ onMounted(load)
 .field { height: 2.5rem; width: 100%; border-radius: 0.5rem; border: 1px solid #d1d5db; background: transparent; padding: 0 0.75rem; font-size: 0.875rem; }
 .toolbar { display: flex; align-items: center; gap: 0.75rem; width: 100%; flex-wrap: wrap; }
 .toolbar .search { width: 14rem; max-width: 100%; flex: 0 0 auto; }
-.toolbar .date { width: 10rem; flex: 0 0 auto; }
+.range { display: inline-flex; height: 2.5rem; align-items: center; gap: 0.5rem; border-radius: 0.5rem; border: 1px solid #d1d5db; padding: 0 0.625rem; font-size: 0.875rem; }
+.range-input { width: 8.25rem; border: 0; background: transparent; padding: 0; font-size: 0.875rem; color: inherit; outline: none; }
+.range-reset { display: inline-flex; height: 1.5rem; width: 1.5rem; align-items: center; justify-content: center; border-radius: 0.375rem; color: #6b7280; }
+.range-reset:hover { background: #f3f4f6; color: #465fff; }
+.dark .range { border-color: #374151; color: #e5e7eb; }
+.dark .range-input { color-scheme: dark; }
+.dark .range-reset:hover { background: rgba(255, 255, 255, 0.06); }
 .btn { display: inline-flex; height: 2.5rem; align-items: center; justify-content: center; border-radius: 0.5rem; background: #465fff; padding: 0 1rem; font-size: 0.875rem; font-weight: 500; color: #fff; white-space: nowrap; }
 .create-btn { margin-left: auto; min-width: 11.5rem; padding: 0 1.5rem; flex-shrink: 0; }
 .err { border-radius: 0.5rem; border: 1px solid #fecaca; background: #fef2f2; padding: 0.75rem 1rem; font-size: 0.875rem; color: #dc2626; }

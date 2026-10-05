@@ -32,6 +32,29 @@ export function fetchCurrentRate(currency: CurrencyCode = 'USD', date?: string) 
   return apiRequest<RestApiResponse<ExchangeRate | null>>(`/api/exchange-rates/current?${params}`)
 }
 
+/** Kompaniya o'zi belgilaydigan olish/sotish kursi; belgilanmagan bo'lsa buyRate/sellRate null. */
+export interface CompanyFxRate {
+  currency: CurrencyCode
+  buyRate: number | null
+  sellRate: number | null
+  updatedUsername?: string | null
+  updatedAt?: string | null
+  cbuRate?: number | null
+  cbuChange?: number | null
+  cbuRateDate?: string | null
+}
+
+export function fetchCompanyRates() {
+  return apiRequest<RestApiResponse<CompanyFxRate[]>>('/api/exchange-rates/company')
+}
+
+export function saveCompanyRate(currency: CurrencyCode, buyRate: number, sellRate: number) {
+  return apiRequest<RestApiResponse<CompanyFxRate>>(`/api/exchange-rates/company/${currency}`, {
+    method: 'PUT',
+    body: { buyRate, sellRate },
+  })
+}
+
 /** Markaziy bankdan oxirgi kursni hozir olish (server buni har soatda o'zi ham qiladi). */
 export function syncExchangeRate(currency: CurrencyCode = 'USD') {
   return apiRequest<RestApiResponse<ExchangeRate | null>>(`/api/exchange-rates/sync?currency=${currency}`, {

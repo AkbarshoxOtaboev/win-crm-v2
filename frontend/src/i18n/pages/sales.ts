@@ -1,6 +1,8 @@
 export default {
   uz: {
     newSale: '+ Yangi savdo',
+    thisMonth: 'Joriy oy (oy boshidan bugungacha)',
+    invalidRange: '«Dan» sanasi «gacha» sanasidan keyin bo‘lishi mumkin emas',
     paid: 'To‘langan',
     debt: 'Qarz',
     noSales: 'Savdo yo‘q',
@@ -12,6 +14,8 @@ export default {
   },
   ru: {
     newSale: '+ Новый заказ',
+    thisMonth: 'Текущий месяц (с начала месяца по сегодня)',
+    invalidRange: 'Дата «с» не может быть позже даты «по»',
     paid: 'Оплачено',
     debt: 'Долг',
     noSales: 'Нет заказов',
@@ -23,6 +27,8 @@ export default {
   },
   en: {
     newSale: '+ New sale',
+    thisMonth: 'This month (from the 1st to today)',
+    invalidRange: 'The “from” date cannot be after the “to” date',
     paid: 'Paid',
     debt: 'Debt',
     noSales: 'No sales',

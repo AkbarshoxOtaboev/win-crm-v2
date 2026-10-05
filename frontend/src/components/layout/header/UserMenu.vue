@@ -1,19 +1,14 @@
 <template>
   <div class="relative" ref="dropdownRef">
     <button
-      class="flex items-center text-gray-700 dark:text-gray-400 cursor-pointer"
+      class="flex h-10 items-center gap-2 rounded-lg border border-gray-200 bg-white ps-px pe-2 text-gray-700 transition hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-white/[0.03] cursor-pointer"
       @click.prevent="toggleDropdown"
       type="button"
     >
-      <UserAvatar
-        class="ltr:mr-3 rtl:ml-3"
-        :preference="avatarPref"
-        size="md"
-        :title="displayName"
-      />
-      <span class="block font-medium text-theme-sm ltr:mr-1 rtl:ml-1">{{ displayName }}</span>
+      <UserAvatar :preference="avatarPref" size="sm" :title="displayName" />
+      <span class="block max-w-[120px] truncate font-medium text-theme-sm xl:hidden 2xl:block">{{ displayName }}</span>
       <ChevronDownIcon
-        class="size-5 transition-transform duration-200 text-gray-500 dark:text-gray-400"
+        class="size-4 transition-transform duration-200 text-gray-500 dark:text-gray-400"
         :class="{ 'rotate-180': dropdownOpen }"
       />
     </button>

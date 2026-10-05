@@ -21,6 +21,59 @@
     <div v-if="error" class="err mb-4">{{ error }}</div>
     <div v-if="notice" class="ok mb-4">{{ notice }}</div>
 
+    <div class="card mb-4 p-5">
+      <div class="mb-3 flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-200">{{ t('exchangeRates.companyTitle') }}</h4>
+          <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{{ t('exchangeRates.companyHint') }}</p>
+        </div>
+        <p v-if="company?.updatedAt" class="text-xs text-gray-500 dark:text-gray-400">
+          {{ t('exchangeRates.updatedBy', { date: formatDmyTime(company.updatedAt), user: company.updatedUsername || '—' }) }}
+        </p>
+      </div>
+      <form v-if="canEditCompany" class="flex flex-wrap items-end gap-3" @submit.prevent="saveCompany">
+        <label class="fx-lbl">
+          <span class="flex items-center gap-1"><ArrowDownLeft class="h-3.5 w-3.5 gain" />{{ t('exchangeRates.buyRate') }}</span>
+          <input
+            :value="companyText.buyRate"
+            inputmode="decimal"
+            autocomplete="off"
+            placeholder="0"
+            class="fx-input"
+            required
+            @input="onCompanyRateInput('buyRate', $event)"
+          />
+        </label>
+        <label class="fx-lbl">
+          <span class="flex items-center gap-1"><ArrowUpRight class="h-3.5 w-3.5 loss" />{{ t('exchangeRates.sellRate') }}</span>
+          <input
+            :value="companyText.sellRate"
+            inputmode="decimal"
+            autocomplete="off"
+            placeholder="0"
+            class="fx-input"
+            required
+            @input="onCompanyRateInput('sellRate', $event)"
+          />
+        </label>
+        <button type="submit" class="btn" :disabled="companySaving">{{ t('exchangeRates.save') }}</button>
+        <p v-if="spread != null" class="pb-2.5 text-xs text-gray-500 dark:text-gray-400">
+          {{ t('exchangeRates.spread', { value: rateText(spread) }) }}
+        </p>
+      </form>
+      <div v-else class="flex flex-wrap gap-6">
+        <div>
+          <p class="stat-label flex items-center gap-1"><ArrowDownLeft class="h-3.5 w-3.5 gain" />{{ t('exchangeRates.buyRate') }}</p>
+          <p class="stat-value">{{ company?.buyRate != null ? rateText(company.buyRate) : t('exchangeRates.notSet') }}</p>
+        </div>
+        <div>
+          <p class="stat-label flex items-center gap-1"><ArrowUpRight class="h-3.5 w-3.5 loss" />{{ t('exchangeRates.sellRate') }}</p>
+          <p class="stat-value">{{ company?.sellRate != null ? rateText(company.sellRate) : t('exchangeRates.notSet') }}</p>
+        </div>
+      </div>
+      <p v-if="companyError" class="mt-2 text-xs text-red-600">{{ companyError }}</p>
+    </div>
+
     <div class="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <article class="stat today">
         <p class="stat-label">{{ t('exchangeRates.todayRate') }}</p>
@@ -141,15 +194,25 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, type ComputedRef } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, type ComputedRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import VueApexCharts from 'vue3-apexcharts'
-import { Minus, RefreshCw, TrendingDown, TrendingUp } from 'lucide-vue-next'
+import { ArrowDownLeft, ArrowUpRight, Minus, RefreshCw, TrendingDown, TrendingUp } from 'lucide-vue-next'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import { useTheme } from '@/components/layout/ThemeProvider.vue'
-import { fetchCurrentRate, fetchExchangeRates, syncExchangeRate, type ExchangeRate } from '@/api/exchangeRates'
+import {
+  fetchCurrentRate,
+  fetchExchangeRates,
+  saveCompanyRate,
+  syncExchangeRate,
+  type CompanyFxRate,
+  type ExchangeRate,
+} from '@/api/exchangeRates'
 import { formatApiError } from '@/api/http'
+import { useCompanyFxRates } from '@/composables/useCompanyFxRates'
+import { useAuthStore } from '@/stores/auth'
+import { amountToText, formatAmountInput, formatDmyTime } from '@/utils/format'
 
 const RANGES = [7, 14, 30] as const
 type Range = (typeof RANGES)[number]
@@ -360,8 +423,75 @@ async function refresh() {
   }
 }
 
+const auth = useAuthStore()
+const canEditCompany = computed(
+  () => auth.superAdmin || ['SUPER_ADMIN', 'ADMIN', 'DIRECTOR'].some((r) => auth.hasRole(r)),
+)
+const companyFx = useCompanyFxRates()
+const company = ref<CompanyFxRate | null>(null)
+const companyForm = reactive<{ buyRate: number | null; sellRate: number | null }>({ buyRate: null, sellRate: null })
+const companyText = reactive({ buyRate: '', sellRate: '' })
+const companySaving = ref(false)
+const companyError = ref<string | null>(null)
+
+const spread = computed(() =>
+  companyForm.buyRate && companyForm.sellRate ? companyForm.sellRate - companyForm.buyRate : null,
+)
+
+function applyCompany(row: CompanyFxRate | null) {
+  company.value = row
+  companyForm.buyRate = row?.buyRate ?? null
+  companyForm.sellRate = row?.sellRate ?? null
+  companyText.buyRate = companyForm.buyRate != null ? amountToText(companyForm.buyRate) : ''
+  companyText.sellRate = companyForm.sellRate != null ? amountToText(companyForm.sellRate) : ''
+}
+
+function onCompanyRateInput(field: 'buyRate' | 'sellRate', e: Event) {
+  const el = e.target as HTMLInputElement
+  const { text, value } = formatAmountInput(el.value)
+  companyText[field] = text
+  el.value = text
+  companyForm[field] = value > 0 ? value : null
+}
+
+async function loadCompany() {
+  try {
+    await companyFx.load()
+    applyCompany(companyFx.usd.value)
+  } catch (e) {
+    companyError.value = formatApiError(e, t('exchangeRates.loadError'))
+  }
+}
+
+async function saveCompany() {
+  companyError.value = null
+  notice.value = null
+  const buy = Number(companyForm.buyRate)
+  const sell = Number(companyForm.sellRate)
+  if (!(buy > 0) || !(sell > 0)) {
+    companyError.value = t('exchangeRates.ratesRequired')
+    return
+  }
+  if (buy > sell) {
+    companyError.value = t('exchangeRates.buyGtSell')
+    return
+  }
+  companySaving.value = true
+  try {
+    const saved = (await saveCompanyRate('USD', buy, sell)).data
+    applyCompany(saved)
+    companyFx.upsert(saved)
+    notice.value = t('exchangeRates.saved')
+  } catch (e) {
+    companyError.value = formatApiError(e)
+  } finally {
+    companySaving.value = false
+  }
+}
+
 onMounted(() => {
   void load()
+  void loadCompany()
   timer = setInterval(() => void load(), AUTO_RELOAD_MS)
 })
 
@@ -377,6 +507,10 @@ onBeforeUnmount(() => {
 .err { border-radius: 0.5rem; border: 1px solid #fecaca; background: #fef2f2; padding: 0.75rem 1rem; font-size: 0.875rem; color: #dc2626; }
 .ok { border-radius: 0.5rem; border: 1px solid #a7f3d0; background: #ecfdf5; padding: 0.75rem 1rem; font-size: 0.875rem; color: #047857; }
 .card { border-radius: 1rem; border: 1px solid #e5e7eb; background: #fff; }
+.fx-lbl { display: flex; flex-direction: column; gap: 0.375rem; font-size: 0.8125rem; font-weight: 500; color: #4b5563; }
+.fx-input { height: 2.5rem; width: 11rem; border-radius: 0.5rem; border: 1px solid #d1d5db; background: #fff; padding: 0 0.75rem; font-size: 0.875rem; color: #1f2937; }
+.dark .fx-lbl { color: #d1d5db; }
+.dark .fx-input { border-color: #374151; background: #111827; color: #f3f4f6; }
 .th { padding: 0.75rem 1.25rem; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; }
 .th.text-right { text-align: right; }
 .td { padding: 0.625rem 1.25rem; font-size: 0.875rem; color: #4b5563; }

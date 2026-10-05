@@ -45,11 +45,17 @@ public class Goods extends FilialScopedEntity {
     @Enumerated(EnumType.STRING)
     private Type type;
 
+    /** Oxirgi kirim narxi (so'mda); mahsulot yaratilganda 0, ombor kirimida yangilanadi. */
     @Column(nullable = false)
-    private BigDecimal priceCost;
+    @ColumnDefault("0")
+    @Builder.Default
+    private BigDecimal priceCost = BigDecimal.ZERO;
 
+    /** Oxirgi kirimda belgilangan sotish narxi (priceCurrency'da); mahsulot yaratilganda 0. */
     @Column(nullable = false)
-    private BigDecimal priceSelling;
+    @ColumnDefault("0")
+    @Builder.Default
+    private BigDecimal priceSelling = BigDecimal.ZERO;
 
     /** priceSelling valyutasi; priceCost doim so'mda (ombor tannarxi). */
     @Enumerated(EnumType.STRING)

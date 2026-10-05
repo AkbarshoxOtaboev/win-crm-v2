@@ -50,21 +50,17 @@ public class GoodsDTO {
     )
     private Type type;
 
-    @NotNull(message = "Price cost is required")
     @DecimalMin(value = "0.0", inclusive = true, message = "Price cost must not be negative")
     @Schema(
-            description = "Cost price",
-            example = "8500.00",
-            requiredMode = Schema.RequiredMode.REQUIRED
+            description = "Cost price (optional: set by warehouse arrivals; empty on create - 0, on update - unchanged)",
+            example = "8500.00"
     )
     private BigDecimal priceCost;
 
-    @NotNull(message = "Selling price is required")
     @DecimalMin(value = "0.0", inclusive = true, message = "Selling price must not be negative")
     @Schema(
-            description = "Selling price",
-            example = "12000.00",
-            requiredMode = Schema.RequiredMode.REQUIRED
+            description = "Selling price (optional: set by warehouse arrivals; empty on create - 0, on update - unchanged)",
+            example = "12000.00"
     )
     private BigDecimal priceSelling;
 
@@ -79,7 +75,7 @@ public class GoodsDTO {
 
     @DecimalMin(value = "0.0", inclusive = true, message = "Maksimal chegirma manfiy bo'lishi mumkin emas")
     @DecimalMax(value = "100.0", inclusive = true, message = "Maksimal chegirma 100% dan oshmasligi kerak")
-    @Schema(description = "Sotuvchi bera oladigan maksimal chegirma, % (bo'sh — cheklanmagan)", example = "5")
+    @Schema(description = "Sotuvchi bera oladigan maksimal chegirma, % (yaratishda bo'sh — cheklanmagan, tahrirda bo'sh — o'zgarmaydi)", example = "5")
     private BigDecimal maxDiscountPercent;
 
     @DecimalMin(value = "0.0", inclusive = false, message = "Width must be greater than 0")

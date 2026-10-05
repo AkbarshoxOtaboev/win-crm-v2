@@ -92,17 +92,32 @@
           <label v-if="needsRate" class="lbl min-w-0 w-full sm:w-44 sm:flex-none">
             {{ t('saleOrderCreate.rate') }}
             <input
-              :value="rateLoading ? t('exchangeRates.rateLoading') : form.exchangeRate > 0 ? formatRate(form.exchangeRate) : '—'"
-              readonly
-              tabindex="-1"
-              class="field cursor-default bg-gray-50 dark:bg-white/[0.03]"
-              :title="t('exchangeRates.rateAuto')"
+              :value="rateText"
+              inputmode="decimal"
+              autocomplete="off"
+              :placeholder="rateLoading ? t('exchangeRates.rateLoading') : '0'"
+              class="field"
+              :class="{ 'rate-manual': rateIsManual, 'cursor-default bg-gray-50 dark:bg-white/[0.03]': !rateEditable }"
+              :readonly="!rateEditable"
+              :tabindex="rateEditable ? undefined : -1"
+              :title="
+                !isForeign
+                  ? t('exchangeRates.rateAuto')
+                  : draftItems.length > 0
+                    ? t('saleOrderCreate.rateLocked')
+                    : t('saleOrderCreate.rateEditHint')
+              "
+              @input="onRateInput"
             />
           </label>
           <p v-if="needsRate" class="cur-hint">
             <span v-if="!rateLoading && !(form.exchangeRate > 0)" class="text-amber-600">{{ t('saleOrderCreate.rateMissing') }}</span>
             <template v-else>
-              <span v-if="cbuRateDate">{{ t('exchangeRates.cbuRate') }} · {{ cbuRateDate.split('-').reverse().join('.') }}. </span>
+              <span v-if="rateIsManual" class="text-amber-600">
+                {{ t('saleOrderCreate.rateManual', { rate: formatRate(cbuRate) }) }}
+                <button v-if="rateEditable" type="button" class="link-btn" @click="resetRate">{{ t('saleOrderCreate.rateReset') }}</button>.
+              </span>
+              <span v-else-if="cbuRateDate">{{ t('exchangeRates.cbuRate') }} · {{ cbuRateDate.split('-').reverse().join('.') }}. </span>
               <span v-if="isForeign">{{ t('saleOrderCreate.currencyHint') }}</span>
               <span v-else>{{ t('saleOrderCreate.rateForGoodsHint') }}</span>
             </template>
@@ -409,7 +424,7 @@ import { fetchGoods, type Goods } from '@/api/goods'
 import { fetchStocksByWarehouse, type Stock } from '@/api/stocks'
 import { useAuthStore } from '@/stores/auth'
 import { formatApiError } from '@/api/http'
-import { formatAmountInput, money } from '@/utils/format'
+import { amountToText, formatAmountInput, money } from '@/utils/format'
 import { BASE_CURRENCY, CURRENCIES, currencySymbol, formatRate, moneyIn, type CurrencyCode } from '@/utils/currency'
 import { formatUzPhone, isCompleteUzPhone } from '@/utils/phone'
 
@@ -473,9 +488,46 @@ const { rate: cbuRate, rateDate: cbuRateDate, loading: rateLoading } = useCbuRat
   () => (isForeign.value ? form.currency : needsRate.value ? 'USD' : null),
   () => form.orderDate,
 )
-watch(cbuRate, (v) => {
-  form.exchangeRate = v
+/** Xodim qo'lda kiritgan kurs; null - Markaziy bank kursi. Server uni faqat valyutali buyurtmada qabul qiladi. */
+const manualRate = ref<number | null>(null)
+const rateText = ref('')
+const rateEditable = computed(() => isForeign.value && draftItems.value.length === 0)
+
+watch(isForeign, (foreign) => {
+  if (!foreign) manualRate.value = null
 })
+const rateIsManual = computed(
+  () => manualRate.value != null && cbuRate.value > 0 && Math.abs(manualRate.value - cbuRate.value) >= 0.0001,
+)
+
+watch(
+  [cbuRate, manualRate],
+  () => {
+    form.exchangeRate = manualRate.value ?? cbuRate.value
+  },
+  { immediate: true },
+)
+
+watch(
+  () => form.exchangeRate,
+  (v) => {
+    if (formatAmountInput(rateText.value).value !== v) rateText.value = v > 0 ? amountToText(v) : ''
+  },
+  { immediate: true },
+)
+
+function onRateInput(e: Event) {
+  if (!rateEditable.value) return
+  const el = e.target as HTMLInputElement
+  const { text, value } = formatAmountInput(el.value)
+  rateText.value = text
+  el.value = text
+  manualRate.value = value > 0 ? value : null
+}
+
+function resetRate() {
+  manualRate.value = null
+}
 
 function amt(v?: number | null) {
   return isForeign.value ? moneyIn(v, form.currency) : money(v)
@@ -849,6 +901,7 @@ async function onSave() {
       deliveryType: form.deliveryType,
       deliveryFee: deliveryFeeValue.value,
       currency: form.currency,
+      exchangeRate: isForeign.value && manualRate.value != null ? form.exchangeRate : undefined,
       items: draftItems.value.map((d) => ({
         goodsId: d.goodsId,
         priceCost: d.priceCost,
@@ -994,6 +1047,8 @@ async function onCreateClient() {
 .dark .save-part { color: rgba(255, 255, 255, 0.8); }
 .stock-hint { margin-top: 0.5rem; font-size: 0.75rem; color: #6b7280; }
 .cur-hint { flex: 1 1 16rem; align-self: center; font-size: 0.75rem; color: #6b7280; }
+.link-btn { font-weight: 500; color: #465fff; text-decoration: underline; }
+.rate-manual { border-color: #f59e0b; }
 .dark .cur-hint { color: #9ca3af; }
 .save-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem; }
 .save-info { display: flex; align-items: baseline; gap: 0.5rem; font-size: 0.875rem; }

@@ -10,6 +10,8 @@ import uz.script.wincrm.goods.enums.Type;
 import uz.script.wincrm.goods.response.GoodsResponse;
 import uz.script.wincrm.utils.Status;
 
+import java.math.BigDecimal;
+
 @Component
 public class GoodsMapper {
 
@@ -19,8 +21,8 @@ public class GoodsMapper {
                 .goodsGroup(goodsGroup)
                 .unitType(unitType)
                 .type(dto.getType())
-                .priceCost(dto.getPriceCost())
-                .priceSelling(dto.getPriceSelling())
+                .priceCost(dto.getPriceCost() != null ? dto.getPriceCost() : BigDecimal.ZERO)
+                .priceSelling(dto.getPriceSelling() != null ? dto.getPriceSelling() : BigDecimal.ZERO)
                 .priceCurrency(dto.getPriceCurrency() != null ? dto.getPriceCurrency() : Currency.BASE)
                 .barcode(dto.getBarcode())
                 .maxDiscountPercent(dto.getMaxDiscountPercent())
@@ -38,13 +40,19 @@ public class GoodsMapper {
         if (dto.getType() != null) {
             goods.setType(dto.getType());
         }
-        goods.setPriceCost(dto.getPriceCost());
-        goods.setPriceSelling(dto.getPriceSelling());
+        if (dto.getPriceCost() != null) {
+            goods.setPriceCost(dto.getPriceCost());
+        }
+        if (dto.getPriceSelling() != null) {
+            goods.setPriceSelling(dto.getPriceSelling());
+        }
         if (dto.getPriceCurrency() != null) {
             goods.setPriceCurrency(dto.getPriceCurrency());
         }
         goods.setBarcode(dto.getBarcode());
-        goods.setMaxDiscountPercent(dto.getMaxDiscountPercent());
+        if (dto.getMaxDiscountPercent() != null) {
+            goods.setMaxDiscountPercent(dto.getMaxDiscountPercent());
+        }
         if (dto.getType() == Type.WINDOW) {
             goods.setWidth(dto.getWidth());
             goods.setHeight(dto.getHeight());

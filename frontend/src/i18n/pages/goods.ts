@@ -33,6 +33,7 @@ export default {
     photo: 'Rasm',
     photoAlt: 'Mahsulot rasmi',
     windowSizeRequired: 'WINDOW uchun eni va bo‘yi majburiy',
+    requiredFields: 'Nomi, guruh, birlik va turi majburiy',
     statusError: 'Statusni o‘zgartirishda xatolik',
     types: {
       PRODUCT: 'Tovar',
@@ -74,6 +75,7 @@ export default {
     photo: 'Фото',
     photoAlt: 'Фото товара',
     windowSizeRequired: 'Для типа «Окно» ширина и высота обязательны',
+    requiredFields: 'Название, группа, единица и тип обязательны',
     statusError: 'Ошибка изменения статуса',
     types: {
       PRODUCT: 'Товар',
@@ -115,6 +117,7 @@ export default {
     photo: 'Photo',
     photoAlt: 'Product photo',
     windowSizeRequired: 'Width and height are required for the Window type',
+    requiredFields: 'Name, group, unit and type are required',
     statusError: 'Failed to change status',
     types: {
       PRODUCT: 'Product',

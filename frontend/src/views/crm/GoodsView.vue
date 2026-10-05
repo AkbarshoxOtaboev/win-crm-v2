@@ -171,7 +171,7 @@
               </select>
             </div>
           </div>
-          <div class="grid grid-cols-3 gap-3">
+          <div class="grid grid-cols-2 gap-3">
             <div>
               <label class="lbl">{{ t('goods.type') }} *</label>
               <select v-model="form.type" required class="field">
@@ -181,17 +181,8 @@
               </select>
             </div>
             <div>
-              <label class="lbl">{{ t('goods.costPrice') }} ({{ t('common.currency') }}) *</label>
-              <input v-model.number="form.priceCost" type="number" min="0" step="0.01" required class="field" />
-            </div>
-            <div>
-              <label class="lbl">{{ t('goods.selling') }} *</label>
-              <div class="price-group">
-                <input v-model.number="form.priceSelling" type="number" min="0" step="0.01" required class="field" />
-                <select v-model="form.priceCurrency" class="field currency-select" :title="t('goods.priceCurrency')">
-                  <option v-for="c in CURRENCIES" :key="c" :value="c">{{ currencySymbol(c, t('common.currency')) }}</option>
-                </select>
-              </div>
+              <label class="lbl">{{ t('goods.barcode') }}</label>
+              <input v-model="form.barcode" class="field" />
             </div>
           </div>
           <div v-if="form.type === 'WINDOW'" class="grid grid-cols-2 gap-3">
@@ -204,25 +195,6 @@
               <input v-model.number="form.height" type="number" min="1" step="1" required class="field" placeholder="150" />
             </div>
           </div>
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="lbl">{{ t('goods.barcode') }}</label>
-              <input v-model="form.barcode" class="field" />
-            </div>
-            <div>
-              <label class="lbl">{{ t('goods.maxDiscountPercent') }}</label>
-              <input
-                v-model.number="form.maxDiscountPercent"
-                type="number"
-                min="0"
-                max="100"
-                step="0.01"
-                class="field"
-                :placeholder="t('goods.maxDiscountPlaceholder')"
-              />
-            </div>
-          </div>
-          <p class="-mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('goods.maxDiscountHint') }}</p>
           <div>
             <label class="lbl">{{ t('goods.photo') }}</label>
             <div v-if="previewUrl" class="photo-preview">
@@ -285,7 +257,7 @@ import {
 import { formatApiError, getAccessToken } from '@/api/http'
 import { useFilialScope } from '@/composables/useFilialScope'
 import { money } from '@/utils/format'
-import { BASE_CURRENCY, CURRENCIES, currencySymbol, moneyIn, type CurrencyCode } from '@/utils/currency'
+import { BASE_CURRENCY, moneyIn } from '@/utils/currency'
 
 const { t } = useI18n()
 const { writeBlocked } = useFilialScope()
@@ -316,11 +288,7 @@ const form = reactive({
   goodsGroupId: 0,
   unitTypeId: 0,
   type: 'PRODUCT',
-  priceCost: 0,
-  priceSelling: 0,
-  priceCurrency: BASE_CURRENCY as CurrencyCode,
   barcode: '',
-  maxDiscountPercent: '' as number | '',
   width: 0,
   height: 0,
 })
@@ -412,11 +380,7 @@ function openCreate() {
     goodsGroupId: groups.value[0]?.id || 0,
     unitTypeId: units.value[0]?.id || 0,
     type: 'PRODUCT',
-    priceCost: 0,
-    priceSelling: 0,
-    priceCurrency: BASE_CURRENCY,
     barcode: '',
-    maxDiscountPercent: '',
     width: 0,
     height: 0,
   })
@@ -432,11 +396,7 @@ function openEdit(g: Goods) {
     goodsGroupId: g.goodsGroupId || 0,
     unitTypeId: g.unitTypeId || 0,
     type: g.type || 'PRODUCT',
-    priceCost: Number(g.priceCost || 0),
-    priceSelling: Number(g.priceSelling || 0),
-    priceCurrency: g.priceCurrency || BASE_CURRENCY,
     barcode: g.barcode || '',
-    maxDiscountPercent: g.maxDiscountPercent != null ? Number(g.maxDiscountPercent) : '',
     width: Number(g.width || 0),
     height: Number(g.height || 0),
   })
@@ -452,13 +412,7 @@ function buildFormData() {
   fd.append('goodsGroupId', String(form.goodsGroupId))
   fd.append('unitTypeId', String(form.unitTypeId))
   fd.append('type', form.type)
-  fd.append('priceCost', String(form.priceCost))
-  fd.append('priceSelling', String(form.priceSelling))
-  fd.append('priceCurrency', form.priceCurrency)
   if (form.barcode.trim()) fd.append('barcode', form.barcode.trim())
-  if (form.maxDiscountPercent !== '' && form.maxDiscountPercent != null) {
-    fd.append('maxDiscountPercent', String(form.maxDiscountPercent))
-  }
   if (form.type === 'WINDOW') {
     fd.append('width', String(form.width))
     fd.append('height', String(form.height))
@@ -471,6 +425,10 @@ async function onSubmit() {
   saving.value = true
   formError.value = null
   try {
+    if (!form.name.trim() || !form.goodsGroupId || !form.unitTypeId || !form.type) {
+      formError.value = t('goods.requiredFields')
+      return
+    }
     if (form.type === 'WINDOW' && (Number(form.width) <= 0 || Number(form.height) <= 0)) {
       formError.value = t('goods.windowSizeRequired')
       return

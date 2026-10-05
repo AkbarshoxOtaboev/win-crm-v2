@@ -117,7 +117,9 @@ public class SaleOrderServiceImpl implements SaleOrderService {
         entity.setSalesOrderStatus(SalesOrderStatus.NEW);
         Currency currency = CurrencyMath.orBase(dto.getCurrency());
         entity.setCurrency(currency);
-        entity.setExchangeRate(resolveRate(currency, dto.getOrderDate()));
+        entity.setExchangeRate(currency.isBase() || dto.getExchangeRate() == null
+                ? resolveRate(currency, dto.getOrderDate())
+                : dto.getExchangeRate());
 
         // Kelgan summa - ASL summa (itemlardan yig'ilganmi yoki to'g'ridan-to'g'ri - farqi yo'q)
         BigDecimal original = dto.getTotalSum();
@@ -550,7 +552,8 @@ public class SaleOrderServiceImpl implements SaleOrderService {
 
     /**
      * Pozitsiya narxlari va to'lovlar buyurtma valyutasida yoziladi, shuning uchun ular bor bo'lsa valyuta
-     * o'zgarmaydi. Kurs har doim buyurtma sanasidagi Markaziy bank kursi: sana o'zgarsa yakuniy holatgacha qayta olinadi.
+     * o'zgarmaydi. Qo'lda kiritilgan kurs bo'lsa (yakuniy holatgacha) shu olinadi, aks holda buyurtma sanasidagi
+     * Markaziy bank kursi: sana o'zgarsa yakuniy holatgacha qayta olinadi.
      */
     private void applyCurrencyChange(SaleOrder entity, SaleOrderDTO dto, LocalDateTime previousOrderDate) {
         Currency current = entity.currencyOrBase();
@@ -562,7 +565,17 @@ public class SaleOrderServiceImpl implements SaleOrderService {
                 throw new BadRequestException("Pozitsiya yoki to'lov bor buyurtmaning valyutasini o'zgartirib bo'lmaydi");
             }
             entity.setCurrency(requested);
-            entity.setExchangeRate(resolveRate(requested, entity.getOrderDate()));
+            entity.setExchangeRate(requested.isBase() || dto.getExchangeRate() == null
+                    ? resolveRate(requested, entity.getOrderDate())
+                    : dto.getExchangeRate());
+            return;
+        }
+        if (!current.isBase() && dto.getExchangeRate() != null
+                && dto.getExchangeRate().compareTo(entity.getExchangeRate()) != 0) {
+            if (entity.getSalesOrderStatus().isFinal()) {
+                throw new BadRequestException("Yakuniy holatdagi buyurtmaning kursini o'zgartirib bo'lmaydi");
+            }
+            entity.setExchangeRate(dto.getExchangeRate());
             return;
         }
         boolean dateChanged = entity.getOrderDate() != null && previousOrderDate != null

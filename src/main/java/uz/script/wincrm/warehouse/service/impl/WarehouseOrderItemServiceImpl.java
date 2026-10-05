@@ -75,6 +75,7 @@ public class WarehouseOrderItemServiceImpl implements WarehouseOrderItemService 
         item.setCreatedUsername(username);
 
         item = repository.save(item);
+        applyLatestPrices(goods, warehouseOrder, dto);
         // Order hali NEW bo'lsa — item Stock'ga qo'shilmaydi.
         // Barcha item'lar birdan WarehouseOrderServiceImpl#transferToWarehouse chaqirilganda Stock'ga tushadi.
         // Order allaqachon TRANSFERRED bo'lsa (tuzatish/qo'shimcha kirim) — yangi item darhol Stock'ga qo'shiladi,
@@ -177,6 +178,7 @@ public class WarehouseOrderItemServiceImpl implements WarehouseOrderItemService 
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         item.setCreatedUsername(username);
         item = repository.save(item);
+        applyLatestPrices(goods, warehouseOrder, dto);
 
         // Faqat item avval haqiqatan Stockda hisobga olingan bo'lsa (order TRANSFERRED edi) - eskisini ayiramiz
         if (wasInStock) {
@@ -229,6 +231,22 @@ public class WarehouseOrderItemServiceImpl implements WarehouseOrderItemService 
         }
 
         recalculateOrderTotalSum(item.getWarehouseOrder());
+    }
+
+    /**
+     * Mahsulot kartochkasida narx kiritilmaydi: oxirgi kirimdagi kelgan narx (so'mda) va
+     * sotish narxi (kirim valyutasida) mahsulotning joriy narxi bo'ladi.
+     */
+    private void applyLatestPrices(Goods goods, WarehouseOrder order, WarehouseOrderItemDTO dto) {
+        BigDecimal cost = order.toBase(dto.getPriceCost());
+        if (cost != null && cost.signum() > 0) {
+            goods.setPriceCost(cost);
+        }
+        if (dto.getPriceSelling() != null && dto.getPriceSelling().signum() > 0) {
+            goods.setPriceSelling(dto.getPriceSelling());
+            goods.setPriceCurrency(order.getCurrency() != null ? order.getCurrency() : Currency.BASE);
+        }
+        goodsRepository.save(goods);
     }
 
     /**
