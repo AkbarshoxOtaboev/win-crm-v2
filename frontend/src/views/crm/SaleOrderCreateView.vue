@@ -64,16 +64,29 @@
             <input v-model="form.orderDate" type="date" required class="field" />
           </label>
 
-          <label class="lbl min-w-0 flex-1">
-            {{ t('saleOrderCreate.orderSumRequired') }} ({{ curLabel }})
-            <input
-              :value="totalSumText"
-              inputmode="decimal"
-              class="field total-field"
-              placeholder="0"
-              @input="onTotalSumInput"
-            />
-          </label>
+          <div class="lbl min-w-0 flex-1">
+            <label for="order-total-sum">{{ t('saleOrderCreate.orderSumRequired') }} ({{ curLabel }})</label>
+            <div class="total-row">
+              <input
+                id="order-total-sum"
+                :value="totalSumText"
+                inputmode="decimal"
+                class="field total-field"
+                placeholder="0"
+                @input="onTotalSumInput"
+              />
+              <button
+                type="button"
+                class="pull-total-btn"
+                :disabled="!(itemsTotalSum > 0)"
+                :title="t('saleOrderCreate.pullItemsTotal')"
+                :aria-label="t('saleOrderCreate.pullItemsTotal')"
+                @click="pullItemsTotal"
+              >
+                <Magnet class="h-4 w-4" />
+              </button>
+            </div>
+          </div>
         </div>
         <p class="total-hint mt-1.5">{{ t('saleOrderCreate.orderSumHint') }}</p>
 
@@ -211,13 +224,40 @@
 
       <div class="p-5 border-b border-gray-100">
         <div class="form-row">
+          <div class="lbl min-w-0 w-full sm:w-auto sm:flex-none">
+            {{ t('saleOrderCreate.itemType') }}
+            <div class="kind-toggle" role="group">
+              <button
+                type="button"
+                class="kind-btn"
+                :class="{ active: itemKind === 'PRODUCT' }"
+                :aria-pressed="itemKind === 'PRODUCT'"
+                @click="itemKind = 'PRODUCT'"
+              >
+                <Package class="h-4 w-4" />
+                {{ t('saleOrderCreate.kindProduct') }}
+              </button>
+              <button
+                type="button"
+                class="kind-btn"
+                :class="{ active: itemKind === 'SERVICE' }"
+                :aria-pressed="itemKind === 'SERVICE'"
+                @click="itemKind = 'SERVICE'"
+              >
+                <Wrench class="h-4 w-4" />
+                {{ t('saleOrderCreate.kindService') }}
+              </button>
+            </div>
+          </div>
+
           <label class="lbl min-w-0 flex-[1.4]">
-            {{ t('common.product') }}
+            {{ itemKind === 'SERVICE' ? t('saleOrderCreate.service') : t('common.product') }}
             <SearchableSelect
+              :key="itemKind"
               v-model="itemForm.goodsId"
               :options="goodsOptions"
-              :placeholder="t('saleOrderCreate.selectProduct')"
-              :search-placeholder="t('saleOrderCreate.productSearch')"
+              :placeholder="itemKind === 'SERVICE' ? t('saleOrderCreate.selectService') : t('saleOrderCreate.selectProduct')"
+              :search-placeholder="itemKind === 'SERVICE' ? t('saleOrderCreate.serviceSearch') : t('saleOrderCreate.productSearch')"
             />
           </label>
 
@@ -249,20 +289,22 @@
           </template>
 
           <template v-else>
-            <label class="lbl min-w-0 w-28 sm:flex-none">
-              {{ t('common.count') }}
-              <input v-model.number="itemForm.count" type="number" min="0.01" step="0.01" class="field" />
-            </label>
-            <label class="lbl min-w-0 w-36 sm:flex-none">
-              {{ t('saleOrderCreate.costPrice') }} ({{ t('common.currency') }})
-              <input v-model.number="itemForm.priceCost" type="number" min="0.01" step="0.01" class="field" />
-            </label>
-            <label class="lbl min-w-0 w-36 sm:flex-none">
-              {{ t('saleOrderCreate.selling') }} ({{ curLabel }})
-              <input v-model.number="itemForm.priceSelling" type="number" min="0.01" step="0.01" class="field" />
-            </label>
+            <template v-if="itemKind !== 'SERVICE'">
+              <label class="lbl min-w-0 w-28 sm:flex-none">
+                {{ t('common.count') }}
+                <input v-model.number="itemForm.count" type="number" min="0.01" step="0.01" class="field" />
+              </label>
+              <label class="lbl min-w-0 w-36 sm:flex-none">
+                {{ t('saleOrderCreate.costPrice') }} ({{ t('common.currency') }})
+                <input v-model.number="itemForm.priceCost" type="number" min="0.01" step="0.01" class="field" />
+              </label>
+              <label class="lbl min-w-0 w-36 sm:flex-none">
+                {{ t('saleOrderCreate.selling') }} ({{ curLabel }})
+                <input v-model.number="itemForm.priceSelling" type="number" min="0.01" step="0.01" class="field" />
+              </label>
+            </template>
             <label class="lbl min-w-0 w-40 sm:flex-none">
-              {{ t('saleOrderCreate.totalSum') }}
+              {{ t('saleOrderCreate.totalSum') }} ({{ curLabel }})
               <input :value="amt(computedSum)" class="field" readonly />
             </label>
           </template>
@@ -294,6 +336,7 @@
             <tr class="border-b border-gray-100">
               <th class="th">#</th>
               <th class="th">{{ t('common.product') }}</th>
+              <th class="th">{{ t('saleOrderCreate.itemType') }}</th>
               <th class="th">{{ t('saleOrderCreate.width') }}</th>
               <th class="th">{{ t('saleOrderCreate.height') }}</th>
               <th class="th">{{ t('common.count') }}</th>
@@ -305,11 +348,16 @@
           </thead>
           <tbody>
             <tr v-if="displayItems.length === 0">
-              <td colspan="9" class="empty">{{ t('saleOrderCreate.noItems') }}</td>
+              <td colspan="10" class="empty">{{ t('saleOrderCreate.noItems') }}</td>
             </tr>
             <tr v-for="(row, idx) in displayItems" :key="row.key" class="border-b border-gray-100">
               <td class="td">{{ idx + 1 }}</td>
               <td class="td">{{ row.goodsName }}</td>
+              <td class="td">
+                <span class="kind-badge" :class="row.isService ? 'service' : 'product'">
+                  {{ row.isService ? t('saleOrderCreate.kindService') : t('saleOrderCreate.kindProduct') }}
+                </span>
+              </td>
               <td class="td">{{ row.width != null ? formatNum(row.width) : '—' }}</td>
               <td class="td">{{ row.height != null ? formatNum(row.height) : '—' }}</td>
               <td class="td">{{ row.pieces != null ? formatNum(row.pieces) : formatNum(row.count) }}</td>
@@ -323,7 +371,7 @@
           </tbody>
           <tfoot v-if="displayItems.length">
             <tr class="border-t border-gray-200 bg-gray-50">
-              <td class="td font-semibold" colspan="7">{{ t('saleOrderCreate.itemsTotal') }}</td>
+              <td class="td font-semibold" colspan="8">{{ t('saleOrderCreate.itemsTotal') }}</td>
               <td class="td font-semibold">{{ amt(itemsTotalSum) }}</td>
               <td class="td" />
             </tr>
@@ -344,9 +392,11 @@
             </template>
             <span v-else class="save-label">{{ t('saleOrderCreate.orderSum') }}</span>
             <span class="save-total">{{ amt(grandTotal) }}</span>
-            <span v-if="isForeign && form.exchangeRate > 0" class="save-label">
-              ≈ {{ moneyIn(grandTotal * form.exchangeRate, 'UZS', t('common.currency')) }}
-            </span>
+            <template v-if="isForeign && form.exchangeRate > 0">
+              <span class="save-label" :title="t('saleOrderCreate.rate')">× {{ formatRate(form.exchangeRate) }}</span>
+              <span class="save-label">=</span>
+              <span class="save-part">{{ moneyIn(grandTotal * form.exchangeRate, 'UZS', t('common.currency')) }}</span>
+            </template>
           </template>
         </div>
         <div class="flex gap-2">
@@ -413,7 +463,7 @@ import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import SearchableSelect from '@/components/crm/SearchableSelect.vue'
-import { PackageCheck, Truck } from 'lucide-vue-next'
+import { Magnet, Package, PackageCheck, Truck, Wrench } from 'lucide-vue-next'
 import { createSaleOrder, type DeliveryType } from '@/api/sales'
 import { fetchWarehouses, type Warehouse } from '@/api/warehouses'
 import { createClient, fetchClients, type Client } from '@/api/clients'
@@ -632,6 +682,7 @@ const computedSum = computed(() => {
   if (isWindowGoods.value) {
     return computedKvm.value * Number(itemForm.priceSelling || 0)
   }
+  if (isServiceGoods.value) return Number(itemForm.priceSelling || 0)
   return Number(itemForm.count || 0) * Number(itemForm.priceSelling || 0)
 })
 
@@ -676,11 +727,19 @@ function remainingStock(goodsId: number) {
   return (availableByGoodsId.value.get(goodsId) || 0) - reserved
 }
 
+const itemKind = ref<'PRODUCT' | 'SERVICE'>('PRODUCT')
+
 const goodsOptions = computed(() =>
   goods.value
     .filter((g) => (!g.status || g.status === 'ACTIVE') && hasWarehouseStock(g))
+    .filter((g) => (itemKind.value === 'SERVICE') === isService(g))
     .map((g) => ({ value: g.id, label: g.name })),
 )
+
+watch(itemKind, () => {
+  itemForm.goodsId = 0
+  itemError.value = null
+})
 
 const headerReady = computed(
   () =>
@@ -699,6 +758,7 @@ const canAddItem = computed(() => {
       Number(itemForm.priceSelling) > 0
     )
   }
+  if (isServiceGoods.value) return Number(itemForm.priceSelling) > 0
   return Number(itemForm.priceCost) > 0 && Number(itemForm.priceSelling) > 0
 })
 
@@ -707,6 +767,13 @@ const displayItems = computed(() =>
 )
 
 const itemsTotalSum = computed(() => displayItems.value.reduce((acc, r) => acc + r.sum, 0))
+
+function pullItemsTotal() {
+  const total = Math.round(itemsTotalSum.value * 100) / 100
+  if (!(total > 0)) return
+  form.totalSum = total
+  totalSumText.value = amountToText(total)
+}
 
 const saveBlockReason = computed(() => {
   if (!headerReady.value) return t('saleOrderCreate.selectHeader')
@@ -735,10 +802,11 @@ watch(
 )
 
 watch(
-  () => form.exchangeRate,
-  () => {
+  () => [form.exchangeRate, form.currency] as const,
+  ([, cur], [, prevCur]) => {
     const g = selectedGoods.value
-    if (g && goodsCurrency(g) !== form.currency) itemForm.priceSelling = goodsPriceIn(g)
+    if (!g) return
+    if (cur !== prevCur || goodsCurrency(g) !== cur) itemForm.priceSelling = goodsPriceIn(g)
   },
 )
 
@@ -841,7 +909,7 @@ function onAddItem() {
   const g = selectedGoods.value
   const windowMode = isWindowGoods.value
   const selling = Number(itemForm.priceSelling)
-  const pieces = Number(itemForm.count)
+  const pieces = isService(g) ? 1 : Number(itemForm.count)
   const count = windowMode ? computedKvm.value : pieces
 
   if (!isService(g)) {
@@ -1027,6 +1095,23 @@ async function onCreateClient() {
 .dark .summary-value.debt { color: #f87171; }
 .dark .summary-note { color: #fbbf24; }
 .total-field { font-size: 1rem; font-weight: 600; }
+.kind-toggle { display: inline-flex; height: 2.5rem; border-radius: 0.5rem; border: 1px solid #d1d5db; background: #f9fafb; padding: 0.2rem; gap: 0.2rem; }
+.kind-btn { display: inline-flex; align-items: center; gap: 0.35rem; border-radius: 0.375rem; padding: 0 0.75rem; font-size: 0.8125rem; font-weight: 500; color: #6b7280; white-space: nowrap; transition: background 0.15s ease, color 0.15s ease; }
+.kind-btn:hover:not(.active) { color: #374151; }
+.kind-btn.active { background: #fff; color: #465fff; box-shadow: 0 1px 2px rgba(16, 24, 40, 0.1); }
+.kind-badge { display: inline-flex; border-radius: 9999px; padding: 0.125rem 0.6rem; font-size: 0.75rem; font-weight: 500; white-space: nowrap; }
+.kind-badge.product { background: #eef2ff; color: #465fff; }
+.kind-badge.service { background: #fff7ed; color: #c2410c; }
+:global(html.dark .kind-toggle) { border-color: #374151; background: #111827; }
+:global(html.dark .kind-btn.active) { background: #1f2937; color: #a5b4fc; }
+:global(html.dark .kind-badge.product) { background: rgba(70, 95, 255, 0.15); color: #a5b4fc; }
+:global(html.dark .kind-badge.service) { background: rgba(249, 115, 22, 0.15); color: #fdba74; }
+.total-row { display: flex; align-items: stretch; gap: 0.5rem; }
+.total-row > .field { flex: 1; min-width: 0; }
+.pull-total-btn { display: inline-flex; height: 2.5rem; width: 2.5rem; flex-shrink: 0; align-items: center; justify-content: center; border-radius: 0.5rem; border: 1px solid #c7d2fe; background: #eef2ff; color: #465fff; transition: background 0.15s ease; }
+.pull-total-btn:hover:not(:disabled) { background: #e0e7ff; }
+.pull-total-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+:global(html.dark .pull-total-btn) { border-color: rgba(70, 95, 255, 0.4); background: rgba(70, 95, 255, 0.15); color: #a5b4fc; }
 .total-hint { font-size: 0.75rem; color: #6b7280; }
 .textarea-field { height: auto; min-height: 4rem; padding: 0.6rem 0.75rem; resize: vertical; line-height: 1.4; }
 .delivery-block { display: flex; flex-direction: column; gap: 0.35rem; }

@@ -176,7 +176,6 @@
               <label class="lbl">{{ t('goods.type') }} *</label>
               <select v-model="form.type" required class="field">
                 <option value="PRODUCT">{{ t('goods.types.PRODUCT') }}</option>
-                <option value="SERVICE">{{ t('goods.types.SERVICE') }}</option>
                 <option value="WINDOW">{{ t('goods.types.WINDOW') }}</option>
               </select>
             </div>
@@ -362,7 +361,7 @@ async function load() {
       fetchGoodsGroups(),
       fetchUnitTypes(),
     ])
-    items.value = byIdAsc(goodsRes.data || [])
+    items.value = byIdAsc((goodsRes.data || []).filter((g) => (g.type || '').toUpperCase() !== 'SERVICE'))
     groups.value = byIdAsc(groupRes || [])
     units.value = byIdAsc(unitRes || [])
   } catch (e) {

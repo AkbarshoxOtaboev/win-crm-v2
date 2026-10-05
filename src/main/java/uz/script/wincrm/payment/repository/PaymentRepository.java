@@ -49,6 +49,15 @@ public interface PaymentRepository extends JpaRepository<Payment, Long>, JpaSpec
     List<Object[]> sumCashByType(@Param("fromDate") LocalDateTime fromDate,
                                  @Param("toDate") LocalDateTime toDate);
 
+    /** Xodim qabul qilgan to'lovlar: row = paymentTypeId, currency, SUM(paymentAmount); [fromDate, toDate). */
+    @Query("SELECT p.paymentType.id, p.currency, COALESCE(SUM(p.paymentAmount), 0) FROM Payment p " +
+            "WHERE p.paymentType IS NOT NULL AND p.user.id = :userId " +
+            "AND p.paymentDate >= :fromDate AND p.paymentDate < :toDate " +
+            "GROUP BY p.paymentType.id, p.currency")
+    List<Object[]> sumCashByTypeForUser(@Param("userId") Long userId,
+                                        @Param("fromDate") LocalDateTime fromDate,
+                                        @Param("toDate") LocalDateTime toDate);
+
     /** Xorijiy valyutadagi qarzni yopgan to'lovlar - kurs farqi hisoboti uchun. */
     @Query("SELECT p FROM Payment p LEFT JOIN FETCH p.saleOrder LEFT JOIN FETCH p.client " +
             "WHERE p.debtCurrency <> uz.script.wincrm.currency.Currency.UZS " +

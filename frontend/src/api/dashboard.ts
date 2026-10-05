@@ -41,11 +41,19 @@ export interface PaymentTypeSummary {
   currency?: CurrencyCode
 }
 
+export interface DailyPaymentTypeAmount {
+  paymentTypeId?: number
+  paymentTypeName?: string
+  amount?: number
+  currency?: CurrencyCode
+}
+
 export interface DailyPaymentSummary {
   date?: string
   totalAmount?: number
   amount?: number
   count?: number
+  byType?: DailyPaymentTypeAmount[]
 }
 
 export interface DailyExpenseReport {
@@ -62,6 +70,7 @@ export interface CashBalance {
   opening: number
   incoming: number
   outgoing: number
+  handedOver: number
   closing: number
 }
 

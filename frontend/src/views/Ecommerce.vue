@@ -75,6 +75,7 @@
               <th class="py-2 pe-4 text-right font-medium">{{ t('home.cashOpening') }}</th>
               <th class="py-2 pe-4 text-right font-medium">{{ t('home.cashIn') }}</th>
               <th class="py-2 pe-4 text-right font-medium">{{ t('home.cashOut') }}</th>
+              <th class="py-2 pe-4 text-right font-medium">{{ t('home.cashHanded') }}</th>
               <th class="py-2 text-right font-medium">{{ t('home.cashClosing') }}</th>
             </tr>
           </thead>
@@ -91,6 +92,7 @@
               <td class="py-2 pe-4 text-right text-gray-600 dark:text-gray-400">{{ cashMoney(c.opening, c.currency) }}</td>
               <td class="py-2 pe-4 text-right text-success-600 dark:text-success-400">+{{ cashMoney(c.incoming, c.currency) }}</td>
               <td class="py-2 pe-4 text-right text-error-600 dark:text-error-400">−{{ cashMoney(c.outgoing, c.currency) }}</td>
+              <td class="py-2 pe-4 text-right text-orange-600 dark:text-orange-400">−{{ cashMoney(c.handedOver, c.currency) }}</td>
               <td class="py-2 text-right font-semibold text-gray-800 dark:text-white/90">{{ cashMoney(c.closing, c.currency) }}</td>
             </tr>
           </tbody>
@@ -100,6 +102,7 @@
               <td class="py-2 pe-4 text-right">{{ cashMoney(tot.opening, tot.currency) }}</td>
               <td class="py-2 pe-4 text-right">+{{ cashMoney(tot.incoming, tot.currency) }}</td>
               <td class="py-2 pe-4 text-right">−{{ cashMoney(tot.outgoing, tot.currency) }}</td>
+              <td class="py-2 pe-4 text-right">−{{ cashMoney(tot.handedOver, tot.currency) }}</td>
               <td class="py-2 text-right font-semibold">{{ cashMoney(tot.closing, tot.currency) }}</td>
             </tr>
           </tfoot>
@@ -251,12 +254,16 @@ const cashBalances = ref<CashBalance[]>([])
 const { display, setDisplay, loadRates, conv, fmt, compact: compactMoney, rateMissing } = useReportCurrency()
 
 const cashTotals = computed(() => {
-  const map = new Map<CurrencyCode, { currency: CurrencyCode; opening: number; incoming: number; outgoing: number; closing: number }>()
+  const map = new Map<
+    CurrencyCode,
+    { currency: CurrencyCode; opening: number; incoming: number; outgoing: number; handedOver: number; closing: number }
+  >()
   for (const c of cashBalances.value) {
-    const cur = map.get(c.currency) || { currency: c.currency, opening: 0, incoming: 0, outgoing: 0, closing: 0 }
+    const cur = map.get(c.currency) || { currency: c.currency, opening: 0, incoming: 0, outgoing: 0, handedOver: 0, closing: 0 }
     cur.opening += Number(c.opening || 0)
     cur.incoming += Number(c.incoming || 0)
     cur.outgoing += Number(c.outgoing || 0)
+    cur.handedOver += Number(c.handedOver || 0)
     cur.closing += Number(c.closing || 0)
     map.set(c.currency, cur)
   }

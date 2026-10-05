@@ -260,7 +260,7 @@
                   v-if="!isTransferred"
                   type="button"
                   class="danger"
-                  @click="onRemoveItem(row.id)"
+                  @click="onRemoveItem(row.id, row.goodsName)"
                 >
                   {{ t('common.delete') }}
                 </button>
@@ -298,6 +298,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
+import Swal from 'sweetalert2'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import SearchableSelect from '@/components/crm/SearchableSelect.vue'
@@ -568,9 +569,12 @@ const supplierOptions = computed(() =>
     .map((s) => ({ value: s.id, label: s.name })),
 )
 
+const addedGoodsIds = computed(() => new Set(items.value.map((it) => it.goodsId)))
+
 const goodsOptions = computed(() =>
   goods.value
-    .filter((g) => !g.status || g.status === 'ACTIVE')
+    .filter((g) => (!g.status || g.status === 'ACTIVE') && (g.type || '').toUpperCase() !== 'SERVICE')
+    .filter((g) => !addedGoodsIds.value.has(g.id))
     .map((g) => ({ value: g.id, label: g.name })),
 )
 
@@ -584,6 +588,7 @@ const headerReady = computed(
 
 const canAddItem = computed(() => {
   if (!headerReady.value || itemForm.goodsId <= 0 || Number(itemForm.count) <= 0) return false
+  if (addedGoodsIds.value.has(itemForm.goodsId)) return false
   if (!(Number(itemForm.priceCost) > 0) || !(Number(itemForm.priceSelling) > 0)) return false
   if (isWindowGoods.value) {
     return Number(itemForm.width) > 0 && Number(itemForm.height) > 0
@@ -765,13 +770,36 @@ async function onAddItem() {
   }
 }
 
-async function onRemoveItem(id: number) {
-  if (!confirm(t('warehouseOrders.removeItemConfirm'))) return
+async function onRemoveItem(id: number, name: string) {
+  const result = await Swal.fire({
+    title: t('warehouseOrders.removeItemConfirm'),
+    text: t('warehouseOrders.removeItemText', { name }),
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: t('warehouseOrders.removeItemYes'),
+    cancelButtonText: t('warehouseOrders.cancelAction'),
+    confirmButtonColor: '#d92d20',
+    cancelButtonColor: '#98a2b3',
+    reverseButtons: true,
+  })
+  if (!result.isConfirmed) return
   try {
     await deleteWarehouseOrderItem(id)
     await reloadItems()
+    await Swal.fire({
+      title: t('warehouseOrders.itemRemoved'),
+      icon: 'success',
+      timer: 1500,
+      showConfirmButton: false,
+    })
   } catch (e) {
     error.value = formatApiError(e)
+    await Swal.fire({
+      title: t('warehouseOrders.error'),
+      text: formatApiError(e),
+      icon: 'error',
+      confirmButtonColor: '#465fff',
+    })
   }
 }
 

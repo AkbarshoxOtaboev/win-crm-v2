@@ -3,6 +3,7 @@ package uz.script.wincrm.dashboard;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import uz.script.wincrm.cash.repository.CashHandoverRepository;
 import uz.script.wincrm.currency.Currency;
 import uz.script.wincrm.currency.CurrencyMath;
 import uz.script.wincrm.currency.ReportFx;
@@ -43,6 +44,7 @@ public class DashboardServiceImpl implements DashboardService {
     private final PaymentRepository paymentRepository;
     private final PaymentTypeRepository paymentTypeRepository;
     private final SupplierPaymentRepository supplierPaymentRepository;
+    private final CashHandoverRepository cashHandoverRepository;
     private final ExpenseRepository expenseRepository;
     private final ExchangeRateService exchangeRateService;
 
@@ -209,6 +211,8 @@ public class DashboardServiceImpl implements DashboardService {
         Map<String, BigDecimal> outBefore = cashSums(supplierPaymentRepository.sumCashByType(BEGINNING, start));
         Map<String, BigDecimal> in = cashSums(paymentRepository.sumCashByType(start, end));
         Map<String, BigDecimal> out = cashSums(supplierPaymentRepository.sumCashByType(start, end));
+        Map<String, BigDecimal> handedBefore = cashSums(cashHandoverRepository.sumAcceptedByType(BEGINNING.toLocalDate(), fromDate));
+        Map<String, BigDecimal> handed = cashSums(cashHandoverRepository.sumAcceptedByType(fromDate, toDate.plusDays(1)));
 
         Set<String> keys = new LinkedHashSet<>();
         List<PaymentType> types = paymentTypeRepository.findAll().stream()
@@ -219,6 +223,8 @@ public class DashboardServiceImpl implements DashboardService {
         keys.addAll(outBefore.keySet());
         keys.addAll(in.keySet());
         keys.addAll(out.keySet());
+        keys.addAll(handedBefore.keySet());
+        keys.addAll(handed.keySet());
 
         Map<Long, PaymentType> typeById = types.stream().collect(Collectors.toMap(PaymentType::getId, Function.identity()));
 
@@ -230,9 +236,12 @@ public class DashboardServiceImpl implements DashboardService {
             if (type == null) {
                 continue;
             }
-            BigDecimal opening = inBefore.getOrDefault(key, BigDecimal.ZERO).subtract(outBefore.getOrDefault(key, BigDecimal.ZERO));
+            BigDecimal opening = inBefore.getOrDefault(key, BigDecimal.ZERO)
+                    .subtract(outBefore.getOrDefault(key, BigDecimal.ZERO))
+                    .subtract(handedBefore.getOrDefault(key, BigDecimal.ZERO));
             BigDecimal incoming = in.getOrDefault(key, BigDecimal.ZERO);
             BigDecimal outgoing = out.getOrDefault(key, BigDecimal.ZERO);
+            BigDecimal handedOver = handed.getOrDefault(key, BigDecimal.ZERO);
             result.add(CashBalanceResponse.builder()
                     .paymentTypeId(typeId)
                     .paymentTypeName(type.getName())
@@ -240,7 +249,8 @@ public class DashboardServiceImpl implements DashboardService {
                     .opening(opening)
                     .incoming(incoming)
                     .outgoing(outgoing)
-                    .closing(opening.add(incoming).subtract(outgoing))
+                    .handedOver(handedOver)
+                    .closing(opening.add(incoming).subtract(outgoing).subtract(handedOver))
                     .build());
         }
         return result;

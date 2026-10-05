@@ -40,6 +40,7 @@ public class RoleDataLoader implements CommandLineRunner {
             "WORKSHOP_VIEW",
             "PRODUCTION_ORDER_VIEW", "PRODUCTION_ORDER_CREATE",
             "TRANSPORT_DELIVERY_VIEW",
+            "CASH_HANDOVER_VIEW", "CASH_HANDOVER_CREATE",
             "DASHBOARD_VIEW"
     );
 
@@ -57,7 +58,8 @@ public class RoleDataLoader implements CommandLineRunner {
     private static final Set<String> CASHIER_PERMISSIONS = Set.of(
             "PAYMENT_VIEW", "PAYMENT_CREATE", "PAYMENT_TYPE_VIEW",
             "CLIENT_VIEW", "CLIENT_BALANCE_VIEW",
-            "SALE_ORDER_VIEW"
+            "SALE_ORDER_VIEW",
+            "CASH_HANDOVER_VIEW", "CASH_HANDOVER_CREATE"
     );
 
     /** Ishlab chiqarish boshlig‘i — sexlar + barcha production */

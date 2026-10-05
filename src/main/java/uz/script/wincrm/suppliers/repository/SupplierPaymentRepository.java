@@ -21,4 +21,13 @@ public interface SupplierPaymentRepository extends
             "GROUP BY sp.paymentType.id, sp.currency")
     List<Object[]> sumCashByType(@Param("fromDate") LocalDateTime fromDate,
                                  @Param("toDate") LocalDateTime toDate);
+
+    /** Xodim kiritgan chiqimlar: row = paymentTypeId, currency, SUM(paidSumm); [fromDate, toDate). */
+    @Query("SELECT sp.paymentType.id, sp.currency, COALESCE(SUM(sp.paidSumm), 0) FROM SupplierPayment sp " +
+            "WHERE sp.paymentType IS NOT NULL AND sp.createdUserId = :userId " +
+            "AND sp.paidDate >= :fromDate AND sp.paidDate < :toDate " +
+            "GROUP BY sp.paymentType.id, sp.currency")
+    List<Object[]> sumCashByTypeForCreator(@Param("userId") Long userId,
+                                           @Param("fromDate") LocalDateTime fromDate,
+                                           @Param("toDate") LocalDateTime toDate);
 }

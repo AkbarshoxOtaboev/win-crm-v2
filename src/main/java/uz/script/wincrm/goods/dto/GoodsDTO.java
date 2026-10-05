@@ -26,19 +26,15 @@ public class GoodsDTO {
     )
     private String name;
 
-    @NotNull(message = "Goods group id is required")
     @Schema(
-            description = "Goods group identifier",
-            example = "1",
-            requiredMode = Schema.RequiredMode.REQUIRED
+            description = "Goods group identifier (SERVICE turida bo'sh bo'lsa — \"Xizmatlar\" guruhi)",
+            example = "1"
     )
     private Long goodsGroupId;
 
-    @NotNull(message = "Unit type id is required")
     @Schema(
-            description = "Unit type identifier",
-            example = "1",
-            requiredMode = Schema.RequiredMode.REQUIRED
+            description = "Unit type identifier (SERVICE turida bo'sh bo'lsa — \"xizmat\" birligi)",
+            example = "1"
     )
     private Long unitTypeId;
 

@@ -31,6 +31,9 @@ public class CashBalanceResponse {
     @Schema(description = "Davrdagi yetkazib beruvchilarga to'lovlar")
     private BigDecimal outgoing;
 
+    @Schema(description = "Davrda rahbarga topshirilib, qabul qilingan summa")
+    private BigDecimal handedOver;
+
     @Schema(description = "Davr oxiridagi qoldiq")
     private BigDecimal closing;
 }

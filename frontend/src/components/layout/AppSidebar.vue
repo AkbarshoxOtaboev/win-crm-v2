@@ -253,6 +253,8 @@ import {
   TrendingUp,
   Truck,
   UserCircle,
+  Wallet,
+  Wrench,
 } from 'lucide-vue-next'
 
 import { useSidebar } from '@/composables/useSidebar'
@@ -340,6 +342,15 @@ const rawMenuGroups = computed<MenuGroup[]>(() => {
     ],
   }
 
+  const paymentsItem: MenuItem = {
+    icon: Wallet,
+    name: t('nav.payments'),
+    subItems: [
+      { name: t('nav.paymentsDashboard'), path: '/payments/dashboard', icon: LayoutGrid, exact: true, perm: ['PAYMENT_VIEW', 'DASHBOARD_VIEW'] },
+      { name: t('nav.paymentsList'), path: '/payments', icon: ClipboardList, exact: true, perm: ['PAYMENT_VIEW', 'PAYMENT_TYPE_VIEW'] },
+    ],
+  }
+
   if (auth.isProductionManagerOnly) {
     return [
       {
@@ -363,7 +374,8 @@ const rawMenuGroups = computed<MenuGroup[]>(() => {
       {
         title: t('nav.main'),
         items: [
-          { icon: PieChartIcon, name: t('nav.payments'), path: '/payments' },
+          paymentsItem,
+          { icon: HandCoins, name: t('nav.cashHandover'), path: '/cash-handovers', perm: ['CASH_HANDOVER_VIEW'] },
           { icon: UserGroupIcon, name: t('nav.clients'), path: '/clients' },
           { icon: UserCircleIcon, name: t('nav.profile'), path: '/profile' },
         ],
@@ -417,7 +429,8 @@ const rawMenuGroups = computed<MenuGroup[]>(() => {
       },
       productionItem,
       ...(auth.canAccessTransport ? [transportItem] : []),
-      { icon: PieChartIcon, name: t('nav.payments'), path: '/payments', perm: ['PAYMENT_VIEW', 'PAYMENT_TYPE_VIEW'] },
+      paymentsItem,
+      { icon: Wrench, name: t('nav.services'), path: '/services', perm: ['GOODS_VIEW'] },
       { icon: UserGroupIcon, name: t('nav.clients'), path: '/clients', perm: ['CLIENT_VIEW'] },
       ...(auth.canManageEmployees
         ? [{ icon: UserCircleIcon, name: t('nav.employees'), path: '/employees' }]
@@ -428,6 +441,7 @@ const rawMenuGroups = computed<MenuGroup[]>(() => {
     title: t('nav.finance'),
     items: [
       { icon: Banknote, name: t('nav.currency'), path: '/currency' },
+      { icon: HandCoins, name: t('nav.cashHandover'), path: '/cash-handovers', perm: ['CASH_HANDOVER_VIEW'] },
       { icon: TaskIcon, name: t('nav.expenses'), path: '/expenses', perm: ['EXPENSE_VIEW'] },
       { icon: DocsIcon, name: t('nav.salary'), path: '/salary', perm: ['SALARY_CONFIG_VIEW', 'SALARY_TRANSACTION_VIEW', 'SALARY_SLIP_VIEW'] },
       { icon: TrendingUp, name: t('nav.kpi'), path: '/kpi', perm: ['KPI_VIEW'] },

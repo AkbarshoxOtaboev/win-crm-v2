@@ -66,6 +66,9 @@ public class WarehouseOrderItemServiceImpl implements WarehouseOrderItemService 
         WarehouseOrder warehouseOrder = findWarehouseOrder(dto.getWarehouseOrderId());
         Supplier supplier = findSupplier(dto.getSupplierId());
         Goods goods = findGoods(dto.getGoodsId());
+        if (repository.existsByWarehouseOrderIdAndGoodsId(warehouseOrder.getId(), goods.getId())) {
+            throw new BadRequestException("Bu mahsulot kirimga allaqachon qo'shilgan");
+        }
 
         applyWindowQuantities(goods, dto);
 
@@ -158,6 +161,9 @@ public class WarehouseOrderItemServiceImpl implements WarehouseOrderItemService 
         WarehouseOrder warehouseOrder = findWarehouseOrder(dto.getWarehouseOrderId());
         Supplier supplier = findSupplier(dto.getSupplierId());
         Goods goods = findGoods(dto.getGoodsId());
+        if (repository.existsByWarehouseOrderIdAndGoodsIdAndIdNot(warehouseOrder.getId(), goods.getId(), id)) {
+            throw new BadRequestException("Bu mahsulot kirimga allaqachon qo'shilgan");
+        }
 
         applyWindowQuantities(goods, dto);
 

@@ -72,13 +72,14 @@
               <th class="th">{{ t('common.additionalPhone') }}</th>
               <th class="th">{{ t('common.address') }}</th>
               <th class="th">{{ t('common.statusLabel') }}</th>
+              <th class="th">{{ t('suppliers.toggle') }}</th>
               <th class="th">{{ t('common.createdAt') }}</th>
               <th class="th text-right">{{ t('common.actions') }}</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-if="loading"><td colspan="9" class="empty">{{ t('common.loading') }}</td></tr>
-            <tr v-else-if="paged.length === 0"><td colspan="9" class="empty">{{ t('suppliers.empty') }}</td></tr>
+            <tr v-if="loading"><td colspan="10" class="empty">{{ t('common.loading') }}</td></tr>
+            <tr v-else-if="paged.length === 0"><td colspan="10" class="empty">{{ t('suppliers.empty') }}</td></tr>
             <tr v-for="s in paged" :key="s.id" class="border-b border-gray-100">
               <td class="td">{{ s.id }}</td>
               <td class="td">
@@ -93,18 +94,21 @@
                   {{ s.status ? (s.status === 'ACTIVE' ? t('common.active') : t('common.inactive')) : '—' }}
                 </span>
               </td>
+              <td class="td">
+                <button
+                  type="button"
+                  class="status-toggle"
+                  :class="s.status === 'ACTIVE' ? 'on' : 'off'"
+                  :aria-pressed="s.status === 'ACTIVE'"
+                  :title="s.status === 'ACTIVE' ? t('suppliers.deactivate') : t('suppliers.activate')"
+                  @click="toggleStatus(s)"
+                >
+                  <span class="status-knob" />
+                </button>
+              </td>
               <td class="td">{{ formatDateTime(s.createdAt) }}</td>
               <td class="td text-right">
-                <div class="inline-flex items-center justify-end gap-2">
-                  <button
-                    type="button"
-                    class="status-link"
-                    @click="toggleStatus(s)"
-                  >
-                    {{ s.status === 'ACTIVE' ? t('suppliers.deactivate') : t('suppliers.activate') }}
-                  </button>
-                  <RowActions @edit="openEdit(s)" @delete="onDelete(s)" />
-                </div>
+                <RowActions @edit="openEdit(s)" @delete="onDelete(s)" />
               </td>
             </tr>
           </tbody>
@@ -591,7 +595,33 @@ onMounted(load)
 .icon-btn { display: inline-flex; height: 2.5rem; width: 2.5rem; align-items: center; justify-content: center; border-radius: 0.5rem; border: 1px solid #d1d5db; color: #4b5563; background: #fff; }
 .ghost { height: 2.75rem; border-radius: 0.5rem; border: 1px solid #d1d5db; padding: 0 1.25rem; font-size: 0.875rem; color: #374151; }
 .link { color: #465fff; font-weight: 500; }
-.status-link { font-size: 0.8125rem; font-weight: 500; color: #f97316; white-space: nowrap; }
+.status-toggle {
+  position: relative;
+  display: inline-flex;
+  height: 1.5rem;
+  width: 2.75rem;
+  align-items: center;
+  border-radius: 9999px;
+  transition: background 0.15s ease;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+.status-toggle.on { background: #12b76a; }
+.status-toggle.off { background: #d1d5db; }
+.status-knob {
+  position: absolute;
+  left: 0.15rem;
+  height: 1.2rem;
+  width: 1.2rem;
+  border-radius: 9999px;
+  background: #fff;
+  transition: transform 0.15s ease;
+  box-shadow: 0 1px 2px rgba(0,0,0,.15);
+}
+.status-toggle.off .status-knob { transform: translateX(0); }
+.status-toggle.on .status-knob { transform: translateX(1.25rem); }
+.dark .status-toggle.off { background: #4b5563; }
 .badge { display: inline-flex; border-radius: 9999px; padding: 0.15rem 0.55rem; font-size: 0.75rem; font-weight: 600; }
 .badge-ok { background: #ecfdf5; color: #059669; }
 .badge-off { background: #f3f4f6; color: #6b7280; }

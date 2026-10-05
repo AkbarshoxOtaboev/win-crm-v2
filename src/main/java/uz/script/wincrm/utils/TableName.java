@@ -60,4 +60,5 @@ public interface TableName {
     String KPI_ENTRIES = "kpi_entries";
     String EXCHANGE_RATES = "exchange_rates";
     String COMPANY_FX_RATES = "company_fx_rates";
+    String CASH_HANDOVERS = "cash_handovers";
 }

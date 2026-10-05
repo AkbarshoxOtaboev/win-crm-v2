@@ -226,6 +226,18 @@ const router = createRouter({
       meta: { title: 'To‘lovlar', requiresAuth: true },
     },
     {
+      path: '/payments/dashboard',
+      name: 'PaymentsDashboard',
+      component: () => import('../views/crm/PaymentsDashboardView.vue'),
+      meta: { title: 'Tushum dashboard', requiresAuth: true },
+    },
+    {
+      path: '/services',
+      name: 'Services',
+      component: () => import('../views/crm/ServicesView.vue'),
+      meta: { title: 'Xizmatlar', requiresAuth: true },
+    },
+    {
       path: '/suppliers',
       name: 'Suppliers',
       component: () => import('../views/crm/SuppliersView.vue'),
@@ -254,6 +266,12 @@ const router = createRouter({
       name: 'Kpi',
       component: () => import('../views/crm/KpiView.vue'),
       meta: { title: 'KPI', requiresAuth: true },
+    },
+    {
+      path: '/cash-handovers',
+      name: 'CashHandover',
+      component: () => import('../views/crm/CashHandoverView.vue'),
+      meta: { title: 'Kassa topshirish', requiresAuth: true },
     },
     {
       path: '/users',
@@ -427,6 +445,8 @@ router.beforeEach((to, _from, next) => {
   if (auth.isAuthenticated && auth.isCashierOnly) {
     const allowed =
       to.path === '/payments' ||
+      to.path === '/payments/dashboard' ||
+      to.path === '/cash-handovers' ||
       to.path === '/clients' ||
       to.path.startsWith('/clients/') ||
       to.path === '/profile' ||

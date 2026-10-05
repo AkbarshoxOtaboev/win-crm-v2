@@ -173,7 +173,7 @@ public class DashboardController {
     }
 
     @GetMapping("/payments/by-type")
-    @PreAuthorize("hasAuthority('DASHBOARD_VIEW')")
+    @PreAuthorize("hasAnyAuthority('DASHBOARD_VIEW', 'PAYMENT_VIEW')")
     @Operation(
             summary = "To'lovlarni PaymentType bo'yicha jamlash",
             description = """
@@ -206,7 +206,7 @@ public class DashboardController {
     }
 
     @GetMapping("/payments/daily")
-    @PreAuthorize("hasAuthority('DASHBOARD_VIEW')")
+    @PreAuthorize("hasAnyAuthority('DASHBOARD_VIEW', 'PAYMENT_VIEW')")
     @Operation(
             summary = "Kunlik to'lovlar (kun-ma-kun, PaymentType bo'yicha)",
             description = """

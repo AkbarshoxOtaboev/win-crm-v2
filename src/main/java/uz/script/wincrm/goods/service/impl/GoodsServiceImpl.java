@@ -7,11 +7,13 @@ import org.springframework.stereotype.Service;
 import uz.script.wincrm.audit.AuditAction;
 import uz.script.wincrm.audit.Auditable;
 import uz.script.wincrm.exceptions.AlreadyExistsException;
+import uz.script.wincrm.exceptions.BadRequestException;
 import uz.script.wincrm.exceptions.ResourceNotFoundException;
 import uz.script.wincrm.goods.Goods;
 import uz.script.wincrm.goods.GoodsGroup;
 import uz.script.wincrm.goods.UnitType;
 import uz.script.wincrm.goods.dto.GoodsDTO;
+import uz.script.wincrm.goods.enums.Type;
 import uz.script.wincrm.goods.mapper.GoodsMapper;
 import uz.script.wincrm.goods.repository.GoodsGroupRepository;
 import uz.script.wincrm.goods.repository.GoodsRepository;
@@ -36,6 +38,9 @@ public class GoodsServiceImpl implements GoodsService {
     private final GoodsMapper mapper;
     private final StorageService storageService;
 
+    private static final String SERVICE_GROUP_NAME = "Xizmatlar";
+    private static final String SERVICE_UNIT_NAME = "xizmat";
+
     @Override
     public boolean existsByBarcode(String barcode) {
         return barcode != null && !barcode.isBlank() && repository.existsByBarcode(barcode);
@@ -54,15 +59,8 @@ public class GoodsServiceImpl implements GoodsService {
             throw new AlreadyExistsException("error.goods.barcode.exists", dto.getBarcode());
         }
 
-        GoodsGroup goodsGroup = goodsGroupRepository.findById(dto.getGoodsGroupId())
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Goods group not found with id: " + dto.getGoodsGroupId()));
-
-        UnitType unitType = unitTypeRepository.findById(dto.getUnitTypeId())
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Unit type not found with id: " + dto.getUnitTypeId()));
+        GoodsGroup goodsGroup = resolveGoodsGroup(dto);
+        UnitType unitType = resolveUnitType(dto);
 
         String photoPath = null;
         if (dto.getPhoto() != null && !dto.getPhoto().isEmpty()) {
@@ -118,15 +116,8 @@ public class GoodsServiceImpl implements GoodsService {
             throw new AlreadyExistsException("error.goods.barcode.exists", newBarcode);
         }
 
-        GoodsGroup goodsGroup = goodsGroupRepository.findById(dto.getGoodsGroupId())
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Goods group not found with id: " + dto.getGoodsGroupId()));
-
-        UnitType unitType = unitTypeRepository.findById(dto.getUnitTypeId())
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Unit type not found with id: " + dto.getUnitTypeId()));
+        GoodsGroup goodsGroup = resolveGoodsGroup(dto);
+        UnitType unitType = resolveUnitType(dto);
 
         // Photo is optional on update — only re-upload and replace if a new file was provided
         String photoPath = null;
@@ -156,5 +147,35 @@ public class GoodsServiceImpl implements GoodsService {
 
         goods.setStatus(Status.DELETED);
         repository.save(goods);
+    }
+
+    private GoodsGroup resolveGoodsGroup(GoodsDTO dto) {
+        if (dto.getGoodsGroupId() != null) {
+            return goodsGroupRepository.findById(dto.getGoodsGroupId())
+                    .orElseThrow(() ->
+                            new ResourceNotFoundException(
+                                    "Goods group not found with id: " + dto.getGoodsGroupId()));
+        }
+        if (dto.getType() != Type.SERVICE) {
+            throw new BadRequestException("Goods group id is required");
+        }
+        return goodsGroupRepository.findFirstByNameIgnoreCaseOrderByIdAsc(SERVICE_GROUP_NAME)
+                .orElseGet(() -> goodsGroupRepository.save(
+                        GoodsGroup.builder().name(SERVICE_GROUP_NAME).status(Status.ACTIVE).build()));
+    }
+
+    private UnitType resolveUnitType(GoodsDTO dto) {
+        if (dto.getUnitTypeId() != null) {
+            return unitTypeRepository.findById(dto.getUnitTypeId())
+                    .orElseThrow(() ->
+                            new ResourceNotFoundException(
+                                    "Unit type not found with id: " + dto.getUnitTypeId()));
+        }
+        if (dto.getType() != Type.SERVICE) {
+            throw new BadRequestException("Unit type id is required");
+        }
+        return unitTypeRepository.findFirstByNameIgnoreCaseOrderByIdAsc(SERVICE_UNIT_NAME)
+                .orElseGet(() -> unitTypeRepository.save(
+                        UnitType.builder().name(SERVICE_UNIT_NAME).status(Status.ACTIVE).build()));
     }
 }
