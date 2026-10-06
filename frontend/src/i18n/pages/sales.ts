@@ -10,7 +10,8 @@ export default {
     optional: '— ixtiyoriy —',
     seller: 'Sotuvchi',
     totalSum: 'Jami summa',
-    deleteConfirm: 'Savdo #{id} o‘chirilsinmi?',
+    cancelOrder: 'Buyurtmani bekor qilish',
+    cancelNotAllowed: 'Bu holatdagi buyurtmani bekor qilib bo‘lmaydi',
   },
   ru: {
     newSale: '+ Новый заказ',
@@ -23,7 +24,8 @@ export default {
     optional: '— необязательно —',
     seller: 'Продавец',
     totalSum: 'Общая сумма',
-    deleteConfirm: 'Удалить заказ #{id}?',
+    cancelOrder: 'Отменить заказ',
+    cancelNotAllowed: 'Заказ в этом статусе нельзя отменить',
   },
   en: {
     newSale: '+ New sale',
@@ -36,6 +38,7 @@ export default {
     optional: '— optional —',
     seller: 'Seller',
     totalSum: 'Total amount',
-    deleteConfirm: 'Delete order #{id}?',
+    cancelOrder: 'Cancel order',
+    cancelNotAllowed: 'An order in this status cannot be cancelled',
   },
 }

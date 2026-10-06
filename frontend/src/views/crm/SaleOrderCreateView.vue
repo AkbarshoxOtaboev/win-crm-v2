@@ -318,8 +318,13 @@
         <p v-if="!headerReady" class="mt-2 text-xs text-amber-600">
           {{ t('saleOrderCreate.headerRequired') }}
         </p>
-        <p v-else-if="selectedGoods && !isServiceGoods" class="stock-hint">
-          {{ t('saleOrderCreate.stockLeft', { qty: qtyWithUnit(remainingStock(selectedGoods.id), isWindowGoods) }) }}
+        <p
+          v-else-if="selectedGoods && !isServiceGoods"
+          class="stock-chip"
+          :class="{ empty: remainingStock(selectedGoods.id) <= 1e-9 }"
+        >
+          <WarehouseIcon class="h-4 w-4 shrink-0" />
+          {{ t('saleOrderCreate.stockLeft', { qty: stockLeftText(selectedGoods) }) }}
         </p>
         <p v-if="selectedGoods && goodsCurrency(selectedGoods) !== form.currency" class="stock-hint">
           {{ t('saleOrderCreate.priceConverted', {
@@ -463,7 +468,7 @@ import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import SearchableSelect from '@/components/crm/SearchableSelect.vue'
-import { Magnet, Package, PackageCheck, Truck, Wrench } from 'lucide-vue-next'
+import { Magnet, Package, PackageCheck, Truck, Warehouse as WarehouseIcon, Wrench } from 'lucide-vue-next'
 import { createSaleOrder, type DeliveryType } from '@/api/sales'
 import { fetchWarehouses, type Warehouse } from '@/api/warehouses'
 import { createClient, fetchClients, type Client } from '@/api/clients'
@@ -727,11 +732,32 @@ function remainingStock(goodsId: number) {
   return (availableByGoodsId.value.get(goodsId) || 0) - reserved
 }
 
+/** Oyna qoldig'i donada: backend StockPieces bilan bir xil - mahsulot o'lchamidan, bo'lmasa ombordagi nisbatdan. */
+function remainingWindowPieces(g: Goods, kvm: number) {
+  const w = Number(g.width || 0)
+  const h = Number(g.height || 0)
+  if (w > 0 && h > 0) return (kvm * 10000) / (w * h)
+  const stockKvm = availableByGoodsId.value.get(g.id) || 0
+  return stockKvm > 0 ? ((stockByGoodsId.value.get(g.id) || 0) * kvm) / stockKvm : 0
+}
+
+const pieceFormat = new Intl.NumberFormat('uz-UZ', { maximumFractionDigits: 2 })
+
+function stockLeftText(g: Goods) {
+  const left = Math.max(remainingStock(g.id), 0)
+  if (!isWindow(g)) return `${formatNum(left)} ${g.unitTypeName || t('saleOrderCreate.pieceUnit')}`
+  const pieces = pieceFormat.format(remainingWindowPieces(g, left))
+  return `${pieces} ${t('saleOrderCreate.pieceUnit')} · ${qtyWithUnit(left, true)}`
+}
+
 const itemKind = ref<'PRODUCT' | 'SERVICE'>('PRODUCT')
+
+const addedGoodsIds = computed(() => new Set(draftItems.value.map((d) => d.goodsId)))
 
 const goodsOptions = computed(() =>
   goods.value
     .filter((g) => (!g.status || g.status === 'ACTIVE') && hasWarehouseStock(g))
+    .filter((g) => !addedGoodsIds.value.has(g.id))
     .filter((g) => (itemKind.value === 'SERVICE') === isService(g))
     .map((g) => ({ value: g.id, label: g.name })),
 )
@@ -922,6 +948,8 @@ function onAddItem() {
       return
     }
   }
+
+  if (addedGoodsIds.value.has(g.id)) return
 
   draftItems.value.push({
     key: ++draftSeq,
@@ -1131,6 +1159,10 @@ async function onCreateClient() {
 .dark .opt-sub { color: #9ca3af; }
 .dark .save-part { color: rgba(255, 255, 255, 0.8); }
 .stock-hint { margin-top: 0.5rem; font-size: 0.75rem; color: #6b7280; }
+.stock-chip { margin-top: 0.75rem; display: inline-flex; align-items: center; gap: 0.5rem; border-radius: 0.5rem; border: 1px solid #a7f3d0; background: #ecfdf5; padding: 0.375rem 0.75rem; font-size: 0.875rem; font-weight: 500; color: #047857; }
+.stock-chip.empty { border-color: #fecaca; background: #fef2f2; color: #dc2626; }
+.dark .stock-chip { border-color: rgba(16, 185, 129, 0.3); background: rgba(16, 185, 129, 0.1); color: #34d399; }
+.dark .stock-chip.empty { border-color: rgba(239, 68, 68, 0.3); background: rgba(239, 68, 68, 0.1); color: #f87171; }
 .cur-hint { flex: 1 1 16rem; align-self: center; font-size: 0.75rem; color: #6b7280; }
 .link-btn { font-weight: 500; color: #465fff; text-decoration: underline; }
 .rate-manual { border-color: #f59e0b; }

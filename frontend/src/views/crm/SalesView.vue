@@ -67,7 +67,7 @@
               <td class="td whitespace-nowrap">{{ amt(o, o.debtSum) }}</td>
               <td class="td"><SaleStatusBadge :status="o.orderStatus" /></td>
               <td class="td text-right">
-                <RowActions @edit="openEdit(o)" @delete="onDelete(o)">
+                <RowActions :remove="false" @edit="openEdit(o)">
                   <button
                     type="button"
                     class="view-btn"
@@ -76,6 +76,17 @@
                     @click="goDetail(o)"
                   >
                     <Eye :size="16" />
+                  </button>
+                  <button
+                    v-if="canCancel"
+                    type="button"
+                    class="cancel-btn"
+                    :disabled="writeBlocked || !isCancellable(o)"
+                    :title="isCancellable(o) ? t('sales.cancelOrder') : t('sales.cancelNotAllowed')"
+                    :aria-label="t('sales.cancelOrder')"
+                    @click="openCancel(o)"
+                  >
+                    <Ban :size="16" />
                   </button>
                 </RowActions>
               </td>
@@ -132,6 +143,42 @@
         </form>
       </div>
     </div>
+
+    <div v-if="cancelTarget" class="fixed inset-0 z-99999 flex items-center justify-center bg-black/40 p-4">
+      <div
+        class="w-full max-w-lg rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="sales-cancel-title"
+      >
+        <h3 id="sales-cancel-title" class="text-lg font-semibold text-gray-800 dark:text-white/90">
+          {{ t('saleOrderDetail.cancelTitle', { id: cancelTarget.id }) }}
+        </h3>
+        <p class="mb-4 mt-1 text-sm text-gray-500 dark:text-gray-400">{{ t('saleOrderDetail.cancelHint') }}</p>
+        <div v-if="cancelError" class="err mb-3">{{ cancelError }}</div>
+        <form class="space-y-3" @submit.prevent="onCancelConfirm">
+          <div>
+            <label for="sales-cancel-reason" class="lbl">{{ t('saleOrderDetail.cancelReason') }} *</label>
+            <textarea
+              id="sales-cancel-reason"
+              v-model="cancelReason"
+              rows="3"
+              required
+              class="field textarea"
+              :placeholder="t('saleOrderDetail.cancelReasonPlaceholder')"
+            />
+          </div>
+          <div class="flex justify-end gap-2">
+            <button type="button" class="h-10 rounded-lg border border-gray-300 px-4 text-sm" @click="cancelTarget = null">
+              {{ t('common.cancel') }}
+            </button>
+            <button type="submit" class="btn danger" :disabled="cancelSaving || !cancelReason.trim()">
+              {{ cancelSaving ? t('common.saving') : t('saleOrderDetail.cancelSubmit') }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   </AdminLayout>
 </template>
 
@@ -139,13 +186,13 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { CalendarDays, Eye, RotateCcw } from 'lucide-vue-next'
+import { Ban, CalendarDays, Eye, RotateCcw } from 'lucide-vue-next'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import RowActions from '@/components/crm/RowActions.vue'
 import SaleStatusBadge from '@/components/crm/SaleStatusBadge.vue'
 import {
-  deleteSaleOrder,
+  changeSaleOrderStatus,
   fetchSaleOrdersByDateRange,
   updateSaleOrder,
   type SaleOrder,
@@ -157,9 +204,10 @@ import { formatApiError } from '@/api/http'
 import { useFilialScope } from '@/composables/useFilialScope'
 import { formatDate, money, toApiDate } from '@/utils/format'
 import { moneyIn } from '@/utils/currency'
+import { nextSaleStatuses } from '@/utils/saleStatus'
 
 const router = useRouter()
-const { writeBlocked } = useFilialScope()
+const { auth, writeBlocked } = useFilialScope()
 const { t, te } = useI18n()
 
 const items = ref<SaleOrder[]>([])
@@ -310,13 +358,40 @@ function goDetail(o: SaleOrder) {
   void router.push(`/sales/${o.id}`)
 }
 
-async function onDelete(o: SaleOrder) {
-  if (!confirm(t('sales.deleteConfirm', { id: o.id }))) return
+const canCancel = computed(() => auth.can('SALE_ORDER_EDIT'))
+const cancelTarget = ref<SaleOrder | null>(null)
+const cancelReason = ref('')
+const cancelError = ref<string | null>(null)
+const cancelSaving = ref(false)
+
+function isCancellable(o: SaleOrder) {
+  return nextSaleStatuses(o.orderStatus).includes('CANCELLED')
+}
+
+function openCancel(o: SaleOrder) {
+  if (writeBlocked.value || !isCancellable(o)) return
+  cancelTarget.value = o
+  cancelReason.value = ''
+  cancelError.value = null
+}
+
+async function onCancelConfirm() {
+  if (!cancelTarget.value) return
+  const reason = cancelReason.value.trim()
+  if (!reason) {
+    cancelError.value = t('saleOrderDetail.cancelReasonRequired')
+    return
+  }
+  cancelSaving.value = true
+  cancelError.value = null
   try {
-    await deleteSaleOrder(o.id)
-    await load()
+    await changeSaleOrderStatus(cancelTarget.value.id, 'CANCELLED', reason)
+    cancelTarget.value = null
+    await reloadSales()
   } catch (e) {
-    error.value = formatApiError(e, t('common.deleteError'))
+    cancelError.value = formatApiError(e, t('saleOrderDetail.statusError'))
+  } finally {
+    cancelSaving.value = false
   }
 }
 
@@ -343,4 +418,13 @@ onMounted(load)
 .lbl { display: block; margin-bottom: 0.25rem; font-size: 0.875rem; color: #4b5563; }
 .view-btn { display: inline-flex; height: 2rem; width: 2rem; flex-shrink: 0; align-items: center; justify-content: center; border-radius: 0.5rem; background: #465fff; color: #fff; transition: background-color 0.15s; }
 .view-btn:hover { background: #3641f5; }
+.cancel-btn { display: inline-flex; height: 2rem; width: 2rem; flex-shrink: 0; align-items: center; justify-content: center; border-radius: 0.5rem; color: #ef4444; transition: background-color 0.15s; }
+.cancel-btn:hover:not(:disabled) { background: #fef2f2; }
+.cancel-btn:disabled { cursor: not-allowed; opacity: 0.35; }
+.dark .cancel-btn { color: #f87171; }
+.dark .cancel-btn:hover:not(:disabled) { background: rgba(239, 68, 68, 0.1); }
+.textarea { height: auto; padding: 0.5rem 0.75rem; resize: vertical; }
+.btn.danger { background: #dc2626; }
+.btn.danger:hover:not(:disabled) { background: #b91c1c; }
+.btn:disabled { cursor: not-allowed; opacity: 0.6; }
 </style>
