@@ -1,19 +1,35 @@
 /**
  * Uzbek license plates, always upper-case:
  *  - personal: 90 B 123 BB  (region, letter, 3 digits, 2 letters)
- *  - company:  01 123 ABC   (region, 3 digits, 3 letters)
+ *  - company:  90 123 BBB   (region, 3 digits, 3 letters)
  */
-const PERSONAL = { pattern: 'DDLDDDLL', groups: [2, 1, 3, 2] }
-const COMPANY = { pattern: 'DDDDDLLL', groups: [2, 3, 3] }
+export type CarNumberKind = 'PERSONAL' | 'COMPANY'
 
-export function formatCarNumber(raw?: string | null): string {
-  const chars = String(raw || '')
+const FORMATS: Record<CarNumberKind, { pattern: string; groups: number[]; example: string }> = {
+  PERSONAL: { pattern: 'DDLDDDLL', groups: [2, 1, 3, 2], example: '90 B 123 BB' },
+  COMPANY: { pattern: 'DDDDDLLL', groups: [2, 3, 3], example: '90 123 BBB' },
+}
+
+function cleanCarNumber(raw?: string | null) {
+  return String(raw || '')
     .toUpperCase()
     .replace(/[^0-9A-Z]/g, '')
-  const { pattern, groups } = /^\d{3}/.test(chars) ? COMPANY : PERSONAL
+}
+
+/** Saqlangan raqamdan turini aniqlash: region'dan keyin raqam kelsa - firma. */
+export function detectCarNumberKind(raw?: string | null): CarNumberKind {
+  return /^\d{3}/.test(cleanCarNumber(raw)) ? 'COMPANY' : 'PERSONAL'
+}
+
+export function carNumberExample(kind: CarNumberKind) {
+  return FORMATS[kind].example
+}
+
+export function formatCarNumber(raw?: string | null, kind: CarNumberKind = detectCarNumberKind(raw)): string {
+  const { pattern, groups } = FORMATS[kind]
 
   let out = ''
-  for (const c of chars) {
+  for (const c of cleanCarNumber(raw)) {
     if (out.length >= pattern.length) break
     const needDigit = pattern[out.length] === 'D'
     if (needDigit ? /\d/.test(c) : /[A-Z]/.test(c)) out += c
@@ -29,6 +45,6 @@ export function formatCarNumber(raw?: string | null): string {
   return parts.join(' ')
 }
 
-export function isCompleteCarNumber(value?: string | null): boolean {
-  return formatCarNumber(value).replace(/\s/g, '').length === 8
+export function isCompleteCarNumber(value?: string | null, kind: CarNumberKind = detectCarNumberKind(value)): boolean {
+  return formatCarNumber(value, kind).replace(/\s/g, '').length === FORMATS[kind].pattern.length
 }

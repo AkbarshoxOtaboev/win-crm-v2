@@ -74,7 +74,9 @@ export default {
       createTitle: 'Yangi yetkazib beruvchi',
       modalSubtitle: 'Haydovchi, telefon va mashina ma’lumotlari',
       carModelPlaceholder: 'Masalan: Damas',
-      carNumberFormat: 'Davlat raqami 90 B 123 BB (yoki 01 123 ABC) formatida to‘liq bo‘lishi kerak',
+      carNumberFormat: 'Davlat raqamini to‘liq kiriting: shaxsiy — 90 B 123 BB, firma — 90 123 BBB',
+      plateKindLabel: 'Davlat raqami turi',
+      plateKind: { PERSONAL: 'Shaxsiy', COMPANY: 'Firma' },
     },
     workers: {
       subtitle: 'Yetkazishda ishtirok etadigan ishchilar (tizimga kirmaydi)',
@@ -182,7 +184,9 @@ export default {
       createTitle: 'Новый водитель',
       modalSubtitle: 'Данные водителя, телефона и автомобиля',
       carModelPlaceholder: 'Например: Damas',
-      carNumberFormat: 'Госномер должен быть полностью в формате 90 B 123 BB (или 01 123 ABC)',
+      carNumberFormat: 'Введите госномер полностью: личный — 90 B 123 BB, юр. лицо — 90 123 BBB',
+      plateKindLabel: 'Тип госномера',
+      plateKind: { PERSONAL: 'Личный', COMPANY: 'Юр. лицо' },
     },
     workers: {
       subtitle: 'Рабочие, участвующие в доставке (без входа в систему)',
@@ -291,7 +295,9 @@ export default {
       createTitle: 'New driver',
       modalSubtitle: 'Driver, phone and vehicle details',
       carModelPlaceholder: 'E.g.: Damas',
-      carNumberFormat: 'License plate must be complete in the 90 B 123 BB (or 01 123 ABC) format',
+      carNumberFormat: 'Enter the full license plate: personal — 90 B 123 BB, company — 90 123 BBB',
+      plateKindLabel: 'License plate type',
+      plateKind: { PERSONAL: 'Personal', COMPANY: 'Company' },
     },
     workers: {
       subtitle: 'Workers involved in deliveries (no system login)',
