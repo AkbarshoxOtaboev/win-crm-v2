@@ -6,6 +6,10 @@
         <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('nav.salesOrders') }}</h3>
         <div class="toolbar mt-3">
           <input v-model="search" type="search" :placeholder="t('common.search')" class="field search" />
+          <select v-model="statusFilter" class="field status-select" :aria-label="t('common.status')">
+            <option value="">{{ t('sales.allStatuses') }}</option>
+            <option v-for="s in SALE_STATUSES" :key="s" :value="s">{{ t(`saleStatus.${s}`) }}</option>
+          </select>
           <div class="range">
             <CalendarDays class="h-4 w-4 shrink-0 text-gray-400" />
             <input
@@ -65,7 +69,12 @@
               <td class="td whitespace-nowrap">{{ amt(o, o.totalSum) }}</td>
               <td class="td whitespace-nowrap">{{ amt(o, o.paidSum) }}</td>
               <td class="td whitespace-nowrap">{{ amt(o, o.debtSum) }}</td>
-              <td class="td"><SaleStatusBadge :status="o.orderStatus" /></td>
+              <td class="td">
+                <div class="flex flex-wrap items-center gap-1.5">
+                  <SaleStatusBadge :status="o.orderStatus" />
+                  <span v-if="o.saleType === 'WHOLESALE'" class="wholesale-tag">{{ t('sales.wholesale') }}</span>
+                </div>
+              </td>
               <td class="td text-right">
                 <RowActions :remove="false" @edit="openEdit(o)">
                   <button
@@ -184,7 +193,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { Ban, CalendarDays, Eye, RotateCcw } from 'lucide-vue-next'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
@@ -206,7 +215,20 @@ import { formatDate, money, toApiDate } from '@/utils/format'
 import { moneyIn } from '@/utils/currency'
 import { nextSaleStatuses } from '@/utils/saleStatus'
 
+const SALE_STATUSES = [
+  'NEW',
+  'CONFIRMED',
+  'PROCESSING',
+  'READY',
+  'IN_DELIVERY',
+  'DELIVERED',
+  'WORK_DONE',
+  'COMPLETED',
+  'CANCELLED',
+] as const
+
 const router = useRouter()
+const route = useRoute()
 const { auth, writeBlocked } = useFilialScope()
 const { t, te } = useI18n()
 
@@ -230,8 +252,24 @@ function monthStartIso() {
   return localIso(new Date(d.getFullYear(), d.getMonth(), 1))
 }
 
-const dateFrom = ref(monthStartIso())
-const dateTo = ref(localIso(new Date()))
+function queryStr(key: string) {
+  const v = route.query[key]
+  return typeof v === 'string' ? v : ''
+}
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
+const statusFilter = ref<string>(
+  (SALE_STATUSES as readonly string[]).includes(queryStr('status')) ? queryStr('status') : '',
+)
+const dateFrom = ref(ISO_DATE.test(queryStr('from')) ? queryStr('from') : monthStartIso())
+const dateTo = ref(ISO_DATE.test(queryStr('to')) ? queryStr('to') : localIso(new Date()))
+
+watch(statusFilter, (s) => {
+  const query = { ...route.query }
+  if (s) query.status = s
+  else delete query.status
+  void router.replace({ query })
+})
 const isDefaultRange = computed(() => dateFrom.value === monthStartIso() && dateTo.value === localIso(new Date()))
 
 function resetRange() {
@@ -256,8 +294,11 @@ function amt(o: SaleOrder, v?: number | null) {
 
 const filtered = computed(() => {
   const q = search.value.trim().toLowerCase()
-  if (!q) return items.value
-  return items.value.filter((o) => {
+  const byStatus = statusFilter.value
+    ? items.value.filter((o) => String(o.orderStatus || 'NEW').toUpperCase() === statusFilter.value)
+    : items.value
+  if (!q) return byStatus
+  return byStatus.filter((o) => {
     const statusText = o.orderStatus && te(`saleStatus.${o.orderStatus}`) ? t(`saleStatus.${o.orderStatus}`) : ''
     return [o.clientFullName, o.orderStatus, statusText, String(o.id)]
       .filter(Boolean)
@@ -405,6 +446,10 @@ onMounted(load)
 .field { height: 2.5rem; width: 100%; border-radius: 0.5rem; border: 1px solid #d1d5db; background: transparent; padding: 0 0.75rem; font-size: 0.875rem; }
 .toolbar { display: flex; align-items: center; gap: 0.75rem; width: 100%; flex-wrap: wrap; }
 .toolbar .search { width: 14rem; max-width: 100%; flex: 0 0 auto; }
+.toolbar .status-select { width: 12rem; max-width: 100%; flex: 0 0 auto; }
+.dark .status-select { border-color: #374151; background: #111827; color: rgba(255, 255, 255, 0.92); }
+.wholesale-tag { display: inline-flex; border-radius: 9999px; background: #ecfdf3; padding: 0.125rem 0.5rem; font-size: 0.6875rem; font-weight: 600; color: #027a48; }
+.dark .wholesale-tag { background: rgba(18, 183, 106, 0.15); color: #6ce9a6; }
 .range { display: inline-flex; height: 2.5rem; align-items: center; gap: 0.5rem; border-radius: 0.5rem; border: 1px solid #d1d5db; padding: 0 0.625rem; font-size: 0.875rem; }
 .range-input { width: 8.25rem; border: 0; background: transparent; padding: 0; font-size: 0.875rem; color: inherit; outline: none; }
 .range-reset { display: inline-flex; height: 1.5rem; width: 1.5rem; align-items: center; justify-content: center; border-radius: 0.375rem; color: #6b7280; }

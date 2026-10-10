@@ -91,6 +91,7 @@ public class SaleOrderItemServiceImpl implements SaleOrderItemService {
         validateSaleOrderStatus(saleOrder);
 
         SaleOrderItem entity = mapper.toEntity(dto);
+        entity.setPriceCost(unitCostOf(goods, dto.getWarehouseId()));
         entity.setGoods(goods);
         entity.setWarehouse(warehouse);
         entity.setClient(client);
@@ -247,7 +248,9 @@ public class SaleOrderItemServiceImpl implements SaleOrderItemService {
             }
         }
 
+        BigDecimal unitCost = goodsChanged ? unitCostOf(newGoods, warehouseId) : entity.getPriceCost();
         mapper.updateEntity(entity, dto);
+        entity.setPriceCost(unitCost);
         entity.setGoods(newGoods);
         entity.setCount(newCount);
         if (newGoods.getType() == Type.WINDOW) {
@@ -312,6 +315,21 @@ public class SaleOrderItemServiceImpl implements SaleOrderItemService {
                 returnToStock(item);
             }
         }
+    }
+
+    /**
+     * Sotuv paytidagi tannarx (so'mda, 1 ombor birligi uchun - WINDOW: kv.m): ombordagi o'rtacha kirim narxi,
+     * bo'lmasa tovar tannarxi; xizmatda 0. Klient yuborgan qiymat ishlatilmaydi - foyda hisoboti shunga tayanadi.
+     */
+    private BigDecimal unitCostOf(Goods goods, Long warehouseId) {
+        if (goods.getType() == Type.SERVICE) {
+            return BigDecimal.ZERO;
+        }
+        BigDecimal stockCost = stockService.getUnitCost(goods.getId(), warehouseId);
+        if (stockCost != null && stockCost.signum() > 0) {
+            return stockCost;
+        }
+        return goods.getPriceCost() != null ? goods.getPriceCost() : BigDecimal.ZERO;
     }
 
     private void returnToStock(SaleOrderItem item) {

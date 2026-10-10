@@ -15,6 +15,7 @@ import uz.script.wincrm.filial.FilialScopedEntity;
 import uz.script.wincrm.payment.Payment;
 import uz.script.wincrm.sale.enums.DeliveryType;
 import uz.script.wincrm.sale.enums.DiscountType;
+import uz.script.wincrm.sale.enums.SaleType;
 import uz.script.wincrm.sale.enums.SalesOrderStatus;
 import uz.script.wincrm.users.User;
 import uz.script.wincrm.utils.TableName;
@@ -137,6 +138,11 @@ public class SaleOrder extends FilialScopedEntity {
 
     @Enumerated(EnumType.STRING)
     private SalesOrderStatus salesOrderStatus;
+
+    /** null - eski buyurtmalar (chakana deb hisoblanadi). */
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private SaleType saleType;
 
     @OneToMany(mappedBy = "saleOrder")
     private List<SaleOrderItem> saleOrderItems;

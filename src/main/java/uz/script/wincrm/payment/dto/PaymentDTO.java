@@ -45,6 +45,11 @@ public class PaymentDTO {
             + "Valyutalar farq qilsa to'lov kunidagi Markaziy bank kursi qo'llanadi.", example = "USD")
     private Currency debtCurrency;
 
+    @DecimalMin(value = "0.000001", message = "Exchange rate must be greater than 0")
+    @Schema(description = "Qo'lda kiritilgan kurs: 1 birlik xorijiy valyuta = shuncha so'm. Bo'sh bo'lsa - "
+            + "to'lov kunidagi Markaziy bank kursi. Valyutalar bir xil bo'lsa e'tiborga olinmaydi.", example = "12850")
+    private BigDecimal exchangeRate;
+
     @NotNull(message = "Payment date is required")
     @Schema(
             description = "Payment date and time",

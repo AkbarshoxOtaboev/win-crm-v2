@@ -251,6 +251,7 @@ import {
   Shield,
   ShieldCheck,
   TrendingUp,
+  ChartLine,
   Truck,
   UserCircle,
   Wallet,
@@ -440,6 +441,7 @@ const rawMenuGroups = computed<MenuGroup[]>(() => {
   {
     title: t('nav.finance'),
     items: [
+      ...(auth.isElevated ? [{ icon: ChartLine, name: t('nav.profitDashboard'), path: '/finance/profit' }] : []),
       { icon: Banknote, name: t('nav.currency'), path: '/currency' },
       { icon: HandCoins, name: t('nav.cashHandover'), path: '/cash-handovers', perm: ['CASH_HANDOVER_VIEW'] },
       { icon: TaskIcon, name: t('nav.expenses'), path: '/expenses', perm: ['EXPENSE_VIEW'] },

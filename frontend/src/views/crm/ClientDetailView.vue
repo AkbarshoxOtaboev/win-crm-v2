@@ -1395,7 +1395,7 @@ async function load() {
       fetchClientNotes(id),
       fetchSaleOrdersByClient(id, 0, 200),
       fetchPaymentsByClient(id, 0, 200),
-      fetchDebtHistoryByClient(id, 0, 100),
+      fetchDebtHistoryByClient(id, 0, 100).catch(() => ({ data: { content: [] as DebtNotificationHistory[] } })),
     ])
     client.value = c.data
     balances.value = b.data || []

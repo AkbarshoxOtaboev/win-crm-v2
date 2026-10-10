@@ -60,4 +60,10 @@ public interface DashboardService {
      * Xorijiy valyutadagi buyurtmalarga kelgan to'lovlar bo'yicha kurs farqi (so'mda).
      */
     FxDifferenceResponse fetchFxDifference(LocalDate fromDate, LocalDate toDate);
+
+    /**
+     * Sotilgan tovarlardan foyda (bekor qilinmagan buyurtmalar, buyurtma sanasi bo'yicha):
+     * tushum (chegirmadan keyin, yetkazishsiz) - tannarx; kunlar, mahsulotlar va sotuvchilar kesimida.
+     */
+    ProfitReportResponse fetchProfitReport(LocalDate fromDate, LocalDate toDate, Currency display);
 }

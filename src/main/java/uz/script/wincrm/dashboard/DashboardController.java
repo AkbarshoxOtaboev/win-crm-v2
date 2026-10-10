@@ -354,4 +354,39 @@ public class DashboardController {
                         .build()
         );
     }
+
+    @GetMapping("/profit")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'DIRECTOR')")
+    @Operation(
+            summary = "Sotilgan tovarlardan foyda",
+            description = """
+                    Bekor qilinmagan buyurtmalar (buyurtma sanasi bo'yicha): tushum (chegirmadan keyin, yetkazib
+                    berish haqisiz) - tannarx (sotuv paytidagi ombor o'rtacha narxi). Kunlar, mahsulotlar va sotuvchilar
+                    kesimida. Buyurtma chegirmasi pozitsiyalarga summasi ulushiga qarab taqsimlanadi.
+                    
+                    Only SUPER_ADMIN, ADMIN and DIRECTOR can use this endpoint.
+                    """
+    )
+    @ApiResponse(
+            responseCode = "200",
+            content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = ProfitReportResponse.class)
+            )
+    )
+    public ResponseEntity<?> profit(
+            @Parameter(description = "Boshlanish sanasi", example = "2026-07-01")
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @Parameter(description = "Tugash sanasi", example = "2026-07-31")
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
+            @Parameter(description = "Summalar valyutasi", example = "UZS")
+            @RequestParam(defaultValue = "UZS") Currency currency
+    ) {
+        return ResponseEntity.ok(
+                RestApiResponse.<ProfitReportResponse>builder()
+                        .message("Foyda hisoboti")
+                        .data(service.fetchProfitReport(fromDate, toDate, currency))
+                        .build()
+        );
+    }
 }

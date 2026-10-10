@@ -117,6 +117,9 @@
               :search-placeholder="t('warehouseOrders.searchGoods')"
               :disabled="isTransferred"
             />
+            <span v-if="selectedGoods" class="unit-hint">
+              {{ t('warehouseOrders.unitLabel') }}: <b>{{ selectedUnit || '—' }}</b>
+            </span>
           </label>
 
           <template v-if="isWindowGoods">
@@ -128,9 +131,12 @@
               {{ t('warehouseOrders.heightCm') }}
               <input v-model.number="itemForm.height" type="number" min="1" step="1" class="field" />
             </label>
-            <label class="lbl min-w-0 w-24 sm:flex-none">
+            <label class="lbl min-w-0 w-28 sm:flex-none">
               {{ t('common.count') }}
-              <input v-model.number="itemForm.count" type="number" min="0.01" step="0.01" class="field" />
+              <span class="pct-field">
+                <input v-model.number="itemForm.count" type="number" min="0.01" step="0.01" class="field" :class="{ 'has-unit': selectedUnit }" />
+                <span v-if="selectedUnit" class="unit-sign">{{ selectedUnit }}</span>
+              </span>
             </label>
             <label class="lbl min-w-0 w-28 sm:flex-none">
               {{ t('warehouseOrders.kvm') }}
@@ -138,9 +144,12 @@
             </label>
           </template>
 
-          <label v-else class="lbl min-w-0 w-28 sm:flex-none">
+          <label v-else class="lbl min-w-0 w-32 sm:flex-none">
             {{ t('common.count') }}
-            <input v-model.number="itemForm.count" type="number" min="0.01" step="0.01" class="field" />
+            <span class="pct-field">
+              <input v-model.number="itemForm.count" type="number" min="0.01" step="0.01" class="field" :class="{ 'has-unit': selectedUnit }" />
+              <span v-if="selectedUnit" class="unit-sign">{{ selectedUnit }}</span>
+            </span>
           </label>
 
           <label class="lbl min-w-0 w-40 sm:flex-none">
@@ -245,7 +254,10 @@
               <td class="td">{{ row.goodsName }}</td>
               <td class="td">{{ row.width != null ? formatNum(row.width) : '—' }}</td>
               <td class="td">{{ row.height != null ? formatNum(row.height) : '—' }}</td>
-              <td class="td">{{ row.pieces != null ? formatNum(row.pieces) : formatNum(row.count) }}</td>
+              <td class="td whitespace-nowrap">
+                {{ row.pieces != null ? formatNum(row.pieces) : formatNum(row.count) }}
+                <span v-if="row.unitName" class="text-gray-400">{{ row.unitName }}</span>
+              </td>
               <td class="td">{{ row.isWindow ? formatNum(row.count) : '—' }}</td>
               <td class="td">{{ amt(row.priceCost) }}</td>
               <td v-if="isForeign" class="td">{{ money(row.priceSom) }}</td>
@@ -473,6 +485,7 @@ function isWindow(g?: Goods | null) {
 
 const selectedGoods = computed(() => goods.value.find((g) => g.id === itemForm.goodsId) || null)
 const isWindowGoods = computed(() => isWindow(selectedGoods.value))
+const selectedUnit = computed(() => selectedGoods.value?.unitTypeName || '')
 
 const computedKvm = computed(() => {
   if (!isWindowGoods.value) return 0
@@ -612,6 +625,7 @@ const displayItems = computed(() =>
     return {
       id: it.id,
       goodsName: it.goodsName || String(it.goodsId || ''),
+      unitName: g?.unitTypeName || '',
       width,
       height,
       pieces,
@@ -840,6 +854,10 @@ onMounted(load)
 .pct-field { position: relative; }
 .pct-field .field { padding-right: 1.75rem; }
 .pct-sign { position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%); font-size: 0.875rem; color: #9ca3af; pointer-events: none; }
+.pct-field .field.has-unit { padding-right: 3rem; }
+.unit-sign { position: absolute; right: 0.6rem; top: 50%; max-width: 2.6rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transform: translateY(-50%); font-size: 0.75rem; font-weight: 500; color: #6b7280; pointer-events: none; }
+.unit-hint { font-size: 0.75rem; font-weight: 400; color: #6b7280; }
+.unit-hint b { font-weight: 600; color: #465fff; }
 .th { padding: 0.75rem 1rem; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; white-space: nowrap; }
 .td { padding: 0.75rem 1rem; font-size: 0.875rem; color: #4b5563; }
 .empty { padding: 2rem 1.25rem; text-align: center; font-size: 0.875rem; color: #6b7280; }

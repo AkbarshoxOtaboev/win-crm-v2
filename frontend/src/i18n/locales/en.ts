@@ -31,6 +31,7 @@ export default {
     salary: 'Salary',
     kpi: 'KPI',
     cashHandover: 'Cash handover',
+    profitDashboard: 'Profit dashboard',
     paymentsList: 'Payments list',
     paymentsDashboard: 'Revenue dashboard',
     services: 'Services',

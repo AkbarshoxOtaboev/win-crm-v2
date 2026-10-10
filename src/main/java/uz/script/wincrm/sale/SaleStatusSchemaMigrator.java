@@ -28,6 +28,32 @@ public class SaleStatusSchemaMigrator implements CommandLineRunner {
         dropConstraint("sale_order_history", "sale_order_history_from_status_check");
         dropConstraint("sale_order_history", "sale_order_history_to_status_check");
         clearCancelledOrderDebts();
+        repairWindowItemCosts();
+    }
+
+    /**
+     * Oyna pozitsiyalarida tannarx o'rniga sotish narxining so'mdagi qiymati yozilib qolgan
+     * (price_cost = price_selling * kurs). Ularga ombordagi o'rtacha tannarx (bo'lmasa tovar tannarxi) qo'yiladi.
+     */
+    private void repairWindowItemCosts() {
+        int updated = entityManager.createNativeQuery("""
+                        UPDATE sale_order_items soi
+                        SET price_cost = COALESCE(
+                                (SELECT NULLIF(st.price_cost, 0) FROM stocks st
+                                 WHERE st.goods_id = soi.goods_id AND st.warehouse_id = soi.warehouse_id
+                                 LIMIT 1),
+                                g.price_cost)
+                        FROM goods g, sale_orders so
+                        WHERE g.id = soi.goods_id
+                          AND so.id = soi.sale_order_id
+                          AND g.type = 'WINDOW'
+                          AND g.price_cost > 0
+                          AND soi.price_cost = ROUND(soi.price_selling * COALESCE(so.exchange_rate, 1), 2)
+                        """)
+                .executeUpdate();
+        if (updated > 0) {
+            log.info("Repaired cost price of {} window sale order items", updated);
+        }
     }
 
     private void clearCancelledOrderDebts() {

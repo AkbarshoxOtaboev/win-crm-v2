@@ -61,7 +61,12 @@
           v-for="s in statusStats"
           :key="s.key"
           class="status-card"
+          role="link"
+          tabindex="0"
+          :title="t('salesDashboard.openOrders')"
           :style="{ '--accent': s.color }"
+          @click="openOrders(s.key)"
+          @keydown.enter="openOrders(s.key)"
         >
           <p class="text-sm font-medium text-gray-600 dark:text-gray-300">{{ s.label }}</p>
           <p class="mt-2 text-2xl font-bold text-gray-800 dark:text-white/90">{{ s.count }}</p>
@@ -198,6 +203,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import ReportCurrencyToggle from '@/components/crm/ReportCurrencyToggle.vue'
@@ -211,6 +217,7 @@ import { CalendarDays, ListFilter, RefreshCw, X } from 'lucide-vue-next'
 import { useTheme } from '@/components/layout/ThemeProvider.vue'
 
 const { t } = useI18n()
+const router = useRouter()
 const { isDarkMode } = useTheme()
 const { display, setDisplay, loadRates, conv, fmt, compact: compactMoney, rateMissing } = useReportCurrency()
 const chartThemeKey = computed(() => (isDarkMode.value ? 'dark' : 'light'))
@@ -579,6 +586,10 @@ function compactSom(v: number) {
   return compactMoney(v)
 }
 
+function openOrders(status: string) {
+  void router.push({ path: '/sales', query: { status, from: startDate.value, to: endDate.value } })
+}
+
 async function changeCurrency(c: CurrencyCode) {
   setDisplay(c)
   await load()
@@ -681,6 +692,15 @@ onMounted(async () => {
   border-bottom: 3px solid var(--accent);
   background: #fff;
   padding: 1rem;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.status-card:hover,
+.status-card:focus-visible {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+  box-shadow: 0 6px 16px -8px var(--accent);
+  outline: none;
 }
 .kpi-card {
   border-radius: 1rem;

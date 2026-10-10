@@ -246,7 +246,7 @@ public class PaymentServiceImpl implements PaymentService {
 
     private Payment draftPayment(PaymentDTO dto, PaymentType paymentType, SaleOrder saleOrder, Payment existing) {
         Payment entity = mapper.toEntity(dto);
-        applyCurrency(entity, paymentType, saleOrder, dto.getDebtCurrency(), existing);
+        applyCurrency(entity, paymentType, saleOrder, dto.getDebtCurrency(), dto.getExchangeRate(), existing);
         return entity;
     }
 
@@ -262,11 +262,11 @@ public class PaymentServiceImpl implements PaymentService {
     /**
      * Kassa valyutasi to'lov turidan, qarz valyutasi buyurtmadan (yoki so'rovdan) olinadi. Farq qilsa,
      * kurs bilan o'giriladi: masalan 6 425 000 so'm, kurs 12 850, $ qarz - $500 yopiladi.
-     * Kurs - to'lov kunidagi Markaziy bank kursi. {@code existing} - tahrirlanayotgan to'lov: juftlik va sana
-     * o'zgarmasa, eski kurs qoladi.
+     * Kurs - qo'lda kiritilgan {@code manualRate}, bo'lmasa to'lov kunidagi Markaziy bank kursi.
+     * {@code existing} - tahrirlanayotgan to'lov: juftlik va sana o'zgarmasa, eski kurs qoladi.
      */
     private void applyCurrency(Payment entity, PaymentType paymentType, SaleOrder saleOrder,
-                               Currency requestedDebtCurrency, Payment existing) {
+                               Currency requestedDebtCurrency, BigDecimal manualRate, Payment existing) {
         Currency currency = CurrencyMath.orBase(paymentType != null ? paymentType.getCurrency() : null);
         Currency debtCurrency;
         if (saleOrder != null) {
@@ -281,7 +281,9 @@ public class PaymentServiceImpl implements PaymentService {
 
         Currency foreign = CurrencyMath.foreignOf(currency, debtCurrency);
         BigDecimal rate = BigDecimal.ONE;
-        if (foreign != null && currency != debtCurrency) {
+        if (foreign != null && currency != debtCurrency && manualRate != null && manualRate.signum() > 0) {
+            rate = manualRate;
+        } else if (foreign != null && currency != debtCurrency) {
             LocalDateTime date = entity.getPaymentDate() != null ? entity.getPaymentDate() : LocalDateTime.now();
             boolean sameDay = existing != null && existing.getPaymentDate() != null
                     && existing.getPaymentDate().toLocalDate().equals(date.toLocalDate());
@@ -432,7 +434,7 @@ public class PaymentServiceImpl implements PaymentService {
                 .paymentDate(entity.getPaymentDate())
                 .build();
         mapper.updateEntity(entity, dto);
-        applyCurrency(entity, entity.getPaymentType(), saleOrder, dto.getDebtCurrency(), before);
+        applyCurrency(entity, entity.getPaymentType(), saleOrder, dto.getDebtCurrency(), dto.getExchangeRate(), before);
         if (saleOrder != null) {
             ensureWithinDebt(saleOrder, entity.getAppliedAmount(), entity.getId());
         }

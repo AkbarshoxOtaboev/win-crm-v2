@@ -13,6 +13,7 @@ import lombok.Setter;
 import uz.script.wincrm.currency.Currency;
 import uz.script.wincrm.sale.enums.DeliveryType;
 import uz.script.wincrm.sale.enums.DiscountType;
+import uz.script.wincrm.sale.enums.SaleType;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -77,6 +78,10 @@ public class SaleOrderDTO {
 
     @Schema(description = "Buyurtma valyutasi (bo'sh — UZS). Barcha summalar shu valyutada keladi.", example = "USD")
     private Currency currency;
+
+    @Schema(description = "Sotuv turi (faqat create): RETAIL (chakana, bo'sh bo'lsa) yoki WHOLESALE "
+            + "(optom - buyurtma darhol WORK_DONE holatida yaratiladi)", example = "WHOLESALE")
+    private SaleType saleType;
 
     @DecimalMin(value = "0.0001", message = "Kurs musbat bo'lishi kerak")
     @Schema(description = "1 birlik valyuta = kurs so'm, foydalanuvchi qo'lda kiritgan; "

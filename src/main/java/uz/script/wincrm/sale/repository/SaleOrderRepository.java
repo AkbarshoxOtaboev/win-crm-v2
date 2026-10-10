@@ -26,6 +26,21 @@ public interface SaleOrderRepository extends JpaRepository<SaleOrder, Long> {
 
     List<SaleOrder> findByOrderDateBetween(LocalDateTime startDate, LocalDateTime endDate);
 
+    /** Foyda hisoboti: bekor qilinmagan buyurtmalar pozitsiyalari, tovari va sotuvchisi bilan. */
+    @Query("""
+            SELECT DISTINCT so FROM SaleOrder so
+            LEFT JOIN FETCH so.user
+            LEFT JOIN FETCH so.saleOrderItems soi
+            LEFT JOIN FETCH soi.goods g
+            LEFT JOIN FETCH g.unitType
+            WHERE so.salesOrderStatus <> uz.script.wincrm.sale.enums.SalesOrderStatus.CANCELLED
+              AND so.orderDate BETWEEN :startDate AND :endDate
+            """)
+    List<SaleOrder> findForProfitReport(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
+
     /**
      * Qarzi bor (debtSum > berilgan qiymat) barcha buyurtmalarni topadi.
      * Odatda BigDecimal.ZERO bilan chaqiriladi — qarzi bo'lgan buyurtmalarni olish uchun.

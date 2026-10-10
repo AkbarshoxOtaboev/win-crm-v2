@@ -200,6 +200,7 @@ export const useAuthStore = defineStore('auth', () => {
     assignedFilialName,
     selectedFilialId,
     isAuthenticated,
+    isElevated,
     isProductionManagerOnly,
     isTransportManagerOnly,
     isCashierOnly,

@@ -31,6 +31,7 @@ export default {
     salary: 'Зарплата',
     kpi: 'KPI',
     cashHandover: 'Сдача кассы',
+    profitDashboard: 'Дашборд прибыли',
     paymentsList: 'Список платежей',
     paymentsDashboard: 'Дашборд выручки',
     services: 'Услуги',

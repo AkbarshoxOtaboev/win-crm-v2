@@ -3,6 +3,7 @@ package uz.script.wincrm.dashboard;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import uz.script.wincrm.cash.repository.CashHandoverRepository;
 import uz.script.wincrm.currency.Currency;
 import uz.script.wincrm.currency.CurrencyMath;
@@ -17,10 +18,14 @@ import uz.script.wincrm.payment.Payment;
 import uz.script.wincrm.payment.PaymentType;
 import uz.script.wincrm.payment.repository.PaymentRepository;
 import uz.script.wincrm.payment.repository.PaymentTypeRepository;
+import uz.script.wincrm.goods.Goods;
+import uz.script.wincrm.goods.enums.Type;
 import uz.script.wincrm.sale.SaleOrder;
+import uz.script.wincrm.sale.SaleOrderItem;
 import uz.script.wincrm.sale.repository.SaleOrderItemRepository;
 import uz.script.wincrm.sale.repository.SaleOrderRepository;
 import uz.script.wincrm.suppliers.repository.SupplierPaymentRepository;
+import uz.script.wincrm.utils.Status;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -317,6 +322,173 @@ public class DashboardServiceImpl implements DashboardService {
                 .unallocatedCount(unallocated)
                 .rows(rows)
                 .build();
+    }
+
+    /** Foyda hisobotida jamlanadigan qiymatlar (ko'rsatish valyutasida). */
+    private static final class ProfitAcc {
+        String name;
+        Type type;
+        String unit;
+        long orders;
+        BigDecimal count = BigDecimal.ZERO;
+        BigDecimal revenue = BigDecimal.ZERO;
+        BigDecimal cost = BigDecimal.ZERO;
+
+        void add(BigDecimal revenue, BigDecimal cost) {
+            this.revenue = this.revenue.add(revenue);
+            this.cost = this.cost.add(cost);
+        }
+
+        BigDecimal profit() {
+            return revenue.subtract(cost);
+        }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ProfitReportResponse fetchProfitReport(LocalDate fromDate, LocalDate toDate, Currency display) {
+        log.info("Fetch profit report: {} - {} ({})", fromDate, toDate, display);
+
+        LocalDateTime[] range = toDateTimeRange(fromDate, toDate);
+        ReportFx fx = ReportFx.of(exchangeRateService, display);
+
+        ProfitAcc total = new ProfitAcc();
+        BigDecimal discount = BigDecimal.ZERO;
+        BigDecimal delivery = BigDecimal.ZERO;
+        long itemless = 0;
+        Map<LocalDate, ProfitAcc> byDay = new TreeMap<>();
+        Map<Long, ProfitAcc> byGoods = new HashMap<>();
+        Map<Long, ProfitAcc> bySeller = new HashMap<>();
+
+        List<SaleOrder> orders = saleOrderRepository.findForProfitReport(range[0], range[1]);
+        for (SaleOrder order : orders) {
+            LocalDate day = order.getOrderDate().toLocalDate();
+            Currency currency = order.currencyOrBase();
+            BigDecimal rate = order.getExchangeRate();
+
+            BigDecimal revenue = fx.convert(order.totalSumWithoutDelivery(), currency, rate, day);
+            discount = discount.add(fx.convert(order.getDiscountAmount(), currency, rate, day));
+            delivery = delivery.add(fx.convert(order.deliveryFeeOrZero(), currency, rate, day));
+
+            List<SaleOrderItem> items = order.getSaleOrderItems() == null ? List.of()
+                    : order.getSaleOrderItems().stream()
+                    .filter(i -> i.getStatus() != Status.DELETED && i.getGoods() != null && i.getCount() != null)
+                    .toList();
+            BigDecimal itemsTotal = items.stream()
+                    .map(i -> i.getCount().multiply(nz(i.getPriceSelling())))
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            BigDecimal orderCost = BigDecimal.ZERO;
+            if (itemsTotal.signum() > 0) {
+                for (SaleOrderItem item : items) {
+                    BigDecimal share = item.getCount().multiply(nz(item.getPriceSelling()))
+                            .divide(itemsTotal, 10, RoundingMode.HALF_UP);
+                    BigDecimal itemRevenue = revenue.multiply(share).setScale(2, RoundingMode.HALF_UP);
+                    BigDecimal itemCost = costIn(fx, item.getCount().multiply(nz(item.getPriceCost())), order, day);
+                    orderCost = orderCost.add(itemCost);
+
+                    Goods goods = item.getGoods();
+                    ProfitAcc g = byGoods.computeIfAbsent(goods.getId(), id -> new ProfitAcc());
+                    g.name = goods.getName();
+                    g.type = goods.getType();
+                    g.unit = goods.getUnitType() != null ? goods.getUnitType().getName() : null;
+                    g.count = g.count.add(item.getCount());
+                    g.add(itemRevenue, itemCost);
+                }
+            } else {
+                itemless++;
+            }
+
+            total.orders++;
+            total.add(revenue, orderCost);
+            byDay.computeIfAbsent(day, d -> new ProfitAcc()).add(revenue, orderCost);
+            if (order.getUser() != null) {
+                ProfitAcc s = bySeller.computeIfAbsent(order.getUser().getId(), id -> new ProfitAcc());
+                s.name = order.getUser().getFullName();
+                s.orders++;
+                s.add(revenue, orderCost);
+            }
+        }
+
+        List<ProfitReportResponse.Day> days = new ArrayList<>();
+        for (LocalDate d = fromDate; !d.isAfter(toDate); d = d.plusDays(1)) {
+            ProfitAcc acc = byDay.getOrDefault(d, new ProfitAcc());
+            days.add(ProfitReportResponse.Day.builder()
+                    .date(d)
+                    .revenue(acc.revenue)
+                    .cost(acc.cost)
+                    .profit(acc.profit())
+                    .build());
+        }
+
+        List<ProfitReportResponse.GoodsRow> goods = byGoods.entrySet().stream()
+                .map(e -> ProfitReportResponse.GoodsRow.builder()
+                        .goodsId(e.getKey())
+                        .goodsName(e.getValue().name)
+                        .goodsType(e.getValue().type)
+                        .unitName(e.getValue().unit)
+                        .count(e.getValue().count)
+                        .revenue(e.getValue().revenue)
+                        .cost(e.getValue().cost)
+                        .profit(e.getValue().profit())
+                        .marginPercent(margin(e.getValue()))
+                        .build())
+                .sorted(Comparator.comparing(ProfitReportResponse.GoodsRow::getProfit).reversed())
+                .toList();
+
+        List<ProfitReportResponse.SellerRow> sellers = bySeller.entrySet().stream()
+                .map(e -> ProfitReportResponse.SellerRow.builder()
+                        .userId(e.getKey())
+                        .fullName(e.getValue().name)
+                        .orderCount(e.getValue().orders)
+                        .revenue(e.getValue().revenue)
+                        .cost(e.getValue().cost)
+                        .profit(e.getValue().profit())
+                        .marginPercent(margin(e.getValue()))
+                        .build())
+                .sorted(Comparator.comparing(ProfitReportResponse.SellerRow::getProfit).reversed())
+                .toList();
+
+        return ProfitReportResponse.builder()
+                .currency(fx.display())
+                .revenue(total.revenue)
+                .cost(total.cost)
+                .profit(total.profit())
+                .marginPercent(margin(total))
+                .discount(discount)
+                .deliveryFee(delivery)
+                .orderCount(total.orders)
+                .itemlessOrderCount(itemless)
+                .days(days)
+                .goods(goods)
+                .sellers(sellers)
+                .build();
+    }
+
+    /**
+     * Tannarx so'mda saqlanadi. Buyurtma valyutasi ko'rsatish valyutasi bilan bir xil bo'lsa, buyurtma kursi
+     * ishlatiladi - tushum ham shu kursda, foyda kurs farqidan buzilmaydi.
+     */
+    private static BigDecimal costIn(ReportFx fx, BigDecimal baseCost, SaleOrder order, LocalDate day) {
+        if (fx.display().isBase()) {
+            return baseCost.setScale(2, RoundingMode.HALF_UP);
+        }
+        BigDecimal rate = order.getExchangeRate();
+        if (order.currencyOrBase() == fx.display() && rate != null && rate.signum() > 0) {
+            return baseCost.divide(rate, 2, RoundingMode.HALF_UP);
+        }
+        return fx.convert(baseCost, Currency.BASE, null, day);
+    }
+
+    private static BigDecimal margin(ProfitAcc acc) {
+        if (acc.revenue.signum() == 0) {
+            return BigDecimal.ZERO;
+        }
+        return acc.profit().multiply(BigDecimal.valueOf(100)).divide(acc.revenue, 1, RoundingMode.HALF_UP);
+    }
+
+    private static BigDecimal nz(BigDecimal value) {
+        return value != null ? value : BigDecimal.ZERO;
     }
 
     private List<Totals> goodsTotals(LocalDate startDate, LocalDate endDate, Currency display,

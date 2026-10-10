@@ -16,6 +16,8 @@ declare module 'vue-router' {
     employeesOnly?: boolean
     /** SUPER_ADMIN / ADMIN / DIRECTOR yoki TRANSPORT_MANAGER */
     transport?: boolean
+    /** Faqat SUPER_ADMIN / ADMIN / DIRECTOR */
+    elevatedOnly?: boolean
   }
 }
 
@@ -182,6 +184,12 @@ const router = createRouter({
       name: 'Currency',
       component: () => import('../views/crm/CurrencyView.vue'),
       meta: { title: 'Valyuta', requiresAuth: true },
+    },
+    {
+      path: '/finance/profit',
+      name: 'ProfitDashboard',
+      component: () => import('../views/crm/ProfitDashboardView.vue'),
+      meta: { title: 'Foyda', requiresAuth: true, elevatedOnly: true },
     },
     {
       path: '/sales/fx-difference',
@@ -458,6 +466,11 @@ router.beforeEach((to, _from, next) => {
   }
 
   if (auth.isAuthenticated && to.matched.some((r) => r.meta.transport) && !auth.canAccessTransport) {
+    next({ path: '/' })
+    return
+  }
+
+  if (auth.isAuthenticated && to.matched.some((r) => r.meta.elevatedOnly) && !auth.isElevated) {
     next({ path: '/' })
     return
   }

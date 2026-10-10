@@ -41,6 +41,7 @@ public class RoleDataLoader implements CommandLineRunner {
             "PRODUCTION_ORDER_VIEW", "PRODUCTION_ORDER_CREATE",
             "TRANSPORT_DELIVERY_VIEW",
             "CASH_HANDOVER_VIEW", "CASH_HANDOVER_CREATE",
+            "DEBT_NOTIFICATION_VIEW",
             "DASHBOARD_VIEW"
     );
 

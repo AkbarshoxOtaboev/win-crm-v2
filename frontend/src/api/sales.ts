@@ -28,9 +28,11 @@ export interface SaleOrder {
   /** 1 birlik valyuta = necha so'm (so'mda 1). */
   exchangeRate?: number
   totalSumBase?: number
+  saleType?: SaleType | null
 }
 
 export type DeliveryType = 'DELIVERY' | 'PICKUP'
+export type SaleType = 'RETAIL' | 'WHOLESALE'
 
 export interface SaleOrderPayload {
   warehouseId: number
@@ -43,6 +45,7 @@ export interface SaleOrderPayload {
   deliveryFee?: number
   currency?: CurrencyCode
   exchangeRate?: number
+  saleType?: SaleType
 }
 
 export interface SaleOrderInitialItem {

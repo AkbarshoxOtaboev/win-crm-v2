@@ -1,6 +1,8 @@
 export default {
   uz: {
     newSale: '+ Yangi savdo',
+    allStatuses: 'Barcha holatlar',
+    wholesale: 'Optom',
     thisMonth: 'Joriy oy (oy boshidan bugungacha)',
     invalidRange: '«Dan» sanasi «gacha» sanasidan keyin bo‘lishi mumkin emas',
     paid: 'To‘langan',
@@ -15,6 +17,8 @@ export default {
   },
   ru: {
     newSale: '+ Новый заказ',
+    allStatuses: 'Все статусы',
+    wholesale: 'Опт',
     thisMonth: 'Текущий месяц (с начала месяца по сегодня)',
     invalidRange: 'Дата «с» не может быть позже даты «по»',
     paid: 'Оплачено',
@@ -29,6 +33,8 @@ export default {
   },
   en: {
     newSale: '+ New sale',
+    allStatuses: 'All statuses',
+    wholesale: 'Wholesale',
     thisMonth: 'This month (from the 1st to today)',
     invalidRange: 'The “from” date cannot be after the “to” date',
     paid: 'Paid',

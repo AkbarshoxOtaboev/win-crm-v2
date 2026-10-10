@@ -163,6 +163,51 @@ export function fetchCashBalances(from: string, to: string) {
   )
 }
 
+export interface ProfitTotals {
+  revenue: number
+  cost: number
+  profit: number
+  marginPercent: number
+}
+
+export interface ProfitDay {
+  date: string
+  revenue: number
+  cost: number
+  profit: number
+}
+
+export interface ProfitGoodsRow extends ProfitTotals {
+  goodsId: number
+  goodsName: string
+  goodsType?: 'PRODUCT' | 'WINDOW' | 'SERVICE' | null
+  unitName?: string | null
+  count: number
+}
+
+export interface ProfitSellerRow extends ProfitTotals {
+  userId: number
+  fullName?: string | null
+  orderCount: number
+}
+
+export interface ProfitReport extends ProfitTotals {
+  currency: CurrencyCode
+  discount: number
+  deliveryFee: number
+  orderCount: number
+  itemlessOrderCount: number
+  days: ProfitDay[]
+  goods: ProfitGoodsRow[]
+  sellers: ProfitSellerRow[]
+}
+
+export function fetchProfitReport(from: string, to: string, currency: CurrencyCode) {
+  return apiRequest<RestApiResponse<ProfitReport>>(
+    `/api/dashboard/profit?fromDate=${encodeURIComponent(from)}&toDate=${encodeURIComponent(to)}&currency=${currency}`,
+  )
+}
+
 export function fetchFxDifference(from: string, to: string) {
   return apiRequest<RestApiResponse<FxDifference>>(
     `/api/dashboard/fx-difference?fromDate=${encodeURIComponent(from)}&toDate=${encodeURIComponent(to)}`,

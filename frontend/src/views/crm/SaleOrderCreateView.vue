@@ -16,6 +16,38 @@
       <div v-if="error" class="err mx-5 mb-4">{{ error }}</div>
 
       <div class="p-5">
+        <div class="delivery-block mb-4">
+          <span class="lbl">{{ t('saleOrderCreate.saleTypeTitle') }}</span>
+          <div class="delivery-options sale-type-options">
+            <button
+              type="button"
+              class="delivery-opt"
+              :class="{ active: form.saleType === 'RETAIL' }"
+              :aria-pressed="form.saleType === 'RETAIL'"
+              @click="form.saleType = 'RETAIL'"
+            >
+              <ShoppingBag class="h-5 w-5 flex-shrink-0" />
+              <span class="text-left">
+                <span class="opt-title">{{ t('saleOrderCreate.retail') }}</span>
+                <span class="opt-sub">{{ t('saleOrderCreate.retailHint') }}</span>
+              </span>
+            </button>
+            <button
+              type="button"
+              class="delivery-opt wholesale"
+              :class="{ active: form.saleType === 'WHOLESALE' }"
+              :aria-pressed="form.saleType === 'WHOLESALE'"
+              @click="form.saleType = 'WHOLESALE'"
+            >
+              <Boxes class="h-5 w-5 flex-shrink-0" />
+              <span class="text-left">
+                <span class="opt-title">{{ t('saleOrderCreate.wholesale') }}</span>
+                <span class="opt-sub">{{ t('saleOrderCreate.wholesaleHint') }}</span>
+              </span>
+            </button>
+          </div>
+        </div>
+
         <div class="form-row">
           <label class="lbl min-w-0 flex-[1.4]">
             {{ t('common.client') }}
@@ -53,9 +85,9 @@
 
           <label class="lbl min-w-0 flex-1">
             {{ t('saleOrderCreate.seller') }}
-            <select v-model.number="form.userId" required class="field">
+            <select v-model.number="form.userId" required class="field" :disabled="!auth.isElevated && sellerOptions.length === 1">
               <option :value="0" disabled>{{ t('saleOrderCreate.selectSeller') }}</option>
-              <option v-for="u in users" :key="u.id" :value="u.id">{{ u.fullName || u.username }}</option>
+              <option v-for="u in sellerOptions" :key="u.id" :value="u.id">{{ u.fullName || u.username }}</option>
             </select>
           </label>
 
@@ -295,10 +327,6 @@
                 <input v-model.number="itemForm.count" type="number" min="0.01" step="0.01" class="field" />
               </label>
               <label class="lbl min-w-0 w-36 sm:flex-none">
-                {{ t('saleOrderCreate.costPrice') }} ({{ t('common.currency') }})
-                <input v-model.number="itemForm.priceCost" type="number" min="0.01" step="0.01" class="field" />
-              </label>
-              <label class="lbl min-w-0 w-36 sm:flex-none">
                 {{ t('saleOrderCreate.selling') }} ({{ curLabel }})
                 <input v-model.number="itemForm.priceSelling" type="number" min="0.01" step="0.01" class="field" />
               </label>
@@ -406,8 +434,15 @@
         </div>
         <div class="flex gap-2">
           <router-link to="/sales" class="ghost">{{ t('common.cancel') }}</router-link>
-          <button type="button" class="btn" :disabled="saving || !!saveBlockReason" @click="onSave">
-            {{ saving ? '...' : t('common.save') }}
+          <button
+            type="button"
+            class="btn"
+            :class="{ 'wholesale-btn': form.saleType === 'WHOLESALE' }"
+            :disabled="saving || !!saveBlockReason"
+            @click="onSave"
+          >
+            <CheckCheck v-if="form.saleType === 'WHOLESALE'" class="me-1.5 h-4 w-4" />
+            {{ saving ? '...' : form.saleType === 'WHOLESALE' ? t('saleOrderCreate.saveWholesale') : t('common.save') }}
           </button>
         </div>
       </div>
@@ -468,8 +503,19 @@ import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import SearchableSelect from '@/components/crm/SearchableSelect.vue'
-import { Magnet, Package, PackageCheck, Truck, Warehouse as WarehouseIcon, Wrench } from 'lucide-vue-next'
-import { createSaleOrder, type DeliveryType } from '@/api/sales'
+import {
+  Boxes,
+  CheckCheck,
+  Magnet,
+  Package,
+  PackageCheck,
+  ShoppingBag,
+  Truck,
+  Warehouse as WarehouseIcon,
+  Wrench,
+} from 'lucide-vue-next'
+import Swal from 'sweetalert2'
+import { createSaleOrder, type DeliveryType, type SaleType } from '@/api/sales'
 import { fetchWarehouses, type Warehouse } from '@/api/warehouses'
 import { createClient, fetchClients, type Client } from '@/api/clients'
 import { balanceIn, fetchClientBalance, type ClientBalance } from '@/api/clientBalances'
@@ -529,6 +575,7 @@ const form = reactive({
   comment: '',
   totalSum: 0,
   deliveryType: 'PICKUP' as DeliveryType,
+  saleType: 'RETAIL' as SaleType,
   deliveryFee: 0,
   currency: BASE_CURRENCY as CurrencyCode,
   /** Xorijiy buyurtmada buyurtma kursi; so'mdagi buyurtmada faqat xorijiy narxli mahsulotni o'girish uchun. */
@@ -750,6 +797,10 @@ function stockLeftText(g: Goods) {
   return `${pieces} ${t('saleOrderCreate.pieceUnit')} · ${qtyWithUnit(left, true)}`
 }
 
+const sellerOptions = computed(() =>
+  auth.isElevated ? users.value : users.value.filter((u) => u.username === auth.username),
+)
+
 const itemKind = ref<'PRODUCT' | 'SERVICE'>('PRODUCT')
 
 const addedGoodsIds = computed(() => new Set(draftItems.value.map((d) => d.goodsId)))
@@ -784,8 +835,7 @@ const canAddItem = computed(() => {
       Number(itemForm.priceSelling) > 0
     )
   }
-  if (isServiceGoods.value) return Number(itemForm.priceSelling) > 0
-  return Number(itemForm.priceCost) > 0 && Number(itemForm.priceSelling) > 0
+  return Number(itemForm.priceSelling) > 0
 })
 
 const displayItems = computed(() =>
@@ -917,8 +967,8 @@ async function load() {
       stocks.value = stockRes.data || []
     }
     const me = users.value.find((x) => x.username === auth.username)
-    if (!form.userId) {
-      form.userId = me?.id || users.value[0]?.id || 0
+    if (!form.userId || !sellerOptions.value.some((u) => u.id === form.userId)) {
+      form.userId = me?.id || sellerOptions.value[0]?.id || 0
     }
     const qClientId = Number(route.query.clientId)
     if (qClientId > 0 && clients.value.some((c) => c.id === qClientId)) {
@@ -961,7 +1011,7 @@ function onAddItem() {
     height: windowMode ? Number(itemForm.height) : null,
     pieces: windowMode ? pieces : null,
     count,
-    priceCost: windowMode ? toBase(selling) : Number(itemForm.priceCost),
+    priceCost: Number(itemForm.priceCost),
     priceSelling: selling,
   })
   itemForm.goodsId = 0
@@ -972,11 +1022,6 @@ function onAddItem() {
   itemForm.priceSelling = 0
 }
 
-/** Pozitsiya tannarxi doim so'mda saqlanadi. */
-function toBase(v: number) {
-  return isForeign.value && form.exchangeRate > 0 ? Math.round(v * form.exchangeRate * 100) / 100 : v
-}
-
 function onRemoveItem(key: number) {
   draftItems.value = draftItems.value.filter((d) => d.key !== key)
   itemError.value = null
@@ -984,6 +1029,20 @@ function onRemoveItem(key: number) {
 
 async function onSave() {
   if (saving.value || saveBlockReason.value) return
+  if (form.saleType === 'WHOLESALE') {
+    const result = await Swal.fire({
+      title: t('saleOrderCreate.wholesaleConfirmTitle'),
+      text: t('saleOrderCreate.wholesaleConfirmText', { sum: amt(grandTotal.value) }),
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: t('saleOrderCreate.saveWholesale'),
+      cancelButtonText: t('common.cancel'),
+      confirmButtonColor: '#12b76a',
+      cancelButtonColor: '#98a2b3',
+      reverseButtons: true,
+    })
+    if (!result.isConfirmed) return
+  }
   saving.value = true
   error.value = null
   try {
@@ -998,6 +1057,7 @@ async function onSave() {
       deliveryFee: deliveryFeeValue.value,
       currency: form.currency,
       exchangeRate: isForeign.value && manualRate.value != null ? form.exchangeRate : undefined,
+      saleType: form.saleType,
       items: draftItems.value.map((d) => ({
         goodsId: d.goodsId,
         priceCost: d.priceCost,
@@ -1151,6 +1211,13 @@ async function onCreateClient() {
 .opt-title { display: block; font-size: 0.875rem; font-weight: 600; color: #1f2937; }
 .opt-sub { display: block; font-size: 0.75rem; color: #6b7280; }
 .delivery-opt.active .opt-title { color: #465fff; }
+.sale-type-options { max-width: 40rem; }
+.delivery-opt.wholesale.active { border-color: #12b76a; background: #ecfdf3; color: #039855; box-shadow: 0 0 0 3px rgb(18 183 106 / 12%); }
+.delivery-opt.wholesale.active .opt-title { color: #039855; }
+:global(html.dark .delivery-opt.wholesale.active) { border-color: #12b76a; background: rgba(18, 183, 106, 0.12); color: #6ce9a6; }
+:global(html.dark .delivery-opt.wholesale.active .opt-title) { color: #6ce9a6; }
+.btn.wholesale-btn { background: #12b76a; }
+.btn.wholesale-btn:hover:not(:disabled) { background: #039855; }
 .save-part { font-weight: 600; color: #374151; }
 .dark .delivery-opt { border-color: #344054; background: transparent; color: #9ca3af; }
 .dark .delivery-opt.active { border-color: #7592ff; background: rgb(70 95 255 / 12%); color: #9cb0ff; }

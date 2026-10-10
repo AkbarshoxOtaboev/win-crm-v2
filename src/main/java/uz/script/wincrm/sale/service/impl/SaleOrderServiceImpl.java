@@ -17,6 +17,7 @@ import uz.script.wincrm.currency.CurrencyMath;
 import uz.script.wincrm.currency.service.ExchangeRateService;
 import uz.script.wincrm.discount.service.DiscountRuleService;
 import uz.script.wincrm.exceptions.BadRequestException;
+import uz.script.wincrm.exceptions.ForbiddenException;
 import uz.script.wincrm.kpi.service.KpiService;
 import uz.script.wincrm.salary.service.SalaryCommissionService;
 import uz.script.wincrm.exceptions.ResourceNotFoundException;
@@ -30,6 +31,7 @@ import uz.script.wincrm.sale.dto.SaleOrderDiscountHistoryDTO;
 import uz.script.wincrm.sale.dto.SaleOrderHistoryDTO;
 import uz.script.wincrm.sale.dto.SaleOrderItemDTO;
 import uz.script.wincrm.sale.enums.DeliveryType;
+import uz.script.wincrm.sale.enums.SaleType;
 import uz.script.wincrm.sale.enums.SalesOrderStatus;
 import uz.script.wincrm.sale.mapper.SaleOrderDiscountHistoryMapper;
 import uz.script.wincrm.sale.mapper.SaleOrderMapper;
@@ -57,6 +59,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -89,6 +92,8 @@ public class SaleOrderServiceImpl implements SaleOrderService {
     private final ExchangeRateService exchangeRateService;
     private final SaleOrderItemRepository saleOrderItemRepository;
 
+    private static final Set<String> SELLER_OVERRIDE_ROLES = Set.of("SUPER_ADMIN", "ADMIN", "DIRECTOR");
+
     @Override
     @Auditable(
             action = AuditAction.CREATE,
@@ -108,8 +113,12 @@ public class SaleOrderServiceImpl implements SaleOrderService {
 
         User currentUser = userRepository.findById(dto.getUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + dto.getUserId()));
+        assertCanSellAs(currentUser);
+
+        SaleType saleType = dto.getSaleType() != null ? dto.getSaleType() : SaleType.RETAIL;
 
         SaleOrder entity = mapper.toEntity(dto);
+        entity.setSaleType(saleType);
         entity.setClient(client);
         entity.setWarehouse(warehouse);
         entity.setUser(currentUser);
@@ -151,11 +160,37 @@ public class SaleOrderServiceImpl implements SaleOrderService {
             entity = repository.save(entity);
         }
 
+        if (saleType == SaleType.WHOLESALE) {
+            entity.setSalesOrderStatus(SalesOrderStatus.WORK_DONE);
+            entity = repository.save(entity);
+            saleOrderHistoryService.recordHistory(
+                    SaleOrderHistoryDTO.builder()
+                            .saleOrderId(entity.getId())
+                            .fromStatus(SalesOrderStatus.NEW)
+                            .toStatus(SalesOrderStatus.WORK_DONE)
+                            .comment("Optom sotuv: tovar joyida topshirildi")
+                            .build()
+            );
+        }
+
         if (entity.getClient() != null) {
             clientBalanceService.recalculateClientBalance(entity.getClient().getId());
         }
 
         return mapper.toResponse(entity);
+    }
+
+    /** SUPER_ADMIN/ADMIN/DIRECTOR istalgan sotuvchi nomidan, qolganlar faqat o'z nomidan sotuv yaratadi. */
+    private void assertCanSellAs(User seller) {
+        User actor = getCurrentUser();
+        if (actor.getId().equals(seller.getId())) {
+            return;
+        }
+        boolean elevated = actor.getRoles() != null && actor.getRoles().stream()
+                .anyMatch(r -> SELLER_OVERRIDE_ROLES.contains(r.getName()));
+        if (!elevated) {
+            throw new ForbiddenException("Siz faqat o'zingiz nomingizdan sotuv yarata olasiz");
+        }
     }
 
     private void createInitialItems(SaleOrder order, SaleOrderDTO dto) {

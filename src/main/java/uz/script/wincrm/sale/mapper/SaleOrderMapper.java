@@ -69,6 +69,7 @@ public class SaleOrderMapper {
                 .totalSumBase(entity.toBase(entity.getTotalSum()))
                 .status(entity.getStatus())
                 .orderStatus(entity.getSalesOrderStatus())
+                .saleType(entity.getSaleType())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .createdBy(entity.getCreatedUserId())

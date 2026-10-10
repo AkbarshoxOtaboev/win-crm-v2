@@ -527,15 +527,22 @@
                 <Banknote class="field-icon" />
                 <input
                   id="pay-rate"
-                  :value="rateLoading && !keepsOldRate ? t('exchangeRates.rateLoading') : form.exchangeRate > 0 ? formatRate(form.exchangeRate) : '—'"
-                  readonly
-                  tabindex="-1"
-                  class="field cursor-default bg-gray-50 dark:bg-white/[0.03]"
-                  :title="t('exchangeRates.rateAuto')"
+                  :value="rateText"
+                  inputmode="decimal"
+                  autocomplete="off"
+                  :placeholder="rateLoading ? t('exchangeRates.rateLoading') : '0'"
+                  class="field"
+                  :class="{ 'rate-manual': rateIsManual }"
+                  :title="t('payments.rateEditHint')"
+                  @input="onRateInput"
                 />
               </div>
               <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                <template v-if="keepsOldRate">{{ t('payments.rateKept') }}</template>
+                <span v-if="rateIsManual" class="text-amber-600">
+                  {{ t('saleOrderCreate.rateManual', { rate: cbuRate > 0 ? formatRate(cbuRate) : '—' }) }}
+                  <button type="button" class="link-btn" @click="resetRate">{{ t('saleOrderCreate.rateReset') }}</button>
+                </span>
+                <template v-else-if="keepsOldRate">{{ t('payments.rateKept') }}</template>
                 <template v-else-if="cbuRateDate">{{ t('exchangeRates.cbuRate') }} · {{ cbuRateDate.split('-').reverse().join('.') }}</template>
               </p>
             </div>
@@ -829,13 +836,44 @@ const keepsOldRate = computed(() => {
   )
 })
 
+/** Xodim qo'lda kiritgan kurs; null - Markaziy bank (yoki tahrirda saqlangan) kursi. */
+const manualRate = ref<number | null>(null)
+const rateText = ref('')
+const rateIsManual = computed(() => isCross.value && manualRate.value != null)
+
+watch(isCross, (cross) => {
+  if (!cross) manualRate.value = null
+})
+
 watch(
-  [isCross, keepsOldRate, cbuRate],
+  [isCross, keepsOldRate, cbuRate, manualRate],
   () => {
-    form.exchangeRate = !isCross.value ? 0 : keepsOldRate.value ? editingPair.value!.rate : cbuRate.value
+    if (!isCross.value) form.exchangeRate = 0
+    else if (manualRate.value != null) form.exchangeRate = manualRate.value
+    else form.exchangeRate = keepsOldRate.value ? editingPair.value!.rate : cbuRate.value
   },
   { immediate: true },
 )
+
+watch(
+  () => form.exchangeRate,
+  (v) => {
+    if (formatAmountInput(rateText.value).value !== v) rateText.value = v > 0 ? amountToText(v) : ''
+  },
+  { immediate: true },
+)
+
+function onRateInput(e: Event) {
+  const el = e.target as HTMLInputElement
+  const { text, value } = formatAmountInput(el.value)
+  rateText.value = text
+  el.value = text
+  manualRate.value = value > 0 ? value : null
+}
+
+function resetRate() {
+  manualRate.value = null
+}
 
 watch(kassaCurrency, (cur) => {
   if (!selectedOrder.value && !editingId.value) form.debtCurrency = cur
@@ -1026,6 +1064,7 @@ function fillForm(p?: Payment) {
   form.saleOrderId = p?.saleOrderId || 0
   form.comment = p?.comment || ''
   form.debtCurrency = p?.debtCurrency || kassaCurrency.value
+  manualRate.value = null
   editingPair.value = p
     ? {
         currency: p.currency || BASE_CURRENCY,
@@ -1083,6 +1122,7 @@ async function onSubmit() {
       saleOrderId: form.saleOrderId || null,
       comment: form.comment || undefined,
       debtCurrency: debtCurrency.value,
+      exchangeRate: rateIsManual.value ? form.exchangeRate : undefined,
     }
     if (editingId.value) await updatePayment(editingId.value, payload)
     else await createPayment(payload)
@@ -1496,6 +1536,7 @@ onMounted(async () => {
   color: #1f2937;
   word-break: break-word;
 }
+.rate-manual { border-color: #f59e0b; }
 .debt-sub {
   font-weight: 400;
   font-size: 0.7rem;

@@ -7,6 +7,7 @@ import lombok.Setter;
 import uz.script.wincrm.currency.Currency;
 import uz.script.wincrm.sale.enums.DeliveryType;
 import uz.script.wincrm.sale.enums.DiscountType;
+import uz.script.wincrm.sale.enums.SaleType;
 import uz.script.wincrm.sale.enums.SalesOrderStatus;
 import uz.script.wincrm.utils.Status;
 
@@ -93,6 +94,9 @@ public class SaleOrderResponse {
 
     @Schema(description = "Sale order processing status", example = "CONFIRMED")
     private SalesOrderStatus orderStatus;
+
+    @Schema(description = "Sotuv turi: RETAIL yoki WHOLESALE (null - eski buyurtma, chakana)", example = "RETAIL")
+    private SaleType saleType;
 
     @Schema(description = "Date and time when the sale order was created", example = "2026-07-04T09:30:15")
     private LocalDateTime createdAt;
