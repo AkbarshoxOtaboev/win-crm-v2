@@ -18,6 +18,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import uz.script.wincrm.cash.response.CashAvailableResponse;
+import uz.script.wincrm.cash.service.CashAvailabilityService;
 import uz.script.wincrm.expense.dto.ExpenseDTO;
 import uz.script.wincrm.expense.response.ExpenseResponse;
 import uz.script.wincrm.expense.service.ExpenseService;
@@ -33,6 +35,7 @@ import java.util.List;
 public class ExpenseController {
 
     private final ExpenseService service;
+    private final CashAvailabilityService cashAvailabilityService;
 
     @PostMapping("/create")
     @PreAuthorize("hasAuthority('EXPENSE_CREATE')")
@@ -80,6 +83,31 @@ public class ExpenseController {
                 RestApiResponse.<Page<ExpenseResponse>>builder()
                         .message("All expenses fetched successfully")
                         .data(service.fetchAll(pageable))
+                        .build()
+        );
+    }
+
+    @GetMapping("/cash-available")
+    @PreAuthorize("hasAnyAuthority('EXPENSE_VIEW', 'EXPENSE_CREATE', 'EXPENSE_EDIT')")
+    @Operation(
+            summary = "Kassalardagi joriy qoldiq (xarajat uchun)",
+            description = """
+                    Har bir kassa (to'lov turi) uchun o'z valyutasida: kirim - yetkazib beruvchilarga chiqim -
+                    rahbarga topshirilgan - xarajatlar. Xarajat shu qoldiqdan oshmasligi kerak.
+                    """
+    )
+    @ApiResponse(
+            responseCode = "200",
+            content = @Content(
+                    mediaType = "application/json",
+                    array = @ArraySchema(schema = @Schema(implementation = CashAvailableResponse.class))
+            )
+    )
+    public ResponseEntity<?> cashAvailable() {
+        return ResponseEntity.ok(
+                RestApiResponse.<List<CashAvailableResponse>>builder()
+                        .message("Kassa qoldiqlari")
+                        .data(cashAvailabilityService.balances())
                         .build()
         );
     }

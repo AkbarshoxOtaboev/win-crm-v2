@@ -25,6 +25,7 @@ import uz.script.wincrm.payment.Payment;
 import uz.script.wincrm.payment.repository.PaymentRepository;
 import uz.script.wincrm.production.repository.ProductionOrderRepository;
 import uz.script.wincrm.sale.SaleOrder;
+import uz.script.wincrm.sale.SaleOrderItem;
 import uz.script.wincrm.sale.dto.ApplyDiscountDTO;
 import uz.script.wincrm.sale.dto.SaleOrderDTO;
 import uz.script.wincrm.sale.dto.SaleOrderDiscountHistoryDTO;
@@ -57,6 +58,7 @@ import uz.script.wincrm.warehouse.repository.WarehouseRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -226,6 +228,22 @@ public class SaleOrderServiceImpl implements SaleOrderService {
         }
     }
 
+    private void removeItems(SaleOrder order, List<Long> itemIds) {
+        if (itemIds == null || itemIds.isEmpty()) {
+            return;
+        }
+        for (Long itemId : new LinkedHashSet<>(itemIds)) {
+            SaleOrderItem item = saleOrderItemRepository.findById(itemId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Sale order item not found with id: " + itemId));
+            if (item.getSaleOrder() == null || !order.getId().equals(item.getSaleOrder().getId())) {
+                throw new BadRequestException("Pozitsiya #" + itemId + " bu buyurtmaga tegishli emas");
+            }
+            if (item.getStatus() == Status.ACTIVE) {
+                saleOrderItemService.delete(itemId);
+            }
+        }
+    }
+
     @Override
     public SaleOrderResponse findById(Long id) {
         log.info("Fetch sale order by id {}", id);
@@ -290,6 +308,7 @@ public class SaleOrderServiceImpl implements SaleOrderService {
                 .orElseThrow(() -> new ResourceNotFoundException("Sale order not found with id: " + id));
 
         ensureFinalOrderUnchanged(entity, dto);
+        removeItems(entity, dto.getRemovedItemIds());
 
         if (dto.getWarehouseId() != null && !dto.getWarehouseId().equals(entity.getWarehouse().getId())) {
             if (entity.getSalesOrderStatus().isFinal()) {
@@ -332,6 +351,7 @@ public class SaleOrderServiceImpl implements SaleOrderService {
         }
 
         entity = repository.save(entity);
+        createInitialItems(entity, dto);
 
         Long currentClientId = entity.getClient() != null ? entity.getClient().getId() : null;
         if (currentClientId != null) {

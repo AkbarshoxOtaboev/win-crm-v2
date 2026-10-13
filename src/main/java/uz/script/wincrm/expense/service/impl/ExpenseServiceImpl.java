@@ -8,6 +8,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import uz.script.wincrm.audit.AuditAction;
 import uz.script.wincrm.audit.Auditable;
+import uz.script.wincrm.cash.service.CashAvailabilityService;
+import uz.script.wincrm.currency.Currency;
+import uz.script.wincrm.currency.CurrencyMath;
+import uz.script.wincrm.currency.service.ExchangeRateService;
 import uz.script.wincrm.dashboard.responses.DailyExpenseReportResponse;
 import uz.script.wincrm.exceptions.BadRequestException;
 import uz.script.wincrm.exceptions.ResourceNotFoundException;
@@ -19,6 +23,8 @@ import uz.script.wincrm.expense.repository.ExpenseCategoryRepository;
 import uz.script.wincrm.expense.repository.ExpenseRepository;
 import uz.script.wincrm.expense.response.ExpenseResponse;
 import uz.script.wincrm.expense.service.ExpenseService;
+import uz.script.wincrm.payment.PaymentType;
+import uz.script.wincrm.payment.repository.PaymentTypeRepository;
 import uz.script.wincrm.utils.Status;
 
 import java.math.BigDecimal;
@@ -36,6 +42,9 @@ public class ExpenseServiceImpl implements ExpenseService {
     private final ExpenseRepository repository;
     private final ExpenseMapper mapper;
     private final ExpenseCategoryRepository categoryRepository;
+    private final PaymentTypeRepository paymentTypeRepository;
+    private final CashAvailabilityService cashAvailabilityService;
+    private final ExchangeRateService exchangeRateService;
 
     @Override
     @Auditable(
@@ -47,10 +56,12 @@ public class ExpenseServiceImpl implements ExpenseService {
 
         ExpenseCategory category = categoryRepository.findById(dto.getCategoryId())
                 .orElseThrow(() -> new ResourceNotFoundException("Expense category not found with id: " + dto.getCategoryId()));
+        PaymentType type = checkCash(dto.getPaymentTypeId(), dto.getAmount(), null);
 
         Expense entity = mapper.toEntity(dto);
         entity.setCategory(category);
         entity.setStatus(Status.ACTIVE);
+        applyCashSource(entity, type);
 
         entity = repository.save(entity);
 
@@ -113,6 +124,10 @@ public class ExpenseServiceImpl implements ExpenseService {
                 .orElseThrow(() -> new ResourceNotFoundException("Expense not found with id: " + id));
         ensureNotSupplierPayment(entity);
 
+        CashSpend previous = CashSpend.of(entity);
+        PaymentType type = checkCash(dto.getPaymentTypeId() != null ? dto.getPaymentTypeId() : previous.paymentTypeId(),
+                dto.getAmount() != null ? dto.getAmount() : entity.getAmount(), previous);
+
         if (dto.getCategoryId() != null
                 && (entity.getCategory() == null || !dto.getCategoryId().equals(entity.getCategory().getId()))) {
             ExpenseCategory category = categoryRepository.findById(dto.getCategoryId())
@@ -121,6 +136,7 @@ public class ExpenseServiceImpl implements ExpenseService {
         }
 
         mapper.updateEntity(entity, dto);
+        applyCashSource(entity, type);
 
         entity = repository.save(entity);
 
@@ -141,6 +157,58 @@ public class ExpenseServiceImpl implements ExpenseService {
 
         entity.setStatus(Status.DELETED);
         repository.save(entity);
+    }
+
+    /** Xarajat oldin qaysi kassadan qancha olgani: tahrirda shu summa kassaga qaytgan deb hisoblanadi. */
+    private record CashSpend(Long paymentTypeId, Currency currency, BigDecimal amount) {
+        static CashSpend of(Expense e) {
+            return new CashSpend(e.getPaymentType() != null ? e.getPaymentType().getId() : null,
+                    CurrencyMath.orBase(e.getCurrency()), e.getAmount());
+        }
+    }
+
+    /**
+     * Kassada shu valyutada yetarli qoldiq borligini tekshiradi. Entity o'zgartirilishidan oldin chaqiriladi:
+     * aks holda so'rovdan oldingi auto-flush yangi summani qoldiqdan allaqachon ayirib qo'yadi.
+     */
+    private PaymentType checkCash(Long paymentTypeId, BigDecimal amount, CashSpend previous) {
+        if (paymentTypeId == null) {
+            throw new BadRequestException("Xarajat qaysi kassadan qilinishini tanlang");
+        }
+        PaymentType type = paymentTypeRepository.findById(paymentTypeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Payment type not found with id: " + paymentTypeId));
+        Currency currency = CurrencyMath.orBase(type.getCurrency());
+
+        BigDecimal available = cashAvailabilityService.available(type.getId(), currency);
+        if (previous != null && type.getId().equals(previous.paymentTypeId()) && currency == previous.currency()) {
+            available = available.add(previous.amount());
+        }
+        if (amount.compareTo(available) > 0) {
+            throw new BadRequestException("Kassada yetarli mablag' yo'q: \"" + type.getName() + "\" kassasida "
+                    + plain(available.max(BigDecimal.ZERO)) + " " + currency
+                    + " bor, xarajat " + plain(amount) + " " + currency);
+        }
+        return type;
+    }
+
+    /** Xarajat valyutasi kassa valyutasidan olinadi; xorijiy valyutada xarajat kunidagi kurs qotiriladi. */
+    private void applyCashSource(Expense entity, PaymentType type) {
+        Currency currency = CurrencyMath.orBase(type.getCurrency());
+        entity.setPaymentType(type);
+        entity.setCurrency(currency);
+        entity.setExchangeRate(currency.isBase() ? null : rateOrNull(currency, entity.getExpenseDate()));
+    }
+
+    private BigDecimal rateOrNull(Currency currency, LocalDate date) {
+        try {
+            return exchangeRateService.rateOn(currency, date);
+        } catch (BadRequestException e) {
+            return null;
+        }
+    }
+
+    private static String plain(BigDecimal value) {
+        return value.stripTrailingZeros().toPlainString();
     }
 
     private void ensureNotSupplierPayment(Expense entity) {

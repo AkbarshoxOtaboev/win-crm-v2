@@ -1,6 +1,7 @@
 package uz.script.wincrm.expense.mapper;
 
 import org.springframework.stereotype.Component;
+import uz.script.wincrm.currency.CurrencyMath;
 import uz.script.wincrm.expense.Expense;
 import uz.script.wincrm.expense.dto.ExpenseDTO;
 import uz.script.wincrm.expense.response.ExpenseResponse;
@@ -40,6 +41,10 @@ public class ExpenseMapper {
                 .categoryId(entity.getCategory() != null ? entity.getCategory().getId() : null)
                 .categoryName(entity.getCategory() != null ? entity.getCategory().getName() : null)
                 .amount(entity.getAmount())
+                .currency(CurrencyMath.orBase(entity.getCurrency()))
+                .exchangeRate(entity.getExchangeRate())
+                .paymentTypeId(entity.getPaymentType() != null ? entity.getPaymentType().getId() : null)
+                .paymentTypeName(entity.getPaymentType() != null ? entity.getPaymentType().getName() : null)
                 .expenseDate(entity.getExpenseDate())
                 .description(entity.getDescription())
                 .status(entity.getStatus())

@@ -93,12 +93,16 @@ public class SaleOrderDTO {
     private BigDecimal deliveryFee;
 
     /**
-     * Faqat create uchun: buyurtma bilan birga bitta tranzaksiyada yaratiladigan pozitsiyalar.
+     * Buyurtma bilan birga bitta tranzaksiyada yaratiladigan yangi pozitsiyalar (create va update).
      * saleOrderId, clientId, warehouseId va arrivalDate buyurtmadan olinadi. Biror pozitsiyaga
-     * ombor zaxirasi yetmasa, buyurtma ham yaratilmaydi.
+     * ombor zaxirasi yetmasa, buyurtma ham saqlanmaydi.
      */
-    @Schema(description = "Create paytida buyurtma bilan birga yaratiladigan pozitsiyalar (ixtiyoriy)")
+    @Schema(description = "Buyurtma bilan birga yaratiladigan yangi pozitsiyalar (ixtiyoriy)")
     private List<SaleOrderItemDTO> items;
+
+    /** Faqat update uchun: o'chiriladigan pozitsiyalar - qoldig'i omborga qaytadi. */
+    @Schema(description = "Update paytida o'chiriladigan pozitsiya ID'lari (ixtiyoriy)")
+    private List<Long> removedItemIds;
 
     @AssertTrue(message = "Planned ready date orderDate'dan oldin bo'lishi mumkin emas")
     @Schema(hidden = true)

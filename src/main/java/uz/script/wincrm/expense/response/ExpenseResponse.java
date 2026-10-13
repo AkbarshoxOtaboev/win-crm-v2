@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
+import uz.script.wincrm.currency.Currency;
 import uz.script.wincrm.utils.Status;
 
 import java.math.BigDecimal;
@@ -27,6 +28,18 @@ public class ExpenseResponse {
 
     @Schema(description = "Expense amount", example = "150000.00")
     private BigDecimal amount;
+
+    @Schema(description = "amount valyutasi", example = "UZS")
+    private Currency currency;
+
+    @Schema(description = "Xorijiy valyutadagi xarajat kursi (1 birlik = N so'm)", example = "12850")
+    private BigDecimal exchangeRate;
+
+    @Schema(description = "Pul chiqqan kassa ID", example = "1")
+    private Long paymentTypeId;
+
+    @Schema(description = "Pul chiqqan kassa nomi", example = "Naqd")
+    private String paymentTypeName;
 
     @Schema(description = "Expense date", example = "2026-07-09")
     private LocalDate expenseDate;

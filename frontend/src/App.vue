@@ -1,7 +1,9 @@
 <template>
   <ThemeProvider>
     <SidebarProvider>
-      <RouterView />
+      <RouterView v-slot="{ Component, route }">
+        <component :is="Component" :key="route.matched[route.matched.length - 1]?.path" />
+      </RouterView>
     </SidebarProvider>
   </ThemeProvider>
 </template>

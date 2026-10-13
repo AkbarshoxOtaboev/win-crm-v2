@@ -37,4 +37,9 @@ public class ExpenseDTO {
     @Size(max = 500, message = "Description must not exceed 500 characters")
     @Schema(description = "Expense description")
     private String description;
+
+    @NotNull(message = "Kassa (to'lov turi) tanlanishi shart")
+    @Schema(description = "Pul chiqadigan kassa (to'lov turi) ID; xarajat valyutasi shu kassa valyutasi",
+            example = "1", requiredMode = Schema.RequiredMode.REQUIRED)
+    private Long paymentTypeId;
 }

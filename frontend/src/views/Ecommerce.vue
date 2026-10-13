@@ -14,15 +14,14 @@
         v-model="startDate"
         type="date"
         class="h-10 rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:text-white/90"
-        @change="load"
       />
       <input
         v-model="endDate"
         type="date"
         class="h-10 rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:text-white/90"
-        @change="load"
       />
-      <ReportCurrencyToggle :model-value="display" class="ms-auto" @update:model-value="changeCurrency" />
+      <DateRangePresets v-model:start="startDate" v-model:end="endDate" />
+      <CurrencyScopeToggle :model-value="scope" class="ms-auto" @update:model-value="changeScope" />
     </div>
     <p v-if="rateMissing" class="mb-4 text-sm text-warning-600 dark:text-warning-400">{{ t('reportCurrency.rateMissing') }}</p>
 
@@ -66,7 +65,7 @@
         </div>
         <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('home.cashBalancesHint') }}</p>
       </div>
-      <p v-if="cashBalances.length === 0" class="py-6 text-center text-sm text-gray-500">{{ t('home.empty') }}</p>
+      <p v-if="visibleCash.length === 0" class="py-6 text-center text-sm text-gray-500">{{ t('home.empty') }}</p>
       <div v-else class="overflow-x-auto">
         <table class="min-w-full text-sm">
           <thead>
@@ -75,13 +74,14 @@
               <th class="py-2 pe-4 text-right font-medium">{{ t('home.cashOpening') }}</th>
               <th class="py-2 pe-4 text-right font-medium">{{ t('home.cashIn') }}</th>
               <th class="py-2 pe-4 text-right font-medium">{{ t('home.cashOut') }}</th>
+              <th class="py-2 pe-4 text-right font-medium">{{ t('home.cashExpenses') }}</th>
               <th class="py-2 pe-4 text-right font-medium">{{ t('home.cashHanded') }}</th>
               <th class="py-2 text-right font-medium">{{ t('home.cashClosing') }}</th>
             </tr>
           </thead>
           <tbody>
             <tr
-              v-for="c in cashBalances"
+              v-for="c in visibleCash"
               :key="`${c.paymentTypeId}-${c.currency}`"
               class="border-b border-gray-100 dark:border-gray-800"
             >
@@ -92,6 +92,7 @@
               <td class="py-2 pe-4 text-right text-gray-600 dark:text-gray-400">{{ cashMoney(c.opening, c.currency) }}</td>
               <td class="py-2 pe-4 text-right text-success-600 dark:text-success-400">+{{ cashMoney(c.incoming, c.currency) }}</td>
               <td class="py-2 pe-4 text-right text-error-600 dark:text-error-400">−{{ cashMoney(c.outgoing, c.currency) }}</td>
+              <td class="py-2 pe-4 text-right text-error-600 dark:text-error-400">−{{ cashMoney(c.expenses, c.currency) }}</td>
               <td class="py-2 pe-4 text-right text-orange-600 dark:text-orange-400">−{{ cashMoney(c.handedOver, c.currency) }}</td>
               <td class="py-2 text-right font-semibold text-gray-800 dark:text-white/90">{{ cashMoney(c.closing, c.currency) }}</td>
             </tr>
@@ -102,6 +103,7 @@
               <td class="py-2 pe-4 text-right">{{ cashMoney(tot.opening, tot.currency) }}</td>
               <td class="py-2 pe-4 text-right">+{{ cashMoney(tot.incoming, tot.currency) }}</td>
               <td class="py-2 pe-4 text-right">−{{ cashMoney(tot.outgoing, tot.currency) }}</td>
+              <td class="py-2 pe-4 text-right">−{{ cashMoney(tot.expenses, tot.currency) }}</td>
               <td class="py-2 pe-4 text-right">−{{ cashMoney(tot.handedOver, tot.currency) }}</td>
               <td class="py-2 text-right font-semibold">{{ cashMoney(tot.closing, tot.currency) }}</td>
             </tr>
@@ -184,7 +186,8 @@ import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import DashboardWidget, { type DashboardRow } from '@/components/crm/DashboardWidget.vue'
-import ReportCurrencyToggle from '@/components/crm/ReportCurrencyToggle.vue'
+import CurrencyScopeToggle, { type CurrencyScope } from '@/components/crm/CurrencyScopeToggle.vue'
+import DateRangePresets from '@/components/crm/DateRangePresets.vue'
 import {
   fetchCashBalances,
   fetchDailyPayments,
@@ -198,7 +201,6 @@ import {
 } from '@/api/dashboard'
 import { fetchSaleOrdersByDateRange, type SaleOrder } from '@/api/sales'
 import { formatApiError } from '@/api/http'
-import { today } from '@/utils/format'
 import { moneyIn, type CurrencyCode } from '@/utils/currency'
 import { useReportCurrency } from '@/composables/useReportCurrency'
 import VueApexCharts from 'vue3-apexcharts'
@@ -241,7 +243,7 @@ const chartPeriods = computed(() => [
 
 const error = ref<string | null>(null)
 const startDate = ref(monthStart())
-const endDate = ref(today())
+const endDate = ref(isoDate(new Date()))
 const chartPeriod = ref<ChartPeriod>('daily')
 const chartMounted = ref(false)
 const chartCategories = ref<string[]>([])
@@ -253,16 +255,48 @@ const widgets = ref<WidgetDef[]>(defaultWidgets())
 const cashBalances = ref<CashBalance[]>([])
 const { display, setDisplay, loadRates, conv, fmt, compact: compactMoney, rateMissing } = useReportCurrency()
 
+const SCOPE_KEY = 'wincrm_home_currency_scope'
+const scope = ref<CurrencyScope>(restoreScope())
+const only = computed(() => scope.value !== 'ALL')
+
+function restoreScope(): CurrencyScope {
+  const raw = localStorage.getItem(SCOPE_KEY)
+  return raw === 'UZS' || raw === 'USD' ? raw : 'ALL'
+}
+
+function inScope(currency?: CurrencyCode | null) {
+  return !only.value || (currency || 'UZS') === display.value
+}
+
+const visibleCash = computed(() => cashBalances.value.filter((c) => inScope(c.currency)))
+
 const cashTotals = computed(() => {
   const map = new Map<
     CurrencyCode,
-    { currency: CurrencyCode; opening: number; incoming: number; outgoing: number; handedOver: number; closing: number }
+    {
+      currency: CurrencyCode
+      opening: number
+      incoming: number
+      outgoing: number
+      expenses: number
+      handedOver: number
+      closing: number
+    }
   >()
-  for (const c of cashBalances.value) {
-    const cur = map.get(c.currency) || { currency: c.currency, opening: 0, incoming: 0, outgoing: 0, handedOver: 0, closing: 0 }
+  for (const c of visibleCash.value) {
+    const cur = map.get(c.currency) || {
+      currency: c.currency,
+      opening: 0,
+      incoming: 0,
+      outgoing: 0,
+      expenses: 0,
+      handedOver: 0,
+      closing: 0,
+    }
     cur.opening += Number(c.opening || 0)
     cur.incoming += Number(c.incoming || 0)
     cur.outgoing += Number(c.outgoing || 0)
+    cur.expenses += Number(c.expenses || 0)
     cur.handedOver += Number(c.handedOver || 0)
     cur.closing += Number(c.closing || 0)
     map.set(c.currency, cur)
@@ -275,12 +309,19 @@ function cashMoney(v: number, currency: CurrencyCode) {
 }
 
 function orderAmount(o: SaleOrder) {
-  if (o.orderStatus === 'CANCELLED') return 0
+  if (o.orderStatus === 'CANCELLED' || !inScope(o.currency)) return 0
   return conv(o.totalSum, o.currency, o.exchangeRate, o.orderDate)
 }
 
-async function changeCurrency(c: CurrencyCode) {
-  setDisplay(c)
+function applyScopeCurrency() {
+  const currency: CurrencyCode = scope.value === 'USD' ? 'USD' : 'UZS'
+  if (display.value !== currency) setDisplay(currency)
+}
+
+async function changeScope(next: CurrencyScope) {
+  scope.value = next
+  localStorage.setItem(SCOPE_KEY, next)
+  applyScopeCurrency()
   await load()
 }
 
@@ -498,14 +539,15 @@ async function load() {
   error.value = null
   try {
     const cur = display.value
+    const one = only.value
     const [a, q, g, s, p, d, exp, sales, cash] = await Promise.all([
-      fetchTopGoodsByAmount(startDate.value, endDate.value, cur),
-      fetchTopGoodsByQuantity(startDate.value, endDate.value, cur),
-      fetchGoodsGroupSummary(startDate.value, endDate.value, cur),
-      fetchTopSellers(startDate.value, endDate.value, cur),
+      fetchTopGoodsByAmount(startDate.value, endDate.value, cur, one),
+      fetchTopGoodsByQuantity(startDate.value, endDate.value, cur, one),
+      fetchGoodsGroupSummary(startDate.value, endDate.value, cur, one),
+      fetchTopSellers(startDate.value, endDate.value, cur, one),
       fetchPaymentsByType(startDate.value, endDate.value),
-      fetchDailyPayments(startDate.value, endDate.value, cur),
-      fetchExpenseInfo(startDate.value, endDate.value, cur),
+      fetchDailyPayments(startDate.value, endDate.value, cur, one),
+      fetchExpenseInfo(startDate.value, endDate.value, cur, one),
       fetchSaleOrdersByDateRange(`${startDate.value}T00:00:00`, `${endDate.value}T23:59:59`),
       fetchCashBalances(startDate.value, endDate.value),
       loadRates(startDate.value, endDate.value),
@@ -546,7 +588,7 @@ async function load() {
     )
     setWidgetRows(
       'payTypes',
-      (p.data || []).map((x) => ({
+      (p.data || []).filter((x) => inScope(x.currency)).map((x) => ({
         id: x.paymentTypeId,
         name: x.paymentTypeName || '—',
         value: amt(x.totalAmount ?? x.amount),
@@ -572,12 +614,16 @@ async function load() {
 }
 
 watch(widgets, persistWidgets, { deep: false })
+watch([startDate, endDate], ([from, to]) => {
+  if (from && to && from <= to) void load()
+})
 watch(locale, () => {
   loadChart()
 })
 
 onMounted(async () => {
   widgets.value = restoreWidgets()
+  applyScopeCurrency()
   await load()
   chartMounted.value = true
 })

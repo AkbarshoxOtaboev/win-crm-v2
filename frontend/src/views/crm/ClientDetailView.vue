@@ -153,6 +153,67 @@
           </article>
         </div>
 
+        <!-- Oxirgi buyurtmalar -->
+        <div class="card">
+          <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-4 dark:border-gray-800">
+            <div class="flex items-center gap-3">
+              <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-brand-500 dark:bg-brand-500/15 dark:text-brand-400">
+                <ShoppingCart class="h-5 w-5" />
+              </span>
+              <div>
+                <h4 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('clientDetail.recentOrders') }}</h4>
+                <p class="mt-0.5 text-sm text-gray-500">{{ t('clientDetail.recentOrdersHint', { n: ordersList.length }) }}</p>
+              </div>
+            </div>
+            <button v-if="ordersList.length > recentOrders.length" type="button" class="ghost-btn" @click="tab = 'orders'">
+              {{ t('clientDetail.allOrders') }}
+              <ArrowRight class="h-4 w-4" />
+            </button>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="min-w-full">
+              <thead>
+                <tr class="border-b border-gray-100 dark:border-gray-800">
+                  <th class="th">#</th>
+                  <th class="th">{{ t('common.date') }}</th>
+                  <th class="th">{{ t('clientDetail.seller') }}</th>
+                  <th class="th text-end">{{ t('common.total') }}</th>
+                  <th class="th text-end">{{ t('clientDetail.paid') }}</th>
+                  <th class="th text-end">{{ t('clientDetail.debt') }}</th>
+                  <th class="th">{{ t('common.status') }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-if="recentOrders.length === 0">
+                  <td colspan="7" class="empty">
+                    {{ t('clientDetail.noOrders') }}
+                    <router-link :to="`/sales/create?clientId=${client.id}`" class="ms-1 text-brand-500 hover:underline">
+                      {{ t('clientDetail.newOrder') }}
+                    </router-link>
+                  </td>
+                </tr>
+                <tr v-for="o in recentOrders" :key="o.id" class="order-row border-b border-gray-100 dark:border-gray-800">
+                  <td class="td">
+                    <router-link :to="`/sales/${o.id}`" class="font-medium text-brand-500 hover:underline">#{{ o.id }}</router-link>
+                  </td>
+                  <td class="td whitespace-nowrap">{{ formatDate(o.orderDate) }}</td>
+                  <td class="td">{{ o.userFullName || '—' }}</td>
+                  <td class="td whitespace-nowrap text-end font-medium text-gray-800 dark:text-white/90">{{ orderMoney(o, o.totalSum) }}</td>
+                  <td class="td whitespace-nowrap text-end text-success-600">{{ orderMoney(o, o.paidSum) }}</td>
+                  <td class="td whitespace-nowrap text-end" :class="Number(o.debtSum || 0) > 0 ? 'text-error-600' : 'text-gray-400'">
+                    {{ orderMoney(o, o.debtSum) }}
+                  </td>
+                  <td class="td">
+                    <span class="order-status" :class="statusTone(o.orderStatus)">
+                      {{ o.orderStatus ? enumLabel('saleStatus', o.orderStatus) : '—' }}
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
         <!-- Qarz yoshi -->
         <div class="card p-5">
           <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
@@ -383,6 +444,16 @@
 
       <!-- Buyurtmalar -->
       <div v-show="tab === 'orders'" class="card">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-4 dark:border-gray-800">
+          <h4 class="text-lg font-semibold text-gray-800 dark:text-white/90">
+            {{ t('clientDetail.tabs.orders') }}
+            <span class="count-pill ms-2 align-middle">{{ ordersList.length }}</span>
+          </h4>
+          <router-link :to="`/sales/create?clientId=${client.id}`" class="btn">
+            <Plus class="h-4 w-4" />
+            {{ t('clientDetail.newOrder') }}
+          </router-link>
+        </div>
         <div class="overflow-x-auto">
           <table class="min-w-full">
             <thead>
@@ -391,31 +462,37 @@
                 <th class="th">{{ t('common.date') }}</th>
                 <th class="th">{{ t('common.warehouse') }}</th>
                 <th class="th">{{ t('clientDetail.seller') }}</th>
-                <th class="th">{{ t('common.total') }}</th>
-                <th class="th">{{ t('clientDetail.paid') }}</th>
-                <th class="th">{{ t('clientDetail.debt') }}</th>
+                <th class="th text-end">{{ t('common.total') }}</th>
+                <th class="th text-end">{{ t('clientDetail.paid') }}</th>
+                <th class="th text-end">{{ t('clientDetail.debt') }}</th>
                 <th class="th">{{ t('common.status') }}</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-if="sales.length === 0"><td colspan="8" class="empty">{{ t('clientDetail.noOrders') }}</td></tr>
+              <tr v-if="ordersList.length === 0"><td colspan="8" class="empty">{{ t('clientDetail.noOrders') }}</td></tr>
               <tr
-                v-for="o in sales"
+                v-for="o in ordersList"
                 :key="o.id"
-                class="border-b border-gray-100 dark:border-gray-800"
+                class="order-row border-b border-gray-100 dark:border-gray-800"
               >
                 <td class="td">
-                  <router-link :to="`/sales/${o.id}`" class="text-brand-500 hover:underline">
+                  <router-link :to="`/sales/${o.id}`" class="font-medium text-brand-500 hover:underline">
                     #{{ o.id }}
                   </router-link>
                 </td>
-                <td class="td">{{ formatDate(o.orderDate) }}</td>
+                <td class="td whitespace-nowrap">{{ formatDate(o.orderDate) }}</td>
                 <td class="td">{{ o.warehouseName || '—' }}</td>
                 <td class="td">{{ o.userFullName || '—' }}</td>
-                <td class="td">{{ moneySom(o.totalSum) }}</td>
-                <td class="td">{{ moneySom(o.paidSum) }}</td>
-                <td class="td text-error-600">{{ moneySom(o.debtSum) }}</td>
-                <td class="td">{{ o.orderStatus ? enumLabel('saleStatus', o.orderStatus) : '—' }}</td>
+                <td class="td whitespace-nowrap text-end font-medium text-gray-800 dark:text-white/90">{{ orderMoney(o, o.totalSum) }}</td>
+                <td class="td whitespace-nowrap text-end text-success-600">{{ orderMoney(o, o.paidSum) }}</td>
+                <td class="td whitespace-nowrap text-end" :class="Number(o.debtSum || 0) > 0 ? 'text-error-600' : 'text-gray-400'">
+                  {{ orderMoney(o, o.debtSum) }}
+                </td>
+                <td class="td">
+                  <span class="order-status" :class="statusTone(o.orderStatus)">
+                    {{ o.orderStatus ? enumLabel('saleStatus', o.orderStatus) : '—' }}
+                  </span>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -873,6 +950,7 @@ import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import {
+  ArrowRight,
   Banknote,
   CalendarClock,
   LayoutGrid,
@@ -882,6 +960,7 @@ import {
   Phone,
   Plus,
   Send,
+  ShoppingCart,
   Wallet,
 } from 'lucide-vue-next'
 import VueApexCharts from 'vue3-apexcharts'
@@ -980,6 +1059,25 @@ const payments = computed(() =>
   allPayments.value.filter((p) => (p.debtCurrency || BASE_CURRENCY) === viewCurrency.value),
 )
 const salesById = computed(() => new Map(sales.value.map((o) => [o.id, o])))
+/** Ro'yxatda summalar qo'shilmaydi, shuning uchun barcha valyutadagi buyurtmalar o'z valyutasida, yangisi tepada. */
+const ordersList = computed(() =>
+  [...allSales.value].sort(
+    (a, b) => String(b.orderDate || '').localeCompare(String(a.orderDate || '')) || b.id - a.id,
+  ),
+)
+const recentOrders = computed(() => ordersList.value.slice(0, 5))
+
+function orderMoney(o: SaleOrder, v?: number | null) {
+  return moneyIn(Number(v || 0), o.currency || BASE_CURRENCY, t('common.currency'))
+}
+
+function statusTone(status?: string) {
+  if (status === 'COMPLETED') return 'tone-success'
+  if (status === 'CANCELLED') return 'tone-error'
+  if (status === 'WORK_DONE' || status === 'DELIVERED') return 'tone-teal'
+  if (status === 'IN_DELIVERY' || status === 'READY' || status === 'PROCESSING') return 'tone-warning'
+  return 'tone-brand'
+}
 /** Pozitsiya tannarxi so'mda saqlanadi - xorijiy buyurtmada buyurtma kursi bo'yicha o'giriladi. */
 const items = computed(() =>
   allItems.value
@@ -1246,7 +1344,8 @@ const lastActivityDate = computed(() => {
     client.value?.updatedAt,
   ].filter(Boolean) as string[]
   if (!dates.length) return null
-  return dates.sort().at(-1) || null
+  dates.sort()
+  return dates[dates.length - 1] || null
 })
 
 const lastActivityLabel = computed(() => {
@@ -1404,6 +1503,9 @@ async function load() {
     allPayments.value = p.data?.content || []
     sms.value = h.data?.content || []
     if (!clientCurrencies.value.includes(viewCurrency.value)) viewCurrency.value = BASE_CURRENCY
+    if (!sales.value.length && allSales.value.length) {
+      viewCurrency.value = allSales.value[0].currency || BASE_CURRENCY
+    }
     syncAdjustForm()
     nextPaymentDate.value = localStorage.getItem(paymentKey()) || ''
 
@@ -1910,4 +2012,28 @@ onMounted(() => {
   border-color: #1f2937;
   background: #111827;
 }
+.order-row:hover {
+  background: #f9fafb;
+}
+.dark .order-row:hover {
+  background: rgb(255 255 255 / 0.02);
+}
+.order-status {
+  display: inline-flex;
+  border-radius: 9999px;
+  padding: 0.125rem 0.625rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.order-status.tone-brand { background: #eef2ff; color: #465fff; }
+.order-status.tone-warning { background: #fffaeb; color: #b54708; }
+.order-status.tone-teal { background: #f0fdf9; color: #0e9384; }
+.order-status.tone-success { background: #ecfdf3; color: #027a48; }
+.order-status.tone-error { background: #fef3f2; color: #b42318; }
+.dark .order-status.tone-brand { background: rgb(70 95 255 / 0.15); color: #9cb0ff; }
+.dark .order-status.tone-warning { background: rgb(247 144 9 / 0.15); color: #fdb022; }
+.dark .order-status.tone-teal { background: rgb(21 183 158 / 0.15); color: #5fe9d0; }
+.dark .order-status.tone-success { background: rgb(18 183 106 / 0.15); color: #6ce9a6; }
+.dark .order-status.tone-error { background: rgb(240 68 56 / 0.15); color: #fda29b; }
 </style>

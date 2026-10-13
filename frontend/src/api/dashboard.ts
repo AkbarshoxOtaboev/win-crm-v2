@@ -71,6 +71,8 @@ export interface CashBalance {
   incoming: number
   outgoing: number
   handedOver: number
+  /** Kassadan qilingan xarajatlar (yetkazib beruvchi to'lovlarisiz). */
+  expenses: number
   closing: number
 }
 
@@ -100,37 +102,42 @@ export interface FxDifference {
   rows: FxDifferenceRow[]
 }
 
-function dateRange(start: string, end: string, currency?: CurrencyCode) {
-  const q = `startDate=${encodeURIComponent(start)}&endDate=${encodeURIComponent(end)}`
-  return currency ? `${q}&currency=${currency}` : q
+/** `only` - faqat `currency` valyutasidagi hujjatlar (o'girishsiz). */
+function currencyQuery(currency?: CurrencyCode, only?: boolean) {
+  if (!currency) return ''
+  return `&currency=${currency}${only ? '&only=true' : ''}`
 }
 
-function dateTimeRange(start: string, end: string, currency?: CurrencyCode) {
+function dateRange(start: string, end: string, currency?: CurrencyCode, only?: boolean) {
+  return `startDate=${encodeURIComponent(start)}&endDate=${encodeURIComponent(end)}${currencyQuery(currency, only)}`
+}
+
+function dateTimeRange(start: string, end: string, currency?: CurrencyCode, only?: boolean) {
   const q = `fromDate=${encodeURIComponent(start + 'T00:00:00')}&toDate=${encodeURIComponent(end + 'T23:59:59')}`
-  return currency ? `${q}&currency=${currency}` : q
+  return `${q}${currencyQuery(currency, only)}`
 }
 
-export function fetchTopGoodsByQuantity(start: string, end: string, currency?: CurrencyCode) {
+export function fetchTopGoodsByQuantity(start: string, end: string, currency?: CurrencyCode, only?: boolean) {
   return apiRequest<RestApiResponse<TopGoods[]>>(
-    `/api/dashboard/top-goods/by-quantity?${dateRange(start, end, currency)}`,
+    `/api/dashboard/top-goods/by-quantity?${dateRange(start, end, currency, only)}`,
   )
 }
 
-export function fetchTopGoodsByAmount(start: string, end: string, currency?: CurrencyCode) {
+export function fetchTopGoodsByAmount(start: string, end: string, currency?: CurrencyCode, only?: boolean) {
   return apiRequest<RestApiResponse<TopGoods[]>>(
-    `/api/dashboard/top-goods/by-amount?${dateRange(start, end, currency)}`,
+    `/api/dashboard/top-goods/by-amount?${dateRange(start, end, currency, only)}`,
   )
 }
 
-export function fetchGoodsGroupSummary(start: string, end: string, currency?: CurrencyCode) {
+export function fetchGoodsGroupSummary(start: string, end: string, currency?: CurrencyCode, only?: boolean) {
   return apiRequest<RestApiResponse<GoodsGroupSummary[]>>(
-    `/api/dashboard/goods-group-summary?${dateRange(start, end, currency)}`,
+    `/api/dashboard/goods-group-summary?${dateRange(start, end, currency, only)}`,
   )
 }
 
-export function fetchTopSellers(start: string, end: string, currency?: CurrencyCode) {
+export function fetchTopSellers(start: string, end: string, currency?: CurrencyCode, only?: boolean) {
   return apiRequest<RestApiResponse<TopSeller[]>>(
-    `/api/dashboard/top-sellers?${dateRange(start, end, currency)}`,
+    `/api/dashboard/top-sellers?${dateRange(start, end, currency, only)}`,
   )
 }
 
@@ -140,19 +147,20 @@ export function fetchPaymentsByType(start: string, end: string) {
   )
 }
 
-export function fetchDailyPayments(start: string, end: string, currency?: CurrencyCode) {
+export function fetchDailyPayments(start: string, end: string, currency?: CurrencyCode, only?: boolean) {
   return apiRequest<RestApiResponse<DailyPaymentSummary[]>>(
-    `/api/dashboard/payments/daily?${dateTimeRange(start, end, currency)}`,
+    `/api/dashboard/payments/daily?${dateTimeRange(start, end, currency, only)}`,
   )
 }
 
-export function fetchExpenseInfo(from?: string, to?: string, currency?: CurrencyCode) {
+export function fetchExpenseInfo(from?: string, to?: string, currency?: CurrencyCode, only?: boolean) {
   const params = new URLSearchParams()
   if (from && to) {
     params.set('fromDate', from)
     params.set('toDate', to)
   }
   if (currency) params.set('currency', currency)
+  if (currency && only) params.set('only', 'true')
   const q = params.toString()
   return apiRequest<RestApiResponse<DailyExpenseReport[]>>(`/api/dashboard/expense/info${q ? `?${q}` : ''}`)
 }
@@ -174,6 +182,8 @@ export interface ProfitDay {
   date: string
   revenue: number
   cost: number
+  expenses: number
+  /** Sof foyda: tushum - tannarx - xarajatlar. */
   profit: number
 }
 
@@ -191,8 +201,12 @@ export interface ProfitSellerRow extends ProfitTotals {
   orderCount: number
 }
 
+/** `profit` va `marginPercent` - sof (xarajatlar ayirilgan); `grossProfit` - tushum - tannarx. */
 export interface ProfitReport extends ProfitTotals {
   currency: CurrencyCode
+  grossProfit: number
+  /** Yetkazib beruvchiga to'lovlarsiz xarajatlar. */
+  expenses: number
   discount: number
   deliveryFee: number
   orderCount: number

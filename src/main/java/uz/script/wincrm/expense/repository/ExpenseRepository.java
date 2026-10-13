@@ -46,4 +46,36 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate
     );
+
+    /** Yetkazib beruvchiga to'lovlarsiz xarajatlar: tovar tannarxi foydada alohida ayiriladi. */
+    @Query("""
+            select e
+            from Expense e
+            where e.expenseDate between :startDate and :endDate
+              and e.supplierPaymentId is null
+            """)
+    List<Expense> findOperatingExpenses(
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate
+    );
+
+    /**
+     * Kassadan xarajatga chiqim: row = paymentTypeId, currency, SUM(amount); [fromDate, toDate).
+     * Yetkazib beruvchi to'lovlari kassada SupplierPayment orqali hisoblangani uchun chiqarib tashlanadi.
+     */
+    @Query("SELECT e.paymentType.id, e.currency, COALESCE(SUM(e.amount), 0) FROM Expense e " +
+            "WHERE e.paymentType IS NOT NULL AND e.supplierPaymentId IS NULL " +
+            "AND e.expenseDate >= :fromDate AND e.expenseDate < :toDate " +
+            "GROUP BY e.paymentType.id, e.currency")
+    List<Object[]> sumCashByType(@Param("fromDate") LocalDate fromDate,
+                                 @Param("toDate") LocalDate toDate);
+
+    /** Xodim kiritgan xarajatlar: row = paymentTypeId, currency, SUM(amount); [fromDate, toDate). */
+    @Query("SELECT e.paymentType.id, e.currency, COALESCE(SUM(e.amount), 0) FROM Expense e " +
+            "WHERE e.paymentType IS NOT NULL AND e.supplierPaymentId IS NULL AND e.createdUserId = :userId " +
+            "AND e.expenseDate >= :fromDate AND e.expenseDate < :toDate " +
+            "GROUP BY e.paymentType.id, e.currency")
+    List<Object[]> sumCashByTypeForCreator(@Param("userId") Long userId,
+                                           @Param("fromDate") LocalDate fromDate,
+                                           @Param("toDate") LocalDate toDate);
 }

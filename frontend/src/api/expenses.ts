@@ -1,5 +1,6 @@
 import { apiRequest } from './http'
 import type { RestApiResponse, SpringPage } from './types'
+import type { CurrencyCode } from '@/utils/currency'
 
 export interface ExpenseCategory {
   id: number
@@ -21,6 +22,11 @@ export interface Expense {
   categoryId: number
   categoryName?: string
   amount: number
+  /** amount valyutasi (kassa valyutasi). */
+  currency?: CurrencyCode
+  exchangeRate?: number | null
+  paymentTypeId?: number | null
+  paymentTypeName?: string | null
   expenseDate: string
   description?: string
   status?: string
@@ -35,6 +41,21 @@ export interface ExpensePayload {
   amount: number
   expenseDate: string
   description?: string
+  /** Pul chiqadigan kassa; xarajat valyutasi shu kassa valyutasi. */
+  paymentTypeId: number
+}
+
+/** Kassadagi joriy qoldiq o'z valyutasida. */
+export interface CashAvailable {
+  paymentTypeId: number
+  paymentTypeName: string
+  paymentTypeIcon?: string | null
+  currency: CurrencyCode
+  available: number
+}
+
+export function fetchCashAvailable() {
+  return apiRequest<RestApiResponse<CashAvailable[]>>('/api/expenses/cash-available')
 }
 
 export function fetchExpenseCategories(page = 0, size = 100) {

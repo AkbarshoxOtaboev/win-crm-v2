@@ -15,7 +15,7 @@ import java.util.List;
 @Setter
 @Builder
 @Schema(name = "Profit Report Response",
-        description = "Sotilgan tovarlardan foyda: tushum (chegirmadan keyin, yetkazishsiz) - tannarx")
+        description = "Sof foyda: tushum (chegirmadan keyin, yetkazishsiz) - tannarx - operatsion xarajatlar")
 public class ProfitReportResponse {
 
     @Schema(description = "Summalar valyutasi", example = "UZS")
@@ -27,10 +27,16 @@ public class ProfitReportResponse {
     @Schema(description = "Sotilgan tovarlar tannarxi (sotuv paytidagi ombor o'rtacha narxi)")
     private BigDecimal cost;
 
-    @Schema(description = "revenue - cost")
+    @Schema(description = "Yalpi foyda: revenue - cost")
+    private BigDecimal grossProfit;
+
+    @Schema(description = "Davrdagi xarajatlar (yetkazib beruvchiga to'lovlarsiz - ular tannarxda hisoblangan)")
+    private BigDecimal expenses;
+
+    @Schema(description = "Sof foyda: grossProfit - expenses")
     private BigDecimal profit;
 
-    @Schema(description = "profit / revenue * 100")
+    @Schema(description = "Sof foyda marjasi: profit / revenue * 100")
     private BigDecimal marginPercent;
 
     @Schema(description = "Berilgan chegirmalar jami")
@@ -58,6 +64,8 @@ public class ProfitReportResponse {
         private LocalDate date;
         private BigDecimal revenue;
         private BigDecimal cost;
+        private BigDecimal expenses;
+        @Schema(description = "Sof foyda: revenue - cost - expenses")
         private BigDecimal profit;
     }
 

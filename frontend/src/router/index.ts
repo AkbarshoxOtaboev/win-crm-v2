@@ -216,6 +216,12 @@ const router = createRouter({
       meta: { title: 'Yangi savdo', requiresAuth: true },
     },
     {
+      path: '/sales/:id(\\d+)/edit',
+      name: 'SaleOrderEdit',
+      component: () => import('../views/crm/SaleOrderCreateView.vue'),
+      meta: { title: 'Savdoni tahrirlash', requiresAuth: true },
+    },
+    {
       path: '/sales/:id',
       name: 'SaleOrderDetail',
       component: () => import('../views/crm/SaleOrderDetailView.vue'),

@@ -59,12 +59,14 @@ public class DashboardController {
             @Parameter(description = "End date", example = "2026-07-31")
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @Parameter(description = "Summalar valyutasi", example = "UZS")
-            @RequestParam(defaultValue = "UZS") Currency currency
+            @RequestParam(defaultValue = "UZS") Currency currency,
+            @Parameter(description = "true - faqat currency valyutasidagi hujjatlar (o'girishsiz)")
+            @RequestParam(defaultValue = "false") boolean only
     ) {
         return ResponseEntity.ok(
                 RestApiResponse.<List<TopGoodsResponse>>builder()
                         .message("Eng ko'p sotilgan mahsulotlar (miqdor bo'yicha)")
-                        .data(service.fetchTopGoodsByQuantity(startDate, endDate, currency))
+                        .data(service.fetchTopGoodsByQuantity(startDate, endDate, currency, only))
                         .build()
         );
     }
@@ -93,12 +95,14 @@ public class DashboardController {
             @Parameter(description = "End date", example = "2026-07-31")
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @Parameter(description = "Summalar valyutasi", example = "UZS")
-            @RequestParam(defaultValue = "UZS") Currency currency
+            @RequestParam(defaultValue = "UZS") Currency currency,
+            @Parameter(description = "true - faqat currency valyutasidagi hujjatlar (o'girishsiz)")
+            @RequestParam(defaultValue = "false") boolean only
     ) {
         return ResponseEntity.ok(
                 RestApiResponse.<List<TopGoodsResponse>>builder()
                         .message("Eng ko'p sotilgan mahsulotlar (summa bo'yicha)")
-                        .data(service.fetchTopGoodsByAmount(startDate, endDate, currency))
+                        .data(service.fetchTopGoodsByAmount(startDate, endDate, currency, only))
                         .build()
         );
     }
@@ -127,12 +131,14 @@ public class DashboardController {
             @Parameter(description = "End date", example = "2026-07-31")
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @Parameter(description = "Summalar valyutasi", example = "UZS")
-            @RequestParam(defaultValue = "UZS") Currency currency
+            @RequestParam(defaultValue = "UZS") Currency currency,
+            @Parameter(description = "true - faqat currency valyutasidagi hujjatlar (o'girishsiz)")
+            @RequestParam(defaultValue = "false") boolean only
     ) {
         return ResponseEntity.ok(
                 RestApiResponse.<List<GoodsGroupSummaryResponse>>builder()
                         .message("Goods group bo'yicha statistika")
-                        .data(service.fetchGoodsGroupSummary(startDate, endDate, currency))
+                        .data(service.fetchGoodsGroupSummary(startDate, endDate, currency, only))
                         .build()
         );
     }
@@ -162,12 +168,14 @@ public class DashboardController {
             @Parameter(description = "End date", example = "2026-07-31")
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @Parameter(description = "Summalar valyutasi", example = "UZS")
-            @RequestParam(defaultValue = "UZS") Currency currency
+            @RequestParam(defaultValue = "UZS") Currency currency,
+            @Parameter(description = "true - faqat currency valyutasidagi hujjatlar (o'girishsiz)")
+            @RequestParam(defaultValue = "false") boolean only
     ) {
         return ResponseEntity.ok(
                 RestApiResponse.<List<TopSellerResponse>>builder()
                         .message("Eng ko'p savdo qilgan sotuvchilar")
-                        .data(service.fetchTopSellers(startDate, endDate, currency))
+                        .data(service.fetchTopSellers(startDate, endDate, currency, only))
                         .build()
         );
     }
@@ -230,12 +238,14 @@ public class DashboardController {
             @Parameter(description = "Sana-vaqt oralig'i oxiri", example = "2026-07-31T23:59:59")
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime toDate,
             @Parameter(description = "Kunlik jami summa valyutasi", example = "UZS")
-            @RequestParam(defaultValue = "UZS") Currency currency
+            @RequestParam(defaultValue = "UZS") Currency currency,
+            @Parameter(description = "true - faqat currency valyutasidagi hujjatlar (o'girishsiz)")
+            @RequestParam(defaultValue = "false") boolean only
     ) {
         return ResponseEntity.ok(
                 RestApiResponse.<List<DailyPaymentSummaryResponse>>builder()
                         .message("Kunlik to'lovlar statistikasi")
-                        .data(service.fetchDailyPayments(fromDate, toDate, currency))
+                        .data(service.fetchDailyPayments(fromDate, toDate, currency, only))
                         .build()
         );
     }
@@ -272,8 +282,10 @@ public class DashboardController {
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
             LocalDate toDate,
 
-            @Parameter(description = "Summalar valyutasi (xarajatlar so'mda yuritiladi)", example = "UZS")
-            @RequestParam(defaultValue = "UZS") Currency currency
+            @Parameter(description = "Summalar valyutasi", example = "UZS")
+            @RequestParam(defaultValue = "UZS") Currency currency,
+            @Parameter(description = "true - faqat currency valyutasidagi hujjatlar (o'girishsiz)")
+            @RequestParam(defaultValue = "false") boolean only
     ) {
 
         LocalDate today = LocalDate.now();
@@ -284,7 +296,7 @@ public class DashboardController {
         return ResponseEntity.ok(
                 RestApiResponse.<List<DailyExpenseReportResponse>>builder()
                         .message("Kunlik xarajatlar statistikasi")
-                        .data(service.fetchExpenseReport(fromDate, toDate, currency))
+                        .data(service.fetchExpenseReport(fromDate, toDate, currency, only))
                         .build()
         );
     }
@@ -295,8 +307,8 @@ public class DashboardController {
             summary = "Kassa qoldiqlari (to'lov turi bo'yicha, o'z valyutasida)",
             description = """
                     Har bir to'lov turi (kassa) uchun o'z valyutasida: davr boshidagi qoldiq, mijozlardan kirim,
-                    yetkazib beruvchilarga chiqim va davr oxiridagi qoldiq. Turli valyutadagi kassalar qo'shilmaydi.
-                    Umumiy xarajatlar to'lov turiga bog'lanmagani uchun bu hisobotga kirmaydi.
+                    yetkazib beruvchilarga chiqim, kassadan qilingan xarajatlar va davr oxiridagi qoldiq.
+                    Turli valyutadagi kassalar qo'shilmaydi.
                     
                     Only users with DASHBOARD_VIEW permission can use this endpoint.
                     """

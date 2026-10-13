@@ -58,9 +58,10 @@ public class DashboardServiceImpl implements DashboardService {
     }
 
     @Override
-    public List<TopGoodsResponse> fetchTopGoodsByQuantity(LocalDate startDate, LocalDate endDate, Currency display) {
-        log.info("Fetch TOP {} goods by quantity: {} - {} ({})", TOP_LIMIT, startDate, endDate, display);
-        return goodsTotals(startDate, endDate, display, row -> (Long) row[0], row -> (String) row[1]).stream()
+    public List<TopGoodsResponse> fetchTopGoodsByQuantity(LocalDate startDate, LocalDate endDate, Currency display,
+                                                          boolean only) {
+        log.info("Fetch TOP {} goods by quantity: {} - {} ({}, only={})", TOP_LIMIT, startDate, endDate, display, only);
+        return goodsTotals(startDate, endDate, display, only, row -> (Long) row[0], row -> (String) row[1]).stream()
                 .sorted(Comparator.comparing(Totals::count).reversed())
                 .limit(TOP_LIMIT)
                 .map(t -> new TopGoodsResponse(t.id(), t.name(), t.count(), t.amount()))
@@ -68,9 +69,10 @@ public class DashboardServiceImpl implements DashboardService {
     }
 
     @Override
-    public List<TopGoodsResponse> fetchTopGoodsByAmount(LocalDate startDate, LocalDate endDate, Currency display) {
-        log.info("Fetch TOP {} goods by amount: {} - {} ({})", TOP_LIMIT, startDate, endDate, display);
-        return goodsTotals(startDate, endDate, display, row -> (Long) row[0], row -> (String) row[1]).stream()
+    public List<TopGoodsResponse> fetchTopGoodsByAmount(LocalDate startDate, LocalDate endDate, Currency display,
+                                                        boolean only) {
+        log.info("Fetch TOP {} goods by amount: {} - {} ({}, only={})", TOP_LIMIT, startDate, endDate, display, only);
+        return goodsTotals(startDate, endDate, display, only, row -> (Long) row[0], row -> (String) row[1]).stream()
                 .sorted(Comparator.comparing(Totals::amount).reversed())
                 .limit(TOP_LIMIT)
                 .map(t -> new TopGoodsResponse(t.id(), t.name(), t.count(), t.amount()))
@@ -78,9 +80,10 @@ public class DashboardServiceImpl implements DashboardService {
     }
 
     @Override
-    public List<GoodsGroupSummaryResponse> fetchGoodsGroupSummary(LocalDate startDate, LocalDate endDate, Currency display) {
-        log.info("Fetch goods group summary: {} - {} ({})", startDate, endDate, display);
-        return goodsTotals(startDate, endDate, display, row -> (Long) row[2], row -> (String) row[3]).stream()
+    public List<GoodsGroupSummaryResponse> fetchGoodsGroupSummary(LocalDate startDate, LocalDate endDate, Currency display,
+                                                                  boolean only) {
+        log.info("Fetch goods group summary: {} - {} ({}, only={})", startDate, endDate, display, only);
+        return goodsTotals(startDate, endDate, display, only, row -> (Long) row[2], row -> (String) row[3]).stream()
                 .filter(t -> t.id() != null)
                 .sorted(Comparator.comparing(Totals::amount).reversed())
                 .map(t -> new GoodsGroupSummaryResponse(t.id(), t.name(), t.count(), t.amount()))
@@ -88,14 +91,17 @@ public class DashboardServiceImpl implements DashboardService {
     }
 
     @Override
-    public List<TopSellerResponse> fetchTopSellers(LocalDate startDate, LocalDate endDate, Currency display) {
-        log.info("Fetch TOP {} sellers: {} - {} ({})", TOP_LIMIT, startDate, endDate, display);
+    public List<TopSellerResponse> fetchTopSellers(LocalDate startDate, LocalDate endDate, Currency display, boolean only) {
+        log.info("Fetch TOP {} sellers: {} - {} ({}, only={})", TOP_LIMIT, startDate, endDate, display, only);
 
         LocalDateTime[] range = toDateTimeRange(startDate, endDate);
         ReportFx fx = ReportFx.of(exchangeRateService, display);
 
         Map<Long, TopSellerResponse> byUser = new LinkedHashMap<>();
         for (Object[] row : saleOrderRepository.findSellerSalesRows(range[0], range[1])) {
+            if (skip(fx, only, (Currency) row[2])) {
+                continue;
+            }
             Long userId = (Long) row[0];
             BigDecimal amount = fx.convert(toDecimal(row[6]), (Currency) row[2], toDecimal(row[3]), toDate(row[4]));
             TopSellerResponse seller = byUser.computeIfAbsent(userId,
@@ -137,13 +143,16 @@ public class DashboardServiceImpl implements DashboardService {
     }
 
     @Override
-    public List<DailyPaymentSummaryResponse> fetchDailyPayments(LocalDateTime fromDate, LocalDateTime toDate, Currency display) {
-        log.info("Fetch daily payments: {} - {} ({})", fromDate, toDate, display);
+    public List<DailyPaymentSummaryResponse> fetchDailyPayments(LocalDateTime fromDate, LocalDateTime toDate, Currency display,
+                                                                boolean only) {
+        log.info("Fetch daily payments: {} - {} ({}, only={})", fromDate, toDate, display, only);
 
         validateRange(fromDate, toDate);
         ReportFx fx = ReportFx.of(exchangeRateService, display);
 
-        List<Payment> payments = paymentRepository.findAllInRangeWithType(fromDate, toDate);
+        List<Payment> payments = paymentRepository.findAllInRangeWithType(fromDate, toDate).stream()
+                .filter(p -> !skip(fx, only, p.getCurrency()))
+                .toList();
 
         Map<LocalDate, List<Payment>> byDate = payments.stream()
                 .collect(Collectors.groupingBy(p -> p.getPaymentDate().toLocalDate()));
@@ -190,16 +199,20 @@ public class DashboardServiceImpl implements DashboardService {
     }
 
     @Override
-    public List<DailyExpenseReportResponse> fetchExpenseReport(LocalDate fromDate, LocalDate toDate, Currency display) {
-        log.info("Fetch expense report: {} - {} ({})", fromDate, toDate, display);
+    public List<DailyExpenseReportResponse> fetchExpenseReport(LocalDate fromDate, LocalDate toDate, Currency display,
+                                                               boolean only) {
+        log.info("Fetch expense report: {} - {} ({}, only={})", fromDate, toDate, display, only);
 
         ReportFx fx = ReportFx.of(exchangeRateService, display);
         Map<Long, DailyExpenseReportResponse> byCategory = new LinkedHashMap<>();
         for (Expense e : expenseRepository.findExpenseReportByExpenesCategory(fromDate, toDate)) {
+            if (skip(fx, only, e.getCurrency())) {
+                continue;
+            }
             ExpenseCategory category = e.getCategory();
             DailyExpenseReportResponse row = byCategory.computeIfAbsent(category.getId(),
                     id -> new DailyExpenseReportResponse(id, category.getName(), BigDecimal.ZERO));
-            row.setTotalAmount(row.getTotalAmount().add(fx.convert(e.getAmount(), Currency.BASE, null, e.getExpenseDate())));
+            row.setTotalAmount(row.getTotalAmount().add(expenseIn(fx, e)));
         }
         return new ArrayList<>(byCategory.values());
     }
@@ -218,6 +231,8 @@ public class DashboardServiceImpl implements DashboardService {
         Map<String, BigDecimal> out = cashSums(supplierPaymentRepository.sumCashByType(start, end));
         Map<String, BigDecimal> handedBefore = cashSums(cashHandoverRepository.sumAcceptedByType(BEGINNING.toLocalDate(), fromDate));
         Map<String, BigDecimal> handed = cashSums(cashHandoverRepository.sumAcceptedByType(fromDate, toDate.plusDays(1)));
+        Map<String, BigDecimal> spentBefore = cashSums(expenseRepository.sumCashByType(BEGINNING.toLocalDate(), fromDate));
+        Map<String, BigDecimal> spent = cashSums(expenseRepository.sumCashByType(fromDate, toDate.plusDays(1)));
 
         Set<String> keys = new LinkedHashSet<>();
         List<PaymentType> types = paymentTypeRepository.findAll().stream()
@@ -230,6 +245,8 @@ public class DashboardServiceImpl implements DashboardService {
         keys.addAll(out.keySet());
         keys.addAll(handedBefore.keySet());
         keys.addAll(handed.keySet());
+        keys.addAll(spentBefore.keySet());
+        keys.addAll(spent.keySet());
 
         Map<Long, PaymentType> typeById = types.stream().collect(Collectors.toMap(PaymentType::getId, Function.identity()));
 
@@ -243,10 +260,12 @@ public class DashboardServiceImpl implements DashboardService {
             }
             BigDecimal opening = inBefore.getOrDefault(key, BigDecimal.ZERO)
                     .subtract(outBefore.getOrDefault(key, BigDecimal.ZERO))
-                    .subtract(handedBefore.getOrDefault(key, BigDecimal.ZERO));
+                    .subtract(handedBefore.getOrDefault(key, BigDecimal.ZERO))
+                    .subtract(spentBefore.getOrDefault(key, BigDecimal.ZERO));
             BigDecimal incoming = in.getOrDefault(key, BigDecimal.ZERO);
             BigDecimal outgoing = out.getOrDefault(key, BigDecimal.ZERO);
             BigDecimal handedOver = handed.getOrDefault(key, BigDecimal.ZERO);
+            BigDecimal expenses = spent.getOrDefault(key, BigDecimal.ZERO);
             result.add(CashBalanceResponse.builder()
                     .paymentTypeId(typeId)
                     .paymentTypeName(type.getName())
@@ -255,7 +274,8 @@ public class DashboardServiceImpl implements DashboardService {
                     .incoming(incoming)
                     .outgoing(outgoing)
                     .handedOver(handedOver)
-                    .closing(opening.add(incoming).subtract(outgoing).subtract(handedOver))
+                    .expenses(expenses)
+                    .closing(opening.add(incoming).subtract(outgoing).subtract(handedOver).subtract(expenses))
                     .build());
         }
         return result;
@@ -410,14 +430,23 @@ public class DashboardServiceImpl implements DashboardService {
             }
         }
 
+        Map<LocalDate, BigDecimal> expensesByDay = new HashMap<>();
+        for (Expense e : expenseRepository.findOperatingExpenses(fromDate, toDate)) {
+            expensesByDay.merge(e.getExpenseDate(), expenseIn(fx, e), BigDecimal::add);
+        }
+        BigDecimal expenses = expensesByDay.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal netProfit = total.profit().subtract(expenses);
+
         List<ProfitReportResponse.Day> days = new ArrayList<>();
         for (LocalDate d = fromDate; !d.isAfter(toDate); d = d.plusDays(1)) {
             ProfitAcc acc = byDay.getOrDefault(d, new ProfitAcc());
+            BigDecimal dayExpenses = expensesByDay.getOrDefault(d, BigDecimal.ZERO);
             days.add(ProfitReportResponse.Day.builder()
                     .date(d)
                     .revenue(acc.revenue)
                     .cost(acc.cost)
-                    .profit(acc.profit())
+                    .expenses(dayExpenses)
+                    .profit(acc.profit().subtract(dayExpenses))
                     .build());
         }
 
@@ -453,8 +482,11 @@ public class DashboardServiceImpl implements DashboardService {
                 .currency(fx.display())
                 .revenue(total.revenue)
                 .cost(total.cost)
-                .profit(total.profit())
-                .marginPercent(margin(total))
+                .grossProfit(total.profit())
+                .expenses(expenses)
+                .profit(netProfit)
+                .marginPercent(total.revenue.signum() == 0 ? BigDecimal.ZERO
+                        : netProfit.multiply(BigDecimal.valueOf(100)).divide(total.revenue, 1, RoundingMode.HALF_UP))
                 .discount(discount)
                 .deliveryFee(delivery)
                 .orderCount(total.orders)
@@ -491,13 +523,16 @@ public class DashboardServiceImpl implements DashboardService {
         return value != null ? value : BigDecimal.ZERO;
     }
 
-    private List<Totals> goodsTotals(LocalDate startDate, LocalDate endDate, Currency display,
+    private List<Totals> goodsTotals(LocalDate startDate, LocalDate endDate, Currency display, boolean only,
                                      Function<Object[], Long> idOf, Function<Object[], String> nameOf) {
         LocalDateTime[] range = toDateTimeRange(startDate, endDate);
         ReportFx fx = ReportFx.of(exchangeRateService, display);
 
         Map<Long, Totals> totals = new LinkedHashMap<>();
         for (Object[] row : repository.findGoodsSalesRows(range[0], range[1])) {
+            if (skip(fx, only, (Currency) row[4])) {
+                continue;
+            }
             Long id = idOf.apply(row);
             BigDecimal count = toDecimal(row[7]);
             BigDecimal amount = fx.convert(toDecimal(row[8]), (Currency) row[4], toDecimal(row[5]), toDate(row[6]));
@@ -505,6 +540,15 @@ public class DashboardServiceImpl implements DashboardService {
                     (a, b) -> new Totals(a.id(), a.name(), a.count().add(b.count()), a.amount().add(b.amount())));
         }
         return new ArrayList<>(totals.values());
+    }
+
+    /** only rejimida ko'rsatish valyutasidan boshqa valyutadagi hujjat tashlab ketiladi. */
+    private static boolean skip(ReportFx fx, boolean only, Currency documentCurrency) {
+        return only && CurrencyMath.orBase(documentCurrency) != fx.display();
+    }
+
+    private static BigDecimal expenseIn(ReportFx fx, Expense e) {
+        return fx.convert(e.getAmount(), e.getCurrency(), e.getExchangeRate(), e.getExpenseDate());
     }
 
     /** Kassa valyutasini so'mga o'girish uchun to'lovda qotirilgan kurs (faqat kassa va qarz valyutasi farq qilsa). */

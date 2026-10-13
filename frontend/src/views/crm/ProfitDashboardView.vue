@@ -16,18 +16,7 @@
           <span class="text-gray-400">—</span>
           <input v-model="endDate" type="date" class="date-input" />
         </label>
-        <div class="presets">
-          <button
-            v-for="p in PRESETS"
-            :key="p"
-            type="button"
-            class="preset"
-            :class="{ active: activePreset === p }"
-            @click="applyPreset(p)"
-          >
-            {{ t(`profitDashboard.${p}`) }}
-          </button>
-        </div>
+        <DateRangePresets v-model:start="startDate" v-model:end="endDate" />
         <ReportCurrencyToggle :model-value="display" class="ms-auto" @update:model-value="changeCurrency" />
         <button type="button" class="icon-btn" :title="t('common.refresh')" :disabled="loading" @click="load">
           <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': loading }" />
@@ -35,7 +24,7 @@
       </div>
     </div>
 
-    <div class="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div class="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
       <article class="kpi-card" style="--accent: #6366f1">
         <p class="kpi-label"><Wallet class="h-4 w-4" />{{ t('profitDashboard.revenue') }}</p>
         <p class="kpi-value">{{ fmt(report?.revenue) }}</p>
@@ -46,11 +35,17 @@
         <p class="kpi-value">{{ fmt(report?.cost) }}</p>
         <p class="kpi-hint">{{ t('profitDashboard.costHint') }}</p>
       </article>
+      <article class="kpi-card" style="--accent: #f97316">
+        <p class="kpi-label"><Receipt class="h-4 w-4" />{{ t('profitDashboard.expenses') }}</p>
+        <p class="kpi-value">{{ fmt(report?.expenses) }}</p>
+        <p class="kpi-hint">{{ t('profitDashboard.expensesHint') }}</p>
+      </article>
       <article class="kpi-card" :style="{ '--accent': profitTone === 'loss' ? '#ef4444' : '#10b981' }">
         <p class="kpi-label"><TrendingUp class="h-4 w-4" />{{ t('profitDashboard.profit') }}</p>
         <p class="kpi-value" :class="profitTone">{{ fmt(report?.profit) }}</p>
         <p class="kpi-hint">
-          {{ t('profitDashboard.margin') }}:
+          {{ t('profitDashboard.grossProfit') }}: <b>{{ fmt(report?.grossProfit) }}</b>
+          · {{ t('profitDashboard.margin') }}:
           <b :class="profitTone">{{ pct(report?.marginPercent) }}</b>
         </p>
       </article>
@@ -99,7 +94,7 @@
                 <th class="th text-right">{{ t('profitDashboard.quantity') }}</th>
                 <th class="th text-right">{{ t('profitDashboard.revenue') }}</th>
                 <th class="th text-right">{{ t('profitDashboard.cost') }}</th>
-                <th class="th text-right">{{ t('profitDashboard.profit') }}</th>
+                <th class="th text-right">{{ t('profitDashboard.grossProfit') }}</th>
                 <th class="th">{{ t('profitDashboard.margin') }}</th>
               </tr>
             </thead>
@@ -143,7 +138,7 @@
                 <th class="th">{{ t('profitDashboard.seller') }}</th>
                 <th class="th text-right">{{ t('profitDashboard.orders') }}</th>
                 <th class="th text-right">{{ t('profitDashboard.revenue') }}</th>
-                <th class="th text-right">{{ t('profitDashboard.profit') }}</th>
+                <th class="th text-right">{{ t('profitDashboard.grossProfit') }}</th>
               </tr>
             </thead>
             <tbody>
@@ -172,26 +167,23 @@ import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import ReportCurrencyToggle from '@/components/crm/ReportCurrencyToggle.vue'
+import DateRangePresets from '@/components/crm/DateRangePresets.vue'
 import { fetchProfitReport, type ProfitReport } from '@/api/dashboard'
 import { formatApiError } from '@/api/http'
-import { today } from '@/utils/format'
 import type { CurrencyCode } from '@/utils/currency'
 import { useReportCurrency } from '@/composables/useReportCurrency'
 import VueApexCharts from 'vue3-apexcharts'
 import type { ApexOptions } from 'apexcharts'
-import { CalendarDays, Package, Percent, RefreshCw, TrendingUp, Wallet } from 'lucide-vue-next'
+import { CalendarDays, Package, Percent, Receipt, RefreshCw, TrendingUp, Wallet } from 'lucide-vue-next'
 import { useTheme } from '@/components/layout/ThemeProvider.vue'
-
-const PRESETS = ['today', 'week', 'month', 'year'] as const
-type Preset = (typeof PRESETS)[number]
 
 const { t, locale } = useI18n()
 const { isDarkMode } = useTheme() as { isDarkMode: Ref<boolean> }
 const { display, setDisplay, fmt, compact } = useReportCurrency()
 const chartThemeKey = computed(() => (isDarkMode.value ? 'dark' : 'light'))
 
-const startDate = ref(presetStart('month'))
-const endDate = ref(today())
+const startDate = ref(localToday().slice(0, 8) + '01')
+const endDate = ref(localToday())
 const loading = ref(false)
 const error = ref<string | null>(null)
 const report = ref<ProfitReport | null>(null)
@@ -200,25 +192,10 @@ const chartMounted = ref(false)
 const goodsRows = computed(() => report.value?.goods || [])
 const sellerRows = computed(() => report.value?.sellers || [])
 const profitTone = computed(() => toneOf(report.value?.profit))
-const activePreset = computed<Preset | null>(() =>
-  endDate.value === today() ? PRESETS.find((p) => presetStart(p) === startDate.value) || null : null,
-)
 
-function iso(d: Date) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-function presetStart(p: Preset) {
+function localToday() {
   const d = new Date()
-  if (p === 'week') d.setDate(d.getDate() - ((d.getDay() + 6) % 7))
-  if (p === 'month') d.setDate(1)
-  if (p === 'year') d.setMonth(0, 1)
-  return iso(d)
-}
-
-function applyPreset(p: Preset) {
-  startDate.value = presetStart(p)
-  endDate.value = today()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 function toneOf(v?: number | null) {
@@ -243,6 +220,7 @@ const chartSeries = computed(() => {
   return [
     { name: t('profitDashboard.revenue'), data: days.map((d) => Number(d.revenue)) },
     { name: t('profitDashboard.cost'), data: days.map((d) => Number(d.cost)) },
+    { name: t('profitDashboard.expenses'), data: days.map((d) => Number(d.expenses || 0)) },
     { name: t('profitDashboard.profit'), data: days.map((d) => Number(d.profit)) },
   ]
 })
@@ -260,7 +238,7 @@ const chartOptions = computed<ApexOptions>(() => {
       foreColor: fore,
     },
     theme: { mode: (dark ? 'dark' : 'light') as 'dark' | 'light' },
-    colors: ['#6366f1', '#f59e0b', '#10b981'],
+    colors: ['#6366f1', '#f59e0b', '#f97316', '#10b981'],
     dataLabels: { enabled: false },
     stroke: { curve: 'smooth' as const, width: 2.5 },
     fill: {
@@ -317,10 +295,6 @@ onMounted(async () => {
 .icon-btn { display: inline-flex; height: 2.5rem; width: 2.5rem; align-items: center; justify-content: center; border-radius: 0.5rem; border: 1px solid #d1d5db; background: #fff; color: #4b5563; }
 .icon-btn:hover { background: #f9fafb; }
 .icon-btn:disabled { opacity: 0.6; }
-.presets { display: inline-flex; height: 2.5rem; align-items: center; gap: 0.25rem; border-radius: 0.5rem; border: 1px solid #d1d5db; padding: 0.25rem; }
-.preset { height: 100%; border-radius: 0.375rem; padding: 0 0.75rem; font-size: 0.8125rem; font-weight: 500; color: #6b7280; }
-.preset:hover:not(.active) { background: #f3f4f6; }
-.preset.active { background: #465fff; color: #fff; }
 .kpi-card { border-radius: 1rem; border: 1px solid #e5e7eb; border-bottom: 3px solid var(--accent); background: #fff; padding: 1.25rem; }
 .kpi-label { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; color: #6b7280; }
 .kpi-label svg { color: var(--accent); }
@@ -344,9 +318,6 @@ onMounted(async () => {
 :global(html.dark .icon-btn) { border-color: #374151; background: #111827; color: rgba(255, 255, 255, 0.92); }
 :global(html.dark input.date-input) { background-color: transparent !important; color: rgba(255, 255, 255, 0.92) !important; color-scheme: dark; }
 :global(html.dark .icon-btn:hover) { background: #1f2937; }
-:global(html.dark .presets) { border-color: #374151; }
-:global(html.dark .preset:not(.active)) { color: #9ca3af; }
-:global(html.dark .preset:hover:not(.active)) { background: #1f2937; }
 :global(html.dark .margin-bar) { background: #1f2937; }
 :global(html.dark .tag) { background: rgba(99, 102, 241, 0.15); color: #a5b4fc; }
 :global(html.dark .tag-service) { background: rgba(236, 72, 153, 0.15); color: #f9a8d4; }

@@ -18,6 +18,7 @@ import uz.script.wincrm.currency.CurrencyMath;
 import uz.script.wincrm.exceptions.BadRequestException;
 import uz.script.wincrm.exceptions.ForbiddenException;
 import uz.script.wincrm.exceptions.ResourceNotFoundException;
+import uz.script.wincrm.expense.repository.ExpenseRepository;
 import uz.script.wincrm.payment.PaymentType;
 import uz.script.wincrm.payment.repository.PaymentRepository;
 import uz.script.wincrm.payment.repository.PaymentTypeRepository;
@@ -45,6 +46,7 @@ public class CashHandoverServiceImpl implements CashHandoverService {
     private final CashHandoverRepository repository;
     private final PaymentRepository paymentRepository;
     private final SupplierPaymentRepository supplierPaymentRepository;
+    private final ExpenseRepository expenseRepository;
     private final PaymentTypeRepository paymentTypeRepository;
     private final UserRepository userRepository;
 
@@ -169,6 +171,8 @@ public class CashHandoverServiceImpl implements CashHandoverService {
 
         Map<String, BigDecimal> incoming = sums(paymentRepository.sumCashByTypeForUser(cashierId, start, end));
         Map<String, BigDecimal> outgoing = sums(supplierPaymentRepository.sumCashByTypeForCreator(cashierId, start, end));
+        sums(expenseRepository.sumCashByTypeForCreator(cashierId, day, day.plusDays(1)))
+                .forEach((key, amount) -> outgoing.merge(key, amount, BigDecimal::add));
         Map<String, BigDecimal> pending = new HashMap<>();
         Map<String, BigDecimal> accepted = new HashMap<>();
         for (Object[] row : repository.sumForCashierAndDate(cashierId, day,

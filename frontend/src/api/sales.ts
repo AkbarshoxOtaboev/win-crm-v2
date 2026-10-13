@@ -61,6 +61,11 @@ export interface SaleOrderCreatePayload extends SaleOrderPayload {
   items?: SaleOrderInitialItem[]
 }
 
+/** `items` - yangi pozitsiyalar, `removedItemIds` - o'chiriladiganlar; backend bitta tranzaksiyada saqlaydi. */
+export interface SaleOrderUpdatePayload extends SaleOrderCreatePayload {
+  removedItemIds?: number[]
+}
+
 export function fetchSaleOrders(page = 0, size = 50) {
   return apiRequest<RestApiResponse<SpringPage<SaleOrder>>>(
     `/api/sale-orders?page=${page}&size=${size}&sort=id,DESC`,
@@ -74,7 +79,7 @@ export function createSaleOrder(payload: SaleOrderCreatePayload) {
   })
 }
 
-export function updateSaleOrder(id: number, payload: SaleOrderPayload) {
+export function updateSaleOrder(id: number, payload: SaleOrderUpdatePayload) {
   return apiRequest<RestApiResponse<SaleOrder>>(`/api/sale-orders/update/${id}`, {
     method: 'PUT',
     body: payload,

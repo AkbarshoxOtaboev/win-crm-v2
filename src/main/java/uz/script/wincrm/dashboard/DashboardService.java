@@ -9,30 +9,32 @@ import java.util.List;
 
 /**
  * Summalar {@code display} valyutasida: har bir hujjat o'z kursi bo'yicha (kurs bo'lmasa hujjat sanasidagi
- * kompaniya kursi bilan) o'giriladi, so'ng jamlanadi.
+ * kompaniya kursi bilan) o'giriladi, so'ng jamlanadi. {@code only = true} bo'lsa faqat {@code display}
+ * valyutasidagi hujjatlar olinadi (o'girishsiz) - so'm va dollar savdosini alohida ko'rish uchun.
  */
 public interface DashboardService {
 
     /**
      * Berilgan sana oralig'ida eng ko'p miqdorda sotilgan TOP 10 mahsulot.
      */
-    List<TopGoodsResponse> fetchTopGoodsByQuantity(LocalDate startDate, LocalDate endDate, Currency display);
+    List<TopGoodsResponse> fetchTopGoodsByQuantity(LocalDate startDate, LocalDate endDate, Currency display, boolean only);
 
     /**
      * Berilgan sana oralig'ida eng ko'p summada sotilgan TOP 10 mahsulot.
      */
-    List<TopGoodsResponse> fetchTopGoodsByAmount(LocalDate startDate, LocalDate endDate, Currency display);
+    List<TopGoodsResponse> fetchTopGoodsByAmount(LocalDate startDate, LocalDate endDate, Currency display, boolean only);
 
     /**
      * Berilgan sana oralig'ida GoodsGroup (mahsulot guruhi) bo'yicha jamlangan statistika.
      */
-    List<GoodsGroupSummaryResponse> fetchGoodsGroupSummary(LocalDate startDate, LocalDate endDate, Currency display);
+    List<GoodsGroupSummaryResponse> fetchGoodsGroupSummary(LocalDate startDate, LocalDate endDate, Currency display,
+                                                           boolean only);
 
     /**
      * Berilgan sana oralig'ida eng ko'p savdo qilgan TOP 10 sotuvchi (User),
      * umumiy savdo summasi bo'yicha kamayish tartibida.
      */
-    List<TopSellerResponse> fetchTopSellers(LocalDate startDate, LocalDate endDate, Currency display);
+    List<TopSellerResponse> fetchTopSellers(LocalDate startDate, LocalDate endDate, Currency display, boolean only);
 
     /**
      * Berilgan sana-vaqt oralig'ida (fromDate - toDate) barcha to'lovlarni PaymentType
@@ -44,15 +46,17 @@ public interface DashboardService {
      * Berilgan sana-vaqt oralig'idagi har bir kun uchun (to'lov bo'lmagan kunlar ham
      * 0 summa bilan) jami to'lov summasi ({@code display} da) va PaymentType bo'yicha taqsimotini qaytaradi.
      */
-    List<DailyPaymentSummaryResponse> fetchDailyPayments(LocalDateTime fromDate, LocalDateTime toDate, Currency display);
+    List<DailyPaymentSummaryResponse> fetchDailyPayments(LocalDateTime fromDate, LocalDateTime toDate, Currency display,
+                                                         boolean only);
 
     /**
      * Xarajatlar kategoriya bo'yicha, {@code display} valyutasida.
      */
-    List<DailyExpenseReportResponse> fetchExpenseReport(LocalDate fromDate, LocalDate toDate, Currency display);
+    List<DailyExpenseReportResponse> fetchExpenseReport(LocalDate fromDate, LocalDate toDate, Currency display,
+                                                        boolean only);
 
     /**
-     * Har bir kassa (to'lov turi) o'z valyutasida: davr boshidagi qoldiq, kirim, chiqim, davr oxiridagi qoldiq.
+     * Har bir kassa (to'lov turi) o'z valyutasida: davr boshidagi qoldiq, kirim, chiqim, xarajat, davr oxiridagi qoldiq.
      */
     List<CashBalanceResponse> fetchCashBalances(LocalDate fromDate, LocalDate toDate);
 

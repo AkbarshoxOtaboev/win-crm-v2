@@ -1,55 +1,86 @@
 <template>
   <AdminLayout>
-    <PageBreadcrumb :pageTitle="t('saleOrderCreate.pageTitle')" />
+    <PageBreadcrumb :pageTitle="isEdit ? t('saleOrderCreate.editPageTitle') : t('saleOrderCreate.pageTitle')" />
 
     <div class="card">
       <div class="head">
         <div>
-          <h3 class="title">{{ t('saleOrderCreate.title') }}</h3>
+          <h3 class="title">{{ isEdit ? t('saleOrderCreate.editTitle', { id: editId }) : t('saleOrderCreate.title') }}</h3>
           <p class="sub">
-            {{ t('saleOrderCreate.subtitle') }}
+            {{ isEdit ? t('saleOrderCreate.editSubtitle') : t('saleOrderCreate.subtitle') }}
           </p>
         </div>
-        <router-link to="/sales" class="ghost">{{ t('common.back') }}</router-link>
+        <router-link :to="backTo" class="ghost">{{ t('common.back') }}</router-link>
       </div>
 
       <div v-if="error" class="err mx-5 mb-4">{{ error }}</div>
+      <div v-if="orderFinal" class="warn mx-5 mb-4">{{ t('saleOrderCreate.finalOrderHint') }}</div>
 
       <div class="p-5">
-        <div class="delivery-block mb-4">
-          <span class="lbl">{{ t('saleOrderCreate.saleTypeTitle') }}</span>
-          <div class="delivery-options sale-type-options">
+        <div class="step-head">
+          <span class="step-num" :class="{ done: !!form.saleType }">
+            <Check v-if="form.saleType" class="h-3.5 w-3.5" />
+            <template v-else>1</template>
+          </span>
+          <span class="step-title">{{ t('saleOrderCreate.saleTypeTitle') }}</span>
+        </div>
+        <div class="type-row">
+          <div
+            class="type-toggle"
+            role="radiogroup"
+            :aria-label="t('saleOrderCreate.saleTypeTitle')"
+            :title="isEdit ? t('saleOrderCreate.saleTypeLocked') : undefined"
+          >
             <button
               type="button"
-              class="delivery-opt"
+              role="radio"
+              class="type-btn"
               :class="{ active: form.saleType === 'RETAIL' }"
-              :aria-pressed="form.saleType === 'RETAIL'"
+              :aria-checked="form.saleType === 'RETAIL'"
+              :disabled="isEdit"
               @click="form.saleType = 'RETAIL'"
             >
-              <ShoppingBag class="h-5 w-5 flex-shrink-0" />
-              <span class="text-left">
-                <span class="opt-title">{{ t('saleOrderCreate.retail') }}</span>
-                <span class="opt-sub">{{ t('saleOrderCreate.retailHint') }}</span>
-              </span>
+              <ShoppingBag class="h-4 w-4 flex-shrink-0" />
+              {{ t('saleOrderCreate.retail') }}
             </button>
             <button
               type="button"
-              class="delivery-opt wholesale"
+              role="radio"
+              class="type-btn wholesale"
               :class="{ active: form.saleType === 'WHOLESALE' }"
-              :aria-pressed="form.saleType === 'WHOLESALE'"
+              :aria-checked="form.saleType === 'WHOLESALE'"
+              :disabled="isEdit"
               @click="form.saleType = 'WHOLESALE'"
             >
-              <Boxes class="h-5 w-5 flex-shrink-0" />
-              <span class="text-left">
-                <span class="opt-title">{{ t('saleOrderCreate.wholesale') }}</span>
-                <span class="opt-sub">{{ t('saleOrderCreate.wholesaleHint') }}</span>
-              </span>
+              <Boxes class="h-4 w-4 flex-shrink-0" />
+              {{ t('saleOrderCreate.wholesale') }}
             </button>
           </div>
+          <p class="type-hint">
+            {{
+              form.saleType === 'WHOLESALE'
+                ? t('saleOrderCreate.wholesaleHint')
+                : form.saleType === 'RETAIL'
+                  ? t('saleOrderCreate.retailHint')
+                  : t('saleOrderCreate.chooseSaleTypeHint')
+            }}
+          </p>
         </div>
 
-        <div class="form-row">
-          <label class="lbl min-w-0 flex-[1.4]">
+        <div v-if="!form.saleType && !isEdit" class="type-empty">
+          <span class="type-empty-icon"><UserRound class="h-5 w-5" /></span>
+          {{ t('saleOrderCreate.chooseSaleTypeFirst') }}
+        </div>
+
+        <Transition name="reveal">
+        <div v-if="form.saleType" class="mt-6">
+        <div class="step-head">
+          <span class="step-num">2</span>
+          <span class="step-title">{{ t('saleOrderCreate.orderDetails') }}</span>
+        </div>
+
+        <div class="details-grid">
+          <label class="lbl span-2">
             {{ t('common.client') }}
             <div class="client-row">
               <SearchableSelect
@@ -69,7 +100,20 @@
             </div>
           </label>
 
-          <label class="lbl min-w-0 flex-1">
+          <label class="lbl">
+            {{ t('saleOrderCreate.seller') }}
+            <select v-model.number="form.userId" required class="field" :disabled="!auth.isElevated && sellerOptions.length === 1">
+              <option :value="0" disabled>{{ t('saleOrderCreate.selectSeller') }}</option>
+              <option v-for="u in sellerOptions" :key="u.id" :value="u.id">{{ u.fullName || u.username }}</option>
+            </select>
+          </label>
+
+          <label class="lbl">
+            {{ t('common.date') }}
+            <input v-model="form.orderDate" type="date" required class="field" />
+          </label>
+
+          <label class="lbl">
             {{ t('common.warehouse') }}
             <select
               v-model.number="form.warehouseId"
@@ -83,20 +127,40 @@
             </select>
           </label>
 
-          <label class="lbl min-w-0 flex-1">
-            {{ t('saleOrderCreate.seller') }}
-            <select v-model.number="form.userId" required class="field" :disabled="!auth.isElevated && sellerOptions.length === 1">
-              <option :value="0" disabled>{{ t('saleOrderCreate.selectSeller') }}</option>
-              <option v-for="u in sellerOptions" :key="u.id" :value="u.id">{{ u.fullName || u.username }}</option>
+          <label class="lbl">
+            {{ t('saleOrderCreate.currency') }}
+            <select
+              v-model="form.currency"
+              class="field"
+              :disabled="draftItems.length > 0"
+              :title="draftItems.length > 0 ? t('saleOrderCreate.currencyLocked') : undefined"
+            >
+              <option v-for="c in CURRENCIES" :key="c" :value="c">{{ t(`exchangeRates.currencies.${c}`) }}</option>
             </select>
           </label>
-
-          <label class="lbl min-w-0 w-full sm:w-44 sm:flex-none">
-            {{ t('common.date') }}
-            <input v-model="form.orderDate" type="date" required class="field" />
+          <label v-if="needsRate" class="lbl">
+            {{ t('saleOrderCreate.rate') }}
+            <input
+              :value="rateText"
+              inputmode="decimal"
+              autocomplete="off"
+              :placeholder="rateLoading ? t('exchangeRates.rateLoading') : '0'"
+              class="field"
+              :class="{ 'rate-manual': rateIsManual, 'cursor-default bg-gray-50 dark:bg-white/[0.03]': !rateEditable }"
+              :readonly="!rateEditable"
+              :tabindex="rateEditable ? undefined : -1"
+              :title="
+                !isForeign
+                  ? t('exchangeRates.rateAuto')
+                  : draftItems.length > 0
+                    ? t('saleOrderCreate.rateLocked')
+                    : t('saleOrderCreate.rateEditHint')
+              "
+              @input="onRateInput"
+            />
           </label>
 
-          <div class="lbl min-w-0 flex-1">
+          <div class="lbl" :class="{ 'span-2': !needsRate }">
             <label for="order-total-sum">{{ t('saleOrderCreate.orderSumRequired') }} ({{ curLabel }})</label>
             <div class="total-row">
               <input
@@ -120,41 +184,9 @@
             </div>
           </div>
         </div>
-        <p class="total-hint mt-1.5">{{ t('saleOrderCreate.orderSumHint') }}</p>
 
-        <div class="form-row mt-3">
-          <label class="lbl min-w-0 w-full sm:w-44 sm:flex-none">
-            {{ t('saleOrderCreate.currency') }}
-            <select
-              v-model="form.currency"
-              class="field"
-              :disabled="draftItems.length > 0"
-              :title="draftItems.length > 0 ? t('saleOrderCreate.currencyLocked') : undefined"
-            >
-              <option v-for="c in CURRENCIES" :key="c" :value="c">{{ t(`exchangeRates.currencies.${c}`) }}</option>
-            </select>
-          </label>
-          <label v-if="needsRate" class="lbl min-w-0 w-full sm:w-44 sm:flex-none">
-            {{ t('saleOrderCreate.rate') }}
-            <input
-              :value="rateText"
-              inputmode="decimal"
-              autocomplete="off"
-              :placeholder="rateLoading ? t('exchangeRates.rateLoading') : '0'"
-              class="field"
-              :class="{ 'rate-manual': rateIsManual, 'cursor-default bg-gray-50 dark:bg-white/[0.03]': !rateEditable }"
-              :readonly="!rateEditable"
-              :tabindex="rateEditable ? undefined : -1"
-              :title="
-                !isForeign
-                  ? t('exchangeRates.rateAuto')
-                  : draftItems.length > 0
-                    ? t('saleOrderCreate.rateLocked')
-                    : t('saleOrderCreate.rateEditHint')
-              "
-              @input="onRateInput"
-            />
-          </label>
+        <div class="details-notes">
+          <p class="total-hint">{{ t('saleOrderCreate.orderSumHint') }}</p>
           <p v-if="needsRate" class="cur-hint">
             <span v-if="!rateLoading && !(form.exchangeRate > 0)" class="text-amber-600">{{ t('saleOrderCreate.rateMissing') }}</span>
             <template v-else>
@@ -169,7 +201,28 @@
           </p>
         </div>
 
-        <div class="delivery-block mt-4">
+        <div v-if="form.clientId > 0" class="client-summary">
+          <div class="summary-item">
+            <span class="summary-label">{{ t('saleOrderCreate.totalPurchase') }}</span>
+            <span class="summary-value">{{ balanceText(clientBalance?.totalPurchase) }}</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">{{ t('saleOrderCreate.totalPaid') }}</span>
+            <span class="summary-value paid">{{ balanceText(clientBalance?.totalPaid) }}</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">{{ Number(clientBalance?.totalDebt || 0) < 0 ? t('saleOrderCreate.overpaid') : t('saleOrderCreate.debt') }}</span>
+            <span class="summary-value" :class="Number(clientBalance?.totalDebt || 0) > 0 ? 'debt' : 'paid'">
+              {{ balanceText(clientBalance ? Math.abs(Number(clientBalance.totalDebt || 0)) : undefined) }}
+            </span>
+          </div>
+          <p v-if="otherCurrencyDebts" class="summary-note">
+            {{ t('saleOrderCreate.otherCurrencyDebt', { value: otherCurrencyDebts }) }}
+          </p>
+          <p v-if="balanceError" class="summary-note">{{ balanceError }}</p>
+        </div>
+
+        <div class="delivery-block mt-5">
           <span class="lbl">{{ t('saleOrderCreate.deliveryTitle') }}</span>
           <div class="delivery-row">
             <div class="delivery-options">
@@ -177,6 +230,7 @@
                 type="button"
                 class="delivery-opt"
                 :class="{ active: form.deliveryType === 'PICKUP' }"
+                :disabled="deliveryTypeLocked"
                 @click="setDeliveryType('PICKUP')"
               >
                 <PackageCheck class="h-5 w-5 flex-shrink-0" />
@@ -189,6 +243,7 @@
                 type="button"
                 class="delivery-opt"
                 :class="{ active: form.deliveryType === 'DELIVERY' }"
+                :disabled="deliveryTypeLocked"
                 @click="setDeliveryType('DELIVERY')"
               >
                 <Truck class="h-5 w-5 flex-shrink-0" />
@@ -220,31 +275,12 @@
             :placeholder="t('saleOrderCreate.commentPlaceholder')"
           />
         </label>
-
-        <div v-if="form.clientId > 0" class="client-summary">
-          <div class="summary-item">
-            <span class="summary-label">{{ t('saleOrderCreate.totalPurchase') }}</span>
-            <span class="summary-value">{{ balanceText(clientBalance?.totalPurchase) }}</span>
-          </div>
-          <div class="summary-item">
-            <span class="summary-label">{{ t('saleOrderCreate.totalPaid') }}</span>
-            <span class="summary-value paid">{{ balanceText(clientBalance?.totalPaid) }}</span>
-          </div>
-          <div class="summary-item">
-            <span class="summary-label">{{ Number(clientBalance?.totalDebt || 0) < 0 ? t('saleOrderCreate.overpaid') : t('saleOrderCreate.debt') }}</span>
-            <span class="summary-value" :class="Number(clientBalance?.totalDebt || 0) > 0 ? 'debt' : 'paid'">
-              {{ balanceText(clientBalance ? Math.abs(Number(clientBalance.totalDebt || 0)) : undefined) }}
-            </span>
-          </div>
-          <p v-if="otherCurrencyDebts" class="summary-note">
-            {{ t('saleOrderCreate.otherCurrencyDebt', { value: otherCurrencyDebts }) }}
-          </p>
-          <p v-if="balanceError" class="summary-note">{{ balanceError }}</p>
         </div>
+        </Transition>
       </div>
     </div>
 
-    <div class="card mt-4">
+    <div v-if="form.saleType" class="card mt-4">
       <div class="head">
         <div>
           <h3 class="title">{{ t('saleOrderCreate.items') }}</h3>
@@ -254,7 +290,8 @@
         </div>
       </div>
 
-      <div class="p-5 border-b border-gray-100">
+      <p v-if="orderFinal" class="items-locked">{{ t('saleOrderCreate.itemsLocked') }}</p>
+      <div v-else class="p-5 border-b border-gray-100">
         <div class="form-row">
           <div class="lbl min-w-0 w-full sm:w-auto sm:flex-none">
             {{ t('saleOrderCreate.itemType') }}
@@ -385,7 +422,10 @@
             </tr>
             <tr v-for="(row, idx) in displayItems" :key="row.key" class="border-b border-gray-100">
               <td class="td">{{ idx + 1 }}</td>
-              <td class="td">{{ row.goodsName }}</td>
+              <td class="td">
+                {{ row.goodsName }}
+                <span v-if="isEdit && !row.itemId" class="new-badge">{{ t('saleOrderCreate.newBadge') }}</span>
+              </td>
               <td class="td">
                 <span class="kind-badge" :class="row.isService ? 'service' : 'product'">
                   {{ row.isService ? t('saleOrderCreate.kindService') : t('saleOrderCreate.kindProduct') }}
@@ -398,7 +438,7 @@
               <td class="td">{{ amt(row.priceSelling) }}</td>
               <td class="td">{{ amt(row.sum) }}</td>
               <td class="td text-right">
-                <button type="button" class="danger" :disabled="saving" @click="onRemoveItem(row.key)">{{ t('common.delete') }}</button>
+                <button type="button" class="danger" :disabled="saving || orderFinal" @click="onRemoveItem(row.key)">{{ t('common.delete') }}</button>
               </td>
             </tr>
           </tbody>
@@ -430,19 +470,26 @@
               <span class="save-label">=</span>
               <span class="save-part">{{ moneyIn(grandTotal * form.exchangeRate, 'UZS', t('common.currency')) }}</span>
             </template>
+            <span v-if="discountText" class="save-label">· {{ t('saleOrderCreate.discountKept', { value: discountText }) }}</span>
           </template>
         </div>
         <div class="flex gap-2">
-          <router-link to="/sales" class="ghost">{{ t('common.cancel') }}</router-link>
+          <router-link :to="backTo" class="ghost">{{ t('common.cancel') }}</router-link>
           <button
             type="button"
             class="btn"
-            :class="{ 'wholesale-btn': form.saleType === 'WHOLESALE' }"
+            :class="{ 'wholesale-btn': !isEdit && form.saleType === 'WHOLESALE' }"
             :disabled="saving || !!saveBlockReason"
             @click="onSave"
           >
-            <CheckCheck v-if="form.saleType === 'WHOLESALE'" class="me-1.5 h-4 w-4" />
-            {{ saving ? '...' : form.saleType === 'WHOLESALE' ? t('saleOrderCreate.saveWholesale') : t('common.save') }}
+            <CheckCheck v-if="!isEdit && form.saleType === 'WHOLESALE'" class="me-1.5 h-4 w-4" />
+            {{
+              saving
+                ? '...'
+                : !isEdit && form.saleType === 'WHOLESALE'
+                  ? t('saleOrderCreate.saveWholesale')
+                  : t('common.save')
+            }}
           </button>
         </div>
       </div>
@@ -505,17 +552,28 @@ import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import SearchableSelect from '@/components/crm/SearchableSelect.vue'
 import {
   Boxes,
+  Check,
   CheckCheck,
   Magnet,
   Package,
   PackageCheck,
   ShoppingBag,
   Truck,
+  UserRound,
   Warehouse as WarehouseIcon,
   Wrench,
 } from 'lucide-vue-next'
 import Swal from 'sweetalert2'
-import { createSaleOrder, type DeliveryType, type SaleType } from '@/api/sales'
+import {
+  createSaleOrder,
+  fetchSaleOrder,
+  updateSaleOrder,
+  type DeliveryType,
+  type SaleOrder,
+  type SaleOrderInitialItem,
+  type SaleType,
+} from '@/api/sales'
+import { fetchSaleOrderItems, type SaleOrderItem } from '@/api/saleOrderItems'
 import { fetchWarehouses, type Warehouse } from '@/api/warehouses'
 import { createClient, fetchClients, type Client } from '@/api/clients'
 import { balanceIn, fetchClientBalance, type ClientBalance } from '@/api/clientBalances'
@@ -539,8 +597,19 @@ const users = ref<UserItem[]>([])
 const goods = ref<Goods[]>([])
 const stocks = ref<Stock[]>([])
 
+const editId = route.name === 'SaleOrderEdit' ? Number(route.params.id) || 0 : 0
+const isEdit = editId > 0
+const backTo = isEdit ? `/sales/${editId}` : '/sales'
+const editOrder = ref<SaleOrder | null>(null)
+const orderFinal = computed(() => ['COMPLETED', 'CANCELLED'].includes(editOrder.value?.orderStatus || ''))
+const deliveryTypeLocked = computed(() =>
+  ['IN_DELIVERY', 'DELIVERED', 'WORK_DONE', 'COMPLETED', 'CANCELLED'].includes(editOrder.value?.orderStatus || ''),
+)
+
 interface DraftItem {
   key: number
+  /** Saqlangan pozitsiya ID'si; yangi qo'shilganda yo'q. */
+  itemId?: number
   goodsId: number
   goodsName: string
   isWindow: boolean
@@ -554,6 +623,8 @@ interface DraftItem {
 }
 
 const draftItems = ref<DraftItem[]>([])
+/** Tahrirlashda olib tashlangan saqlangan pozitsiyalar: saqlanganda o'chiriladi, qoldig'i omborga qaytadi. */
+const removedItems = ref<DraftItem[]>([])
 let draftSeq = 0
 const saving = ref(false)
 const saved = ref(false)
@@ -575,7 +646,7 @@ const form = reactive({
   comment: '',
   totalSum: 0,
   deliveryType: 'PICKUP' as DeliveryType,
-  saleType: 'RETAIL' as SaleType,
+  saleType: '' as SaleType | '',
   deliveryFee: 0,
   currency: BASE_CURRENCY as CurrencyCode,
   /** Xorijiy buyurtmada buyurtma kursi; so'mdagi buyurtmada faqat xorijiy narxli mahsulotni o'girish uchun. */
@@ -760,7 +831,12 @@ const stockByGoodsId = computed(() => {
 
 function hasWarehouseStock(g: Goods) {
   if (isService(g)) return true
-  return (stockByGoodsId.value.get(g.id) || 0) > 0
+  return (stockByGoodsId.value.get(g.id) || 0) > 0 || releasedStock(g.id) > 0
+}
+
+function releasedStock(goodsId: number) {
+  if (!editOrder.value || form.warehouseId !== editOrder.value.warehouseId) return 0
+  return removedItems.value.filter((d) => d.goodsId === goodsId).reduce((acc, d) => acc + d.count, 0)
 }
 
 const availableByGoodsId = computed(() => {
@@ -774,9 +850,9 @@ const availableByGoodsId = computed(() => {
 
 function remainingStock(goodsId: number) {
   const reserved = draftItems.value
-    .filter((d) => d.goodsId === goodsId)
+    .filter((d) => d.goodsId === goodsId && !d.itemId)
     .reduce((acc, d) => acc + d.count, 0)
-  return (availableByGoodsId.value.get(goodsId) || 0) - reserved
+  return (availableByGoodsId.value.get(goodsId) || 0) - reserved + releasedStock(goodsId)
 }
 
 /** Oyna qoldig'i donada: backend StockPieces bilan bir xil - mahsulot o'lchamidan, bo'lmasa ombordagi nisbatdan. */
@@ -798,7 +874,9 @@ function stockLeftText(g: Goods) {
 }
 
 const sellerOptions = computed(() =>
-  auth.isElevated ? users.value : users.value.filter((u) => u.username === auth.username),
+  auth.isElevated
+    ? users.value
+    : users.value.filter((u) => u.username === auth.username || u.id === editOrder.value?.userId),
 )
 
 const itemKind = ref<'PRODUCT' | 'SERVICE'>('PRODUCT')
@@ -852,11 +930,18 @@ function pullItemsTotal() {
 }
 
 const saveBlockReason = computed(() => {
+  if (!form.saleType) return t('saleOrderCreate.chooseSaleTypeFirst')
   if (!headerReady.value) return t('saleOrderCreate.selectHeader')
   if (!(form.totalSum > 0)) return t('saleOrderCreate.enterSum')
   if (isForeign.value && !(form.exchangeRate > 0)) return t('saleOrderCreate.rateMissing')
-  if (draftItems.value.length === 0) return t('saleOrderCreate.addAtLeastOne')
+  if (!isEdit && draftItems.value.length === 0) return t('saleOrderCreate.addAtLeastOne')
   return null
+})
+
+const discountText = computed(() => {
+  const o = editOrder.value
+  if (!o?.discountType || !(Number(o.discountValue) > 0)) return ''
+  return o.discountType === 'PERCENTAGE' ? `${Number(o.discountValue)}%` : amt(Number(o.discountValue))
 })
 
 watch(
@@ -959,13 +1044,16 @@ async function load() {
     clients.value = c.data || []
     users.value = u.data || []
     goods.value = g.data || []
-    if (!form.warehouseId && activeWarehouses.value[0]) {
+    if (isEdit) {
+      await fillFromOrder()
+    } else if (!form.warehouseId && activeWarehouses.value[0]) {
       form.warehouseId = activeWarehouses.value[0].id
     }
     if (form.warehouseId) {
       const stockRes = await fetchStocksByWarehouse(form.warehouseId)
       stocks.value = stockRes.data || []
     }
+    if (isEdit) return
     const me = users.value.find((x) => x.username === auth.username)
     if (!form.userId || !sellerOptions.value.some((u) => u.id === form.userId)) {
       form.userId = me?.id || sellerOptions.value[0]?.id || 0
@@ -1023,12 +1111,115 @@ function onAddItem() {
 }
 
 function onRemoveItem(key: number) {
+  const row = draftItems.value.find((d) => d.key === key)
+  if (row?.itemId) removedItems.value.push(row)
   draftItems.value = draftItems.value.filter((d) => d.key !== key)
   itemError.value = null
 }
 
+/** Saqlangan buyurtma vaqtini saqlab qoladi: kun o'zgarmasa, server uchun asl sana-vaqt yuboriladi. */
+let originalOrderDate = ''
+
+function toDraft(it: SaleOrderItem): DraftItem {
+  const g = goods.value.find((x) => x.id === it.goodsId)
+  const windowMode = isWindow(g)
+  const width = Number(it.width || 0)
+  const height = Number(it.height || 0)
+  const count = Number(it.count || 0)
+  return {
+    key: ++draftSeq,
+    itemId: it.id,
+    goodsId: Number(it.goodsId),
+    goodsName: it.goodsName || g?.name || `#${it.goodsId}`,
+    isWindow: windowMode,
+    isService: isService(g),
+    width: windowMode ? width : null,
+    height: windowMode ? height : null,
+    pieces: windowMode && width > 0 && height > 0 ? Math.round(((count * 10000) / (width * height)) * 10000) / 10000 : null,
+    count,
+    priceCost: Number(it.priceCost || 0),
+    priceSelling: Number(it.priceSelling || 0),
+  }
+}
+
+async function fillFromOrder() {
+  const [o, its] = await Promise.all([fetchSaleOrder(editId), fetchSaleOrderItems(editId)])
+  const order = o.data
+  if (!order) throw new Error(t('saleOrderCreate.notFound'))
+  editOrder.value = order
+  originalOrderDate = order.orderDate || ''
+  form.clientId = order.clientId || 0
+  form.warehouseId = order.warehouseId || 0
+  form.userId = order.userId || 0
+  form.orderDate = originalOrderDate.slice(0, 10) || todayLocal()
+  form.comment = order.comment || ''
+  form.totalSum = Number(order.originalTotalSum ?? order.totalSum ?? 0)
+  totalSumText.value = form.totalSum > 0 ? amountToText(form.totalSum) : ''
+  form.deliveryType = order.deliveryType || 'PICKUP'
+  form.deliveryFee = Number(order.deliveryFee || 0)
+  deliveryFeeText.value = form.deliveryFee > 0 ? amountToText(form.deliveryFee) : ''
+  form.saleType = order.saleType || 'RETAIL'
+  form.currency = order.currency || BASE_CURRENCY
+  const rate = Number(order.exchangeRate || 0)
+  manualRate.value = form.currency !== BASE_CURRENCY && rate > 0 ? rate : null
+  draftItems.value = (its.data || []).filter((it) => it.status !== 'DELETED' && it.goodsId).map(toDraft)
+  removedItems.value = []
+}
+
+watch(
+  () => form.orderDate,
+  (date) => {
+    if (!isEdit || !editOrder.value || date === originalOrderDate.slice(0, 10)) return
+    if (manualRate.value === Number(editOrder.value.exchangeRate)) manualRate.value = null
+  },
+)
+
+function itemPayload(d: DraftItem): SaleOrderInitialItem {
+  return {
+    goodsId: d.goodsId,
+    priceCost: d.priceCost,
+    priceSelling: d.priceSelling,
+    count: d.isWindow ? Number(d.pieces) : d.count,
+    width: d.width ?? undefined,
+    height: d.height ?? undefined,
+  }
+}
+
+async function saveEdit() {
+  saving.value = true
+  error.value = null
+  try {
+    const sameDay = !!originalOrderDate && form.orderDate === originalOrderDate.slice(0, 10)
+    await updateSaleOrder(editId, {
+      warehouseId: form.warehouseId,
+      userId: form.userId,
+      orderDate: sameDay ? originalOrderDate : dateToApi(form.orderDate),
+      totalSum: form.totalSum,
+      clientId: form.clientId,
+      comment: form.comment.trim(),
+      deliveryType: form.deliveryType,
+      deliveryFee: deliveryFeeValue.value,
+      currency: form.currency,
+      exchangeRate: isForeign.value && manualRate.value != null ? form.exchangeRate : undefined,
+      items: draftItems.value.filter((d) => !d.itemId).map(itemPayload),
+      removedItemIds: removedItems.value.map((d) => Number(d.itemId)),
+    })
+    saved.value = true
+    void router.push(backTo)
+  } catch (e) {
+    error.value = formatApiError(e)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  } finally {
+    saving.value = false
+  }
+}
+
 async function onSave() {
   if (saving.value || saveBlockReason.value) return
+  if (isEdit) {
+    await saveEdit()
+    return
+  }
   if (form.saleType === 'WHOLESALE') {
     const result = await Swal.fire({
       title: t('saleOrderCreate.wholesaleConfirmTitle'),
@@ -1057,15 +1248,8 @@ async function onSave() {
       deliveryFee: deliveryFeeValue.value,
       currency: form.currency,
       exchangeRate: isForeign.value && manualRate.value != null ? form.exchangeRate : undefined,
-      saleType: form.saleType,
-      items: draftItems.value.map((d) => ({
-        goodsId: d.goodsId,
-        priceCost: d.priceCost,
-        priceSelling: d.priceSelling,
-        count: d.isWindow ? Number(d.pieces) : d.count,
-        width: d.width ?? undefined,
-        height: d.height ?? undefined,
-      })),
+      saleType: form.saleType || 'RETAIL',
+      items: draftItems.value.map(itemPayload),
     })
     const id = res.data?.id
     if (!id) throw new Error(t('saleOrderCreate.notCreated'))
@@ -1085,7 +1269,10 @@ async function onSave() {
 }
 
 onBeforeRouteLeave(() => {
-  if (saved.value || draftItems.value.length === 0) return true
+  const dirty = isEdit
+    ? removedItems.value.length > 0 || draftItems.value.some((d) => !d.itemId)
+    : draftItems.value.length > 0
+  if (saved.value || !dirty) return true
   return confirm(t('saleOrderCreate.leaveConfirm'))
 })
 
@@ -1169,6 +1356,14 @@ async function onCreateClient() {
 .td { padding: 0.75rem 1rem; font-size: 0.875rem; color: #4b5563; }
 .empty { padding: 2rem 1.25rem; text-align: center; font-size: 0.875rem; color: #6b7280; }
 .err { border-radius: 0.5rem; border: 1px solid #fecaca; background: #fef2f2; padding: 0.75rem 1rem; font-size: 0.875rem; color: #dc2626; }
+.warn { border-radius: 0.5rem; border: 1px solid #fde68a; background: #fffbeb; padding: 0.75rem 1rem; font-size: 0.875rem; color: #b45309; }
+.dark .warn { border-color: rgba(245, 158, 11, 0.35); background: rgba(245, 158, 11, 0.1); color: #fbbf24; }
+.items-locked { border-bottom: 1px solid #f3f4f6; padding: 1rem 1.25rem; font-size: 0.875rem; color: #b45309; }
+.dark .items-locked { border-color: #1f2937; color: #fbbf24; }
+.new-badge { margin-inline-start: 0.375rem; border-radius: 9999px; background: #ecfdf3; padding: 0.0625rem 0.5rem; font-size: 0.6875rem; font-weight: 600; color: #027a48; }
+.dark .new-badge { background: rgba(18, 183, 106, 0.15); color: #6ce9a6; }
+.delivery-opt:disabled { cursor: not-allowed; }
+.delivery-opt:disabled:not(.active) { opacity: 0.5; }
 .client-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem; margin-top: 1rem; }
 .summary-item { display: flex; flex-direction: column; gap: 0.25rem; border-radius: 0.75rem; border: 1px solid #e5e7eb; background: #f9fafb; padding: 0.75rem 1rem; }
 .summary-label { font-size: 0.75rem; font-weight: 500; color: #6b7280; }
@@ -1211,11 +1406,46 @@ async function onCreateClient() {
 .opt-title { display: block; font-size: 0.875rem; font-weight: 600; color: #1f2937; }
 .opt-sub { display: block; font-size: 0.75rem; color: #6b7280; }
 .delivery-opt.active .opt-title { color: #465fff; }
-.sale-type-options { max-width: 40rem; }
-.delivery-opt.wholesale.active { border-color: #12b76a; background: #ecfdf3; color: #039855; box-shadow: 0 0 0 3px rgb(18 183 106 / 12%); }
-.delivery-opt.wholesale.active .opt-title { color: #039855; }
-:global(html.dark .delivery-opt.wholesale.active) { border-color: #12b76a; background: rgba(18, 183, 106, 0.12); color: #6ce9a6; }
-:global(html.dark .delivery-opt.wholesale.active .opt-title) { color: #6ce9a6; }
+.step-head { display: flex; align-items: center; gap: 0.625rem; margin-bottom: 0.75rem; }
+.step-num { display: inline-flex; height: 1.5rem; width: 1.5rem; flex-shrink: 0; align-items: center; justify-content: center; border-radius: 9999px; background: #eff4ff; font-size: 0.75rem; font-weight: 700; color: #465fff; }
+.step-num.done { background: #465fff; color: #fff; }
+.step-title { font-size: 0.9375rem; font-weight: 600; color: #1f2937; }
+.dark .step-num { background: rgb(70 95 255 / 15%); color: #9cb0ff; }
+.dark .step-num.done { background: #465fff; color: #fff; }
+.dark .step-title { color: rgba(255, 255, 255, 0.9); }
+.type-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1rem; }
+.type-toggle { display: inline-grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.25rem; border-radius: 0.75rem; background: #f2f4f7; padding: 0.25rem; min-width: min(100%, 20rem); }
+.type-btn { display: inline-flex; height: 2.5rem; align-items: center; justify-content: center; gap: 0.5rem; border-radius: 0.5rem; padding: 0 1.25rem; font-size: 0.875rem; font-weight: 600; color: #667085; white-space: nowrap; transition: background-color 0.15s, color 0.15s, box-shadow 0.15s; }
+.type-btn:hover:not(:disabled):not(.active) { color: #344054; background: rgb(255 255 255 / 60%); }
+.type-btn.active { background: #fff; color: #465fff; box-shadow: 0 1px 3px rgba(16, 24, 40, 0.12); }
+.type-btn.wholesale.active { background: #12b76a; color: #fff; }
+.type-btn:disabled { cursor: not-allowed; }
+.type-btn:disabled:not(.active) { opacity: 0.5; }
+.type-hint { flex: 1 1 16rem; font-size: 0.8125rem; color: #667085; }
+.type-empty { margin-top: 1.25rem; display: flex; align-items: center; gap: 0.75rem; border-radius: 0.75rem; border: 1px dashed #d0d5dd; background: #f9fafb; padding: 1rem 1.25rem; font-size: 0.875rem; color: #667085; }
+.type-empty-icon { display: flex; height: 2.25rem; width: 2.25rem; flex-shrink: 0; align-items: center; justify-content: center; border-radius: 9999px; background: #fff; color: #98a2b3; box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06); }
+.dark .type-toggle { background: rgb(255 255 255 / 5%); }
+.dark .type-btn { color: #98a2b3; }
+.dark .type-btn:hover:not(:disabled):not(.active) { color: #e4e7ec; background: rgb(255 255 255 / 5%); }
+.dark .type-btn.active { background: #1d2939; color: #9cb0ff; }
+.dark .type-btn.wholesale.active { background: #12b76a; color: #fff; }
+.dark .type-hint { color: #98a2b3; }
+.dark .type-empty { border-color: #344054; background: rgb(255 255 255 / 2%); color: #98a2b3; }
+.dark .type-empty-icon { background: rgb(255 255 255 / 5%); color: #98a2b3; }
+.details-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; }
+.details-grid > * { min-width: 0; }
+.details-grid .span-2 { grid-column: span 2 / span 2; }
+.details-notes { margin-top: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.25rem 1.5rem; }
+.reveal-enter-active { transition: opacity 0.2s ease, transform 0.2s ease; }
+.reveal-enter-from { opacity: 0; transform: translateY(-0.375rem); }
+@media (max-width: 1024px) {
+  .details-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .details-grid { grid-template-columns: 1fr; }
+  .details-grid .span-2 { grid-column: auto; }
+  .type-toggle { width: 100%; }
+}
 .btn.wholesale-btn { background: #12b76a; }
 .btn.wholesale-btn:hover:not(:disabled) { background: #039855; }
 .save-part { font-weight: 600; color: #374151; }

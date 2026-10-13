@@ -404,173 +404,6 @@
       </table>
     </div>
 
-    <div v-if="orderModal" class="overlay">
-      <div class="modal modal-lg" role="dialog" aria-modal="true" aria-labelledby="order-modal-title">
-        <div class="mb-5 flex items-start justify-between gap-3">
-          <div class="flex items-start gap-3">
-            <span class="modal-badge"><Pencil class="h-5 w-5" /></span>
-            <div>
-              <h3 id="order-modal-title" class="title">{{ t('saleOrderDetail.editOrderTitle', { id: order?.id }) }}</h3>
-              <p class="modal-hint mt-1">{{ t('saleOrderDetail.editOrderSubtitle') }}</p>
-            </div>
-          </div>
-          <button type="button" class="close-btn" :aria-label="t('common.close')" @click="orderModal = false">
-            <X class="h-5 w-5" />
-          </button>
-        </div>
-        <div v-if="formError" class="err mb-3">{{ formError }}</div>
-        <form class="space-y-4" @submit.prevent="onOrderSave">
-          <div>
-            <label class="f-lbl">{{ t('common.client') }}</label>
-            <SearchableSelect
-              v-model="orderForm.clientId"
-              :options="clientOptions"
-              :placeholder="t('saleOrderDetail.clientPlaceholder')"
-              :search-placeholder="t('payments.clientSearchPlaceholder')"
-            />
-          </div>
-          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label for="order-wh" class="f-lbl">{{ t('common.warehouse') }} <span class="req">*</span></label>
-              <div class="relative">
-                <WarehouseIcon class="f-icon" />
-                <select
-                  id="order-wh"
-                  v-model.number="orderForm.warehouseId"
-                  required
-                  class="field f-field"
-                  :disabled="order?.orderStatus === 'COMPLETED'"
-                >
-                  <option v-for="w in warehouses" :key="w.id" :value="w.id">{{ w.name }}</option>
-                </select>
-              </div>
-            </div>
-            <div>
-              <label for="order-user" class="f-lbl">{{ t('saleOrderDetail.seller') }} <span class="req">*</span></label>
-              <div class="relative">
-                <UserCog class="f-icon" />
-                <select id="order-user" v-model.number="orderForm.userId" required class="field f-field">
-                  <option v-for="u in users" :key="u.id" :value="u.id">{{ u.fullName || u.username }}</option>
-                </select>
-              </div>
-            </div>
-          </div>
-          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label for="order-date" class="f-lbl">{{ t('common.date') }} <span class="req">*</span></label>
-              <div class="relative">
-                <CalendarDays class="f-icon" />
-                <input id="order-date" v-model="orderForm.orderDate" type="datetime-local" required class="field f-field" />
-              </div>
-            </div>
-            <div>
-              <label for="order-sum" class="f-lbl">{{ t('saleOrderDetail.orderSum') }} ({{ curLabel }}) <span class="req">*</span></label>
-              <div class="relative">
-                <Banknote class="f-icon" />
-                <input
-                  id="order-sum"
-                  :value="orderSumText"
-                  inputmode="decimal"
-                  autocomplete="off"
-                  required
-                  placeholder="0"
-                  class="field f-field"
-                  @input="onOrderSumInput"
-                />
-              </div>
-            </div>
-          </div>
-          <div>
-            <label class="f-lbl">{{ t('saleOrderCreate.deliveryTitle') }}</label>
-            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <button
-                type="button"
-                class="delivery-opt"
-                :class="{ active: orderForm.deliveryType === 'PICKUP' }"
-                :disabled="deliveryTypeLocked"
-                @click="orderForm.deliveryType = 'PICKUP'"
-              >
-                <PackageCheck class="h-5 w-5 flex-shrink-0" />
-                <span class="opt-title">{{ t('saleOrderCreate.pickup') }}</span>
-              </button>
-              <button
-                type="button"
-                class="delivery-opt"
-                :class="{ active: orderForm.deliveryType === 'DELIVERY' }"
-                :disabled="deliveryTypeLocked"
-                @click="orderForm.deliveryType = 'DELIVERY'"
-              >
-                <Truck class="h-5 w-5 flex-shrink-0" />
-                <span class="opt-title">{{ t('saleOrderCreate.delivery') }}</span>
-              </button>
-            </div>
-            <div v-if="orderForm.deliveryType === 'DELIVERY'" class="relative mt-3">
-              <Truck class="f-icon" />
-              <input
-                :value="deliveryFeeText"
-                inputmode="decimal"
-                autocomplete="off"
-                placeholder="0"
-                class="field f-field"
-                :aria-label="t('saleOrderCreate.deliveryFee')"
-                @input="onDeliveryFeeInput"
-              />
-              <span class="f-suffix">{{ t('saleOrderCreate.deliveryFee') }}</span>
-            </div>
-          </div>
-          <div>
-            <label for="order-comment" class="f-lbl">{{ t('common.comment') }}</label>
-            <div class="relative">
-              <MessageSquare class="f-icon f-icon-top" />
-              <textarea
-                id="order-comment"
-                v-model="orderForm.comment"
-                rows="2"
-                class="field f-field f-textarea"
-                :placeholder="t('saleOrderCreate.commentPlaceholder')"
-              />
-            </div>
-          </div>
-          <div v-if="isForeign">
-            <label for="order-rate" class="f-lbl">{{ t('saleOrderCreate.rate') }} <span class="req">*</span></label>
-            <div class="relative">
-              <Banknote class="f-icon" />
-              <input
-                id="order-rate"
-                :value="rateFollowsDate && orderRateLoading ? t('exchangeRates.rateLoading') : orderRate > 0 ? formatRate(orderRate) : '—'"
-                readonly
-                tabindex="-1"
-                class="field f-field cursor-default bg-gray-50 dark:bg-white/[0.03]"
-                :title="t('exchangeRates.rateAuto')"
-              />
-            </div>
-            <p v-if="rateFollowsDate && !orderRateLoading && !(orderRate > 0)" class="modal-hint mt-1 text-amber-600">
-              {{ t('saleOrderCreate.rateMissing') }}
-            </p>
-            <p v-else class="modal-hint mt-1">
-              <template v-if="rateLocked">{{ t('saleOrderDetail.rateLocked') }}</template>
-              <template v-else>
-                <template v-if="rateFollowsDate && cbuOrderRateDate">
-                  {{ t('exchangeRates.cbuRate') }} · {{ cbuOrderRateDate.split('-').reverse().join('.') }}.
-                </template>
-                {{ t('saleOrderDetail.rateHint') }}
-              </template>
-            </p>
-          </div>
-          <p v-if="order && order.warehouseId !== orderForm.warehouseId" class="modal-hint">
-            {{ t('saleOrderDetail.warehouseChangeHint') }}
-          </p>
-          <div class="flex justify-end gap-2 pt-1">
-            <button type="button" class="ghost" @click="orderModal = false">{{ t('common.cancel') }}</button>
-            <button type="submit" class="btn btn-with-icon" :disabled="saving">
-              <Check class="h-4 w-4" />
-              {{ saving ? t('common.saving') : t('common.save') }}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-
     <div v-if="itemModal" class="overlay">
       <div class="modal">
         <h3 class="title mb-4">{{ itemEditingId ? t('saleOrderDetail.editItem') : t('saleOrderDetail.newItem') }}</h3>
@@ -654,30 +487,24 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import {
   ArrowDown,
   ArrowUp,
-  Banknote,
-  CalendarDays,
   Check,
   Factory,
   ImagePlus,
-  MessageSquare,
   PackageCheck,
   Pencil,
   Plus,
   RefreshCw,
   Trash2,
   Truck,
-  UserCog,
-  Warehouse as WarehouseIcon,
   X,
 } from 'lucide-vue-next'
 import SearchableSelect from '@/components/crm/SearchableSelect.vue'
 import { useAuthStore } from '@/stores/auth'
-import { formatUzPhone } from '@/utils/phone'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import RowActions from '@/components/crm/RowActions.vue'
@@ -695,10 +522,8 @@ import {
   fetchSaleOrder,
   fetchSaleOrderHistory,
   fetchSaleOrderImages,
-  updateSaleOrder,
   uploadSaleOrderImages,
   deleteSaleOrderImage,
-  type DeliveryType,
   type SaleOrder,
   type SaleOrderDiscountHistory,
   type SaleOrderHistory,
@@ -717,23 +542,20 @@ import {
   fetchSaleOrderWastes,
   type SaleOrderWaste,
 } from '@/api/saleOrderWastes'
-import { fetchWarehouses, type Warehouse } from '@/api/warehouses'
-import { fetchClients, type Client } from '@/api/clients'
-import { fetchUserOptions, type UserItem } from '@/api/users'
 import { fetchGoods, type Goods } from '@/api/goods'
 import { fetchMyDiscountLimit } from '@/api/discountRules'
 import { formatApiError } from '@/api/http'
 import { useFilialScope } from '@/composables/useFilialScope'
-import { amountToText, formatAmountInput, formatDate, money, nowLocal, toApiDate } from '@/utils/format'
+import { formatDate, money, nowLocal, toApiDate } from '@/utils/format'
 import { BASE_CURRENCY, currencySymbol, formatRate, moneyIn, type CurrencyCode } from '@/utils/currency'
 import { fetchCurrentRate } from '@/api/exchangeRates'
-import { useCbuRate } from '@/composables/useCbuRate'
 
 const { writeBlocked } = useFilialScope()
 const { t, te } = useI18n()
 const auth = useAuthStore()
 
 const route = useRoute()
+const router = useRouter()
 const TAB_IDS = ['items', 'discount', 'history', 'images', 'waste'] as const
 const tabs = computed(() => TAB_IDS.map((id) => ({ id, label: t(`saleOrderDetail.tabs.${id}`) })))
 const tab = ref<(typeof TAB_IDS)[number]>('items')
@@ -744,9 +566,6 @@ const discounts = ref<SaleOrderDiscountHistory[]>([])
 const history = ref<SaleOrderHistory[]>([])
 const images = ref<SaleOrderImage[]>([])
 const wastes = ref<SaleOrderWaste[]>([])
-const warehouses = ref<Warehouse[]>([])
-const clients = ref<Client[]>([])
-const users = ref<UserItem[]>([])
 const goods = ref<Goods[]>([])
 const error = ref<string | null>(null)
 const formError = ref<string | null>(null)
@@ -852,61 +671,6 @@ function formatPercent(fraction: number) {
   return `${Math.round(fraction * 10000) / 100}%`
 }
 
-const orderModal = ref(false)
-const orderForm = reactive({
-  warehouseId: 0,
-  clientId: 0,
-  userId: 0,
-  orderDate: '',
-  totalSum: 0,
-  comment: '',
-  deliveryType: 'DELIVERY' as DeliveryType,
-  deliveryFee: 0,
-})
-const orderSumText = ref('')
-const deliveryFeeText = ref('')
-const deliveryTypeLocked = computed(() =>
-  ['IN_DELIVERY', 'DELIVERED', 'WORK_DONE', 'COMPLETED'].includes(order.value?.orderStatus || ''),
-)
-const rateLocked = computed(() => ['COMPLETED', 'CANCELLED'].includes(order.value?.orderStatus || ''))
-/** Server buyurtma kuni o'zgarsa (yakuniy holatgacha) kursni yangi sanadagi Markaziy bank kursiga almashtiradi. */
-const rateFollowsDate = computed(
-  () =>
-    orderModal.value &&
-    isForeign.value &&
-    !rateLocked.value &&
-    !!orderForm.orderDate &&
-    orderForm.orderDate.slice(0, 10) !== (order.value?.orderDate || '').slice(0, 10),
-)
-const {
-  rate: cbuOrderRate,
-  rateDate: cbuOrderRateDate,
-  loading: orderRateLoading,
-} = useCbuRate(
-  () => (rateFollowsDate.value ? orderCurrency.value : null),
-  () => orderForm.orderDate,
-)
-const orderRate = computed(() => (rateFollowsDate.value ? cbuOrderRate.value : Number(order.value?.exchangeRate || 0)))
-
-function onDeliveryFeeInput(e: Event) {
-  const el = e.target as HTMLInputElement
-  const { text, value } = formatAmountInput(el.value)
-  deliveryFeeText.value = text
-  el.value = text
-  orderForm.deliveryFee = value
-}
-const clientOptions = computed(() => [
-  { value: 0, label: t('saleOrderDetail.clientPlaceholder'), searchText: '' },
-  ...clients.value.map((c) => {
-    const phone = c.phone ? formatUzPhone(c.phone) : ''
-    return {
-      value: c.id,
-      label: phone ? `${c.fullName} · ${phone}` : c.fullName,
-      searchText: `${c.fullName} ${c.phone || ''}`,
-    }
-  }),
-])
-
 const goodsOptions = computed(() =>
   goods.value.map((g) => ({
     value: g.id,
@@ -923,13 +687,6 @@ function onGoodsPick(goodsId: number) {
   fillItemFromGoods()
 }
 
-function onOrderSumInput(e: Event) {
-  const el = e.target as HTMLInputElement
-  const { text, value } = formatAmountInput(el.value)
-  orderSumText.value = text
-  el.value = text
-  orderForm.totalSum = value
-}
 const itemModal = ref(false)
 const itemEditingId = ref<number | null>(null)
 const itemForm = reactive({ goodsId: 0, count: 1, width: 0, height: 0, priceCost: 0, priceSelling: 0, arrivalDate: '' })
@@ -1098,16 +855,13 @@ function id() {
 async function load() {
   error.value = null
   try {
-    const [o, its, disc, hist, imgs, w, wh, cl, us, gs] = await Promise.all([
+    const [o, its, disc, hist, imgs, w, gs] = await Promise.all([
       fetchSaleOrder(id()),
       fetchSaleOrderItems(id()),
       fetchDiscountHistory(id()),
       fetchSaleOrderHistory(id()),
       fetchSaleOrderImages(id()),
       fetchSaleOrderWastes(id()),
-      fetchWarehouses(),
-      fetchClients(),
-      fetchUserOptions(),
       fetchGoods(),
     ])
     order.value = o.data
@@ -1116,9 +870,6 @@ async function load() {
     history.value = hist.data || []
     images.value = imgs.data || []
     wastes.value = w.data || []
-    warehouses.value = wh.data || []
-    clients.value = cl.data || []
-    users.value = us.data || []
     goods.value = gs.data || []
     await Promise.all([loadDelivery(), loadProduction(), ensureConversionRate()])
   } catch (e) {
@@ -1139,41 +890,7 @@ async function onRefresh() {
 
 function openEdit() {
   if (!order.value) return
-  orderForm.warehouseId = order.value.warehouseId || 0
-  orderForm.clientId = order.value.clientId || 0
-  orderForm.userId = order.value.userId || 0
-  orderForm.orderDate = (order.value.orderDate || '').slice(0, 16)
-  orderForm.totalSum = Number(order.value.originalTotalSum ?? order.value.totalSum ?? 0)
-  orderSumText.value = amountToText(orderForm.totalSum)
-  orderForm.comment = order.value.comment || ''
-  orderForm.deliveryType = order.value.deliveryType || 'DELIVERY'
-  orderForm.deliveryFee = Number(order.value.deliveryFee || 0)
-  deliveryFeeText.value = orderForm.deliveryFee ? amountToText(orderForm.deliveryFee) : ''
-  formError.value = null
-  orderModal.value = true
-}
-
-async function onOrderSave() {
-  saving.value = true
-  formError.value = null
-  try {
-    await updateSaleOrder(id(), {
-      warehouseId: orderForm.warehouseId,
-      userId: orderForm.userId,
-      orderDate: toApiDate(orderForm.orderDate),
-      totalSum: orderForm.totalSum,
-      clientId: orderForm.clientId || null,
-      comment: orderForm.comment.trim(),
-      deliveryType: orderForm.deliveryType,
-      deliveryFee: orderForm.deliveryType === 'DELIVERY' ? orderForm.deliveryFee : 0,
-    })
-    orderModal.value = false
-    await load()
-  } catch (e) {
-    formError.value = formatApiError(e)
-  } finally {
-    saving.value = false
-  }
+  void router.push(`/sales/${order.value.id}/edit`)
 }
 
 function fillItemFromGoods() {
@@ -1514,28 +1231,10 @@ watch(
 .close-btn:hover { background: #f3f4f6; color: #374151; }
 .f-lbl { display: block; margin-bottom: 0.375rem; font-size: 0.875rem; font-weight: 500; color: #374151; }
 .req { color: #ef4444; }
-.f-icon { position: absolute; top: 50%; left: 0.75rem; z-index: 1; height: 1.1rem; width: 1.1rem; transform: translateY(-50%); color: #98a2b3; pointer-events: none; }
-.f-field { height: 2.75rem; padding-left: 2.5rem; }
-.f-field:focus { outline: none; border-color: #9cb0ff; box-shadow: 0 0 0 4px rgb(70 95 255 / 10%); }
-.f-field:disabled { opacity: 0.6; cursor: not-allowed; }
 .dark .modal-badge { background: rgb(70 95 255 / 12%); color: #9cb0ff; }
 .dark .close-btn:hover { background: rgb(255 255 255 / 5%); color: rgba(255, 255, 255, 0.8); }
 .dark .f-lbl { color: #9ca3af; }
-.dark .f-field { border-color: #344054; color: rgba(255, 255, 255, 0.9); }
-.dark .f-field option { background: #101828; }
-.f-icon-top { top: 0.8rem; transform: none; }
 .f-textarea { height: auto; min-height: 4.5rem; padding-top: 0.6rem; padding-bottom: 0.6rem; resize: vertical; line-height: 1.4; }
-.f-suffix { position: absolute; top: 50%; right: 0.75rem; transform: translateY(-50%); font-size: 0.75rem; color: #98a2b3; pointer-events: none; }
-.delivery-opt { display: flex; align-items: center; gap: 0.6rem; height: 2.75rem; border-radius: 0.6rem; border: 1px solid #d1d5db; padding: 0 0.85rem; color: #6b7280; transition: border-color .15s, background-color .15s; }
-.delivery-opt:hover:not(:disabled) { border-color: #9cb0ff; }
-.delivery-opt:disabled { opacity: 0.55; cursor: not-allowed; }
-.delivery-opt.active { border-color: #465fff; background: #eff4ff; color: #465fff; }
-.opt-title { font-size: 0.875rem; font-weight: 600; color: #1f2937; }
-.delivery-opt.active .opt-title { color: #465fff; }
-.dark .delivery-opt { border-color: #344054; color: #9ca3af; }
-.dark .delivery-opt.active { border-color: #7592ff; background: rgb(70 95 255 / 12%); color: #9cb0ff; }
-.dark .opt-title { color: rgba(255, 255, 255, 0.9); }
-.dark .delivery-opt.active .opt-title { color: #9cb0ff; }
 .route-list { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
 .route-step { display: inline-flex; align-items: center; gap: 0.5rem; border-radius: 9999px; border: 1px solid #e5e7eb; background: #f9fafb; padding: 0.35rem 0.85rem 0.35rem 0.35rem; font-size: 0.875rem; color: #374151; }
 .route-step + .route-step::before { content: '→'; margin-left: -0.25rem; margin-right: 0.25rem; color: #98a2b3; }
