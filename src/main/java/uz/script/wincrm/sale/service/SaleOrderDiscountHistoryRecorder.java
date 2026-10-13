@@ -41,6 +41,7 @@ public class SaleOrderDiscountHistoryRecorder {
                 .previousDiscountAmount(dto.getPreviousDiscountAmount())
                 .originalTotalSum(dto.getOriginalTotalSum())
                 .totalSumAfter(dto.getTotalSumAfter())
+                .comment(dto.getComment() != null && !dto.getComment().isBlank() ? dto.getComment().trim() : null)
                 .build();
 
         historyRepository.save(history);

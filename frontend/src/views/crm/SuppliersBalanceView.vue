@@ -272,6 +272,9 @@
                   {{ pt.name }}{{ pt.currency && pt.currency !== 'UZS' ? ` (${pt.currency})` : '' }}
                 </option>
               </select>
+              <span v-if="cashLeft !== null" class="cash-left" :class="{ bad: exceedsCash }">
+                {{ t('suppliersBalance.cashLeft', { sum: moneyIn(cashLeft, paymentCurrency) }) }}
+              </span>
             </label>
             <label class="lbl">
               {{ t('common.date') }} *
@@ -337,6 +340,7 @@ import {
   type SupplierPayment,
 } from '@/api/suppliers'
 import { fetchPaymentTypes, type PaymentType } from '@/api/payments'
+import { fetchCashAvailable, type CashAvailable } from '@/api/expenses'
 import { formatApiError } from '@/api/http'
 import { useAuthStore } from '@/stores/auth'
 import { useFilialScope } from '@/composables/useFilialScope'
@@ -368,6 +372,8 @@ const paymentFilter = reactive({ supplierId: 0, from: '', to: '' })
 
 const paymentModal = ref(false)
 const editingPaymentId = ref<number | null>(null)
+const cash = ref<CashAvailable[]>([])
+const editingSpend = ref<{ paymentTypeId: number; amount: number } | null>(null)
 const saving = ref(false)
 const formError = ref<string | null>(null)
 const amountText = ref('')
@@ -520,8 +526,27 @@ function onAmountInput(e: Event) {
   form.paidSumm = value
 }
 
+const cashLeft = computed<number | null>(() => {
+  const c = cash.value.find((x) => x.paymentTypeId === form.paymentTypeId)
+  if (!c) return null
+  const spend = editingSpend.value
+  return Number(c.available || 0) + (spend && spend.paymentTypeId === c.paymentTypeId ? spend.amount : 0)
+})
+
+const exceedsCash = computed(() => cashLeft.value !== null && form.paidSumm > cashLeft.value + 1e-9)
+
+async function loadCash() {
+  try {
+    cash.value = (await fetchCashAvailable()).data || []
+  } catch {
+    cash.value = []
+  }
+}
+
 function openPayment(supplierId?: number, debt?: number, currency: CurrencyCode = 'UZS') {
   editingPaymentId.value = null
+  editingSpend.value = null
+  loadCash()
   formError.value = null
   form.supplierId = supplierId || 0
   form.paidDate = nowLocal()
@@ -535,6 +560,8 @@ function openPayment(supplierId?: number, debt?: number, currency: CurrencyCode 
 
 function openPaymentEdit(p: SupplierPayment) {
   editingPaymentId.value = p.id
+  editingSpend.value = p.paymentTypeId ? { paymentTypeId: p.paymentTypeId, amount: Number(p.paidSumm || 0) } : null
+  loadCash()
   formError.value = null
   form.supplierId = p.supplierId || 0
   form.paidDate = p.paidDate ? p.paidDate.slice(0, 16) : nowLocal()
@@ -557,6 +584,10 @@ async function onPaymentSubmit() {
   }
   if (isCross.value && !(form.exchangeRate > 0)) {
     formError.value = t('suppliersBalance.rateRequired')
+    return
+  }
+  if (exceedsCash.value) {
+    formError.value = t('suppliersBalance.cashExceeds', { sum: moneyIn(Math.max(cashLeft.value || 0, 0), paymentCurrency.value) })
     return
   }
   const payload = {
@@ -678,6 +709,8 @@ onMounted(() => {
 .pay-btn { border-radius: 0.5rem; background: #ecfdf5; padding: 0.3rem 0.75rem; font-size: 0.8125rem; font-weight: 600; color: #059669; }
 .pay-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .debt-hint { border-radius: 0.5rem; background: #fef2f2; padding: 0.5rem 0.75rem; font-size: 0.8125rem; color: #b91c1c; }
+.cash-left { font-size: 0.75rem; font-weight: 500; color: #039855; }
+.cash-left.bad { color: #d92d20; }
 .close-preview { border-radius: 0.5rem; background: #eff6ff; padding: 0.5rem 0.75rem; font-size: 0.8125rem; font-weight: 500; color: #1d4ed8; }
 .cur-badge { margin-inline-start: 0.4rem; border-radius: 0.375rem; background: #ecfdf5; padding: 0.05rem 0.4rem; font-size: 0.6875rem; font-weight: 600; color: #047857; }
 .sub-line { display: block; font-size: 0.75rem; color: #6b7280; }

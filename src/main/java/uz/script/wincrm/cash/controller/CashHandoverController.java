@@ -29,14 +29,13 @@ public class CashHandoverController {
 
     @GetMapping("/summary")
     @PreAuthorize("hasAuthority('CASH_HANDOVER_VIEW')")
-    @Operation(summary = "Employee's daily takings per cashbox: received, paid out, handed over, remaining")
+    @Operation(summary = "Daily movement per cashbox: opening, received, paid out, handed over, remaining")
     public ResponseEntity<?> summary(
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
-            @RequestParam(required = false) Long userId
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date
     ) {
         return ResponseEntity.ok(RestApiResponse.<List<CashHandoverSummaryResponse>>builder()
                 .message("Cash handover summary fetched")
-                .data(service.summary(date, userId))
+                .data(service.summary(date))
                 .build());
     }
 

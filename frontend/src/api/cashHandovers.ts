@@ -8,11 +8,12 @@ export interface CashHandoverSummary {
   paymentTypeId: number
   paymentTypeName: string
   currency: CurrencyCode
+  opening: number
   incoming: number
   outgoing: number
   pending: number
   accepted: number
-  /** incoming - outgoing - pending - accepted */
+  /** opening + incoming - outgoing - pending - accepted, never above the current cashbox balance */
   remaining: number
 }
 
@@ -52,7 +53,7 @@ function query(params: Record<string, string | number | undefined>) {
   return qs ? `?${qs}` : ''
 }
 
-export function fetchCashHandoverSummary(params: { date?: string; userId?: number } = {}) {
+export function fetchCashHandoverSummary(params: { date?: string } = {}) {
   return apiRequest<RestApiResponse<CashHandoverSummary[]>>(`/api/cash-handovers/summary${query(params)}`)
 }
 

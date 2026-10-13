@@ -11,7 +11,7 @@ import java.util.List;
 public interface CashHandoverService {
 
     /** userId faqat topshirishlarni qabul qiluvchi uchun; boshqalarga doim o'zi. */
-    List<CashHandoverSummaryResponse> summary(LocalDate date, Long userId);
+    List<CashHandoverSummaryResponse> summary(LocalDate date);
 
     List<CashHandoverResponse> list(LocalDate fromDate, LocalDate toDate, CashHandoverStatus status, Long userId);
 

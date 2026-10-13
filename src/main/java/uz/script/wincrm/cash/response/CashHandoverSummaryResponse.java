@@ -7,7 +7,7 @@ import uz.script.wincrm.currency.Currency;
 
 import java.math.BigDecimal;
 
-/** Xodimning bir kunlik tushumi bitta kassa (to'lov turi) bo'yicha, kassa valyutasida. */
+/** Bitta kassaning (to'lov turi) bir kunlik harakati, kassa valyutasida. Kassa barcha xodimlar uchun umumiy. */
 @Getter
 @Builder
 @AllArgsConstructor
@@ -15,12 +15,14 @@ public class CashHandoverSummaryResponse {
     private Long paymentTypeId;
     private String paymentTypeName;
     private Currency currency;
+    /** Kun boshidagi qoldiq (oldingi kunlardan qolgan). */
+    private BigDecimal opening;
     /** Mijozlardan qabul qilingan to'lovlar. */
     private BigDecimal incoming;
-    /** Shu xodim kiritgan yetkazib beruvchi to'lovlari. */
+    /** Kassadan qilingan xarajatlar va yetkazib beruvchi to'lovlari. */
     private BigDecimal outgoing;
     private BigDecimal pending;
     private BigDecimal accepted;
-    /** incoming - outgoing - pending - accepted. */
+    /** opening + incoming - outgoing - pending - accepted; kassaning hozirgi qoldig'idan oshmaydi va 0 dan kam emas. */
     private BigDecimal remaining;
 }

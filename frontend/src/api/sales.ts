@@ -156,11 +156,17 @@ export function fetchSellerDebts(params: { userId?: number; startDate?: string; 
   return apiRequest<RestApiResponse<SellerDebt[]>>(`/api/sale-orders/debts/by-seller${qs ? `?${qs}` : ''}`)
 }
 
-export function applyDiscount(id: number, discountType: string, discountValue: number) {
+export function applyDiscount(id: number, discountType: string, discountValue: number, comment?: string) {
   return apiRequest<RestApiResponse<SaleOrder>>(`/api/sale-orders/${id}/discount`, {
     method: 'PATCH',
-    body: { discountType, discountValue },
+    body: { discountType, discountValue, comment: comment?.trim() || undefined },
   })
+}
+
+export function removeDiscount(id: number, comment?: string) {
+  const note = comment?.trim()
+  const query = note ? `?comment=${encodeURIComponent(note)}` : ''
+  return apiRequest<RestApiResponse<SaleOrder>>(`/api/sale-orders/${id}/discount${query}`, { method: 'DELETE' })
 }
 
 export interface SaleOrderHistory {
@@ -181,6 +187,7 @@ export interface SaleOrderDiscountHistory {
   discountAmount?: number
   createdAt?: string
   createdUsername?: string
+  comment?: string | null
 }
 
 export interface SaleOrderImage {

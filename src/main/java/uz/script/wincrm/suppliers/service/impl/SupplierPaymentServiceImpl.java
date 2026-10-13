@@ -8,7 +8,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import uz.script.wincrm.audit.AuditAction;
 import uz.script.wincrm.audit.Auditable;
+import uz.script.wincrm.cash.service.CashAvailabilityService;
 import uz.script.wincrm.currency.Currency;
+import uz.script.wincrm.currency.CurrencyMath;
 import uz.script.wincrm.currency.service.ExchangeRateService;
 import uz.script.wincrm.exceptions.BadRequestException;
 import uz.script.wincrm.exceptions.ResourceNotFoundException;
@@ -43,6 +45,7 @@ public class SupplierPaymentServiceImpl implements SupplierPaymentService {
     private final SupplierBalanceService supplierBalanceService;
     private final SupplierPaymentExpenseSync expenseSync;
     private final ExchangeRateService exchangeRateService;
+    private final CashAvailabilityService cashAvailabilityService;
 
     @Override
     @Transactional
@@ -59,6 +62,7 @@ public class SupplierPaymentServiceImpl implements SupplierPaymentService {
         PaymentType paymentType = paymentTypeRepository.findById(dto.getPaymentTypeId())
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Payment type not found with id: " + dto.getPaymentTypeId()));
+        cashAvailabilityService.requireEnough(paymentType, dto.getPaidSumm(), BigDecimal.ZERO, "to'lov");
 
         SupplierPayment payment = SupplierPaymentMapper.toEntity(dto, supplier, paymentType);
         payment.setStatus(Status.ACTIVE);
@@ -94,6 +98,12 @@ public class SupplierPaymentServiceImpl implements SupplierPaymentService {
         Long supplierId = payment.getSupplier().getId();
         Currency oldDebtCurrency = payment.getDebtCurrency();
         BigDecimal oldApplied = payment.appliedOrPaid();
+
+        boolean sameCash = payment.getPaymentType() != null
+                && payment.getPaymentType().getId().equals(paymentType.getId())
+                && CurrencyMath.orBase(payment.getCurrency()) == CurrencyMath.orBase(paymentType.getCurrency());
+        cashAvailabilityService.requireEnough(paymentType, dto.getPaidSumm(),
+                sameCash ? payment.getPaidSumm() : BigDecimal.ZERO, "to'lov");
 
         SupplierPaymentMapper.updateEntity(payment, dto, paymentType);
         applyCurrency(payment, dto, paymentType);

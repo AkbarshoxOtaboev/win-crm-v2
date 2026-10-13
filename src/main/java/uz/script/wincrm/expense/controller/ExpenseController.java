@@ -88,9 +88,10 @@ public class ExpenseController {
     }
 
     @GetMapping("/cash-available")
-    @PreAuthorize("hasAnyAuthority('EXPENSE_VIEW', 'EXPENSE_CREATE', 'EXPENSE_EDIT')")
+    @PreAuthorize("hasAnyAuthority('EXPENSE_VIEW', 'EXPENSE_CREATE', 'EXPENSE_EDIT', " +
+            "'SUPPLIER_PAYMENT_CREATE', 'SUPPLIER_PAYMENT_EDIT')")
     @Operation(
-            summary = "Kassalardagi joriy qoldiq (xarajat uchun)",
+            summary = "Kassalardagi joriy qoldiq (xarajat va yetkazib beruvchi to'lovi uchun)",
             description = """
                     Har bir kassa (to'lov turi) uchun o'z valyutasida: kirim - yetkazib beruvchilarga chiqim -
                     rahbarga topshirilgan - xarajatlar. Xarajat shu qoldiqdan oshmasligi kerak.

@@ -22,6 +22,8 @@ public class SaleOrderDiscountHistoryMapper {
                 .totalSumAfter(entity.getTotalSumAfter())
                 .createdAt(entity.getCreatedAt())
                 .createdBy(entity.getCreatedUserId())
+                .createdUsername(entity.getCreatedUsername())
+                .comment(entity.getComment())
                 .build();
     }
 }

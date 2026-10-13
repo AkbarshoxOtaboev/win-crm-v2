@@ -45,4 +45,10 @@ public class SaleOrderDiscountHistoryResponse {
 
     @Schema(description = "Chegirmani qo'llagan foydalanuvchi ID", example = "1")
     private Long createdBy;
+
+    @Schema(description = "Chegirmani qo'llagan foydalanuvchi", example = "admin")
+    private String createdUsername;
+
+    @Schema(description = "Chegirma sababi / izoh", example = "Qolgan qarz kechildi")
+    private String comment;
 }

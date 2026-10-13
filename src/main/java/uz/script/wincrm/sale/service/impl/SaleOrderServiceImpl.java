@@ -158,7 +158,7 @@ public class SaleOrderServiceImpl implements SaleOrderService {
 
         // Create paytida ixtiyoriy chegirma - pozitsiyalardan keyin, mahsulot chegirma chegarasi tekshirilishi uchun
         if (dto.getDiscountType() != null && dto.getDiscountValue() != null) {
-            applyDiscountInternal(entity, dto.getDiscountType(), dto.getDiscountValue(), true);
+            applyDiscountInternal(entity, dto.getDiscountType(), dto.getDiscountValue(), true, null);
             entity = repository.save(entity);
         }
 
@@ -345,7 +345,7 @@ public class SaleOrderServiceImpl implements SaleOrderService {
             entity.setOriginalTotalSum(dto.getTotalSum());
         }
         if (dto.getTotalSum() != null && entity.getDiscountType() != null && entity.getDiscountValue() != null) {
-            applyDiscountInternal(entity, entity.getDiscountType(), entity.getDiscountValue(), false);
+            applyDiscountInternal(entity, entity.getDiscountType(), entity.getDiscountValue(), false, null);
         } else {
             recalculateTotals(entity);
         }
@@ -506,9 +506,54 @@ public class SaleOrderServiceImpl implements SaleOrderService {
                     "Yakuniy holatdagi (" + entity.getSalesOrderStatus() + ") buyurtmaga chegirma qo'llab bo'lmaydi");
         }
 
-        applyDiscountInternal(entity, dto.getDiscountType(), dto.getDiscountValue(), true);
+        applyDiscountInternal(entity, dto.getDiscountType(), dto.getDiscountValue(), true, dto.getComment());
 
         entity = repository.save(entity);
+
+        if (entity.getClient() != null) {
+            clientBalanceService.recalculateClientBalance(entity.getClient().getId());
+        }
+
+        return mapper.toResponse(entity);
+    }
+
+    @Override
+    @Auditable(
+            action = AuditAction.UPDATE,
+            entity = "SaleOrder"
+    )
+    public SaleOrderResponse removeDiscount(Long id, String comment) {
+        log.info("Remove discount from sale order {}", id);
+
+        SaleOrder entity = repository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Sale order not found with id: " + id));
+
+        if (entity.getSalesOrderStatus().isFinal()) {
+            throw new BadRequestException(
+                    "Yakuniy holatdagi (" + entity.getSalesOrderStatus() + ") buyurtmaning chegirmasini qaytarib bo'lmaydi");
+        }
+        BigDecimal previousDiscount =
+                entity.getDiscountAmount() != null ? entity.getDiscountAmount() : BigDecimal.ZERO;
+        if (previousDiscount.signum() == 0) {
+            throw new BadRequestException("Buyurtmada chegirma yo'q");
+        }
+
+        entity.setDiscountType(null);
+        entity.setDiscountValue(null);
+        entity.setDiscountAmount(BigDecimal.ZERO);
+        recalculateTotals(entity);
+        entity = repository.save(entity);
+
+        discountHistoryRecorder.record(
+                SaleOrderDiscountHistoryDTO.builder()
+                        .saleOrderId(entity.getId())
+                        .discountAmount(BigDecimal.ZERO)
+                        .previousDiscountAmount(previousDiscount)
+                        .originalTotalSum(entity.getOriginalTotalSum())
+                        .totalSumAfter(entity.getTotalSum())
+                        .comment(comment)
+                        .build()
+        );
 
         if (entity.getClient() != null) {
             clientBalanceService.recalculateClientBalance(entity.getClient().getId());
@@ -539,7 +584,8 @@ public class SaleOrderServiceImpl implements SaleOrderService {
     private void applyDiscountInternal(SaleOrder entity,
                                        uz.script.wincrm.sale.enums.DiscountType type,
                                        BigDecimal value,
-                                       boolean enforceGoodsLimit) {
+                                       boolean enforceGoodsLimit,
+                                       String comment) {
         BigDecimal previousDiscount =
                 entity.getDiscountAmount() != null ? entity.getDiscountAmount() : BigDecimal.ZERO;
 
@@ -564,6 +610,7 @@ public class SaleOrderServiceImpl implements SaleOrderService {
                         .previousDiscountAmount(previousDiscount)
                         .originalTotalSum(base)
                         .totalSumAfter(entity.getTotalSum())
+                        .comment(comment)
                         .build()
         );
     }

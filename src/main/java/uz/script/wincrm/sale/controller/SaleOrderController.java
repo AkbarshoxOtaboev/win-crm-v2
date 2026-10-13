@@ -369,6 +369,33 @@ public class SaleOrderController {
         );
     }
 
+    @DeleteMapping("/{id}/discount")
+    @PreAuthorize("hasAuthority('SALE_ORDER_EDIT')")
+    @Operation(
+            summary = "Remove discount from sale order",
+            description = "Berilgan chegirmani bekor qiladi: totalSum yana originalTotalSum'ga qaytadi. " +
+                    "Yakuniy holatdagi buyurtmada ruxsat etilmaydi."
+    )
+    @ApiResponse(
+            responseCode = "200",
+            content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = SaleOrderResponse.class)
+            )
+    )
+    public ResponseEntity<?> removeDiscount(
+            @Parameter(description = "Sale order ID", example = "1")
+            @PathVariable Long id,
+            @Parameter(description = "Qaytarish sababi") @RequestParam(required = false) String comment
+    ) {
+        return ResponseEntity.ok(
+                RestApiResponse.<SaleOrderResponse>builder()
+                        .message("Discount removed")
+                        .data(service.removeDiscount(id, comment))
+                        .build()
+        );
+    }
+
     @GetMapping("/{id}/discount-history")
     @PreAuthorize("hasAuthority('SALE_ORDER_VIEW')")
     @Operation(

@@ -19,4 +19,5 @@ public class SaleOrderDiscountHistoryDTO {
     private BigDecimal previousDiscountAmount;
     private BigDecimal originalTotalSum;
     private BigDecimal totalSumAfter;
+    private String comment;
 }

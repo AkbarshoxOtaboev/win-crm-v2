@@ -27,31 +27,37 @@
 
     <div class="mb-4 grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-6">
       <article
-        class="rounded-2xl border border-brand-200 bg-gradient-to-br from-brand-50 to-white p-5 dark:border-brand-500/20 dark:from-brand-500/10 dark:to-white/[0.03] md:p-6"
+        v-for="card in totalCards"
+        :key="card.key"
+        class="rounded-2xl border bg-gradient-to-br to-white p-5 dark:to-white/[0.03] md:p-6"
+        :class="card.box"
       >
-        <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-brand-500 text-white shadow-theme-sm">
-          <ShoppingBag class="h-6 w-6" />
+        <div class="flex h-12 w-12 items-center justify-center rounded-xl text-white shadow-theme-sm" :class="card.iconBox">
+          <component :is="card.icon" class="h-6 w-6" />
         </div>
-        <p class="mt-4 text-sm text-brand-600 dark:text-brand-400">{{ t('home.totalSales') }}</p>
-        <h4 class="mt-1 text-title-sm font-bold text-gray-800 dark:text-white/90">{{ fmt(totals.sales) }}</h4>
-      </article>
-      <article
-        class="rounded-2xl border border-success-200 bg-gradient-to-br from-success-50 to-white p-5 dark:border-success-500/20 dark:from-success-500/10 dark:to-white/[0.03] md:p-6"
-      >
-        <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-success-500 text-white shadow-theme-sm">
-          <Wallet class="h-6 w-6" />
-        </div>
-        <p class="mt-4 text-sm text-success-600 dark:text-success-400">{{ t('home.totalPayments') }}</p>
-        <h4 class="mt-1 text-title-sm font-bold text-gray-800 dark:text-white/90">{{ fmt(totals.payments) }}</h4>
-      </article>
-      <article
-        class="rounded-2xl border border-orange-200 bg-gradient-to-br from-orange-50 to-white p-5 dark:border-orange-500/20 dark:from-orange-500/10 dark:to-white/[0.03] md:p-6"
-      >
-        <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-orange-500 text-white shadow-theme-sm">
-          <Receipt class="h-6 w-6" />
-        </div>
-        <p class="mt-4 text-sm text-orange-600 dark:text-orange-400">{{ t('home.totalExpenses') }}</p>
-        <h4 class="mt-1 text-title-sm font-bold text-gray-800 dark:text-white/90">{{ fmt(totals.expenses) }}</h4>
+        <p class="mt-4 text-sm" :class="card.label">{{ t(card.titleKey) }}</p>
+        <h4 class="mt-1 text-title-sm font-bold text-gray-800 dark:text-white/90">{{ fmt(totals[card.key]) }}</h4>
+        <template v-if="split">
+          <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{{ t('home.convertedTotal') }}</p>
+          <div class="mt-3 grid grid-cols-2 gap-2 border-t border-gray-200/70 pt-3 dark:border-white/10">
+            <div class="min-w-0">
+              <p class="flex items-center gap-1 text-[11px] text-gray-500 dark:text-gray-400">
+                <Coins class="h-3 w-3" />{{ t('home.inUzs') }}
+              </p>
+              <p class="truncate text-sm font-semibold text-gray-800 dark:text-white/90" :title="splitMoney(split[card.key].UZS, 'UZS')">
+                {{ splitMoney(split[card.key].UZS, 'UZS') }}
+              </p>
+            </div>
+            <div class="min-w-0">
+              <p class="flex items-center gap-1 text-[11px] text-gray-500 dark:text-gray-400">
+                <DollarSign class="h-3 w-3" />{{ t('home.inUsd') }}
+              </p>
+              <p class="truncate text-sm font-semibold text-gray-800 dark:text-white/90" :title="splitMoney(split[card.key].USD, 'USD')">
+                {{ splitMoney(split[card.key].USD, 'USD') }}
+              </p>
+            </div>
+          </div>
+        </template>
       </article>
     </div>
 
@@ -209,6 +215,8 @@ import {
   Banknote,
   BarChart3,
   Boxes,
+  Coins,
+  DollarSign,
   Landmark,
   Package,
   Receipt,
@@ -242,7 +250,7 @@ const chartPeriods = computed(() => [
 ])
 
 const error = ref<string | null>(null)
-const startDate = ref(monthStart())
+const startDate = ref(isoDate(new Date()))
 const endDate = ref(isoDate(new Date()))
 const chartPeriod = ref<ChartPeriod>('daily')
 const chartMounted = ref(false)
@@ -250,7 +258,46 @@ const chartCategories = ref<string[]>([])
 const chartValues = ref<number[]>([])
 const paymentsCategories = ref<string[]>([])
 const paymentsValues = ref<number[]>([])
-const totals = ref({ sales: 0, payments: 0, expenses: 0 })
+type TotalKey = 'sales' | 'payments' | 'expenses'
+type CurrencySplit = Record<CurrencyCode, number>
+
+const totals = ref<Record<TotalKey, number>>({ sales: 0, payments: 0, expenses: 0 })
+/** "Umumiy" rejimida har bir karta uchun so'm va dollardagi hujjatlar o'z valyutasida; boshqa rejimlarda null. */
+const split = ref<Record<TotalKey, CurrencySplit> | null>(null)
+
+const totalCards: {
+  key: TotalKey
+  titleKey: string
+  icon: Component
+  box: string
+  iconBox: string
+  label: string
+}[] = [
+  {
+    key: 'sales',
+    titleKey: 'home.totalSales',
+    icon: ShoppingBag,
+    box: 'border-brand-200 from-brand-50 dark:border-brand-500/20 dark:from-brand-500/10',
+    iconBox: 'bg-brand-500',
+    label: 'text-brand-600 dark:text-brand-400',
+  },
+  {
+    key: 'payments',
+    titleKey: 'home.totalPayments',
+    icon: Wallet,
+    box: 'border-success-200 from-success-50 dark:border-success-500/20 dark:from-success-500/10',
+    iconBox: 'bg-success-500',
+    label: 'text-success-600 dark:text-success-400',
+  },
+  {
+    key: 'expenses',
+    titleKey: 'home.totalExpenses',
+    icon: Receipt,
+    box: 'border-orange-200 from-orange-50 dark:border-orange-500/20 dark:from-orange-500/10',
+    iconBox: 'bg-orange-500',
+    label: 'text-orange-600 dark:text-orange-400',
+  },
+]
 const widgets = ref<WidgetDef[]>(defaultWidgets())
 const cashBalances = ref<CashBalance[]>([])
 const { display, setDisplay, loadRates, conv, fmt, compact: compactMoney, rateMissing } = useReportCurrency()
@@ -306,6 +353,11 @@ const cashTotals = computed(() => {
 
 function cashMoney(v: number, currency: CurrencyCode) {
   return moneyIn(Number(v || 0), currency, t('common.currency'))
+}
+
+function splitMoney(v: number, currency: CurrencyCode) {
+  const n = Number(v || 0)
+  return cashMoney(currency === 'USD' ? Math.round(n * 100) / 100 : Math.round(n), currency)
 }
 
 function orderAmount(o: SaleOrder) {
@@ -375,11 +427,6 @@ const paymentsChartOptions = computed(() => {
   void display.value
   return barChartOptions(paymentsCategories.value, '#f97316')
 })
-
-function monthStart() {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
-}
 
 function pad(n: number) {
   return String(n).padStart(2, '0')
@@ -535,6 +582,30 @@ async function setChartPeriod(period: ChartPeriod) {
   await loadChart()
 }
 
+/** Hujjatlar o'z valyutasida, o'girilmasdan: backend "only" rejimida faqat shu valyutadagilarni jamlaydi. */
+async function loadSplit(orders: SaleOrder[]): Promise<Record<TotalKey, CurrencySplit>> {
+  const from = startDate.value
+  const to = endDate.value
+  const [payUzs, payUsd, expUzs, expUsd] = await Promise.all([
+    fetchDailyPayments(from, to, 'UZS', true),
+    fetchDailyPayments(from, to, 'USD', true),
+    fetchExpenseInfo(from, to, 'UZS', true),
+    fetchExpenseInfo(from, to, 'USD', true),
+  ])
+  const sum = (rows?: { totalAmount?: number; amount?: number }[]) =>
+    (rows || []).reduce((s, x) => s + amt(x.totalAmount ?? x.amount), 0)
+  const sales: CurrencySplit = { UZS: 0, USD: 0 }
+  for (const o of orders) {
+    if (o.orderStatus === 'CANCELLED') continue
+    sales[o.currency === 'USD' ? 'USD' : 'UZS'] += amt(o.totalSum)
+  }
+  return {
+    sales,
+    payments: { UZS: sum(payUzs.data), USD: sum(payUsd.data) },
+    expenses: { UZS: sum(expUzs.data), USD: sum(expUsd.data) },
+  }
+}
+
 async function load() {
   error.value = null
   try {
@@ -607,6 +678,7 @@ async function load() {
       payments: dailyRows.reduce((sum, x) => sum + amt(x.totalAmount ?? x.amount), 0),
       expenses: (exp.data || []).reduce((sum, x) => sum + amt(x.totalAmount ?? x.amount), 0),
     }
+    split.value = one ? null : await loadSplit(sales.data || [])
     await loadChart()
   } catch (e) {
     error.value = formatApiError(e)

@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -29,6 +30,10 @@ public class ApplyDiscountDTO {
     @DecimalMin(value = "0.0", inclusive = false, message = "Discount value musbat bo'lishi kerak")
     @Schema(description = "Chegirma qiymati (PERCENTAGE uchun foiz, FIXED_AMOUNT uchun summa)", example = "10")
     private BigDecimal discountValue;
+
+    @Size(max = 500, message = "Izoh 500 belgidan oshmasligi kerak")
+    @Schema(description = "Chegirma sababi / izoh", example = "Qolgan qarz kechildi")
+    private String comment;
 
     /**
      * PERCENTAGE bo'lsa foiz 100 dan oshmasligini tekshiradi.

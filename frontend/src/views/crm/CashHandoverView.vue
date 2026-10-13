@@ -24,6 +24,7 @@
           <thead>
             <tr class="border-b border-gray-100 dark:border-gray-800">
               <th class="th">{{ t('cashHandover.cashbox') }}</th>
+              <th class="th text-end">{{ t('cashHandover.opening') }}</th>
               <th class="th text-end">{{ t('cashHandover.incoming') }}</th>
               <th class="th text-end">{{ t('cashHandover.outgoing') }}</th>
               <th class="th text-end">{{ t('cashHandover.handed') }}</th>
@@ -42,6 +43,7 @@
                 {{ s.paymentTypeName }}
                 <span class="cur">{{ s.currency }}</span>
               </td>
+              <td class="td text-end">{{ amt(s.opening, s.currency) }}</td>
               <td class="td text-end text-success-600 dark:text-success-400">{{ amt(s.incoming, s.currency) }}</td>
               <td class="td text-end text-error-600 dark:text-error-400">{{ amt(s.outgoing, s.currency) }}</td>
               <td class="td text-end">
@@ -52,7 +54,17 @@
               </td>
               <td class="td text-end font-semibold text-gray-800 dark:text-white/90">{{ amt(s.remaining, s.currency) }}</td>
               <td class="td">
-                <input v-model="amounts[rowKey(s)]" type="number" min="0" step="any" class="field" placeholder="0" />
+                <input
+                  v-model="amounts[rowKey(s)]"
+                  type="number"
+                  min="0"
+                  :max="Number(s.remaining || 0)"
+                  step="any"
+                  class="field"
+                  :class="{ invalid: exceeds(s) }"
+                  placeholder="0"
+                />
+                <p v-if="exceeds(s)" class="field-err">{{ t('cashHandover.exceeds', { sum: amt(s.remaining, s.currency) }) }}</p>
               </td>
             </tr>
           </tbody>
@@ -67,7 +79,7 @@
         <div class="text-sm text-gray-600 dark:text-gray-400">
           {{ t('cashHandover.toHandTotal') }}: <b class="text-gray-800 dark:text-white/90">{{ totalsText(draftTotals) }}</b>
         </div>
-        <button type="button" class="btn-primary" :disabled="submitting || draftItems.length === 0" @click="submit">
+        <button type="button" class="btn-primary" :disabled="submitting || draftItems.length === 0 || hasExcess" @click="submit">
           {{ submitting ? t('common.saving') : t('cashHandover.submit') }}
         </button>
       </div>
@@ -249,7 +261,11 @@ function rowKey(s: CashHandoverSummary) {
 }
 
 function isIdle(s: CashHandoverSummary) {
-  return [s.incoming, s.outgoing, s.pending, s.accepted].every((v) => Number(v || 0) === 0)
+  return [s.opening, s.incoming, s.outgoing, s.pending, s.accepted].every((v) => Number(v || 0) === 0)
+}
+
+function exceeds(s: CashHandoverSummary) {
+  return Number(amounts.value[rowKey(s)] || 0) > Number(s.remaining || 0) + 1e-9
 }
 
 function amt(v: number | null | undefined, currency?: CurrencyCode) {
@@ -294,6 +310,8 @@ const draftItems = computed(() =>
     .map((s) => ({ s, amount: Number(amounts.value[rowKey(s)] || 0) }))
     .filter((x) => x.amount > 0),
 )
+
+const hasExcess = computed(() => summary.value.some(exceeds))
 
 const draftTotals = computed(() => totalsOf(draftItems.value.map((x) => ({ currency: x.s.currency, amount: x.amount }))))
 
@@ -402,6 +420,8 @@ onMounted(async () => {
 <style scoped>
 .card { border-radius: 1rem; border: 1px solid #e5e7eb; background: #fff; }
 .field { height: 2.5rem; width: 100%; border-radius: 0.5rem; border: 1px solid #d1d5db; background: transparent; padding: 0 0.75rem; font-size: 0.875rem; }
+.field.invalid { border-color: #f04438; }
+.field-err { margin-top: 0.25rem; font-size: 0.75rem; color: #d92d20; }
 .lbl-block { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.8125rem; font-weight: 500; color: #374151; }
 .err { border-radius: 0.5rem; border: 1px solid #fecaca; background: #fef2f2; padding: 0.75rem 1rem; font-size: 0.875rem; color: #dc2626; }
 .ok { border-radius: 0.5rem; border: 1px solid #a6f4c5; background: #ecfdf3; padding: 0.75rem 1rem; font-size: 0.875rem; color: #027a48; }

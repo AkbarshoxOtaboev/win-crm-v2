@@ -12,6 +12,7 @@ import uz.script.wincrm.cash.dto.CashHandoverRequest;
 import uz.script.wincrm.cash.repository.CashHandoverRepository;
 import uz.script.wincrm.cash.response.CashHandoverResponse;
 import uz.script.wincrm.cash.response.CashHandoverSummaryResponse;
+import uz.script.wincrm.cash.service.CashAvailabilityService;
 import uz.script.wincrm.cash.service.CashHandoverService;
 import uz.script.wincrm.currency.Currency;
 import uz.script.wincrm.currency.CurrencyMath;
@@ -49,13 +50,12 @@ public class CashHandoverServiceImpl implements CashHandoverService {
     private final ExpenseRepository expenseRepository;
     private final PaymentTypeRepository paymentTypeRepository;
     private final UserRepository userRepository;
+    private final CashAvailabilityService cashAvailabilityService;
 
     @Override
     @Transactional(readOnly = true)
-    public List<CashHandoverSummaryResponse> summary(LocalDate date, Long userId) {
-        LocalDate day = date != null ? date : LocalDate.now();
-        Long cashierId = canReview() && userId != null ? userId : currentDetails().getId();
-        return buildSummary(cashierId, day);
+    public List<CashHandoverSummaryResponse> summary(LocalDate date) {
+        return buildSummary(date != null ? date : LocalDate.now());
     }
 
     @Override
@@ -89,7 +89,7 @@ public class CashHandoverServiceImpl implements CashHandoverService {
         }
 
         User cashier = currentUser();
-        Map<String, CashHandoverSummaryResponse> summary = buildSummary(cashier.getId(), day).stream()
+        Map<String, CashHandoverSummaryResponse> summary = buildSummary(day).stream()
                 .collect(Collectors.toMap(s -> key(s.getPaymentTypeId(), s.getCurrency()), Function.identity()));
         String comment = blankToNull(request.getComment());
 
@@ -100,6 +100,11 @@ public class CashHandoverServiceImpl implements CashHandoverService {
             Currency currency = CurrencyMath.orBase(type.getCurrency());
             CashHandoverSummaryResponse row = summary.get(key(type.getId(), currency));
             BigDecimal expected = row != null ? row.getRemaining() : BigDecimal.ZERO;
+            if (item.getAmount().compareTo(expected) > 0) {
+                throw new BadRequestException("Kassada yetarli mablag' yo'q: \"" + type.getName() + "\" kassasida "
+                        + expected.stripTrailingZeros().toPlainString() + " " + currency + " qolgan, topshirish "
+                        + item.getAmount().stripTrailingZeros().toPlainString() + " " + currency);
+            }
 
             saved.add(repository.save(CashHandover.builder()
                     .cashier(cashier)
@@ -165,17 +170,23 @@ public class CashHandoverServiceImpl implements CashHandoverService {
         return handover;
     }
 
-    private List<CashHandoverSummaryResponse> buildSummary(Long cashierId, LocalDate day) {
+    /**
+     * Kassa barcha xodimlar uchun umumiy: kun davomida kim kirim qilgan, kim xarajat yoki yetkazib beruvchiga
+     * to'lov qilganidan qat'i nazar, topshiriladigan summa kassada qolgan puldir va topshirilgach kassa 0 bo'ladi.
+     */
+    private List<CashHandoverSummaryResponse> buildSummary(LocalDate day) {
         LocalDateTime start = day.atStartOfDay();
         LocalDateTime end = day.plusDays(1).atStartOfDay();
 
-        Map<String, BigDecimal> incoming = sums(paymentRepository.sumCashByTypeForUser(cashierId, start, end));
-        Map<String, BigDecimal> outgoing = sums(supplierPaymentRepository.sumCashByTypeForCreator(cashierId, start, end));
-        sums(expenseRepository.sumCashByTypeForCreator(cashierId, day, day.plusDays(1)))
+        Map<String, BigDecimal> opening = cashAvailabilityService.balancesBefore(day);
+        Map<String, BigDecimal> current = cashAvailabilityService.currentBalances();
+        Map<String, BigDecimal> incoming = sums(paymentRepository.sumCashByType(start, end));
+        Map<String, BigDecimal> outgoing = sums(supplierPaymentRepository.sumCashByType(start, end));
+        sums(expenseRepository.sumCashByType(day, day.plusDays(1)))
                 .forEach((key, amount) -> outgoing.merge(key, amount, BigDecimal::add));
         Map<String, BigDecimal> pending = new HashMap<>();
         Map<String, BigDecimal> accepted = new HashMap<>();
-        for (Object[] row : repository.sumForCashierAndDate(cashierId, day,
+        for (Object[] row : repository.sumForDate(day,
                 List.of(CashHandoverStatus.PENDING, CashHandoverStatus.ACCEPTED))) {
             String key = key((Long) row[0], CurrencyMath.orBase((Currency) row[1]));
             Map<String, BigDecimal> target = row[2] == CashHandoverStatus.PENDING ? pending : accepted;
@@ -189,6 +200,7 @@ public class CashHandoverServiceImpl implements CashHandoverService {
 
         Set<String> keys = new LinkedHashSet<>();
         types.forEach(t -> keys.add(key(t.getId(), CurrencyMath.orBase(t.getCurrency()))));
+        keys.addAll(opening.keySet());
         keys.addAll(incoming.keySet());
         keys.addAll(outgoing.keySet());
         keys.addAll(pending.keySet());
@@ -201,19 +213,24 @@ public class CashHandoverServiceImpl implements CashHandoverService {
             if (type == null) {
                 continue;
             }
+            BigDecimal open = opening.getOrDefault(key, BigDecimal.ZERO);
             BigDecimal in = incoming.getOrDefault(key, BigDecimal.ZERO);
             BigDecimal out = outgoing.getOrDefault(key, BigDecimal.ZERO);
             BigDecimal pend = pending.getOrDefault(key, BigDecimal.ZERO);
             BigDecimal acc = accepted.getOrDefault(key, BigDecimal.ZERO);
+            BigDecimal remaining = open.add(in).subtract(out).subtract(pend).subtract(acc)
+                    .min(current.getOrDefault(key, BigDecimal.ZERO))
+                    .max(BigDecimal.ZERO);
             result.add(CashHandoverSummaryResponse.builder()
                     .paymentTypeId(type.getId())
                     .paymentTypeName(type.getName())
                     .currency(Currency.valueOf(parts[1]))
+                    .opening(open)
                     .incoming(in)
                     .outgoing(out)
                     .pending(pend)
                     .accepted(acc)
-                    .remaining(in.subtract(out).subtract(pend).subtract(acc))
+                    .remaining(remaining)
                     .build());
         }
         return result;

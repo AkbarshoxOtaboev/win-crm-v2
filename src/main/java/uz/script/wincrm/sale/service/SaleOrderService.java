@@ -42,6 +42,12 @@ public interface SaleOrderService {
     SaleOrderResponse applyDiscount(Long id, ApplyDiscountDTO dto);
 
     /**
+     * Berilgan chegirmani bekor qiladi: totalSum yana originalTotalSum'ga qaytadi. Tarixga
+     * 0 summali yozuv tushadi. Yakuniy holatdagi buyurtmada ruxsat etilmaydi.
+     */
+    SaleOrderResponse removeDiscount(Long id, String comment);
+
+    /**
      * Buyurtmaga qo'llangan chegirmalar tarixini xronologik qaytaradi.
      */
     List<SaleOrderDiscountHistoryResponse> fetchDiscountHistory(Long id);

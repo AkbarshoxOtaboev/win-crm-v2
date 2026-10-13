@@ -200,6 +200,25 @@
       <div v-if="roleDiscountLimit != null" class="limit-card">
         {{ t('saleOrderDetail.roleDiscountLimit', { percent: formatPercent(roleDiscountLimit), amount: amt(discountBase * roleDiscountLimit) }) }}
       </div>
+      <div v-if="order && Number(order.discountAmount || 0) > 0" class="current-discount">
+        <div>
+          <div class="text-xs text-gray-500 dark:text-gray-400">{{ t('saleOrderDetail.currentDiscount') }}</div>
+          <div class="font-semibold text-gray-800 dark:text-white/90">
+            {{ order.discountType ? discountTypeLabel(order.discountType) : '' }}
+            {{ order.discountType === 'PERCENTAGE' ? `${order.discountValue}%` : '' }}
+            — {{ amt(order.discountAmount) }}
+          </div>
+        </div>
+        <button
+          type="button"
+          class="btn-revert"
+          :disabled="saving || writeBlocked || isFinalOrder"
+          :title="isFinalOrder ? t('saleOrderDetail.revertDiscountFinal') : undefined"
+          @click="onRemoveDiscount"
+        >
+          {{ t('saleOrderDetail.revertDiscount') }}
+        </button>
+      </div>
       <form class="flex flex-wrap items-end gap-2" @submit.prevent="onDiscount">
         <div>
           <label class="lbl">{{ t('common.type') }}</label>
@@ -213,19 +232,44 @@
           <input v-model.number="discountValue" type="number" min="0.01" step="0.01" class="field w-32" />
         </div>
         <button type="submit" class="btn" :disabled="saving || discountExceeded">{{ t('common.apply') }}</button>
+        <button
+          v-if="canDiscountDebt"
+          type="button"
+          class="btn-debt"
+          :disabled="saving"
+          :title="t('saleOrderDetail.discountDebtHint', { amount: amt(order?.debtSum) })"
+          @click="fillDebtDiscount"
+        >
+          {{ t('saleOrderDetail.discountDebt', { amount: amt(order?.debtSum) }) }}
+        </button>
+        <div class="w-full">
+          <label class="lbl">{{ t('common.comment') }}</label>
+          <textarea
+            v-model="discountComment"
+            rows="2"
+            maxlength="500"
+            class="field-area"
+            :placeholder="t('saleOrderDetail.discountCommentPlaceholder')"
+          ></textarea>
+        </div>
       </form>
       <div v-if="discountPreview" class="text-sm" :class="discountExceeded ? 'text-error-600 dark:text-error-400' : 'text-gray-600 dark:text-gray-400'">
         {{ t('saleOrderDetail.discountPreview', { percent: formatPercent(discountPreview.fraction), amount: amt(discountPreview.amount) }) }}
         <template v-if="discountExceeded"> — {{ t('saleOrderDetail.discountExceeded') }}</template>
       </div>
       <table class="min-w-full">
-        <thead><tr class="border-b border-gray-100 dark:border-gray-800"><th class="th">{{ t('common.type') }}</th><th class="th">{{ t('saleOrderDetail.value') }}</th><th class="th">{{ t('common.sum') }}</th><th class="th">{{ t('common.date') }}</th></tr></thead>
+        <thead><tr class="border-b border-gray-100 dark:border-gray-800"><th class="th">{{ t('common.type') }}</th><th class="th">{{ t('saleOrderDetail.value') }}</th><th class="th">{{ t('common.sum') }}</th><th class="th">{{ t('common.comment') }}</th><th class="th">{{ t('saleOrderDetail.discountBy') }}</th><th class="th">{{ t('common.date') }}</th></tr></thead>
         <tbody>
-          <tr v-if="discounts.length === 0"><td colspan="4" class="empty">{{ t('saleOrderDetail.noHistory') }}</td></tr>
+          <tr v-if="discounts.length === 0"><td colspan="6" class="empty">{{ t('saleOrderDetail.noHistory') }}</td></tr>
           <tr v-for="d in discounts" :key="d.id" class="border-b border-gray-100 dark:border-gray-800">
-            <td class="td">{{ d.discountType ? discountTypeLabel(d.discountType) : '—' }}</td>
-            <td class="td">{{ d.discountValue }}</td>
+            <td class="td">
+              <template v-if="d.discountType">{{ discountTypeLabel(d.discountType) }}</template>
+              <span v-else class="text-orange-600 dark:text-orange-400">{{ t('saleOrderDetail.discountReverted') }}</span>
+            </td>
+            <td class="td">{{ d.discountValue ?? '—' }}</td>
             <td class="td">{{ amt(d.discountAmount) }}</td>
+            <td class="td whitespace-pre-line">{{ d.comment || '—' }}</td>
+            <td class="td">{{ d.createdUsername || '—' }}</td>
             <td class="td">{{ formatDate(d.createdAt) }}</td>
           </tr>
         </tbody>
@@ -517,6 +561,7 @@ import { fetchDeliveryBySaleOrder, type Delivery } from '@/api/transport'
 import { fetchActiveWorkshops, type Workshop } from '@/api/workshops'
 import {
   applyDiscount,
+  removeDiscount,
   changeSaleOrderStatus,
   fetchDiscountHistory,
   fetchSaleOrder,
@@ -572,6 +617,7 @@ const formError = ref<string | null>(null)
 const saving = ref(false)
 const discountType = ref('PERCENTAGE')
 const discountValue = ref(10)
+const discountComment = ref('')
 
 const orderCurrency = computed<CurrencyCode>(() => order.value?.currency || BASE_CURRENCY)
 const isForeign = computed(() => orderCurrency.value !== BASE_CURRENCY)
@@ -808,6 +854,8 @@ const deliveryConfirmBlocked = computed(
 /** Backend bilan bir xil: 0.01 dan kichik qoldiq (kurs yaxlitlashi) to'langan hisoblanadi. */
 const completeBlocked = computed(() => Number(order.value?.debtSum ?? 0) >= 0.01)
 const flowIndex = computed(() => flowStatuses.value.indexOf(order.value?.orderStatus as SaleStatus))
+const isFinalOrder = computed(() => ['COMPLETED', 'CANCELLED'].includes(order.value?.orderStatus || ''))
+const canDiscountDebt = computed(() => !isFinalOrder.value && Number(order.value?.debtSum || 0) >= 0.01)
 const doneIndex = computed(() => (order.value?.orderStatus === 'CANCELLED' ? -1 : flowIndex.value))
 const nextStatuses = computed(() =>
   nextSaleStatuses(order.value?.orderStatus).filter(
@@ -970,10 +1018,37 @@ async function onItemDelete(it: SaleOrderItem) {
   }
 }
 
+/** Chegirma almashtiriladi (qo'shilmaydi): yangi summa = joriy chegirma + qolgan qarz, shunda qarz 0 bo'ladi. */
+function fillDebtDiscount() {
+  if (!order.value) return
+  const debt = Number(order.value.debtSum || 0)
+  const current = Number(order.value.discountAmount || 0)
+  discountType.value = 'FIXED_AMOUNT'
+  discountValue.value = Math.round((current + debt) * 100) / 100
+  if (!discountComment.value.trim()) discountComment.value = t('saleOrderDetail.discountDebtComment')
+}
+
 async function onDiscount() {
   saving.value = true
   try {
-    await applyDiscount(id(), discountType.value, discountValue.value)
+    await applyDiscount(id(), discountType.value, discountValue.value, discountComment.value)
+    discountComment.value = ''
+    await load()
+  } catch (e) {
+    error.value = formatApiError(e)
+  } finally {
+    saving.value = false
+  }
+}
+
+async function onRemoveDiscount() {
+  if (!order.value) return
+  if (!confirm(t('saleOrderDetail.revertDiscountConfirm', { amount: amt(order.value.discountAmount) }))) return
+  saving.value = true
+  error.value = null
+  try {
+    await removeDiscount(id(), discountComment.value)
+    discountComment.value = ''
     await load()
   } catch (e) {
     error.value = formatApiError(e)
@@ -1170,6 +1245,19 @@ watch(
 .err { border-radius: 0.5rem; border: 1px solid #fecaca; background: #fef2f2; padding: 0.75rem 1rem; font-size: 0.875rem; color: #dc2626; }
 .limit-card { border-radius: 0.5rem; border: 1px solid #fde68a; background: #fffbeb; padding: 0.65rem 0.9rem; font-size: 0.875rem; color: #92400e; }
 .dark .limit-card { border-color: rgba(245, 158, 11, 0.3); background: rgba(245, 158, 11, 0.1); color: #fcd34d; }
+.btn-debt { height: 2.5rem; border-radius: 0.5rem; border: 1px solid #fdb022; background: #fffaeb; padding: 0 0.9rem; font-size: 0.8125rem; font-weight: 500; color: #b54708; }
+.btn-debt:hover:not(:disabled) { background: #fef0c7; }
+.btn-debt:disabled { opacity: 0.5; cursor: not-allowed; }
+.field-area { width: 100%; border-radius: 0.5rem; border: 1px solid #d0d5dd; background: transparent; padding: 0.5rem 0.75rem; font-size: 0.875rem; }
+.dark .btn-debt { border-color: rgb(247 144 9 / 45%); background: rgb(247 144 9 / 10%); color: #fdb022; }
+.dark .field-area { border-color: #344054; color: rgba(255, 255, 255, 0.9); }
+.current-discount { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem; border-radius: 0.5rem; border: 1px solid #e4e7ec; padding: 0.65rem 0.9rem; }
+.btn-revert { height: 2.25rem; border-radius: 0.5rem; border: 1px solid #fda29b; padding: 0 0.9rem; font-size: 0.8125rem; font-weight: 500; color: #d92d20; }
+.btn-revert:hover:not(:disabled) { background: #fef3f2; }
+.btn-revert:disabled { opacity: 0.5; cursor: not-allowed; }
+.dark .current-discount { border-color: #344054; }
+.dark .btn-revert { border-color: rgb(240 68 56 / 45%); color: #f97066; }
+.dark .btn-revert:hover:not(:disabled) { background: rgb(240 68 56 / 10%); }
 .lbl { display: block; margin-bottom: 0.25rem; font-size: 0.75rem; color: #6b7280; }
 .tab { height: 2.25rem; border-radius: 0.5rem; border: 1px solid #d1d5db; padding: 0 1rem; font-size: 0.875rem; }
 .tab.active { background: #465fff; border-color: #465fff; color: #fff; }

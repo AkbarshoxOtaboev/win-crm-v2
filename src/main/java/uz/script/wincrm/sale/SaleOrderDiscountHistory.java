@@ -59,4 +59,8 @@ public class SaleOrderDiscountHistory extends BaseEntity {
      * Chegirma qo'llangandan keyingi yakuniy totalSum.
      */
     private BigDecimal totalSumAfter;
+
+    /** Chegirma berish yoki qaytarish sababi. */
+    @Column(length = 500)
+    private String comment;
 }
