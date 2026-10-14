@@ -380,6 +380,13 @@
             </button>
           </div>
         </div>
+        <CuttingPreview
+          v-if="showCuttingPreview"
+          :goods-id="itemForm.goodsId"
+          :piece-width="Number(itemForm.width)"
+          :piece-height="Number(itemForm.height)"
+          :quantity="Number(itemForm.count)"
+        />
         <p v-if="!headerReady" class="mt-2 text-xs text-amber-600">
           {{ t('saleOrderCreate.headerRequired') }}
         </p>
@@ -574,6 +581,7 @@ import {
   type SaleType,
 } from '@/api/sales'
 import { fetchSaleOrderItems, type SaleOrderItem } from '@/api/saleOrderItems'
+import CuttingPreview from '@/components/crm/CuttingPreview.vue'
 import { fetchWarehouses, type Warehouse } from '@/api/warehouses'
 import { createClient, fetchClients, type Client } from '@/api/clients'
 import { balanceIn, fetchClientBalance, type ClientBalance } from '@/api/clientBalances'
@@ -795,6 +803,13 @@ function isService(g?: Goods | null) {
 const selectedGoods = computed(() => goods.value.find((g) => g.id === itemForm.goodsId) || null)
 const isWindowGoods = computed(() => isWindow(selectedGoods.value))
 const isServiceGoods = computed(() => isService(selectedGoods.value))
+const showCuttingPreview = computed(
+  () =>
+    isWindowGoods.value &&
+    Number(itemForm.width) > 0 &&
+    Number(itemForm.height) > 0 &&
+    Number(itemForm.count) > 0,
+)
 
 const computedKvm = computed(() => {
   if (!isWindowGoods.value) return 0
