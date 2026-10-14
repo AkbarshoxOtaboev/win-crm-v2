@@ -60,6 +60,15 @@ public class SaleOrderItem extends FilialScopedEntity {
 
     @Column(nullable = false, precision = 38, scale = 4)
     private BigDecimal count;
+
+    /** Buyurtmada tanlangan kesuv qalinligi, mm; null - sozlamadagi qiymat. */
+    @Column(name = "cut_kerf_mm", precision = 6, scale = 2)
+    private BigDecimal cutKerfMm;
+
+    /** Bo'lakni 90° burish mumkinmi; null - mumkin. */
+    @Column(name = "cut_allow_rotate")
+    private Boolean cutAllowRotate;
+
     @Column(nullable = false)
     private LocalDateTime arrivalDate;
 }

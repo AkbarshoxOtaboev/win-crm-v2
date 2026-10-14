@@ -162,29 +162,27 @@
     <div v-show="tab === 'items'" class="card">
       <div class="head">
         <h3 class="title">{{ t('saleOrderDetail.tabs.items') }}</h3>
-        <button type="button" class="btn" :disabled="writeBlocked" @click="openItemCreate">{{ t('saleOrderDetail.addItem') }}</button>
       </div>
       <table class="min-w-full">
         <thead>
           <tr class="border-b border-gray-100 dark:border-gray-800">
-            <th class="th">{{ t('common.product') }}</th><th class="th">{{ t('common.count') }}</th><th class="th">{{ t('saleOrderDetail.selling') }}</th><th class="th">{{ t('saleOrderDetail.lineSum') }}</th><th class="th">{{ t('common.date') }}</th><th class="th text-right">{{ t('common.actions') }}</th>
+            <th class="th">{{ t('common.product') }}</th><th class="th">{{ t('common.count') }}</th><th class="th">{{ t('saleOrderDetail.selling') }}</th><th class="th">{{ t('saleOrderDetail.lineSum') }}</th><th class="th">{{ t('common.date') }}</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-if="items.length === 0"><td colspan="6" class="empty">{{ t('saleOrderDetail.noItems') }}</td></tr>
+          <tr v-if="items.length === 0"><td colspan="5" class="empty">{{ t('saleOrderDetail.noItems') }}</td></tr>
           <tr v-for="it in items" :key="it.id" class="border-b border-gray-100 dark:border-gray-800">
             <td class="td">{{ it.goodsName || it.goodsId }}</td>
             <td class="td">{{ itemQtyText(it) }}</td>
             <td class="td">{{ amt(it.priceSelling) }}</td>
             <td class="td font-medium text-gray-800 dark:text-white/90">{{ amt(lineSum(it)) }}</td>
             <td class="td">{{ formatDate(it.arrivalDate) }}</td>
-            <td class="td text-right"><RowActions @edit="openItemEdit(it)" @delete="onItemDelete(it)" /></td>
           </tr>
         </tbody>
         <tfoot v-if="items.length">
           <tr class="sum-row">
             <td class="td" colspan="3">{{ t('saleOrderDetail.itemsTotal') }}</td>
-            <td class="td" colspan="3">{{ amt(itemsTotal) }}</td>
+            <td class="td" colspan="2">{{ amt(itemsTotal) }}</td>
           </tr>
         </tfoot>
       </table>
@@ -448,66 +446,6 @@
       </table>
     </div>
 
-    <div v-if="itemModal" class="overlay">
-      <div class="modal">
-        <h3 class="title mb-4">{{ itemEditingId ? t('saleOrderDetail.editItem') : t('saleOrderDetail.newItem') }}</h3>
-        <div v-if="formError" class="err mb-3">{{ formError }}</div>
-        <form class="space-y-3" @submit.prevent="onItemSave">
-          <SearchableSelect
-            :model-value="itemForm.goodsId"
-            :options="goodsOptions"
-            :limit="5"
-            :placeholder="t('saleOrderDetail.productPlaceholder')"
-            :search-placeholder="t('saleOrderDetail.productSearchPlaceholder')"
-            @update:model-value="onGoodsPick"
-          />
-          <div v-if="itemIsWindow" class="grid grid-cols-2 gap-3">
-            <label class="modal-lbl">
-              {{ t('saleOrderDetail.width') }}
-              <input v-model.number="itemForm.width" type="number" min="1" step="1" required class="field" />
-            </label>
-            <label class="modal-lbl">
-              {{ t('saleOrderDetail.height') }}
-              <input v-model.number="itemForm.height" type="number" min="1" step="1" required class="field" />
-            </label>
-          </div>
-          <div class="grid grid-cols-2 gap-3">
-            <label class="modal-lbl">
-              {{ itemIsWindow ? t('saleOrderDetail.countPcs') : t('common.count') }}
-              <input v-model.number="itemForm.count" type="number" min="0.01" step="0.01" required class="field" />
-            </label>
-            <label class="modal-lbl">
-              {{ itemIsWindow ? t('saleOrderDetail.sellingKvm') : t('saleOrderDetail.selling') }} ({{ curLabel }})
-              <input v-model.number="itemForm.priceSelling" type="number" min="0.01" step="0.01" required class="field" />
-            </label>
-          </div>
-          <p v-if="itemIsWindow" class="modal-hint">
-            {{ t('saleOrderDetail.kvmHint', { kvm: formatQty(itemKvm), sum: amt(itemKvm * Number(itemForm.priceSelling || 0)) }) }}
-          </p>
-          <p v-if="pickedGoods && goodsCurrency(pickedGoods) !== orderCurrency" class="modal-hint">
-            {{ listPriceIn(pickedGoods) != null
-              ? t('saleOrderCreate.priceConverted', {
-                  from: moneyIn(pickedGoods.priceSelling, goodsCurrency(pickedGoods), t('common.currency')),
-                  rate: formatRate(conversionRate),
-                })
-              : t('saleOrderCreate.rateMissing') }}
-          </p>
-          <label class="modal-lbl">
-            {{ t('saleOrderDetail.costPrice') }} ({{ t('common.currency') }})
-            <input v-model.number="itemForm.priceCost" type="number" min="0" step="0.01" required class="field" />
-          </label>
-          <p v-if="itemEditingId" class="modal-hint">
-            {{ t('saleOrderDetail.editItemHint') }}
-          </p>
-          <input v-model="itemForm.arrivalDate" type="datetime-local" required class="field" />
-          <div class="flex justify-end gap-2">
-            <button type="button" class="ghost" @click="itemModal = false">{{ t('common.cancel') }}</button>
-            <button type="submit" class="btn" :disabled="saving">{{ t('common.save') }}</button>
-          </div>
-        </form>
-      </div>
-    </div>
-
     <div v-if="wasteModal" class="overlay">
       <div class="modal">
         <h3 class="title mb-4">{{ t('saleOrderDetail.waste') }}</h3>
@@ -547,7 +485,6 @@ import {
   Truck,
   X,
 } from 'lucide-vue-next'
-import SearchableSelect from '@/components/crm/SearchableSelect.vue'
 import { useAuthStore } from '@/stores/auth'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
@@ -574,13 +511,7 @@ import {
   type SaleOrderHistory,
   type SaleOrderImage,
 } from '@/api/sales'
-import {
-  createSaleOrderItem,
-  deleteSaleOrderItem,
-  fetchSaleOrderItems,
-  updateSaleOrderItem,
-  type SaleOrderItem,
-} from '@/api/saleOrderItems'
+import { fetchSaleOrderItems, type SaleOrderItem } from '@/api/saleOrderItems'
 import {
   createSaleOrderWaste,
   deleteSaleOrderWaste,
@@ -591,7 +522,7 @@ import { fetchGoods, type Goods } from '@/api/goods'
 import { fetchMyDiscountLimit } from '@/api/discountRules'
 import { formatApiError } from '@/api/http'
 import { useFilialScope } from '@/composables/useFilialScope'
-import { formatDate, money, nowLocal, toApiDate } from '@/utils/format'
+import { formatDate, money } from '@/utils/format'
 import { BASE_CURRENCY, currencySymbol, formatRate, moneyIn, type CurrencyCode } from '@/utils/currency'
 import { fetchCurrentRate } from '@/api/exchangeRates'
 
@@ -717,38 +648,10 @@ function formatPercent(fraction: number) {
   return `${Math.round(fraction * 10000) / 100}%`
 }
 
-const goodsOptions = computed(() =>
-  goods.value.map((g) => ({
-    value: g.id,
-    label: g.name,
-    searchText: `${g.barcode || ''} ${g.goodsGroupName || ''}`,
-  })),
-)
-
-function onGoodsPick(goodsId: number) {
-  if (goodsId === itemForm.goodsId) return
-  itemForm.goodsId = goodsId
-  itemForm.width = 0
-  itemForm.height = 0
-  fillItemFromGoods()
-}
-
-const itemModal = ref(false)
-const itemEditingId = ref<number | null>(null)
-const itemForm = reactive({ goodsId: 0, count: 1, width: 0, height: 0, priceCost: 0, priceSelling: 0, arrivalDate: '' })
-
 function isWindowGoodsId(goodsId?: number | null) {
   const g = goods.value.find((x) => x.id === goodsId)
   return (g?.type || '').toUpperCase() === 'WINDOW'
 }
-
-const itemIsWindow = computed(() => isWindowGoodsId(itemForm.goodsId))
-const pickedGoods = computed(() => goods.value.find((x) => x.id === itemForm.goodsId) || null)
-const itemKvm = computed(() =>
-  itemIsWindow.value
-    ? (Number(itemForm.width || 0) * Number(itemForm.height || 0) * Number(itemForm.count || 0)) / 10000
-    : 0,
-)
 
 function formatQty(v?: number | null) {
   if (v == null || Number.isNaN(Number(v))) return '—'
@@ -775,15 +678,6 @@ function itemQtyText(it: SaleOrderItem) {
   return pieces == null ? kvm : `${kvm} (${formatQty(it.width)}×${formatQty(it.height)}, ${formatQty(pieces)} ${t('saleOrderDetail.pcs')})`
 }
 
-watch(
-  () => itemForm.goodsId,
-  (id) => {
-    if (!itemModal.value || !isWindowGoodsId(id)) return
-    const g = goods.value.find((x) => x.id === id)
-    if (!itemForm.width) itemForm.width = Number(g?.width || 0)
-    if (!itemForm.height) itemForm.height = Number(g?.height || 0)
-  },
-)
 const wasteModal = ref(false)
 const wasteForm = reactive({ goodsId: 0, quantity: 1, comment: '' })
 const statusSaving = ref(false)
@@ -939,83 +833,6 @@ async function onRefresh() {
 function openEdit() {
   if (!order.value) return
   void router.push(`/sales/${order.value.id}/edit`)
-}
-
-function fillItemFromGoods() {
-  const g = goods.value.find((x) => x.id === itemForm.goodsId)
-  if (g) {
-    itemForm.priceCost = Number(g.priceCost || 0)
-    itemForm.priceSelling = listPriceIn(g) ?? 0
-  }
-}
-
-function openItemCreate() {
-  itemEditingId.value = null
-  itemForm.goodsId = 0
-  itemForm.count = 1
-  itemForm.width = 0
-  itemForm.height = 0
-  itemForm.priceCost = 0
-  itemForm.priceSelling = 0
-  itemForm.arrivalDate = nowLocal()
-  formError.value = null
-  itemModal.value = true
-}
-
-function openItemEdit(it: SaleOrderItem) {
-  itemEditingId.value = it.id
-  itemForm.goodsId = it.goodsId || 0
-  const pieces = isWindowGoodsId(it.goodsId) ? windowPieces(it) : null
-  itemForm.count = pieces != null ? Math.round(pieces * 10000) / 10000 : Number(it.count || 1)
-  itemForm.width = Number(it.width || 0)
-  itemForm.height = Number(it.height || 0)
-  itemForm.priceCost = Number(it.priceCost || 0)
-  itemForm.priceSelling = Number(it.priceSelling || 0)
-  itemForm.arrivalDate = (it.arrivalDate || '').slice(0, 16)
-  formError.value = null
-  itemModal.value = true
-}
-
-async function onItemSave() {
-  if (!order.value) return
-  if (!itemForm.goodsId) {
-    formError.value = t('saleOrderDetail.productRequired')
-    return
-  }
-  saving.value = true
-  formError.value = null
-  try {
-    const payload = {
-      warehouseId: order.value.warehouseId || 0,
-      saleOrderId: order.value.id,
-      clientId: order.value.clientId || 0,
-      goodsId: itemForm.goodsId,
-      priceCost: itemForm.priceCost,
-      priceSelling: itemForm.priceSelling,
-      count: itemForm.count,
-      width: itemIsWindow.value ? itemForm.width : undefined,
-      height: itemIsWindow.value ? itemForm.height : undefined,
-      arrivalDate: toApiDate(itemForm.arrivalDate),
-    }
-    if (itemEditingId.value) await updateSaleOrderItem(itemEditingId.value, payload)
-    else await createSaleOrderItem(payload)
-    itemModal.value = false
-    await load()
-  } catch (e) {
-    formError.value = formatApiError(e, t('saleOrderDetail.itemSaveError'))
-  } finally {
-    saving.value = false
-  }
-}
-
-async function onItemDelete(it: SaleOrderItem) {
-  if (!confirm(t('saleOrderDetail.deleteItemConfirm'))) return
-  try {
-    await deleteSaleOrderItem(it.id)
-    await load()
-  } catch (e) {
-    error.value = formatApiError(e)
-  }
 }
 
 /** Chegirma almashtiriladi (qo'shilmaydi): yangi summa = joriy chegirma + qolgan qarz, shunda qarz 0 bo'ladi. */

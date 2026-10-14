@@ -15,6 +15,8 @@ export interface SaleOrderItem {
   width?: number
   height?: number
   count?: number
+  cutKerfMm?: number | null
+  cutAllowRotate?: boolean | null
   arrivalDate?: string
   status?: string
 }

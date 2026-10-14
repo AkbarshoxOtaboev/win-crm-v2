@@ -17,6 +17,7 @@ import uz.script.wincrm.currency.Currency;
 import uz.script.wincrm.currency.CurrencyMath;
 import uz.script.wincrm.currency.service.ExchangeRateService;
 import uz.script.wincrm.exceptions.BadRequestException;
+import uz.script.wincrm.exceptions.ForbiddenException;
 import uz.script.wincrm.exceptions.ResourceNotFoundException;
 import uz.script.wincrm.payment.Payment;
 import uz.script.wincrm.payment.PaymentType;
@@ -45,6 +46,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -62,6 +64,23 @@ public class PaymentServiceImpl implements PaymentService {
     private final ExchangeRateService exchangeRateService;
     private final SalaryCommissionService salaryCommissionService;
 
+    private static final Set<String> RECEIVER_OVERRIDE_ROLES = Set.of("SUPER_ADMIN", "ADMIN", "DIRECTOR");
+
+    /** SUPER_ADMIN/ADMIN/DIRECTOR istalgan xodim nomidan, qolganlar (kassir) faqat o'z nomidan to'lov qabul qiladi. */
+    private void assertCanReceiveAs(User receiver) {
+        String username = Objects.requireNonNull(SecurityContextHolder.getContext().getAuthentication()).getName();
+        if (username.equals(receiver.getUsername())) {
+            return;
+        }
+        User actor = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with username: " + username));
+        boolean elevated = actor.getRoles() != null && actor.getRoles().stream()
+                .anyMatch(r -> RECEIVER_OVERRIDE_ROLES.contains(r.getName()));
+        if (!elevated) {
+            throw new ForbiddenException("Siz faqat o'zingiz nomingizdan to'lov qabul qila olasiz");
+        }
+    }
+
     @Override
     @Auditable(
             action = AuditAction.CREATE,
@@ -77,6 +96,7 @@ public class PaymentServiceImpl implements PaymentService {
                 .orElseThrow(() -> new ResourceNotFoundException("Payment type not found with id: " + dto.getPaymentTypeId()));
         User user = userRepository.findById(dto.getUserId())
                 .orElseThrow(()->new ResourceNotFoundException("User not found with id:  "+ dto.getUserId()));
+        assertCanReceiveAs(user);
 
         Payment first;
         if (dto.getSaleOrderId() != null) {

@@ -55,6 +55,9 @@ export interface SaleOrderInitialItem {
   count: number
   width?: number
   height?: number
+  /** Oyna kesish qoidasi; berilmasa sozlamadagi qiymat. */
+  cutKerfMm?: number
+  cutAllowRotate?: boolean
 }
 
 export interface SaleOrderCreatePayload extends SaleOrderPayload {

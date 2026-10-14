@@ -54,6 +54,12 @@ public class SaleOrderItemResponse {
     @Schema(description = "Product count", example = "5")
     private BigDecimal count;
 
+    @Schema(description = "Oyna kesish: kesuv qalinligi, mm; null - sozlamadagi qiymat")
+    private BigDecimal cutKerfMm;
+
+    @Schema(description = "Oyna kesish: 90° burish mumkinmi; null - mumkin")
+    private Boolean cutAllowRotate;
+
     @Schema(description = "Product arrival date and time")
     private LocalDateTime arrivalDate;
 

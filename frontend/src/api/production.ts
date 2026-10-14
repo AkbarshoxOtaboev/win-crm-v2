@@ -36,6 +36,8 @@ export interface ProductionOrderItem {
   height?: number
   count?: number
   pieces?: number
+  cutKerfMm?: number | null
+  cutAllowRotate?: boolean | null
 }
 
 export interface ProductionOrderImage {

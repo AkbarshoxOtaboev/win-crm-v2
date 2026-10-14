@@ -574,6 +574,8 @@ public class ProductionOrderServiceImpl implements ProductionOrderService {
                 .height(item.getHeight())
                 .count(item.getCount())
                 .pieces(pieces)
+                .cutKerfMm(item.getCutKerfMm())
+                .cutAllowRotate(item.getCutAllowRotate())
                 .build();
     }
 

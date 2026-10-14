@@ -420,8 +420,14 @@
             <label for="pay-user" class="lbl">{{ t('payments.receiver') }} <span class="req">*</span></label>
             <div class="relative">
               <UserCog class="field-icon" />
-              <select id="pay-user" v-model.number="form.userId" required class="field field-select">
-                <option v-for="u in users" :key="u.id" :value="u.id">
+              <select
+                id="pay-user"
+                v-model.number="form.userId"
+                required
+                class="field field-select"
+                :disabled="!auth.isElevated && receiverOptions.length === 1"
+              >
+                <option v-for="u in receiverOptions" :key="u.id" :value="u.id">
                   {{ u.fullName || u.username }}
                 </option>
               </select>
@@ -1053,10 +1059,20 @@ async function load() {
   }
 }
 
+/** Tahrirlanayotgan to'lovni qabul qilgan xodim: kassir boshqa xodimning to'lovini ochganda ro'yxatdan yo'qolmasin. */
+const formOwnerId = ref(0)
+/** Admin/direktor istalgan xodimni, qolganlar (kassir) faqat o'zini tanlaydi. */
+const receiverOptions = computed(() =>
+  auth.isElevated
+    ? users.value
+    : users.value.filter((u) => u.username === auth.username || u.id === formOwnerId.value),
+)
+
 function fillForm(p?: Payment) {
+  formOwnerId.value = p?.userId || 0
   const me = users.value.find((u) => u.username === auth.username)
   form.clientId = p?.clientId || 0
-  form.userId = p?.userId || me?.id || users.value[0]?.id || 0
+  form.userId = p?.userId || me?.id || receiverOptions.value[0]?.id || 0
   form.paymentTypeId = p?.paymentTypeId || paymentTypes.value[0]?.id || 0
   form.paymentAmount = Number(p?.paymentAmount || 0)
   amountText.value = amountToText(form.paymentAmount)

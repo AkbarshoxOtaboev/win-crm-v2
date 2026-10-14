@@ -124,14 +124,44 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="it in o.items" :key="it.id">
-                    <td class="font-medium text-gray-800 dark:text-white/90">{{ it.goodsName || '—' }}</td>
-                    <td class="whitespace-nowrap">{{ sizeLabel(it) }}</td>
-                    <td class="text-right">{{ it.pieces != null ? money(it.pieces) : '—' }}</td>
-                    <td class="whitespace-nowrap text-right">
-                      {{ money(it.count) }}<span v-if="it.width != null && it.height != null" class="unit"> {{ t('productionBoard.kvm') }}</span>
-                    </td>
-                  </tr>
+                  <template v-for="it in o.items" :key="it.id">
+                    <tr>
+                      <td class="font-medium text-gray-800 dark:text-white/90">
+                        {{ it.goodsName || '—' }}
+                        <button
+                          v-if="canCut(it)"
+                          type="button"
+                          class="cut-toggle"
+                          :class="{ open: isCutOpen(o, it) }"
+                          :aria-expanded="isCutOpen(o, it)"
+                          @click="toggleCut(o, it)"
+                        >
+                          <Scissors class="h-3.5 w-3.5" />
+                          {{ isCutOpen(o, it) ? t('cutting.hide') : t('cutting.show') }}
+                          <ChevronDown class="h-3.5 w-3.5 chevron" />
+                        </button>
+                      </td>
+                      <td class="whitespace-nowrap">{{ sizeLabel(it) }}</td>
+                      <td class="text-right">{{ it.pieces != null ? money(it.pieces) : '—' }}</td>
+                      <td class="whitespace-nowrap text-right">
+                        {{ money(it.count) }}<span v-if="it.width != null && it.height != null" class="unit"> {{ t('productionBoard.kvm') }}</span>
+                      </td>
+                    </tr>
+                    <tr v-if="canCut(it) && isCutOpen(o, it)" class="cut-row">
+                      <td colspan="4">
+                        <CuttingPreview
+                          readonly
+                          :title="`${t('cutting.title')} · ${it.goodsName || ''}`"
+                          :goods-id="Number(it.goodsId)"
+                          :piece-width="Number(it.width)"
+                          :piece-height="Number(it.height)"
+                          :quantity="Number(it.pieces)"
+                          :kerf="it.cutKerfMm != null ? Number(it.cutKerfMm) : ''"
+                          :allow-rotate="it.cutAllowRotate !== false"
+                        />
+                      </td>
+                    </tr>
+                  </template>
                 </tbody>
               </table>
             </section>
@@ -214,10 +244,11 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { CheckCircle2, FilterX, RefreshCw, X } from 'lucide-vue-next'
+import { CheckCircle2, ChevronDown, FilterX, RefreshCw, Scissors, X } from 'lucide-vue-next'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import AuthImage from '@/components/crm/AuthImage.vue'
+import CuttingPreview from '@/components/crm/CuttingPreview.vue'
 import {
   completeProduction,
   fetchProductionBoard,
@@ -296,6 +327,25 @@ function boardStatusLabel(o: ProductionOrder) {
 function badgeClass(o: ProductionOrder) {
   if (isDone(o)) return 'done'
   return o.boardAssignmentStatus === 'ACTIVE' ? 'active' : 'pending'
+}
+
+/** Foydalanuvchi ochgan/yopgan rejalar; qolganlari: tugallanmagan buyurtmada ochiq. */
+const cutToggled = ref<Record<string, boolean>>({})
+
+function canCut(it: ProductionOrderItem) {
+  return !!it.goodsId && Number(it.width) > 0 && Number(it.height) > 0 && Number(it.pieces) > 0
+}
+
+function cutKey(o: ProductionOrder, it: ProductionOrderItem) {
+  return `${o.boardAssignmentId ?? o.id}-${it.id}`
+}
+
+function isCutOpen(o: ProductionOrder, it: ProductionOrderItem) {
+  return cutToggled.value[cutKey(o, it)] ?? !isDone(o)
+}
+
+function toggleCut(o: ProductionOrder, it: ProductionOrderItem) {
+  cutToggled.value = { ...cutToggled.value, [cutKey(o, it)]: !isCutOpen(o, it) }
 }
 
 function sizeLabel(it: ProductionOrderItem) {
@@ -468,6 +518,14 @@ onMounted(async () => {
 .items-table td { padding: 0.4rem 0.5rem; color: #4b5563; border-bottom: 1px solid #f3f4f6; }
 .dark .items-table th, .dark .items-table td { border-color: #1f2937; }
 .dark .items-table td { color: #d1d5db; }
+.cut-toggle { margin-inline-start: 0.5rem; display: inline-flex; align-items: center; gap: 0.25rem; border-radius: 9999px; border: 1px solid #c7d7fe; background: #eef4ff; padding: 0.1rem 0.55rem; font-size: 0.72rem; font-weight: 500; color: #3538cd; white-space: nowrap; vertical-align: middle; }
+.cut-toggle:hover { background: #e0eaff; }
+.cut-toggle .chevron { transition: transform 0.15s; }
+.cut-toggle.open .chevron { transform: rotate(180deg); }
+.cut-row > td { padding-top: 0; }
+.cut-row :deep(.cut) { margin-top: 0.25rem; }
+.dark .cut-toggle { border-color: rgb(70 95 255 / 35%); background: rgb(70 95 255 / 12%); color: #9cb0ff; }
+.dark .cut-toggle:hover { background: rgb(70 95 255 / 20%); }
 
 .thumbs { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .thumb { height: 4.5rem; width: 4.5rem; overflow: hidden; border-radius: 0.5rem; border: 1px solid #e5e7eb; background: #f9fafb; }

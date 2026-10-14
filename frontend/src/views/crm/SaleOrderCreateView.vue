@@ -386,6 +386,8 @@
           :piece-width="Number(itemForm.width)"
           :piece-height="Number(itemForm.height)"
           :quantity="Number(itemForm.count)"
+          v-model:kerf="itemForm.cutKerfMm"
+          v-model:allow-rotate="itemForm.cutAllowRotate"
         />
         <p v-if="!headerReady" class="mt-2 text-xs text-amber-600">
           {{ t('saleOrderCreate.headerRequired') }}
@@ -628,6 +630,8 @@ interface DraftItem {
   count: number
   priceCost: number
   priceSelling: number
+  cutKerfMm: number | null
+  cutAllowRotate: boolean | null
 }
 
 const draftItems = ref<DraftItem[]>([])
@@ -771,6 +775,8 @@ const itemForm = reactive({
   height: 0,
   priceCost: 0,
   priceSelling: 0,
+  cutKerfMm: '' as number | '',
+  cutAllowRotate: true,
 })
 
 function todayLocal() {
@@ -1116,6 +1122,8 @@ function onAddItem() {
     count,
     priceCost: Number(itemForm.priceCost),
     priceSelling: selling,
+    cutKerfMm: windowMode && itemForm.cutKerfMm !== '' ? Number(itemForm.cutKerfMm) : null,
+    cutAllowRotate: windowMode ? itemForm.cutAllowRotate : null,
   })
   itemForm.goodsId = 0
   itemForm.count = 1
@@ -1154,6 +1162,8 @@ function toDraft(it: SaleOrderItem): DraftItem {
     count,
     priceCost: Number(it.priceCost || 0),
     priceSelling: Number(it.priceSelling || 0),
+    cutKerfMm: it.cutKerfMm != null ? Number(it.cutKerfMm) : null,
+    cutAllowRotate: it.cutAllowRotate ?? null,
   }
 }
 
@@ -1197,6 +1207,8 @@ function itemPayload(d: DraftItem): SaleOrderInitialItem {
     count: d.isWindow ? Number(d.pieces) : d.count,
     width: d.width ?? undefined,
     height: d.height ?? undefined,
+    cutKerfMm: d.cutKerfMm ?? undefined,
+    cutAllowRotate: d.cutAllowRotate ?? undefined,
   }
 }
 

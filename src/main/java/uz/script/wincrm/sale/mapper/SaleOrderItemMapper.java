@@ -18,6 +18,8 @@ public class SaleOrderItemMapper {
                 .width(dto.getWidth())
                 .height(dto.getHeight())
                 .count(dto.getCount())
+                .cutKerfMm(dto.getCutKerfMm())
+                .cutAllowRotate(dto.getCutAllowRotate())
                 .arrivalDate(dto.getArrivalDate())
                 .build();
     }
@@ -41,6 +43,12 @@ public class SaleOrderItemMapper {
         if (dto.getArrivalDate() != null) {
             entity.setArrivalDate(dto.getArrivalDate());
         }
+        if (dto.getCutKerfMm() != null) {
+            entity.setCutKerfMm(dto.getCutKerfMm());
+        }
+        if (dto.getCutAllowRotate() != null) {
+            entity.setCutAllowRotate(dto.getCutAllowRotate());
+        }
     }
 
     public SaleOrderItemResponse toResponse(SaleOrderItem entity) {
@@ -61,6 +69,8 @@ public class SaleOrderItemMapper {
                 .width(entity.getWidth())
                 .height(entity.getHeight())
                 .count(entity.getCount())
+                .cutKerfMm(entity.getCutKerfMm())
+                .cutAllowRotate(entity.getCutAllowRotate())
                 .arrivalDate(entity.getArrivalDate())
                 .status(entity.getStatus())
                 .createdAt(entity.getCreatedAt())

@@ -108,8 +108,8 @@
 
       <div class="p-5 border-b border-gray-100">
         <div class="form-row">
-          <label class="lbl product-col">
-            {{ t('common.product') }}
+          <div class="lbl product-col">
+            <span class="lbl-text">{{ t('common.product') }}</span>
             <SearchableSelect
               v-model="itemForm.goodsId"
               :options="goodsOptions"
@@ -117,44 +117,37 @@
               :search-placeholder="t('warehouseOrders.searchGoods')"
               :disabled="isTransferred"
             />
-            <span v-if="selectedGoods" class="unit-hint">
+            <span v-if="selectedGoods" class="field-note unit-hint">
               {{ t('warehouseOrders.unitLabel') }}: <b>{{ selectedUnit || '—' }}</b>
             </span>
-          </label>
+          </div>
 
           <template v-if="isWindowGoods">
-            <label class="lbl min-w-0 w-28 sm:flex-none">
-              {{ t('warehouseOrders.widthCm') }}
+            <label class="lbl col-sm">
+              <span class="lbl-text">{{ t('warehouseOrders.widthCm') }}</span>
               <input v-model.number="itemForm.width" type="number" min="1" step="1" class="field" />
             </label>
-            <label class="lbl min-w-0 w-28 sm:flex-none">
-              {{ t('warehouseOrders.heightCm') }}
+            <label class="lbl col-sm">
+              <span class="lbl-text">{{ t('warehouseOrders.heightCm') }}</span>
               <input v-model.number="itemForm.height" type="number" min="1" step="1" class="field" />
-            </label>
-            <label class="lbl min-w-0 w-28 sm:flex-none">
-              {{ t('common.count') }}
-              <span class="pct-field">
-                <input v-model.number="itemForm.count" type="number" min="0.01" step="0.01" class="field" :class="{ 'has-unit': selectedUnit }" />
-                <span v-if="selectedUnit" class="unit-sign">{{ selectedUnit }}</span>
-              </span>
-            </label>
-            <label class="lbl min-w-0 w-28 sm:flex-none">
-              {{ t('warehouseOrders.kvm') }}
-              <input :value="formatNum(computedKvm)" class="field" readonly />
             </label>
           </template>
 
-          <label v-else class="lbl min-w-0 w-32 sm:flex-none">
-            {{ t('common.count') }}
+          <label class="lbl col-sm">
+            <span class="lbl-text">{{ t('common.count') }}</span>
             <span class="pct-field">
               <input v-model.number="itemForm.count" type="number" min="0.01" step="0.01" class="field" :class="{ 'has-unit': selectedUnit }" />
               <span v-if="selectedUnit" class="unit-sign">{{ selectedUnit }}</span>
             </span>
           </label>
 
-          <label class="lbl min-w-0 w-40 sm:flex-none">
-            <template v-if="isForeign">{{ isWindowGoods ? t('warehouseOrders.priceUsdKvm') : t('warehouseOrders.priceUsd') }}</template>
-            <template v-else>{{ isWindowGoods ? t('warehouseOrders.arrivalPriceKvm') : t('warehouseOrders.arrivalPrice') }}</template>
+          <label v-if="isWindowGoods" class="lbl col-sm">
+            <span class="lbl-text">{{ t('warehouseOrders.kvm') }}</span>
+            <input :value="formatNum(computedKvm)" class="field" readonly tabindex="-1" />
+          </label>
+
+          <label class="lbl col-md">
+            <span class="lbl-text" :title="priceCostLabel">{{ priceCostLabel }}</span>
             <input
               :value="priceCostText"
               inputmode="decimal"
@@ -164,8 +157,8 @@
               @input="onPriceCostInput"
             />
           </label>
-          <label v-if="isForeign" class="lbl min-w-0 w-40 sm:flex-none">
-            {{ isWindowGoods ? t('warehouseOrders.priceSomKvm') : t('warehouseOrders.priceSom') }}
+          <label v-if="isForeign" class="lbl col-md">
+            <span class="lbl-text" :title="priceSomLabel">{{ priceSomLabel }}</span>
             <input
               :value="itemForm.priceCost > 0 && form.exchangeRate > 0 ? money(toSom(itemForm.priceCost)) : ''"
               class="field"
@@ -174,8 +167,8 @@
               tabindex="-1"
             />
           </label>
-          <label class="lbl min-w-0 w-40 sm:flex-none">
-            {{ isWindowGoods ? t('warehouseOrders.sellingPriceKvm') : t('warehouseOrders.sellingPrice') }}
+          <label class="lbl col-md">
+            <span class="lbl-text" :title="sellingLabel">{{ sellingLabel }}</span>
             <input
               :value="sellingText"
               inputmode="decimal"
@@ -185,8 +178,8 @@
               @input="onSellingInput"
             />
           </label>
-          <label class="lbl min-w-0 w-28 sm:flex-none">
-            {{ t('warehouseOrders.markupPercent') }}
+          <label class="lbl col-sm">
+            <span class="lbl-text">{{ t('warehouseOrders.markupPercent') }}</span>
             <div class="pct-field">
               <input
                 :value="markupText"
@@ -201,15 +194,16 @@
               <span class="pct-sign">%</span>
             </div>
           </label>
-          <label class="lbl min-w-0 w-40 sm:flex-none">
-            {{ t('warehouseOrders.totalSum') }}
-            <input :value="amt(computedSum)" class="field" readonly />
-            <span v-if="isForeign && computedSum > 0 && form.exchangeRate > 0" class="base-eq">
+          <label class="lbl col-md">
+            <span class="lbl-text">{{ t('warehouseOrders.totalSum') }}</span>
+            <input :value="amt(computedSum)" class="field total-field" readonly tabindex="-1" />
+            <span v-if="isForeign && computedSum > 0 && form.exchangeRate > 0" class="field-note base-eq">
               {{ t('warehouseOrders.baseEquivalent', { value: moneyIn(Math.round(computedSum * form.exchangeRate * 100) / 100, 'UZS', t('common.currency')) }) }}
             </span>
           </label>
 
-          <div v-if="!isTransferred" class="flex items-end">
+          <div v-if="!isTransferred" class="lbl col-btn">
+            <span class="lbl-text" aria-hidden="true">&nbsp;</span>
             <button type="button" class="btn" :disabled="saving || !canAddItem" @click="onAddItem">
               {{ saving ? '...' : t('warehouseOrders.addItem') }}
             </button>
@@ -486,6 +480,14 @@ function isWindow(g?: Goods | null) {
 const selectedGoods = computed(() => goods.value.find((g) => g.id === itemForm.goodsId) || null)
 const isWindowGoods = computed(() => isWindow(selectedGoods.value))
 const selectedUnit = computed(() => selectedGoods.value?.unitTypeName || '')
+const priceCostLabel = computed(() => {
+  if (isForeign.value) return t(isWindowGoods.value ? 'warehouseOrders.priceUsdKvm' : 'warehouseOrders.priceUsd')
+  return t(isWindowGoods.value ? 'warehouseOrders.arrivalPriceKvm' : 'warehouseOrders.arrivalPrice')
+})
+const priceSomLabel = computed(() => t(isWindowGoods.value ? 'warehouseOrders.priceSomKvm' : 'warehouseOrders.priceSom'))
+const sellingLabel = computed(() =>
+  t(isWindowGoods.value ? 'warehouseOrders.sellingPriceKvm' : 'warehouseOrders.sellingPrice'),
+)
 
 const computedKvm = computed(() => {
   if (!isWindowGoods.value) return 0
@@ -839,9 +841,19 @@ onMounted(load)
 .title { font-size: 1.125rem; font-weight: 600; color: #1f2937; }
 .sub { margin-top: 0.25rem; font-size: 0.875rem; color: #6b7280; }
 .head { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; padding: 1.25rem 1.25rem 1rem; border-bottom: 1px solid #f3f4f6; }
-.form-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.75rem; }
-.product-col { flex: 1.4 1 14rem; min-width: 14rem; }
+.form-row { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 0.75rem; }
+.product-col { flex: 2.2 1 15rem; min-width: 15rem; }
+.col-sm { flex: 1 1 6.5rem; min-width: 6.5rem; }
+.col-md { flex: 1.3 1 8.5rem; min-width: 8.5rem; }
+.col-btn { flex: 0 0 auto; }
 .lbl { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.75rem; font-weight: 500; color: #6b7280; }
+.lbl-text { display: block; height: 1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1rem; }
+.field-note { line-height: 1rem; }
+.product-col :deep(.field-btn) { height: 2.5rem; }
+.form-row input[type='number'] { appearance: textfield; -moz-appearance: textfield; }
+.form-row input[type='number']::-webkit-inner-spin-button,
+.form-row input[type='number']::-webkit-outer-spin-button { margin: 0; -webkit-appearance: none; }
+.total-field { font-weight: 600; }
 .field { height: 2.5rem; width: 100%; border-radius: 0.5rem; border: 1px solid #d1d5db; background: #fff; padding: 0 0.75rem; font-size: 0.875rem; }
 .field:disabled, .field[readonly] { background: #f9fafb; color: #374151; }
 .btn { display: inline-flex; height: 2.5rem; align-items: center; border-radius: 0.5rem; background: #465fff; padding: 0 1.25rem; font-size: 0.875rem; font-weight: 500; color: #fff; white-space: nowrap; }
@@ -851,7 +863,7 @@ onMounted(load)
 .cur-hint { flex: 1 1 16rem; align-self: center; font-size: 0.75rem; color: #6b7280; }
 .base-eq { font-size: 0.6875rem; font-weight: 400; color: #6b7280; }
 .link-btn { font-weight: 500; color: #465fff; text-decoration: underline; }
-.pct-field { position: relative; }
+.pct-field { position: relative; display: block; }
 .pct-field .field { padding-right: 1.75rem; }
 .pct-sign { position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%); font-size: 0.875rem; color: #9ca3af; pointer-events: none; }
 .pct-field .field.has-unit { padding-right: 3rem; }

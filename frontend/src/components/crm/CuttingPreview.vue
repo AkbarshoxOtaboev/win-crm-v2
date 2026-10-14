@@ -3,10 +3,14 @@
     <header class="cut-head">
       <div class="cut-title">
         <Scissors class="h-4 w-4" />
-        <span>{{ t('cutting.title') }}</span>
-        <span class="cut-hint">{{ t('cutting.hint') }}</span>
+        <span>{{ title || t('cutting.title') }}</span>
+        <span class="cut-hint">{{ readonly ? t('cutting.savedHint') : t('cutting.hint') }}</span>
       </div>
-      <div class="cut-controls">
+      <div v-if="readonly" class="cut-controls">
+        <span class="chip">{{ t('cutting.kerf') }}: <b class="ms-1">{{ result ? num(result.kerfMm) : kerf === '' ? '—' : kerf }}</b></span>
+        <span class="chip">{{ allowRotate ? t('cutting.rotateOn') : t('cutting.rotateOff') }}</span>
+      </div>
+      <div v-else class="cut-controls">
         <label class="cut-kerf">
           {{ t('cutting.kerf') }}
           <input
@@ -128,12 +132,16 @@ const props = defineProps<{
   pieceWidth: number
   pieceHeight: number
   quantity: number
+  /** Saqlangan qoidalarni faqat ko'rsatish (ishlab chiqarish): sozlab bo'lmaydi. */
+  readonly?: boolean
+  title?: string
 }>()
 
 const { t } = useI18n()
-const kerf = ref<number | ''>('')
+/** '' - sozlamadagi standart qiymat. */
+const kerf = defineModel<number | ''>('kerf', { default: '' })
+const allowRotate = defineModel<boolean>('allowRotate', { default: true })
 const defaultKerf = ref<number | null>(null)
-const allowRotate = ref(true)
 const result = ref<CuttingResult | null>(null)
 const loading = ref(false)
 const error = ref<string | null>(null)
@@ -248,4 +256,17 @@ onBeforeUnmount(() => {
 .cut-remnants .bad .dot { background: #f97066; }
 .cut-muted { margin-top: 0.45rem; font-size: 0.75rem; color: #667085; }
 .cut-error { margin-top: 0.6rem; font-size: 0.8rem; color: #d92d20; }
+
+.dark .cut { border-color: #1f2937; background: rgb(255 255 255 / 2%); }
+.dark .cut-title { color: rgba(255, 255, 255, 0.9); }
+.dark .cut-controls,
+.dark .cut-caption,
+.dark .cut-remnants,
+.dark .cut-muted { color: #98a2b3; }
+.dark .cut-input { border-color: #344054; background: transparent; color: rgba(255, 255, 255, 0.9); }
+.dark .chip { background: rgb(255 255 255 / 6%); color: #d0d5dd; }
+.dark .chip.strong { background: rgb(70 95 255 / 15%); color: #9cb0ff; }
+.dark .chip.good { background: rgb(18 183 106 / 12%); color: #6ce9a6; }
+.dark .chip.bad { background: rgb(240 68 56 / 12%); color: #fda29b; }
+.dark .svg-sheet { fill: #1d2939; stroke: #98a2b3; }
 </style>

@@ -1,6 +1,7 @@
 package uz.script.wincrm.sale.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -60,6 +61,14 @@ public class SaleOrderItemDTO {
             If warehouse has 10 items and you request 12, the request will be rejected!
             """, example = "5", required = true)
     private BigDecimal count;
+
+    @Schema(description = "Oyna kesish: kesuv qalinligi, mm; berilmasa sozlamadagi qiymat", example = "3")
+    @DecimalMin("0")
+    @DecimalMax("50")
+    private BigDecimal cutKerfMm;
+
+    @Schema(description = "Oyna kesish: bo'lakni 90° burish mumkinmi; berilmasa - mumkin")
+    private Boolean cutAllowRotate;
 
     @NotNull(message = "Arrival date is required")
     @Schema(description = "Product arrival date and time", required = true)

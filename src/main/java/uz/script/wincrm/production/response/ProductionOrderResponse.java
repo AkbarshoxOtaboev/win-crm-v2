@@ -66,6 +66,10 @@ public class ProductionOrderResponse {
         private BigDecimal count;
         /** Oyna uchun dona soni (eni va bo'yi bo'lsa). */
         private BigDecimal pieces;
+        /** Buyurtmada tanlangan kesuv qalinligi, mm; null - sozlamadagi qiymat. */
+        private BigDecimal cutKerfMm;
+        /** Bo'lakni 90° burish mumkinmi; null - mumkin. */
+        private Boolean cutAllowRotate;
     }
 
     @Getter
