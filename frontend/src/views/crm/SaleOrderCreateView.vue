@@ -135,7 +135,7 @@
 
       <template v-if="form.saleType">
       <p v-if="orderFinal" class="items-locked">{{ t('saleOrderCreate.itemsLocked') }}</p>
-      <div v-else ref="itemFormEl" class="p-5 border-b border-gray-100">
+      <div v-else class="p-5 border-b border-gray-100">
         <div class="form-row">
           <div class="lbl min-w-0 w-full sm:w-auto sm:flex-none">
             {{ t('saleOrderCreate.itemType') }}
@@ -274,12 +274,12 @@
             <tr v-if="displayItems.length === 0">
               <td colspan="11" class="empty">{{ t('saleOrderCreate.noItems') }}</td>
             </tr>
-            <tr v-for="(row, idx) in displayItems" :key="row.key" class="border-b border-gray-100" :class="{ 'row-picked': selectedItemKey === row.key }">
+            <tr v-for="(row, idx) in displayItems" :key="row.key" class="border-b border-gray-100" :class="{ 'row-picked': selectedItemKeys.includes(row.key) }">
               <td class="td">
                 <input
                   type="checkbox"
                   class="row-check"
-                  :checked="selectedItemKey === row.key"
+                  :checked="selectedItemKeys.includes(row.key)"
                   :disabled="orderFinal"
                   :aria-label="row.goodsName"
                   @change="toggleItemSelect(row.key)"
@@ -287,8 +287,21 @@
               </td>
               <td class="td">{{ idx + 1 }}</td>
               <td class="td">
-                {{ row.goodsName }}
-                <span v-if="isEdit && !row.itemId" class="new-badge">{{ t('saleOrderCreate.newBadge') }}</span>
+                <div class="product-cell">
+                  <select
+                    class="product-select"
+                    :class="{ short: stockIsShort(row) }"
+                    :value="row.goodsId"
+                    :disabled="saving || orderFinal"
+                    :aria-label="row.goodsName"
+                    @change="onRowGoodsChange(row.key, $event)"
+                  >
+                    <option v-for="opt in rowGoodsOptions(row)" :key="opt.value" :value="opt.value">
+                      {{ opt.label }}
+                    </option>
+                  </select>
+                  <span v-if="isEdit && !row.itemId" class="new-badge">{{ t('saleOrderCreate.newBadge') }}</span>
+                </div>
               </td>
               <td class="td">
                 <span class="kind-badge" :class="row.isService ? 'service' : 'product'">
@@ -320,12 +333,13 @@
         <button
           type="button"
           class="ghost"
-          :disabled="saving || selectedItemKey == null"
+          :disabled="saving || selectedItemKeys.length === 0"
           :title="t('saleOrderCreate.copyItemHint')"
-          @click="copySelectedItem"
+          @click="copySelectedItems"
         >
           {{ t('saleOrderCreate.copyItem') }}
         </button>
+        <p v-if="itemError" class="copy-note">{{ itemError }}</p>
       </div>
 
       <div class="border-t border-gray-100 p-5">
@@ -530,7 +544,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
@@ -612,11 +626,7 @@ interface DraftItem {
 const draftItems = ref<DraftItem[]>([])
 /** Tahrirlashda olib tashlangan saqlangan pozitsiyalar: saqlanganda o'chiriladi, qoldig'i omborga qaytadi. */
 const removedItems = ref<DraftItem[]>([])
-const selectedItemKey = ref<number | null>(null)
-const itemFormEl = ref<HTMLElement | null>(null)
-/** Nusxadan keyin mahsulot almashtirilsa eni, bo'yi va soni saqlanadi. */
-const preserveCut = ref(false)
-let applyingCopy = false
+const selectedItemKeys = ref<number[]>([])
 let draftSeq = 0
 const saving = ref(false)
 const saved = ref(false)
@@ -890,8 +900,6 @@ const goodsOptions = computed(() =>
 )
 
 watch(itemKind, () => {
-  if (applyingCopy) return
-  preserveCut.value = false
   itemForm.goodsId = 0
   itemError.value = null
 })
@@ -947,12 +955,10 @@ const discountText = computed(() => {
 watch(
   () => itemForm.goodsId,
   (id) => {
-    if (applyingCopy) return
     const g = goods.value.find((x) => x.id === id)
     if (!g) return
     itemForm.priceCost = Number(g.priceCost || 0)
     itemForm.priceSelling = goodsPriceIn(g)
-    if (preserveCut.value) return
     itemForm.count = 1
     if (isWindow(g)) {
       itemForm.width = Number(g.width || 0)
@@ -1097,44 +1103,100 @@ function onAddItem() {
     cutKerfMm: windowMode && itemForm.cutKerfMm !== '' ? Number(itemForm.cutKerfMm) : null,
     cutAllowRotate: windowMode ? itemForm.cutAllowRotate : null,
   })
-  itemForm.goodsId = 0
-  itemForm.count = 1
   itemForm.width = 0
   itemForm.height = 0
-  itemForm.priceCost = 0
-  itemForm.priceSelling = 0
-  preserveCut.value = false
+  itemForm.count = 0
+}
+
+function sameKind(g: Goods, row: { isWindow: boolean; isService: boolean }) {
+  if (row.isService) return isService(g)
+  if (row.isWindow) return isWindow(g)
+  return !isService(g) && !isWindow(g)
+}
+
+function rowGoodsOptions(row: DraftItem) {
+  return goods.value
+    .filter((g) => (!g.status || g.status === 'ACTIVE') && sameKind(g, row))
+    .filter((g) => hasWarehouseStock(g) || g.id === row.goodsId)
+    .map((g) => ({ value: g.id, label: g.name }))
+}
+
+function stockIsShort(row: { goodsId: number; isService: boolean; itemId?: number }) {
+  if (row.isService || row.itemId) return false
+  return remainingStock(row.goodsId) < -1e-9
+}
+
+function refreshStockError() {
+  itemError.value = draftItems.value.some((d) => stockIsShort(d)) ? t('saleOrderCreate.copyStockShort') : null
+}
+
+function onRowGoodsChange(key: number, e: Event) {
+  changeRowGoods(key, Number((e.target as HTMLSelectElement).value))
+}
+
+function changeRowGoods(key: number, goodsId: number) {
+  const row = draftItems.value.find((d) => d.key === key)
+  const g = goods.value.find((x) => x.id === goodsId)
+  if (!row || !g || row.goodsId === goodsId || orderFinal.value) return
+  if (row.itemId) {
+    removedItems.value.push({ ...row })
+    row.itemId = undefined
+  }
+  const windowMode = isWindow(g)
+  row.goodsId = g.id
+  row.goodsName = g.name
+  row.isWindow = windowMode
+  row.isService = isService(g)
+  row.priceCost = Number(g.priceCost || 0)
+  const nextPrice = goodsPriceIn(g)
+  if (nextPrice > 0) row.priceSelling = nextPrice
+  if (!windowMode) {
+    row.width = null
+    row.height = null
+    row.pieces = null
+    row.cutKerfMm = null
+    row.cutAllowRotate = null
+  }
+  refreshStockError()
 }
 
 function toggleItemSelect(key: number) {
-  selectedItemKey.value = selectedItemKey.value === key ? null : key
+  selectedItemKeys.value = selectedItemKeys.value.includes(key)
+    ? selectedItemKeys.value.filter((k) => k !== key)
+    : [...selectedItemKeys.value, key]
 }
 
-function copySelectedItem() {
-  const row = draftItems.value.find((d) => d.key === selectedItemKey.value)
-  if (!row || orderFinal.value) return
-  applyingCopy = true
-  preserveCut.value = true
-  itemKind.value = row.isService ? 'SERVICE' : 'PRODUCT'
-  itemForm.width = Number(row.width || 0)
-  itemForm.height = Number(row.height || 0)
-  itemForm.count = row.isWindow ? Number(row.pieces || 0) : row.count
-  itemForm.priceCost = row.priceCost
-  itemForm.priceSelling = row.priceSelling
-  itemForm.cutKerfMm = row.cutKerfMm ?? ''
-  itemForm.cutAllowRotate = row.cutAllowRotate ?? true
-  itemForm.goodsId = row.goodsId
-  itemError.value = null
-  applyingCopy = false
-  void nextTick(() => itemFormEl.value?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }))
+function copySelectedItems() {
+  if (orderFinal.value || saving.value || selectedItemKeys.value.length === 0) return
+  const picked = draftItems.value.filter((d) => selectedItemKeys.value.includes(d.key))
+  for (const row of picked) {
+    draftItems.value.push({
+      key: ++draftSeq,
+      goodsId: row.goodsId,
+      goodsName: row.goodsName,
+      isWindow: row.isWindow,
+      isService: row.isService,
+      width: row.width,
+      height: row.height,
+      pieces: row.pieces,
+      count: row.count,
+      priceCost: row.priceCost,
+      priceSelling: row.priceSelling,
+      cutKerfMm: row.cutKerfMm,
+      cutAllowRotate: row.cutAllowRotate,
+    })
+  }
+  refreshStockError()
 }
 
 function onRemoveItem(key: number) {
   const row = draftItems.value.find((d) => d.key === key)
   if (row?.itemId) removedItems.value.push(row)
   draftItems.value = draftItems.value.filter((d) => d.key !== key)
-  if (selectedItemKey.value === key) selectedItemKey.value = null
-  itemError.value = null
+  if (selectedItemKeys.value.includes(key)) {
+    selectedItemKeys.value = selectedItemKeys.value.filter((k) => k !== key)
+  }
+  refreshStockError()
 }
 
 /** Saqlangan buyurtma vaqtini saqlab qoladi: kun o'zgarmasa, server uchun asl sana-vaqt yuboriladi. */
@@ -1387,9 +1449,16 @@ async function onCreateClient() {
 .new-badge { margin-inline-start: 0.375rem; border-radius: 9999px; background: #ecfdf3; padding: 0.0625rem 0.5rem; font-size: 0.6875rem; font-weight: 600; color: #027a48; }
 .dark .new-badge { background: rgba(18, 183, 106, 0.15); color: #6ce9a6; }
 .row-check { width: 1rem; height: 1rem; accent-color: #465fff; }
+.product-cell { display: flex; align-items: center; gap: 0.375rem; min-width: 12rem; }
+.product-select { height: 2.25rem; width: 100%; min-width: 11rem; border-radius: 0.5rem; border: 1px solid #d1d5db; background: #fff; padding: 0 0.5rem; font-size: 0.8125rem; color: #374151; }
+.product-select:disabled { background: #f9fafb; cursor: not-allowed; }
+.product-select.short { border-color: #dc2626; }
+.dark .product-select { border-color: #374151; background: #111827; color: #e5e7eb; }
+.dark .product-select.short { border-color: #f87171; }
 .row-picked { background: #f5f8ff; }
 .dark .row-picked { background: rgb(70 95 255 / 8%); }
-.copy-bar { display: flex; justify-content: flex-end; padding: 0.75rem 1.25rem; border-top: 1px solid #f3f4f6; }
+.copy-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0.75rem; padding: 0.75rem 1.25rem; border-top: 1px solid #f3f4f6; }
+.copy-note { margin: 0; font-size: 0.75rem; font-weight: 600; color: #dc2626; }
 .dark .client-debt { color: #f87171; }
 .total-field { font-size: 1rem; font-weight: 600; }
 .kind-toggle { display: inline-flex; height: 2.5rem; border-radius: 0.5rem; border: 1px solid #d1d5db; background: #f9fafb; padding: 0.2rem; gap: 0.2rem; }
