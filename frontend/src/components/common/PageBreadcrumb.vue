@@ -3,6 +3,7 @@
     <h2 class="text-xl font-semibold text-gray-800 dark:text-white/90">
       {{ pageTitle }}
     </h2>
+    <div class="flex flex-wrap items-center gap-3">
     <nav>
       <ol class="flex flex-wrap items-center gap-1.5">
         <li v-for="(item, index) in crumbs" :key="`${item.label}-${index}`" class="flex items-center gap-1.5">
@@ -44,6 +45,8 @@
         </li>
       </ol>
     </nav>
+    <slot />
+    </div>
   </div>
 </template>
 

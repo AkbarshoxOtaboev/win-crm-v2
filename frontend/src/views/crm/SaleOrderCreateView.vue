@@ -1,20 +1,13 @@
 <template>
   <AdminLayout>
-    <PageBreadcrumb :pageTitle="isEdit ? t('saleOrderCreate.editPageTitle') : t('saleOrderCreate.pageTitle')" />
+    <PageBreadcrumb :pageTitle="isEdit ? t('saleOrderCreate.editPageTitle') : t('saleOrderCreate.pageTitle')">
+      <router-link :to="backTo" class="ghost">{{ t('common.back') }}</router-link>
+    </PageBreadcrumb>
 
     <div class="card">
-      <div class="head">
-        <div>
-          <h3 class="title">{{ isEdit ? t('saleOrderCreate.editTitle', { id: editId }) : t('saleOrderCreate.title') }}</h3>
-          <p class="sub">
-            {{ isEdit ? t('saleOrderCreate.editSubtitle') : t('saleOrderCreate.subtitle') }}
-          </p>
-        </div>
-        <router-link :to="backTo" class="ghost">{{ t('common.back') }}</router-link>
-      </div>
 
-      <div v-if="error" class="err mx-5 mb-4">{{ error }}</div>
-      <div v-if="orderFinal" class="warn mx-5 mb-4">{{ t('saleOrderCreate.finalOrderHint') }}</div>
+      <div v-if="error" class="err mx-5 mt-5 mb-4">{{ error }}</div>
+      <div v-if="orderFinal" class="warn mx-5 mt-5 mb-4">{{ t('saleOrderCreate.finalOrderHint') }}</div>
 
       <div class="p-5">
         <div class="step-head">
@@ -56,15 +49,33 @@
               {{ t('saleOrderCreate.wholesale') }}
             </button>
           </div>
-          <p class="type-hint">
-            {{
-              form.saleType === 'WHOLESALE'
-                ? t('saleOrderCreate.wholesaleHint')
-                : form.saleType === 'RETAIL'
-                  ? t('saleOrderCreate.retailHint')
-                  : t('saleOrderCreate.chooseSaleTypeHint')
-            }}
-          </p>
+          <div
+            class="type-toggle cur-toggle"
+            role="radiogroup"
+            :aria-label="t('saleOrderCreate.currency')"
+            :title="draftItems.length > 0 ? t('saleOrderCreate.currencyLocked') : undefined"
+          >
+            <button
+              v-for="c in CURRENCIES"
+              :key="c"
+              type="button"
+              role="radio"
+              class="type-btn"
+              :class="{ active: form.currency === c }"
+              :aria-checked="form.currency === c"
+              :disabled="draftItems.length > 0"
+              @click="form.currency = c"
+            >
+              {{ t(`exchangeRates.currencies.${c}`) }}
+            </button>
+          </div>
+          <label class="seller-inline">
+            <span>{{ t('saleOrderCreate.seller') }}</span>
+            <select v-model.number="form.userId" required class="field" :disabled="!auth.isElevated && sellerOptions.length === 1">
+              <option :value="0" disabled>{{ t('saleOrderCreate.selectSeller') }}</option>
+              <option v-for="u in sellerOptions" :key="u.id" :value="u.id">{{ u.fullName || u.username }}</option>
+            </select>
+          </label>
         </div>
 
         <div v-if="!form.saleType && !isEdit" class="type-empty">
@@ -74,11 +85,6 @@
 
         <Transition name="reveal">
         <div v-if="form.saleType" class="mt-6">
-        <div class="step-head">
-          <span class="step-num">2</span>
-          <span class="step-title">{{ t('saleOrderCreate.orderDetails') }}</span>
-        </div>
-
         <div class="details-grid">
           <label class="lbl span-2">
             {{ t('common.client') }}
@@ -98,14 +104,10 @@
                 {{ t('saleOrderCreate.addClient') }}
               </button>
             </div>
-          </label>
-
-          <label class="lbl">
-            {{ t('saleOrderCreate.seller') }}
-            <select v-model.number="form.userId" required class="field" :disabled="!auth.isElevated && sellerOptions.length === 1">
-              <option :value="0" disabled>{{ t('saleOrderCreate.selectSeller') }}</option>
-              <option v-for="u in sellerOptions" :key="u.id" :value="u.id">{{ u.fullName || u.username }}</option>
-            </select>
+            <p v-if="form.clientId > 0 && balanceError" class="client-debt">{{ balanceError }}</p>
+            <p v-else-if="form.clientId > 0" class="client-debt">
+              {{ t('saleOrderCreate.debt') }}: {{ clientDebtLine }}
+            </p>
           </label>
 
           <label class="lbl">
@@ -126,172 +128,14 @@
               <option v-for="w in activeWarehouses" :key="w.id" :value="w.id">{{ w.name }}</option>
             </select>
           </label>
-
-          <label class="lbl">
-            {{ t('saleOrderCreate.currency') }}
-            <select
-              v-model="form.currency"
-              class="field"
-              :disabled="draftItems.length > 0"
-              :title="draftItems.length > 0 ? t('saleOrderCreate.currencyLocked') : undefined"
-            >
-              <option v-for="c in CURRENCIES" :key="c" :value="c">{{ t(`exchangeRates.currencies.${c}`) }}</option>
-            </select>
-          </label>
-          <label v-if="needsRate" class="lbl">
-            {{ t('saleOrderCreate.rate') }}
-            <input
-              :value="rateText"
-              inputmode="decimal"
-              autocomplete="off"
-              :placeholder="rateLoading ? t('exchangeRates.rateLoading') : '0'"
-              class="field"
-              :class="{ 'rate-manual': rateIsManual, 'cursor-default bg-gray-50 dark:bg-white/[0.03]': !rateEditable }"
-              :readonly="!rateEditable"
-              :tabindex="rateEditable ? undefined : -1"
-              :title="
-                !isForeign
-                  ? t('exchangeRates.rateAuto')
-                  : draftItems.length > 0
-                    ? t('saleOrderCreate.rateLocked')
-                    : t('saleOrderCreate.rateEditHint')
-              "
-              @input="onRateInput"
-            />
-          </label>
-
-          <div class="lbl" :class="{ 'span-2': !needsRate }">
-            <label for="order-total-sum">{{ t('saleOrderCreate.orderSumRequired') }} ({{ curLabel }})</label>
-            <div class="total-row">
-              <input
-                id="order-total-sum"
-                :value="totalSumText"
-                inputmode="decimal"
-                class="field total-field"
-                placeholder="0"
-                @input="onTotalSumInput"
-              />
-              <button
-                type="button"
-                class="pull-total-btn"
-                :disabled="!(itemsTotalSum > 0)"
-                :title="t('saleOrderCreate.pullItemsTotal')"
-                :aria-label="t('saleOrderCreate.pullItemsTotal')"
-                @click="pullItemsTotal"
-              >
-                <Magnet class="h-4 w-4" />
-              </button>
-            </div>
-          </div>
         </div>
-
-        <div class="details-notes">
-          <p class="total-hint">{{ t('saleOrderCreate.orderSumHint') }}</p>
-          <p v-if="needsRate" class="cur-hint">
-            <span v-if="!rateLoading && !(form.exchangeRate > 0)" class="text-amber-600">{{ t('saleOrderCreate.rateMissing') }}</span>
-            <template v-else>
-              <span v-if="rateIsManual" class="text-amber-600">
-                {{ t('saleOrderCreate.rateManual', { rate: formatRate(cbuRate) }) }}
-                <button v-if="rateEditable" type="button" class="link-btn" @click="resetRate">{{ t('saleOrderCreate.rateReset') }}</button>.
-              </span>
-              <span v-else-if="cbuRateDate">{{ t('exchangeRates.cbuRate') }} · {{ cbuRateDate.split('-').reverse().join('.') }}. </span>
-              <span v-if="isForeign">{{ t('saleOrderCreate.currencyHint') }}</span>
-              <span v-else>{{ t('saleOrderCreate.rateForGoodsHint') }}</span>
-            </template>
-          </p>
-        </div>
-
-        <div v-if="form.clientId > 0" class="client-summary">
-          <div class="summary-item">
-            <span class="summary-label">{{ t('saleOrderCreate.totalPurchase') }}</span>
-            <span class="summary-value">{{ balanceText(clientBalance?.totalPurchase) }}</span>
-          </div>
-          <div class="summary-item">
-            <span class="summary-label">{{ t('saleOrderCreate.totalPaid') }}</span>
-            <span class="summary-value paid">{{ balanceText(clientBalance?.totalPaid) }}</span>
-          </div>
-          <div class="summary-item">
-            <span class="summary-label">{{ Number(clientBalance?.totalDebt || 0) < 0 ? t('saleOrderCreate.overpaid') : t('saleOrderCreate.debt') }}</span>
-            <span class="summary-value" :class="Number(clientBalance?.totalDebt || 0) > 0 ? 'debt' : 'paid'">
-              {{ balanceText(clientBalance ? Math.abs(Number(clientBalance.totalDebt || 0)) : undefined) }}
-            </span>
-          </div>
-          <p v-if="otherCurrencyDebts" class="summary-note">
-            {{ t('saleOrderCreate.otherCurrencyDebt', { value: otherCurrencyDebts }) }}
-          </p>
-          <p v-if="balanceError" class="summary-note">{{ balanceError }}</p>
-        </div>
-
-        <div class="delivery-block mt-5">
-          <span class="lbl">{{ t('saleOrderCreate.deliveryTitle') }}</span>
-          <div class="delivery-row">
-            <div class="delivery-options">
-              <button
-                type="button"
-                class="delivery-opt"
-                :class="{ active: form.deliveryType === 'PICKUP' }"
-                :disabled="deliveryTypeLocked"
-                @click="setDeliveryType('PICKUP')"
-              >
-                <PackageCheck class="h-5 w-5 flex-shrink-0" />
-                <span class="text-left">
-                  <span class="opt-title">{{ t('saleOrderCreate.pickup') }}</span>
-                  <span class="opt-sub">{{ t('saleOrderCreate.pickupHint') }}</span>
-                </span>
-              </button>
-              <button
-                type="button"
-                class="delivery-opt"
-                :class="{ active: form.deliveryType === 'DELIVERY' }"
-                :disabled="deliveryTypeLocked"
-                @click="setDeliveryType('DELIVERY')"
-              >
-                <Truck class="h-5 w-5 flex-shrink-0" />
-                <span class="text-left">
-                  <span class="opt-title">{{ t('saleOrderCreate.delivery') }}</span>
-                  <span class="opt-sub">{{ t('saleOrderCreate.deliveryHint') }}</span>
-                </span>
-              </button>
-            </div>
-            <label v-if="form.deliveryType === 'DELIVERY'" class="lbl min-w-0 w-full sm:w-64 sm:flex-none">
-              {{ t('saleOrderCreate.deliveryFee') }} ({{ curLabel }})
-              <input
-                :value="deliveryFeeText"
-                inputmode="decimal"
-                class="field total-field"
-                placeholder="0"
-                @input="onDeliveryFeeInput"
-              />
-            </label>
-          </div>
-        </div>
-
-        <label class="lbl mt-4">
-          {{ t('common.comment') }}
-          <textarea
-            v-model="form.comment"
-            rows="2"
-            class="field textarea-field"
-            :placeholder="t('saleOrderCreate.commentPlaceholder')"
-          />
-        </label>
         </div>
         </Transition>
       </div>
-    </div>
 
-    <div v-if="form.saleType" class="card mt-4">
-      <div class="head">
-        <div>
-          <h3 class="title">{{ t('saleOrderCreate.items') }}</h3>
-          <p class="sub">
-            {{ t('saleOrderCreate.itemsHint') }}
-          </p>
-        </div>
-      </div>
-
+      <template v-if="form.saleType">
       <p v-if="orderFinal" class="items-locked">{{ t('saleOrderCreate.itemsLocked') }}</p>
-      <div v-else class="p-5 border-b border-gray-100">
+      <div v-else ref="itemFormEl" class="p-5 border-b border-gray-100">
         <div class="form-row">
           <div class="lbl min-w-0 w-full sm:w-auto sm:flex-none">
             {{ t('saleOrderCreate.itemType') }}
@@ -413,6 +257,7 @@
         <table class="min-w-full">
           <thead>
             <tr class="border-b border-gray-100">
+              <th class="th w-10" />
               <th class="th">#</th>
               <th class="th">{{ t('common.product') }}</th>
               <th class="th">{{ t('saleOrderCreate.itemType') }}</th>
@@ -427,9 +272,19 @@
           </thead>
           <tbody>
             <tr v-if="displayItems.length === 0">
-              <td colspan="10" class="empty">{{ t('saleOrderCreate.noItems') }}</td>
+              <td colspan="11" class="empty">{{ t('saleOrderCreate.noItems') }}</td>
             </tr>
-            <tr v-for="(row, idx) in displayItems" :key="row.key" class="border-b border-gray-100">
+            <tr v-for="(row, idx) in displayItems" :key="row.key" class="border-b border-gray-100" :class="{ 'row-picked': selectedItemKey === row.key }">
+              <td class="td">
+                <input
+                  type="checkbox"
+                  class="row-check"
+                  :checked="selectedItemKey === row.key"
+                  :disabled="orderFinal"
+                  :aria-label="row.goodsName"
+                  @change="toggleItemSelect(row.key)"
+                />
+              </td>
               <td class="td">{{ idx + 1 }}</td>
               <td class="td">
                 {{ row.goodsName }}
@@ -453,12 +308,133 @@
           </tbody>
           <tfoot v-if="displayItems.length">
             <tr class="border-t border-gray-200 bg-gray-50">
-              <td class="td font-semibold" colspan="8">{{ t('saleOrderCreate.itemsTotal') }}</td>
+              <td class="td font-semibold" colspan="9">{{ t('saleOrderCreate.itemsTotal') }}</td>
               <td class="td font-semibold">{{ amt(itemsTotalSum) }}</td>
               <td class="td" />
             </tr>
           </tfoot>
         </table>
+      </div>
+
+      <div v-if="!orderFinal && displayItems.length" class="copy-bar">
+        <button
+          type="button"
+          class="ghost"
+          :disabled="saving || selectedItemKey == null"
+          :title="t('saleOrderCreate.copyItemHint')"
+          @click="copySelectedItem"
+        >
+          {{ t('saleOrderCreate.copyItem') }}
+        </button>
+      </div>
+
+      <div class="border-t border-gray-100 p-5">
+        <div class="details-grid">
+          <label v-if="needsRate" class="lbl">
+            {{ t('saleOrderCreate.rate') }}
+            <input
+              :value="rateText"
+              inputmode="decimal"
+              autocomplete="off"
+              :placeholder="rateLoading ? t('exchangeRates.rateLoading') : '0'"
+              class="field"
+              :class="{ 'rate-manual': rateIsManual, 'cursor-default bg-gray-50 dark:bg-white/[0.03]': !rateEditable }"
+              :readonly="!rateEditable"
+              :tabindex="rateEditable ? undefined : -1"
+              :title="
+                !isForeign
+                  ? t('exchangeRates.rateAuto')
+                  : draftItems.length > 0
+                    ? t('saleOrderCreate.rateLocked')
+                    : t('saleOrderCreate.rateEditHint')
+              "
+              @input="onRateInput"
+            />
+          </label>
+
+          <div class="lbl span-2">
+            <span>{{ t('saleOrderCreate.deliveryTitle') }}</span>
+            <div
+              class="type-toggle delivery-toggle"
+              role="radiogroup"
+              :aria-label="t('saleOrderCreate.deliveryTitle')"
+            >
+              <button
+                type="button"
+                role="radio"
+                class="type-btn"
+                :class="{ active: form.deliveryType === 'PICKUP' }"
+                :aria-checked="form.deliveryType === 'PICKUP'"
+                :disabled="deliveryTypeLocked"
+                @click="setDeliveryType('PICKUP')"
+              >
+                {{ t('saleOrderCreate.pickup') }}
+              </button>
+              <button
+                type="button"
+                role="radio"
+                class="type-btn"
+                :class="{ active: form.deliveryType === 'DELIVERY' }"
+                :aria-checked="form.deliveryType === 'DELIVERY'"
+                :disabled="deliveryTypeLocked"
+                @click="setDeliveryType('DELIVERY')"
+              >
+                {{ t('saleOrderCreate.delivery') }}
+              </button>
+            </div>
+          </div>
+
+          <label v-if="form.deliveryType === 'DELIVERY'" class="lbl">
+            {{ t('saleOrderCreate.deliveryFee') }} ({{ curLabel }})
+            <input
+              :value="deliveryFeeText"
+              inputmode="decimal"
+              class="field total-field"
+              placeholder="0"
+              @input="onDeliveryFeeInput"
+            />
+          </label>
+
+          <div class="lbl" :class="{ 'span-2': !needsRate }">
+            <label for="order-total-sum">{{ t('saleOrderCreate.orderSumRequired') }} ({{ curLabel }})</label>
+            <div class="total-row">
+              <input
+                id="order-total-sum"
+                :value="totalSumText"
+                inputmode="decimal"
+                class="field total-field"
+                placeholder="0"
+                @input="onTotalSumInput"
+              />
+              <button
+                type="button"
+                class="pull-total-btn"
+                :disabled="!(itemsTotalSum > 0)"
+                :title="t('saleOrderCreate.pullItemsTotal')"
+                :aria-label="t('saleOrderCreate.pullItemsTotal')"
+                @click="pullItemsTotal"
+              >
+                <Magnet class="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="details-notes">
+          <p class="total-hint">{{ t('saleOrderCreate.orderSumHint') }}</p>
+          <p v-if="needsRate" class="cur-hint">
+            <span v-if="!rateLoading && !(form.exchangeRate > 0)" class="text-amber-600">{{ t('saleOrderCreate.rateMissing') }}</span>
+            <template v-else>
+              <span v-if="rateIsManual" class="text-amber-600">
+                {{ t('saleOrderCreate.rateManual', { rate: formatRate(cbuRate) }) }}
+                <button v-if="rateEditable" type="button" class="link-btn" @click="resetRate">{{ t('saleOrderCreate.rateReset') }}</button>.
+              </span>
+              <span v-else-if="cbuRateDate">{{ t('exchangeRates.cbuRate') }} · {{ cbuRateDate.split('-').reverse().join('.') }}. </span>
+              <span v-if="isForeign">{{ t('saleOrderCreate.currencyHint') }}</span>
+              <span v-else>{{ t('saleOrderCreate.rateForGoodsHint') }}</span>
+            </template>
+          </p>
+        </div>
       </div>
 
       <div class="save-bar border-t border-gray-100 p-5">
@@ -502,6 +478,7 @@
           </button>
         </div>
       </div>
+      </template>
     </div>
 
     <div v-if="clientModal" class="overlay">
@@ -553,7 +530,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
@@ -565,9 +542,7 @@ import {
   CheckCheck,
   Magnet,
   Package,
-  PackageCheck,
   ShoppingBag,
-  Truck,
   UserRound,
   Warehouse as WarehouseIcon,
   Wrench,
@@ -637,6 +612,11 @@ interface DraftItem {
 const draftItems = ref<DraftItem[]>([])
 /** Tahrirlashda olib tashlangan saqlangan pozitsiyalar: saqlanganda o'chiriladi, qoldig'i omborga qaytadi. */
 const removedItems = ref<DraftItem[]>([])
+const selectedItemKey = ref<number | null>(null)
+const itemFormEl = ref<HTMLElement | null>(null)
+/** Nusxadan keyin mahsulot almashtirilsa eni, bo'yi va soni saqlanadi. */
+const preserveCut = ref(false)
+let applyingCopy = false
 let draftSeq = 0
 const saving = ref(false)
 const saved = ref(false)
@@ -902,17 +882,16 @@ const sellerOptions = computed(() =>
 
 const itemKind = ref<'PRODUCT' | 'SERVICE'>('PRODUCT')
 
-const addedGoodsIds = computed(() => new Set(draftItems.value.map((d) => d.goodsId)))
-
 const goodsOptions = computed(() =>
   goods.value
-    .filter((g) => (!g.status || g.status === 'ACTIVE') && hasWarehouseStock(g))
-    .filter((g) => !addedGoodsIds.value.has(g.id))
+    .filter((g) => (!g.status || g.status === 'ACTIVE') && (hasWarehouseStock(g) || g.id === itemForm.goodsId))
     .filter((g) => (itemKind.value === 'SERVICE') === isService(g))
     .map((g) => ({ value: g.id, label: g.name })),
 )
 
 watch(itemKind, () => {
+  if (applyingCopy) return
+  preserveCut.value = false
   itemForm.goodsId = 0
   itemError.value = null
 })
@@ -968,10 +947,12 @@ const discountText = computed(() => {
 watch(
   () => itemForm.goodsId,
   (id) => {
+    if (applyingCopy) return
     const g = goods.value.find((x) => x.id === id)
     if (!g) return
     itemForm.priceCost = Number(g.priceCost || 0)
     itemForm.priceSelling = goodsPriceIn(g)
+    if (preserveCut.value) return
     itemForm.count = 1
     if (isWindow(g)) {
       itemForm.width = Number(g.width || 0)
@@ -992,20 +973,13 @@ watch(
   },
 )
 
-const clientBalance = computed(() => balanceIn(clientBalances.value, form.currency) || null)
-
-const otherCurrencyDebts = computed(() =>
-  clientBalances.value
-    .filter((b) => (b.currency || BASE_CURRENCY) !== form.currency && Number(b.totalDebt || 0) > 0)
-    .map((b) => moneyIn(b.totalDebt, b.currency || BASE_CURRENCY, t('common.currency')))
-    .join(', '),
-)
-
-function balanceText(v?: number | null) {
+const clientDebtLine = computed(() => {
   if (balanceLoading.value && clientBalances.value.length === 0) return '...'
-  if (v == null) return clientBalances.value.length ? amt(0) : '—'
-  return amt(v)
-}
+  return CURRENCIES.map((c) => {
+    const debt = Number(balanceIn(clientBalances.value, c)?.totalDebt || 0)
+    return moneyIn(debt, c, t('common.currency'))
+  }).join(' · ')
+})
 
 async function loadClientBalance() {
   const clientId = form.clientId
@@ -1108,8 +1082,6 @@ function onAddItem() {
     }
   }
 
-  if (addedGoodsIds.value.has(g.id)) return
-
   draftItems.value.push({
     key: ++draftSeq,
     goodsId: g.id,
@@ -1131,12 +1103,37 @@ function onAddItem() {
   itemForm.height = 0
   itemForm.priceCost = 0
   itemForm.priceSelling = 0
+  preserveCut.value = false
+}
+
+function toggleItemSelect(key: number) {
+  selectedItemKey.value = selectedItemKey.value === key ? null : key
+}
+
+function copySelectedItem() {
+  const row = draftItems.value.find((d) => d.key === selectedItemKey.value)
+  if (!row || orderFinal.value) return
+  applyingCopy = true
+  preserveCut.value = true
+  itemKind.value = row.isService ? 'SERVICE' : 'PRODUCT'
+  itemForm.width = Number(row.width || 0)
+  itemForm.height = Number(row.height || 0)
+  itemForm.count = row.isWindow ? Number(row.pieces || 0) : row.count
+  itemForm.priceCost = row.priceCost
+  itemForm.priceSelling = row.priceSelling
+  itemForm.cutKerfMm = row.cutKerfMm ?? ''
+  itemForm.cutAllowRotate = row.cutAllowRotate ?? true
+  itemForm.goodsId = row.goodsId
+  itemError.value = null
+  applyingCopy = false
+  void nextTick(() => itemFormEl.value?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }))
 }
 
 function onRemoveItem(key: number) {
   const row = draftItems.value.find((d) => d.key === key)
   if (row?.itemId) removedItems.value.push(row)
   draftItems.value = draftItems.value.filter((d) => d.key !== key)
+  if (selectedItemKey.value === key) selectedItemKey.value = null
   itemError.value = null
 }
 
@@ -1389,21 +1386,11 @@ async function onCreateClient() {
 .dark .items-locked { border-color: #1f2937; color: #fbbf24; }
 .new-badge { margin-inline-start: 0.375rem; border-radius: 9999px; background: #ecfdf3; padding: 0.0625rem 0.5rem; font-size: 0.6875rem; font-weight: 600; color: #027a48; }
 .dark .new-badge { background: rgba(18, 183, 106, 0.15); color: #6ce9a6; }
-.delivery-opt:disabled { cursor: not-allowed; }
-.delivery-opt:disabled:not(.active) { opacity: 0.5; }
-.client-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem; margin-top: 1rem; }
-.summary-item { display: flex; flex-direction: column; gap: 0.25rem; border-radius: 0.75rem; border: 1px solid #e5e7eb; background: #f9fafb; padding: 0.75rem 1rem; }
-.summary-label { font-size: 0.75rem; font-weight: 500; color: #6b7280; }
-.summary-value { font-size: 1.125rem; font-weight: 700; color: #1f2937; }
-.summary-value.paid { color: #059669; }
-.summary-value.debt { color: #dc2626; }
-.summary-note { grid-column: 1 / -1; font-size: 0.75rem; color: #b45309; }
-.dark .summary-item { border-color: #1f2937; background: rgb(255 255 255 / 3%); }
-.dark .summary-label { color: #9ca3af; }
-.dark .summary-value { color: rgba(255, 255, 255, 0.92); }
-.dark .summary-value.paid { color: #34d399; }
-.dark .summary-value.debt { color: #f87171; }
-.dark .summary-note { color: #fbbf24; }
+.row-check { width: 1rem; height: 1rem; accent-color: #465fff; }
+.row-picked { background: #f5f8ff; }
+.dark .row-picked { background: rgb(70 95 255 / 8%); }
+.copy-bar { display: flex; justify-content: flex-end; padding: 0.75rem 1.25rem; border-top: 1px solid #f3f4f6; }
+.dark .client-debt { color: #f87171; }
 .total-field { font-size: 1rem; font-weight: 600; }
 .kind-toggle { display: inline-flex; height: 2.5rem; border-radius: 0.5rem; border: 1px solid #d1d5db; background: #f9fafb; padding: 0.2rem; gap: 0.2rem; }
 .kind-btn { display: inline-flex; align-items: center; gap: 0.35rem; border-radius: 0.375rem; padding: 0 0.75rem; font-size: 0.8125rem; font-weight: 500; color: #6b7280; white-space: nowrap; transition: background 0.15s ease, color 0.15s ease; }
@@ -1424,15 +1411,8 @@ async function onCreateClient() {
 :global(html.dark .pull-total-btn) { border-color: rgba(70, 95, 255, 0.4); background: rgba(70, 95, 255, 0.15); color: #a5b4fc; }
 .total-hint { font-size: 0.75rem; color: #6b7280; }
 .textarea-field { height: auto; min-height: 4rem; padding: 0.6rem 0.75rem; resize: vertical; line-height: 1.4; }
-.delivery-block { display: flex; flex-direction: column; gap: 0.35rem; }
-.delivery-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.75rem; }
-.delivery-options { display: grid; flex: 1 1 28rem; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; }
-.delivery-opt { display: flex; align-items: center; gap: 0.75rem; min-height: 3.5rem; border-radius: 0.75rem; border: 1px solid #d1d5db; background: #fff; padding: 0.6rem 0.9rem; color: #6b7280; transition: border-color .15s, background-color .15s, color .15s; }
-.delivery-opt:hover { border-color: #9cb0ff; }
-.delivery-opt.active { border-color: #465fff; background: #eff4ff; color: #465fff; box-shadow: 0 0 0 3px rgb(70 95 255 / 10%); }
-.opt-title { display: block; font-size: 0.875rem; font-weight: 600; color: #1f2937; }
-.opt-sub { display: block; font-size: 0.75rem; color: #6b7280; }
-.delivery-opt.active .opt-title { color: #465fff; }
+.delivery-toggle { width: 100%; min-width: 0; }
+.delivery-toggle .type-btn { height: auto; min-height: 2.5rem; padding: 0.35rem 0.6rem; font-size: 0.75rem; line-height: 1.2; white-space: normal; text-align: center; }
 .step-head { display: flex; align-items: center; gap: 0.625rem; margin-bottom: 0.75rem; }
 .step-num { display: inline-flex; height: 1.5rem; width: 1.5rem; flex-shrink: 0; align-items: center; justify-content: center; border-radius: 9999px; background: #eff4ff; font-size: 0.75rem; font-weight: 700; color: #465fff; }
 .step-num.done { background: #465fff; color: #fff; }
@@ -1448,7 +1428,9 @@ async function onCreateClient() {
 .type-btn.wholesale.active { background: #12b76a; color: #fff; }
 .type-btn:disabled { cursor: not-allowed; }
 .type-btn:disabled:not(.active) { opacity: 0.5; }
-.type-hint { flex: 1 1 16rem; font-size: 0.8125rem; color: #667085; }
+.cur-toggle { min-width: min(100%, 16rem); }
+.seller-inline { display: flex; align-items: center; gap: 0.5rem; flex: 1 1 18rem; min-width: min(100%, 16rem); margin: 0; font-size: 0.8125rem; font-weight: 600; color: #344054; }
+.seller-inline .field { flex: 1; min-width: 0; }
 .type-empty { margin-top: 1.25rem; display: flex; align-items: center; gap: 0.75rem; border-radius: 0.75rem; border: 1px dashed #d0d5dd; background: #f9fafb; padding: 1rem 1.25rem; font-size: 0.875rem; color: #667085; }
 .type-empty-icon { display: flex; height: 2.25rem; width: 2.25rem; flex-shrink: 0; align-items: center; justify-content: center; border-radius: 9999px; background: #fff; color: #98a2b3; box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06); }
 .dark .type-toggle { background: rgb(255 255 255 / 5%); }
@@ -1456,7 +1438,7 @@ async function onCreateClient() {
 .dark .type-btn:hover:not(:disabled):not(.active) { color: #e4e7ec; background: rgb(255 255 255 / 5%); }
 .dark .type-btn.active { background: #1d2939; color: #9cb0ff; }
 .dark .type-btn.wholesale.active { background: #12b76a; color: #fff; }
-.dark .type-hint { color: #98a2b3; }
+.dark .seller-inline { color: #e4e7ec; }
 .dark .type-empty { border-color: #344054; background: rgb(255 255 255 / 2%); color: #98a2b3; }
 .dark .type-empty-icon { background: rgb(255 255 255 / 5%); color: #98a2b3; }
 .details-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; }
@@ -1471,16 +1453,11 @@ async function onCreateClient() {
 @media (max-width: 640px) {
   .details-grid { grid-template-columns: 1fr; }
   .details-grid .span-2 { grid-column: auto; }
-  .type-toggle { width: 100%; }
+  .type-toggle, .seller-inline { width: 100%; }
 }
 .btn.wholesale-btn { background: #12b76a; }
 .btn.wholesale-btn:hover:not(:disabled) { background: #039855; }
 .save-part { font-weight: 600; color: #374151; }
-.dark .delivery-opt { border-color: #344054; background: transparent; color: #9ca3af; }
-.dark .delivery-opt.active { border-color: #7592ff; background: rgb(70 95 255 / 12%); color: #9cb0ff; }
-.dark .opt-title { color: rgba(255, 255, 255, 0.9); }
-.dark .delivery-opt.active .opt-title { color: #9cb0ff; }
-.dark .opt-sub { color: #9ca3af; }
 .dark .save-part { color: rgba(255, 255, 255, 0.8); }
 .stock-hint { margin-top: 0.5rem; font-size: 0.75rem; color: #6b7280; }
 .stock-chip { margin-top: 0.75rem; display: inline-flex; align-items: center; gap: 0.5rem; border-radius: 0.5rem; border: 1px solid #a7f3d0; background: #ecfdf5; padding: 0.375rem 0.75rem; font-size: 0.875rem; font-weight: 500; color: #047857; }
@@ -1504,8 +1481,6 @@ async function onCreateClient() {
 .modal { width: 100%; max-width: 28rem; border-radius: 1rem; background: #fff; padding: 1.25rem; }
 @media (max-width: 640px) {
   .form-row > * { flex: 1 1 100%; }
-  .client-summary { grid-template-columns: 1fr; }
   .client-row { flex-direction: column; }
-  .delivery-options { grid-template-columns: 1fr; }
 }
 </style>
