@@ -57,10 +57,10 @@ public class Supplier extends FilialScopedEntity {
     @OneToMany(mappedBy = "supplier")
     private List<WarehouseOrder> warehouseOrders;
 
-    @OneToOne(
+    @OneToMany(
             mappedBy = "supplier",
             cascade = CascadeType.ALL,
             orphanRemoval = true
     )
-    private SupplierBalance balance;
+    private List<SupplierBalance> balances;
 }

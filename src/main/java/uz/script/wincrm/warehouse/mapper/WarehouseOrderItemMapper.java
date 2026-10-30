@@ -1,6 +1,8 @@
 package uz.script.wincrm.warehouse.mapper;
 
 import org.springframework.stereotype.Component;
+
+import java.math.BigDecimal;
 import uz.script.wincrm.goods.Goods;
 import uz.script.wincrm.suppliers.Supplier;
 import uz.script.wincrm.utils.Status;
@@ -27,6 +29,7 @@ public class WarehouseOrderItemMapper {
                 .goods(goods)
                 .priceCost(dto.getPriceCost())
                 .priceSelling(dto.getPriceSelling())
+                .cashPrice(dto.getCashPrice() != null ? dto.getCashPrice() : BigDecimal.ZERO)
                 .weight(dto.getWeight())
                 .height(dto.getHeight())
                 .pieceCount(dto.getPieceCount() != null ? dto.getPieceCount() : dto.getCount())
@@ -50,6 +53,7 @@ public class WarehouseOrderItemMapper {
         item.setGoods(goods);
         item.setPriceCost(dto.getPriceCost());
         item.setPriceSelling(dto.getPriceSelling());
+        item.setCashPrice(dto.getCashPrice() != null ? dto.getCashPrice() : BigDecimal.ZERO);
         item.setWeight(dto.getWeight());
         item.setHeight(dto.getHeight());
         item.setPieceCount(dto.getPieceCount() != null ? dto.getPieceCount() : dto.getCount());
@@ -69,6 +73,7 @@ public class WarehouseOrderItemMapper {
                 .goodsName(item.getGoods() != null ? item.getGoods().getName() : null)
                 .priceCost(item.getPriceCost())
                 .priceSelling(item.getPriceSelling())
+                .cashPrice(item.getCashPrice() != null ? item.getCashPrice() : BigDecimal.ZERO)
                 .weight(item.getWeight())
                 .height(item.getHeight())
                 .pieceCount(item.getPieceCount() != null ? item.getPieceCount() : item.getCount())

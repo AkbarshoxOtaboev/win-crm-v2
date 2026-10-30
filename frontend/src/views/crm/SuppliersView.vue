@@ -83,7 +83,7 @@
             <tr v-for="s in paged" :key="s.id" class="border-b border-gray-100">
               <td class="td">{{ s.id }}</td>
               <td class="td">
-                <button type="button" class="link" @click="selectSupplier(s)">{{ s.name }}</button>
+                <button type="button" class="link" @click="openSupplier(s)">{{ s.name }}</button>
               </td>
               <td class="td">{{ s.inn || '—' }}</td>
               <td class="td">{{ s.phone ? formatUzPhone(s.phone) : '—' }}</td>
@@ -114,19 +114,6 @@
           </tbody>
         </table>
       </div>
-    </div>
-
-    <div v-if="selected" class="card mt-4 p-4 text-sm">
-      <b>{{ t('suppliers.inbound', { name: selected.name }) }}</b>
-      <span v-if="inbound.length === 0"> {{ t('suppliers.noInbound') }}</span>
-      <router-link
-        v-for="o in inbound"
-        :key="o.id"
-        :to="'/warehouse-orders'"
-        class="mr-2 text-brand-500"
-      >
-        #{{ o.id }}
-      </router-link>
     </div>
 
     <div
@@ -267,7 +254,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import {
   AlignLeft,
@@ -292,7 +279,6 @@ import {
   updateSupplier,
   type Supplier,
 } from '@/api/suppliers'
-import { fetchWarehouseOrdersBySupplier, type WarehouseOrder } from '@/api/warehouseOrders'
 import { formatApiError } from '@/api/http'
 import { useFilialScope } from '@/composables/useFilialScope'
 import {
@@ -305,9 +291,8 @@ import {
 const { t } = useI18n()
 const { writeBlocked } = useFilialScope()
 const route = useRoute()
+const router = useRouter()
 const items = ref<Supplier[]>([])
-const inbound = ref<WarehouseOrder[]>([])
-const selected = ref<Supplier | null>(null)
 const loading = ref(false)
 const error = ref<string | null>(null)
 const formError = ref<string | null>(null)
@@ -417,11 +402,6 @@ async function load() {
   try {
     const s = await fetchSuppliers(0, 500)
     items.value = s.data?.content || []
-    const focusId = Number(route.query.id || 0)
-    if (focusId) {
-      const found = items.value.find((x) => x.id === focusId)
-      if (found) await selectSupplier(found)
-    }
   } catch (e) {
     error.value = formatApiError(e)
   } finally {
@@ -511,10 +491,6 @@ async function onDelete(s: Supplier) {
   if (!confirm(t('common.deleteConfirmNamed', { name: s.name }))) return
   try {
     await deleteSupplier(s.id)
-    if (selected.value?.id === s.id) {
-      selected.value = null
-      inbound.value = []
-    }
     await load()
   } catch (e) {
     error.value = formatApiError(e)
@@ -531,22 +507,15 @@ async function toggleStatus(s: Supplier) {
   }
 }
 
-async function selectSupplier(s: Supplier) {
-  selected.value = s
-  try {
-    const res = await fetchWarehouseOrdersBySupplier(s.id)
-    inbound.value = res.data || []
-  } catch (e) {
-    error.value = formatApiError(e)
-  }
+function openSupplier(s: Supplier) {
+  void router.push(`/suppliers/${s.id}`)
 }
 
-watch(() => route.query.id, () => {
-  const focusId = Number(route.query.id || 0)
+watch(() => route.query.id, (id) => {
+  const focusId = Number(id || 0)
   if (!focusId) return
-  const found = items.value.find((x) => x.id === focusId)
-  if (found) void selectSupplier(found)
-})
+  void router.replace(`/suppliers/${focusId}`)
+}, { immediate: true })
 
 onMounted(load)
 </script>

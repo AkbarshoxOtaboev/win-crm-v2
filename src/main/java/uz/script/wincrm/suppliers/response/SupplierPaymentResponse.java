@@ -3,6 +3,7 @@ package uz.script.wincrm.suppliers.response;
 import lombok.Builder;
 import lombok.Data;
 import uz.script.wincrm.currency.Currency;
+import uz.script.wincrm.suppliers.SupplierDebtTarget;
 import uz.script.wincrm.utils.Status;
 
 import java.math.BigDecimal;
@@ -35,6 +36,8 @@ public class SupplierPaymentResponse {
     private BigDecimal exchangeRate;
 
     private BigDecimal appliedAmount;
+
+    private SupplierDebtTarget debtTarget;
 
     private Status status;
 

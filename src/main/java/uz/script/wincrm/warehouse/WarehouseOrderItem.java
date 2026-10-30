@@ -47,6 +47,10 @@ public class WarehouseOrderItem extends FilialScopedEntity {
     @Column(nullable = false)
     private BigDecimal priceSelling;
 
+    /** Naqd summa (1 kv.m). Yig'indi = (priceCost + cashPrice) × count. */
+    @Column(precision = 38, scale = 2)
+    private BigDecimal cashPrice;
+
     @Column(precision = 38, scale = 4)
     private BigDecimal weight;
 

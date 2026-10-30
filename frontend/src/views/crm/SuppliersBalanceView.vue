@@ -34,6 +34,20 @@
           <p class="sub">{{ t('suppliersBalance.subtitle') }}</p>
         </div>
         <div class="flex items-center gap-2">
+          <div class="period-toggle" role="radiogroup" :aria-label="t('suppliersBalance.currency')">
+            <button
+              v-for="mode in CURRENCY_MODES"
+              :key="mode"
+              type="button"
+              class="period-btn"
+              :class="{ active: (mode === 'all' ? '' : mode) === currencyFilter }"
+              role="radio"
+              :aria-checked="(mode === 'all' ? '' : mode) === currencyFilter"
+              @click="currencyFilter = mode === 'all' ? '' : mode"
+            >
+              {{ t(`suppliersBalance.currencyMode.${mode}`) }}
+            </button>
+          </div>
           <button type="button" class="icon-btn" :title="t('common.filter')" @click="showFilters = !showFilters">
             <ListFilter class="h-4 w-4" />
           </button>
@@ -53,13 +67,6 @@
               class="field"
               :placeholder="t('suppliersBalance.searchPlaceholder')"
             />
-          </label>
-          <label class="lbl w-44">
-            {{ t('suppliersBalance.currency') }}
-            <select v-model="currencyFilter" class="field">
-              <option value="">{{ t('suppliersBalance.allCurrencies') }}</option>
-              <option v-for="c in CURRENCIES" :key="c" :value="c">{{ t(`exchangeRates.currencies.${c}`) }}</option>
-            </select>
           </label>
           <label class="check">
             <input v-model="onlyDebtors" type="checkbox" class="h-4 w-4 rounded border-gray-300" />
@@ -104,10 +111,10 @@
             <tr v-for="b in filtered" :key="b.id || `${b.supplierId}-${b.currency}`" class="border-b border-gray-100 dark:border-gray-800">
               <td class="td">{{ b.supplierId || b.id }}</td>
               <td class="td">
-                <router-link class="link" :to="{ path: '/suppliers', query: { id: String(b.supplierId || '') } }">
+                <router-link class="link" :to="`/suppliers/${b.supplierId}`">
                   {{ b.supplierName || b.supplierId }}
                 </router-link>
-                <span v-if="curOf(b) !== 'UZS'" class="cur-badge">{{ curOf(b) }}</span>
+                <span v-if="!currencyFilter" class="cur-badge">{{ t(`suppliersBalance.currencyMode.${curOf(b)}`) }}</span>
               </td>
               <td class="td">{{ fmt(b.totalPurchase, curOf(b)) }}</td>
               <td class="td text-emerald-600 dark:text-emerald-400">{{ fmt(b.totalPaid, curOf(b)) }}</td>
@@ -172,6 +179,13 @@
             {{ t('suppliersBalance.search') }}
             <input v-model="paymentSearch" type="search" class="field" :placeholder="t('suppliersBalance.paymentSearchPlaceholder')" />
           </label>
+          <label class="lbl">
+            {{ t('common.perPage') }}
+            <select v-model.number="paymentLimit" class="field limit-field">
+              <option v-for="n in PAYMENT_LIMITS" :key="n" :value="n">{{ t('common.perPageN', { n }) }}</option>
+              <option :value="0">{{ t('common.all') }}</option>
+            </select>
+          </label>
         </div>
       </div>
 
@@ -194,6 +208,7 @@
               <th class="th">{{ t('common.date') }}</th>
               <th class="th">{{ t('common.supplier') }}</th>
               <th class="th">{{ t('common.amount') }}</th>
+              <th class="th">{{ t('suppliersBalance.rateColumn') }}</th>
               <th class="th">{{ t('suppliersBalance.paymentType') }}</th>
               <th class="th">{{ t('common.note') }}</th>
               <th class="th">{{ t('suppliersBalance.createdBy') }}</th>
@@ -201,9 +216,9 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-if="paymentsLoading"><td colspan="8" class="empty">{{ t('common.loading') }}</td></tr>
-            <tr v-else-if="filteredPayments.length === 0"><td colspan="8" class="empty">{{ t('suppliersBalance.noPayments') }}</td></tr>
-            <tr v-for="p in filteredPayments" :key="p.id" class="border-b border-gray-100 dark:border-gray-800">
+            <tr v-if="paymentsLoading"><td colspan="9" class="empty">{{ t('common.loading') }}</td></tr>
+            <tr v-else-if="filteredPayments.length === 0"><td colspan="9" class="empty">{{ t('suppliersBalance.noPayments') }}</td></tr>
+            <tr v-for="p in pagedPayments" :key="p.id" class="border-b border-gray-100 dark:border-gray-800">
               <td class="td">{{ p.id }}</td>
               <td class="td">{{ formatDate(p.paidDate) }}</td>
               <td class="td font-medium text-gray-800 dark:text-white/90">{{ p.supplierName || p.supplierId }}</td>
@@ -213,6 +228,7 @@
                   {{ t('suppliersBalance.closedDebt', { value: fmt(p.appliedAmount, p.debtCurrency), rate: formatRate(p.exchangeRate) }) }}
                 </span>
               </td>
+              <td class="td">{{ paymentRate(p) }}</td>
               <td class="td">{{ p.paymentTypeName || '—' }}</td>
               <td class="td">{{ p.comment || '—' }}</td>
               <td class="td">{{ p.createdUsername || '—' }}</td>
@@ -227,6 +243,11 @@
             </tr>
           </tbody>
         </table>
+      </div>
+      <div v-if="filteredPayments.length && paymentLimit > 0" class="pager">
+        <span class="pager-info">{{ paymentPage + 1 }} / {{ paymentTotalPages }}</span>
+        <button type="button" class="ghost" :disabled="paymentPage <= 0" @click="paymentPage -= 1">{{ t('common.prev') }}</button>
+        <button type="button" class="ghost" :disabled="paymentPage >= paymentTotalPages - 1" @click="paymentPage += 1">{{ t('common.next') }}</button>
       </div>
     </div>
 
@@ -245,13 +266,34 @@
               <option v-for="s in suppliers" :key="s.id" :value="s.id">{{ s.name }}</option>
             </select>
           </label>
+          <div>
+            <span class="lbl">{{ t('suppliersBalance.debtTarget') }} *</span>
+            <div class="period-toggle debt-toggle" role="radiogroup" :aria-label="t('suppliersBalance.debtTarget')">
+              <button
+                type="button"
+                class="period-btn"
+                :class="{ active: form.debtTarget === 'SUMMA' }"
+                @click="form.debtTarget = 'SUMMA'"
+              >
+                {{ t('suppliersBalance.debtTargetSum') }}
+              </button>
+              <button
+                type="button"
+                class="period-btn"
+                :class="{ active: form.debtTarget === 'CASH' }"
+                @click="form.debtTarget = 'CASH'"
+              >
+                {{ t('suppliersBalance.debtTargetCash') }}
+              </button>
+            </div>
+          </div>
           <label class="lbl">
             {{ t('suppliersBalance.debtCurrency') }}
             <select v-model="form.debtCurrency" class="field">
               <option v-for="c in CURRENCIES" :key="c" :value="c">{{ t(`exchangeRates.currencies.${c}`) }}</option>
             </select>
           </label>
-          <div v-if="form.supplierId && !editingPaymentId" class="debt-hint">
+          <div v-if="form.supplierId && form.debtTarget && !editingPaymentId" class="debt-hint">
             {{ t('suppliersBalance.currentDebt') }}:
             <strong>{{ fmt(selectedSupplierDebt, form.debtCurrency) }}</strong>
             <button
@@ -289,11 +331,13 @@
             <label class="lbl">
               {{ t('suppliersBalance.rate') }} *
               <input
-                :value="rateLoading ? t('exchangeRates.rateLoading') : form.exchangeRate > 0 ? formatRate(form.exchangeRate) : '—'"
-                readonly
-                tabindex="-1"
-                class="field cursor-default bg-gray-50 dark:bg-white/[0.03]"
-                :title="t('exchangeRates.rateAuto')"
+                :value="rateText"
+                inputmode="decimal"
+                autocomplete="off"
+                required
+                class="field"
+                :placeholder="rateLoading ? t('exchangeRates.rateLoading') : '0'"
+                @input="onRateInput"
               />
               <span class="text-[11px] font-normal">
                 <template v-if="cbuRateDate">{{ t('exchangeRates.cbuRate') }} · {{ cbuRateDate.split('-').reverse().join('.') }}. </template>
@@ -339,6 +383,7 @@ import {
   type SupplierBalance,
   type SupplierPayment,
 } from '@/api/suppliers'
+import { fetchWarehouseOrdersBySupplier, type WarehouseOrder } from '@/api/warehouseOrders'
 import { fetchPaymentTypes, type PaymentType } from '@/api/payments'
 import { fetchCashAvailable, type CashAvailable } from '@/api/expenses'
 import { formatApiError } from '@/api/http'
@@ -359,6 +404,7 @@ const error = ref<string | null>(null)
 const showFilters = ref(true)
 const search = ref('')
 const onlyDebtors = ref(false)
+const CURRENCY_MODES = ['all', 'UZS', 'USD'] as const
 const currencyFilter = ref<CurrencyCode | ''>('')
 
 const suppliers = ref<Supplier[]>([])
@@ -369,6 +415,9 @@ const paymentsLoading = ref(false)
 const paymentsError = ref<string | null>(null)
 const paymentSearch = ref('')
 const paymentFilter = reactive({ supplierId: 0, from: '', to: '' })
+const PAYMENT_LIMITS = [10, 20, 50, 100]
+const paymentLimit = ref(20)
+const paymentPage = ref(0)
 
 const paymentModal = ref(false)
 const editingPaymentId = ref<number | null>(null)
@@ -377,6 +426,8 @@ const editingSpend = ref<{ paymentTypeId: number; amount: number } | null>(null)
 const saving = ref(false)
 const formError = ref<string | null>(null)
 const amountText = ref('')
+const rateText = ref('')
+const rateTouched = ref(false)
 const form = reactive({
   supplierId: 0,
   paidSumm: 0,
@@ -385,6 +436,20 @@ const form = reactive({
   comment: '',
   debtCurrency: 'UZS' as CurrencyCode,
   exchangeRate: 0,
+  debtTarget: '' as '' | 'SUMMA' | 'CASH',
+})
+const hintOrders = ref<WarehouseOrder[]>([])
+const hintPayments = ref<SupplierPayment[]>([])
+
+watch([() => paymentModal.value, () => form.supplierId], async ([open, id]) => {
+  if (!open || !id) return
+  const [ordersRes, paymentsRes] = await Promise.all([
+    fetchWarehouseOrdersBySupplier(id).catch(() => null),
+    filterSupplierPayments({ supplierId: id }, 0, 500).catch(() => null),
+  ])
+  if (form.supplierId !== id) return
+  hintOrders.value = ordersRes?.data || []
+  hintPayments.value = paymentsRes?.data?.content || []
 })
 
 function debtOf(b: SupplierBalance) {
@@ -393,12 +458,32 @@ function debtOf(b: SupplierBalance) {
   return Math.max(0, Number(b.totalPurchase || 0) - Number(b.totalPaid || 0))
 }
 
+function hasAmounts(b: SupplierBalance) {
+  return Number(b.totalPurchase || 0) !== 0 || Number(b.totalPaid || 0) !== 0 || debtOf(b) !== 0
+}
+
 function curOf(b: SupplierBalance): CurrencyCode {
   return b.currency || 'UZS'
 }
 
 function fmt(v: number | null | undefined, currency?: CurrencyCode | null) {
   return moneyIn(Number(v || 0), currency, t('common.currency'))
+}
+
+function paymentRate(p: SupplierPayment) {
+  if (!p.debtCurrency || p.debtCurrency === (p.currency || 'UZS') || !(Number(p.exchangeRate) > 0)) return '—'
+  return formatRate(p.exchangeRate)
+}
+
+function formatRateInput(raw: string) {
+  const cleaned = raw.replace(/\s/g, '').replace(',', '.').replace(/[^\d.]/g, '')
+  const dot = cleaned.indexOf('.')
+  const intPart = (dot === -1 ? cleaned : cleaned.slice(0, dot)).replace(/^0+(?=\d)/, '')
+  const fraction = dot === -1 ? '' : cleaned.slice(dot + 1).replace(/\./g, '').slice(0, 4)
+  const grouped = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
+  const text = dot === -1 ? grouped : `${grouped}.${fraction}`
+  const value = Number(`${intPart || '0'}.${fraction || '0'}`)
+  return { text, value: Number.isFinite(value) ? value : 0 }
 }
 
 function formatDateTime(v?: string | null) {
@@ -413,6 +498,7 @@ const filtered = computed(() => {
   const q = search.value.trim().toLowerCase()
   return [...items.value]
     .filter((b) => {
+      if (!hasAmounts(b)) return false
       if (onlyDebtors.value && debtOf(b) <= 0) return false
       if (currencyFilter.value && curOf(b) !== currencyFilter.value) return false
       if (!q) return true
@@ -455,6 +541,24 @@ const filteredPayments = computed(() => {
   )
 })
 
+const paymentTotalPages = computed(() => {
+  if (paymentLimit.value <= 0) return 1
+  return Math.max(1, Math.ceil(filteredPayments.value.length / paymentLimit.value))
+})
+
+const pagedPayments = computed(() => {
+  if (paymentLimit.value <= 0) return filteredPayments.value
+  const start = paymentPage.value * paymentLimit.value
+  return filteredPayments.value.slice(start, start + paymentLimit.value)
+})
+
+watch([paymentSearch, paymentLimit], () => {
+  paymentPage.value = 0
+})
+watch(paymentTotalPages, (total) => {
+  if (paymentPage.value > total - 1) paymentPage.value = Math.max(0, total - 1)
+})
+
 const paymentsTotal = computed(() => {
   const acc: Partial<Record<CurrencyCode, number>> = {}
   for (const p of filteredPayments.value) {
@@ -470,6 +574,15 @@ const paymentsTotalCurrencies = computed<CurrencyCode[]>(() => {
 })
 
 const selectedSupplierDebt = computed(() => {
+  if (form.debtTarget === 'CASH') {
+    const purchase = hintOrders.value
+      .filter((o) => (o.currency || 'UZS') === form.debtCurrency)
+      .reduce((sum, o) => sum + Number(o.cashTotal || 0), 0)
+    const paid = hintPayments.value
+      .filter((p) => p.debtTarget === 'CASH' && (p.debtCurrency || p.currency || 'UZS') === form.debtCurrency)
+      .reduce((sum, p) => sum + Number(p.appliedAmount ?? p.paidSumm ?? 0), 0)
+    return Math.max(0, purchase - paid)
+  }
   const b = items.value.find((x) => x.supplierId === form.supplierId && curOf(x) === form.debtCurrency)
   return b ? debtOf(b) : 0
 })
@@ -509,10 +622,27 @@ const { rate: cbuRate, rateDate: cbuRateDate, loading: rateLoading } = useCbuRat
 watch(
   [isCross, cbuRate],
   () => {
-    form.exchangeRate = isCross.value ? cbuRate.value : 0
+    if (!isCross.value) {
+      form.exchangeRate = 0
+      rateTouched.value = false
+      rateText.value = ''
+      return
+    }
+    if (rateTouched.value) return
+    form.exchangeRate = cbuRate.value
+    rateText.value = cbuRate.value > 0 ? formatRateInput(String(cbuRate.value)).text : ''
   },
   { immediate: true },
 )
+
+function onRateInput(e: Event) {
+  const el = e.target as HTMLInputElement
+  const { text, value } = formatRateInput(el.value)
+  rateText.value = text
+  el.value = text
+  rateTouched.value = true
+  form.exchangeRate = value
+}
 
 function defaultPaymentTypeFor(currency: CurrencyCode) {
   return (paymentTypes.value.find((pt) => (pt.currency || 'UZS') === currency) || paymentTypes.value[0])?.id || 0
@@ -546,11 +676,14 @@ async function loadCash() {
 function openPayment(supplierId?: number, debt?: number, currency: CurrencyCode = 'UZS') {
   editingPaymentId.value = null
   editingSpend.value = null
+  rateTouched.value = false
+  rateText.value = ''
   loadCash()
   formError.value = null
   form.supplierId = supplierId || 0
   form.paidDate = nowLocal()
   form.debtCurrency = currency
+  form.debtTarget = ''
   form.paymentTypeId = defaultPaymentTypeFor(currency)
   form.comment = ''
   setAmount(debt && debt > 0 ? debt : 0)
@@ -566,8 +699,14 @@ function openPaymentEdit(p: SupplierPayment) {
   form.supplierId = p.supplierId || 0
   form.paidDate = p.paidDate ? p.paidDate.slice(0, 16) : nowLocal()
   form.debtCurrency = p.debtCurrency || 'UZS'
+  form.debtTarget = p.debtTarget || 'SUMMA'
   form.paymentTypeId = p.paymentTypeId || 0
   form.comment = p.comment || ''
+  const savedRate = Number(p.exchangeRate || 0)
+  const cross = !!p.debtCurrency && p.debtCurrency !== (p.currency || 'UZS')
+  rateTouched.value = cross && savedRate > 0
+  form.exchangeRate = cross ? savedRate : 0
+  rateText.value = cross && savedRate > 0 ? formatRateInput(String(savedRate)).text : ''
   setAmount(Number(p.paidSumm || 0))
   paymentModal.value = true
 }
@@ -576,6 +715,11 @@ async function onPaymentSubmit() {
   formError.value = null
   if (!form.supplierId || !form.paymentTypeId) {
     formError.value = t('suppliersBalance.fillRequired')
+    return
+  }
+  const debtTarget = form.debtTarget
+  if (!debtTarget) {
+    formError.value = t('suppliersBalance.debtTargetRequired')
     return
   }
   if (!(form.paidSumm > 0)) {
@@ -597,6 +741,8 @@ async function onPaymentSubmit() {
     paymentTypeId: form.paymentTypeId,
     comment: form.comment.trim() || undefined,
     debtCurrency: form.debtCurrency,
+    exchangeRate: isCross.value && form.exchangeRate > 0 ? form.exchangeRate : undefined,
+    debtTarget,
   }
   saving.value = true
   try {
@@ -642,12 +788,13 @@ async function load() {
 async function loadPayments() {
   paymentsLoading.value = true
   paymentsError.value = null
+  paymentPage.value = 0
   try {
     const res = await filterSupplierPayments({
       supplierId: paymentFilter.supplierId || undefined,
       fromDate: paymentFilter.from ? `${paymentFilter.from}T00:00:00` : undefined,
       toDate: paymentFilter.to ? `${paymentFilter.to}T23:59:59` : undefined,
-    })
+    }, 0, 2000)
     payments.value = res.data?.content || []
   } catch (e) {
     paymentsError.value = formatApiError(e)
@@ -706,6 +853,11 @@ onMounted(() => {
 .btn { display: inline-flex; align-items: center; gap: 0.4rem; border-radius: 0.5rem; background: #465fff; padding: 0.55rem 1rem; font-size: 0.875rem; font-weight: 500; color: #fff; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-outline { border-radius: 0.5rem; border: 1px solid #d1d5db; background: #fff; padding: 0.55rem 1rem; font-size: 0.875rem; color: #374151; }
+.limit-field { width: 7.5rem; }
+.pager { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0.5rem; border-top: 1px solid #f3f4f6; padding: 0.75rem 1.25rem; }
+.pager-info { font-size: 0.875rem; color: #6b7280; }
+.ghost { height: 2.25rem; display: inline-flex; align-items: center; border-radius: 0.5rem; border: 1px solid #d1d5db; padding: 0 0.75rem; font-size: 0.875rem; white-space: nowrap; background: #fff; }
+.ghost:disabled { opacity: 0.5; cursor: not-allowed; }
 .pay-btn { border-radius: 0.5rem; background: #ecfdf5; padding: 0.3rem 0.75rem; font-size: 0.8125rem; font-weight: 600; color: #059669; }
 .pay-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .debt-hint { border-radius: 0.5rem; background: #fef2f2; padding: 0.5rem 0.75rem; font-size: 0.8125rem; color: #b91c1c; }
@@ -713,6 +865,14 @@ onMounted(() => {
 .cash-left.bad { color: #d92d20; }
 .close-preview { border-radius: 0.5rem; background: #eff6ff; padding: 0.5rem 0.75rem; font-size: 0.8125rem; font-weight: 500; color: #1d4ed8; }
 .cur-badge { margin-inline-start: 0.4rem; border-radius: 0.375rem; background: #ecfdf5; padding: 0.05rem 0.4rem; font-size: 0.6875rem; font-weight: 600; color: #047857; }
+.period-toggle { display: inline-grid; grid-template-columns: repeat(3, minmax(4.5rem, 1fr)); gap: 0.15rem; height: 2.5rem; border-radius: 0.6rem; background: #f2f4f7; padding: 0.15rem; }
+.debt-toggle { grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
+.period-btn { display: inline-flex; height: 100%; align-items: center; justify-content: center; border-radius: 0.45rem; padding: 0 0.75rem; font-size: 0.8125rem; font-weight: 600; color: #667085; white-space: nowrap; cursor: pointer; }
+.period-btn:hover:not(.active) { color: #344054; background: rgb(255 255 255 / 60%); }
+.period-btn.active { background: #fff; color: #465fff; box-shadow: 0 1px 3px rgba(16, 24, 40, 0.12); }
+:global(html.dark .period-toggle) { background: rgb(255 255 255 / 5%); }
+:global(html.dark .period-btn) { color: #98a2b3; }
+:global(html.dark .period-btn.active) { background: #1d2939; color: #9cb0ff; }
 .sub-line { display: block; font-size: 0.75rem; color: #6b7280; }
 .dark .card { border-color: #1f2937; background: rgba(255, 255, 255, 0.03); }
 .dark .head, .dark .filters { border-bottom-color: #1f2937; }

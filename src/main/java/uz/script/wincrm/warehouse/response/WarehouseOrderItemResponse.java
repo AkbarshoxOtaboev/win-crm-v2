@@ -45,6 +45,9 @@ public class WarehouseOrderItemResponse {
     @Schema(description = "Selling price for this batch", example = "12000.00")
     private BigDecimal priceSelling;
 
+    @Schema(description = "Cash price per 1 sq.m", example = "10000.00")
+    private BigDecimal cashPrice;
+
     @Schema(description = "Weight of the batch", example = "150.5")
     private BigDecimal weight;
 

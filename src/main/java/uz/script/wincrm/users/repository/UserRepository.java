@@ -11,13 +11,13 @@ import java.util.Optional;
 
 @Repository
 public interface UserRepository extends JpaRepository<User, Long> {
-    @EntityGraph(attributePaths = {"roles.permissions", "filial"})
+    @EntityGraph(attributePaths = "filial")
     Optional<User> findByUsername(String username);
-    @EntityGraph(attributePaths = {"roles", "filial"})
+    @EntityGraph(attributePaths = "filial")
     Optional<User> findByIdAndStatusNot(Long id, Status status);
-    @EntityGraph(attributePaths = {"roles", "filial"})
+    @EntityGraph(attributePaths = "filial")
     List<User> findAllByStatusNot(Status status);
-    @EntityGraph(attributePaths = {"roles", "filial"})
+    @EntityGraph(attributePaths = "filial")
     List<User> findAllByStatusNotAndFilial_Id(Status status, Long filialId);
     boolean existsByUsername(String username);
 }

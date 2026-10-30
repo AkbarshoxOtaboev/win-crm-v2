@@ -264,6 +264,12 @@ const router = createRouter({
       meta: { title: 'Yetkazib beruvchilar balansi', requiresAuth: true },
     },
     {
+      path: '/suppliers/:id',
+      name: 'SupplierStatement',
+      component: () => import('../views/crm/SupplierStatementView.vue'),
+      meta: { title: 'Akt-sverka', requiresAuth: true },
+    },
+    {
       path: '/expenses',
       name: 'Expenses',
       component: () => import('../views/crm/ExpensesView.vue'),

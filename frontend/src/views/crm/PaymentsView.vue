@@ -117,6 +117,13 @@
               <ChevronDown class="select-chevron" />
             </div>
           </label>
+          <label class="lbl-block filter-limit">
+            {{ t('common.perPage') }}
+            <select v-model.number="pageLimit" class="field field-plain">
+              <option v-for="n in PAGE_LIMITS" :key="n" :value="n">{{ t('common.perPageN', { n }) }}</option>
+              <option :value="0">{{ t('common.all') }}</option>
+            </select>
+          </label>
           <button
             type="button"
             class="icon-btn filter-clear"
@@ -159,7 +166,7 @@
               </td>
             </tr>
             <tr
-              v-for="p in filtered"
+              v-for="p in paged"
               :key="p.id"
               class="border-b border-gray-100 transition-colors hover:bg-gray-50/80 dark:border-gray-800 dark:hover:bg-white/[0.02]"
             >
@@ -219,6 +226,11 @@
             </tr>
           </tbody>
         </table>
+      </div>
+      <div v-if="filtered.length && pageLimit > 0" class="pager">
+        <span class="pager-info">{{ page + 1 }} / {{ totalPages }}</span>
+        <button type="button" class="ghost" :disabled="page <= 0" @click="page -= 1">{{ t('common.prev') }}</button>
+        <button type="button" class="ghost" :disabled="page >= totalPages - 1" @click="page += 1">{{ t('common.next') }}</button>
       </div>
     </div>
 
@@ -753,6 +765,9 @@ const typeSaving = ref(false)
 const error = ref<string | null>(null)
 const formError = ref<string | null>(null)
 const typeFormError = ref<string | null>(null)
+const PAGE_LIMITS = [10, 20, 50, 100]
+const pageLimit = ref(20)
+const page = ref(0)
 const filterFrom = ref('')
 const filterTo = ref('')
 const filterTypeId = ref(0)
@@ -951,6 +966,21 @@ const showUnallocatedHint = computed(
 )
 
 const filtered = computed(() => items.value)
+const totalPages = computed(() => {
+  if (pageLimit.value <= 0) return 1
+  return Math.max(1, Math.ceil(filtered.value.length / pageLimit.value))
+})
+const paged = computed(() => {
+  if (pageLimit.value <= 0) return filtered.value
+  const start = page.value * pageLimit.value
+  return filtered.value.slice(start, start + pageLimit.value)
+})
+watch(pageLimit, () => {
+  page.value = 0
+})
+watch(totalPages, (total) => {
+  if (page.value > total - 1) page.value = Math.max(0, total - 1)
+})
 
 const hasFilters = computed(
   () => !!(filterClientId.value || filterTypeId.value || filterFrom.value || filterTo.value),
@@ -1018,7 +1048,8 @@ function onFormClientChange(id: number) {
 }
 
 async function fetchFilteredPayments() {
-  const res = await fetchPayments(0, 200, {
+  page.value = 0
+  const res = await fetchPayments(0, 2000, {
     clientId: filterClientId.value,
     paymentTypeId: filterTypeId.value,
     fromDate: filterFrom.value,
@@ -1292,8 +1323,47 @@ onMounted(async () => {
   flex: 1 1 0;
   min-width: 10rem;
 }
+.filter-limit {
+  flex: 0 0 7.5rem;
+}
 .filter-clear {
   flex: 0 0 auto;
+}
+.pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  border-top: 1px solid #f3f4f6;
+  padding: 0.75rem 1.25rem;
+}
+.pager-info {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+.ghost {
+  height: 2.25rem;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 0.5rem;
+  border: 1px solid #d1d5db;
+  padding: 0 0.75rem;
+  font-size: 0.875rem;
+  white-space: nowrap;
+  background: #fff;
+}
+.ghost:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+:global(html.dark .pager) {
+  border-top-color: #1f2937;
+}
+:global(html.dark .ghost) {
+  border-color: #374151;
+  background: transparent;
+  color: #d1d5db;
 }
 @media (max-width: 900px) {
   .filter-row {

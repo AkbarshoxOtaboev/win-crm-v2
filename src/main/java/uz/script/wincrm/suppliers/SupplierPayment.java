@@ -60,6 +60,15 @@ public class SupplierPayment extends FilialScopedEntity {
     @Column(name = "applied_amount")
     private BigDecimal appliedAmount;
 
+    /** SUMMA — kelgan summa qarzi, CASH — naqd qarz. Bo'sh bo'lsa summa. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "debt_target", length = 10)
+    private SupplierDebtTarget debtTarget;
+
+    public boolean closesSummaDebt() {
+        return debtTarget != SupplierDebtTarget.CASH;
+    }
+
     public BigDecimal appliedOrPaid() {
         return appliedAmount != null ? appliedAmount : paidSumm;
     }

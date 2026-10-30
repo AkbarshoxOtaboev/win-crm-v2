@@ -41,6 +41,12 @@ public class WarehouseOrderResponse {
     @Schema(description = "Total sum of the order (items + service fee)", example = "1250000.00")
     private BigDecimal totalSum;
 
+    @Schema(description = "Cash total: sum of cash price × quantity", example = "1022.11")
+    private BigDecimal cashTotal;
+
+    @Schema(description = "Combined total: arrival sum + cash total + service fee", example = "5013.22")
+    private BigDecimal combinedTotal;
+
     @Schema(description = "Optional service fee", example = "50000.00")
     private BigDecimal serviceFee;
 

@@ -13,9 +13,23 @@
         <option :value="0">{{ t('warehouseOrders.allWarehouses') }}</option>
         <option v-for="w in warehouses" :key="w.id" :value="w.id">{{ w.name }}</option>
       </select>
-      <input v-model="dateFrom" type="date" class="field sm:w-40" :title="t('common.from')" />
-      <input v-model="dateTo" type="date" class="field sm:w-40" :title="t('common.to')" />
-      <button type="button" class="ghost" @click="clearFilters">{{ t('common.clearFilter') }}</button>
+      <div class="period-toggle" role="radiogroup" :aria-label="t('common.period')">
+        <button
+          v-for="mode in PERIODS"
+          :key="mode"
+          type="button"
+          class="period-btn"
+          :class="{ active: periodMode === mode }"
+          role="radio"
+          :aria-checked="periodMode === mode"
+          @click="setPeriod(mode)"
+        >
+          {{ t(`warehouseOrders.period.${mode}`) }}
+        </button>
+      </div>
+      <input v-if="periodMode === 'day'" v-model="dayValue" type="date" class="field sm:w-40" />
+      <input v-else-if="periodMode === 'month'" v-model="monthValue" type="month" class="field sm:w-40" />
+      <input v-else v-model.number="yearValue" type="number" min="2000" max="2100" class="field year-field" />
       <button type="button" class="btn ms-auto" :disabled="writeBlocked" @click="goCreate">{{ t('warehouseOrders.newInbound') }}</button>
     </div>
 
@@ -30,16 +44,18 @@
               <th class="th">{{ t('common.warehouse') }}</th>
               <th class="th">{{ t('common.date') }}</th>
               <th class="th">{{ t('common.sum') }}</th>
-              <th class="th">{{ t('warehouseOrders.payment') }}</th>
               <th class="th">{{ t('warehouseOrders.debt') }}</th>
+              <th class="th">{{ t('warehouseOrders.cashTotal') }}</th>
+              <th class="th">{{ t('common.total') }}</th>
+              <th class="th">{{ t('warehouseOrders.payment') }}</th>
               <th class="th text-center">{{ t('common.view') }}</th>
               <th class="th text-right">{{ t('common.actions') }}</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-if="loading"><td colspan="9" class="empty">{{ t('common.loading') }}</td></tr>
-            <tr v-else-if="filtered.length === 0"><td colspan="9" class="empty">{{ t('warehouseOrders.empty') }}</td></tr>
-            <tr v-for="o in filtered" :key="o.id" class="border-b border-gray-100 dark:border-gray-800">
+            <tr v-if="loading"><td colspan="11" class="empty">{{ t('common.loading') }}</td></tr>
+            <tr v-else-if="filtered.length === 0"><td colspan="11" class="empty">{{ t('warehouseOrders.empty') }}</td></tr>
+            <tr v-for="o in paged" :key="o.id" class="border-b border-gray-100 dark:border-gray-800">
               <td class="td">#{{ o.id }}</td>
               <td class="td">{{ o.supplierName || o.supplierId }}</td>
               <td class="td">{{ o.warehouseName || o.warehouseId }}</td>
@@ -48,8 +64,10 @@
                 {{ amt(orderSum(o), o) }}
                 <span v-if="isForeign(o)" class="rate-sub">{{ t('warehouseOrders.rateLabel', { value: formatRate(o.exchangeRate) }) }}</span>
               </td>
-              <td class="td">{{ amt(orderPaid(o), o) }}</td>
               <td class="td">{{ amt(orderDebt(o), o) }}</td>
+              <td class="td">{{ orderCash(o) > 0 ? amt(orderCash(o), o) : '—' }}</td>
+              <td class="td">{{ amt(orderCombined(o), o) }}</td>
+              <td class="td">{{ amt(orderPaid(o), o) }}</td>
               <td class="td text-center">
                 <button type="button" class="view-btn" @click="openView(o)">
                   <EyeIcon :size="16" />
@@ -68,7 +86,6 @@
                   </button>
                   <span v-else class="transferred-badge">{{ t('warehouseOrders.transferred') }}</span>
                   <RowActions
-                    :edit="!isTransferred(o)"
                     @edit="openEdit(o)"
                     @delete="onDelete(o)"
                   />
@@ -77,6 +94,16 @@
             </tr>
           </tbody>
         </table>
+      </div>
+      <div v-if="filtered.length" class="pager">
+        <span class="pager-info">{{ page + 1 }} / {{ totalPages }}</span>
+        <select v-model.number="pageSize" class="field pager-size">
+          <option :value="10">{{ t('common.perPageN', { n: 10 }) }}</option>
+          <option :value="20">{{ t('common.perPageN', { n: 20 }) }}</option>
+          <option :value="50">{{ t('common.perPageN', { n: 50 }) }}</option>
+        </select>
+        <button type="button" class="ghost" :disabled="page <= 0" @click="page -= 1">{{ t('common.prev') }}</button>
+        <button type="button" class="ghost" :disabled="page >= totalPages - 1" @click="page += 1">{{ t('common.next') }}</button>
       </div>
     </div>
 
@@ -90,7 +117,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
@@ -123,8 +150,71 @@ const loading = ref(false)
 const error = ref<string | null>(null)
 const search = ref('')
 const warehouseFilter = ref(0)
-const dateFrom = ref('')
-const dateTo = ref('')
+const PERIODS = ['day', 'month', 'year'] as const
+type PeriodMode = (typeof PERIODS)[number]
+const periodMode = ref<PeriodMode>('month')
+const dayValue = ref(isoDate(new Date()))
+const monthValue = ref(isoMonth(new Date()))
+const yearValue = ref(new Date().getFullYear())
+
+function isoDate(d: Date) {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+function isoMonth(d: Date) {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`
+}
+function periodRange() {
+  const today = new Date()
+  const todayIso = isoDate(today)
+  if (periodMode.value === 'day') {
+    const day = dayValue.value || todayIso
+    return { from: day, to: day }
+  }
+  if (periodMode.value === 'year') {
+    const year = Number(yearValue.value) || today.getFullYear()
+    const end = year === today.getFullYear() ? today : new Date(year, 11, 31)
+    return { from: isoDate(new Date(year, 0, 1)), to: isoDate(end) }
+  }
+  const [yearText, monthText] = (monthValue.value || isoMonth(today)).split('-')
+  const year = Number(yearText)
+  const month = Number(monthText)
+  const start = new Date(year, month - 1, 1)
+  const monthEnd = new Date(year, month, 0)
+  const end = year === today.getFullYear() && month - 1 === today.getMonth() && monthEnd > today ? today : monthEnd
+  return { from: isoDate(start), to: isoDate(end) }
+}
+function setPeriod(mode: PeriodMode) {
+  if (mode === periodMode.value) return
+  const today = new Date()
+  if (mode === 'day') {
+    if (periodMode.value === 'month' && monthValue.value) {
+      const [year, month] = monthValue.value.split('-').map(Number)
+      dayValue.value = year === today.getFullYear() && month - 1 === today.getMonth()
+        ? isoDate(today)
+        : isoDate(new Date(year, month - 1, 1))
+    } else {
+      const year = Number(yearValue.value) || today.getFullYear()
+      dayValue.value = year === today.getFullYear() ? isoDate(today) : isoDate(new Date(year, 0, 1))
+    }
+  } else if (mode === 'month') {
+    if (periodMode.value === 'day' && dayValue.value) {
+      monthValue.value = dayValue.value.slice(0, 7)
+    } else {
+      const year = Number(yearValue.value) || today.getFullYear()
+      const month = year === today.getFullYear() ? today.getMonth() + 1 : 1
+      monthValue.value = `${year}-${String(month).padStart(2, '0')}`
+    }
+  } else if (periodMode.value === 'day' && dayValue.value) {
+    yearValue.value = Number(dayValue.value.slice(0, 4))
+  } else if (monthValue.value) {
+    yearValue.value = Number(monthValue.value.slice(0, 4))
+  }
+  periodMode.value = mode
+}
+const page = ref(0)
+const pageSize = ref(20)
 const viewOpen = ref(false)
 const viewOrderId = ref<number | null>(null)
 
@@ -144,6 +234,13 @@ function amt(v: number, o: WarehouseOrder) {
 function orderSum(o: WarehouseOrder) {
   return Number(o.totalSum || 0)
 }
+function orderCash(o: WarehouseOrder) {
+  return Number(o.cashTotal || 0)
+}
+function orderCombined(o: WarehouseOrder) {
+  if (o.combinedTotal != null) return Number(o.combinedTotal)
+  return orderSum(o) + orderCash(o)
+}
 function orderPaid(o: WarehouseOrder) {
   return Number(o.paidSum || 0)
 }
@@ -157,8 +254,9 @@ function isTransferred(o: WarehouseOrder) {
 
 const filtered = computed(() => {
   const q = search.value.trim().toLowerCase()
-  const from = dateFrom.value ? new Date(`${dateFrom.value}T00:00:00`) : null
-  const to = dateTo.value ? new Date(`${dateTo.value}T23:59:59`) : null
+  const range = periodRange()
+  const from = new Date(`${range.from}T00:00:00`)
+  const to = new Date(`${range.to}T23:59:59`)
   return [...orders.value]
     .filter((o) => {
       if (q && !(o.supplierName || '').toLowerCase().includes(q)) return false
@@ -171,15 +269,21 @@ const filtered = computed(() => {
       }
       return true
     })
-    .sort((a, b) => Number(a.id) - Number(b.id))
+    .sort((a, b) => Number(b.id) - Number(a.id))
 })
 
-function clearFilters() {
-  search.value = ''
-  warehouseFilter.value = 0
-  dateFrom.value = ''
-  dateTo.value = ''
-}
+const totalPages = computed(() => Math.max(1, Math.ceil(filtered.value.length / pageSize.value)))
+const paged = computed(() => {
+  const start = page.value * pageSize.value
+  return filtered.value.slice(start, start + pageSize.value)
+})
+
+watch([search, warehouseFilter, periodMode, dayValue, monthValue, yearValue, pageSize], () => {
+  page.value = 0
+})
+watch(totalPages, (total) => {
+  if (page.value > total - 1) page.value = Math.max(0, total - 1)
+})
 
 async function load() {
   loading.value = true
@@ -230,7 +334,17 @@ function openEdit(o: WarehouseOrder) {
 }
 
 async function onDelete(o: WarehouseOrder) {
-  if (!confirm(t('warehouseOrders.deleteConfirm', { id: o.id }))) return
+  const result = await Swal.fire({
+    title: t('warehouseOrders.deleteConfirm', { id: o.id }),
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: t('warehouseOrders.removeItemYes'),
+    cancelButtonText: t('warehouseOrders.cancelAction'),
+    confirmButtonColor: '#d92d20',
+    cancelButtonColor: '#98a2b3',
+    reverseButtons: true,
+  })
+  if (!result.isConfirmed) return
   try {
     await deleteWarehouseOrder(o.id)
     if (viewOrderId.value === o.id) closeView()
@@ -285,6 +399,14 @@ onMounted(load)
 .rate-sub { display: block; font-size: 0.6875rem; color: #9ca3af; }
 .empty { padding: 2rem 1.25rem; text-align: center; font-size: 0.875rem; color: #6b7280; }
 .field { height: 2.5rem; border-radius: 0.5rem; border: 1px solid #d1d5db; background: transparent; padding: 0 0.75rem; font-size: 0.875rem; }
+.year-field { width: 6.5rem; }
+.period-toggle { display: inline-grid; grid-template-columns: repeat(3, minmax(4.25rem, 1fr)); gap: 0.15rem; height: 2.5rem; border-radius: 0.6rem; background: #f2f4f7; padding: 0.15rem; }
+.period-btn { display: inline-flex; height: 100%; align-items: center; justify-content: center; border-radius: 0.45rem; padding: 0 0.75rem; font-size: 0.8125rem; font-weight: 600; color: #667085; white-space: nowrap; }
+.period-btn:hover:not(.active) { color: #344054; background: rgb(255 255 255 / 60%); }
+.period-btn.active { background: #fff; color: #465fff; box-shadow: 0 1px 3px rgba(16, 24, 40, 0.12); }
+:global(html.dark .period-toggle) { background: rgb(255 255 255 / 5%); }
+:global(html.dark .period-btn) { color: #98a2b3; }
+:global(html.dark .period-btn.active) { background: #1d2939; color: #9cb0ff; }
 .btn { display: inline-flex; height: 2.5rem; align-items: center; border-radius: 0.5rem; background: #465fff; padding: 0 1.25rem; font-size: 0.875rem; font-weight: 500; color: #fff; white-space: nowrap; }
 .ghost { height: 2.5rem; display: inline-flex; align-items: center; border-radius: 0.5rem; border: 1px solid #d1d5db; padding: 0 0.75rem; font-size: 0.875rem; white-space: nowrap; }
 .view-btn {
@@ -326,4 +448,7 @@ onMounted(load)
   white-space: nowrap;
 }
 .err { border-radius: 0.5rem; border: 1px solid #fecaca; background: #fef2f2; padding: 0.75rem 1rem; font-size: 0.875rem; color: #dc2626; }
+.pager { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0.5rem; border-top: 1px solid #f3f4f6; padding: 0.75rem 1.25rem; }
+.pager-info { font-size: 0.875rem; color: #6b7280; }
+.pager-size { width: 6.5rem; }
 </style>

@@ -15,6 +15,10 @@ export interface WarehouseOrder {
   /** 1 xorijiy birlik = exchangeRate so'm */
   exchangeRate?: number
   totalSum?: number
+  /** Naqd jami: cashPrice × miqdor */
+  cashTotal?: number
+  /** Kelgan summa + naqd jami + xizmat haqi */
+  combinedTotal?: number
   /** totalSum so'mda (kirim kunidagi kurs bilan) */
   totalSumBase?: number
   serviceFee?: number
@@ -44,6 +48,8 @@ export interface WarehouseOrderItem {
   goodsName?: string
   priceCost?: number
   priceSelling?: number
+  /** Naqd summa (1 kv.m) */
+  cashPrice?: number
   weight?: number
   height?: number
   /** WINDOW: kv.m; boshqa: miqdor */
@@ -60,6 +66,8 @@ export interface WarehouseOrderItemPayload {
   goodsId: number
   priceCost: number
   priceSelling: number
+  /** Naqd summa (1 kv.m). Yig'indi = (tannarx + shu narx) × kv.m */
+  cashPrice?: number
   count: number
   arrivalDate: string
   weight?: number

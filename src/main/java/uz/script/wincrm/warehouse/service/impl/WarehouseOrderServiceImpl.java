@@ -33,9 +33,12 @@ import uz.script.wincrm.warehouse.response.WarehouseOrderResponse;
 import uz.script.wincrm.warehouse.service.WarehouseOrderService;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 @Service
@@ -94,7 +97,7 @@ public class WarehouseOrderServiceImpl implements WarehouseOrderService {
                     supplier.getId(), serviceFee, currency);
         }
 
-        return mapper.toResponse(order);
+        return respond(order);
     }
 
     @Override
@@ -106,7 +109,7 @@ public class WarehouseOrderServiceImpl implements WarehouseOrderService {
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Warehouse order not found with id: " + id));
 
-        return mapper.toResponse(order);
+        return respond(order);
     }
 
     @Override
@@ -114,10 +117,12 @@ public class WarehouseOrderServiceImpl implements WarehouseOrderService {
     public List<WarehouseOrderResponse> fetchAllOrders() {
         log.info("Fetch all warehouse orders");
 
-        return repository.findAll()
+        List<WarehouseOrderResponse> responses = repository.findAll()
                 .stream()
                 .map(mapper::toResponse)
                 .toList();
+        attachCashTotals(responses);
+        return responses;
     }
 
     @Override
@@ -125,10 +130,12 @@ public class WarehouseOrderServiceImpl implements WarehouseOrderService {
     public List<WarehouseOrderResponse> fetchByWarehouseId(Long warehouseId) {
         log.info("Fetch warehouse orders by warehouse id {}", warehouseId);
 
-        return repository.findAllByWarehouseId(warehouseId)
+        List<WarehouseOrderResponse> responses = repository.findAllByWarehouseId(warehouseId)
                 .stream()
                 .map(mapper::toResponse)
                 .toList();
+        attachCashTotals(responses);
+        return responses;
     }
 
     @Override
@@ -136,10 +143,12 @@ public class WarehouseOrderServiceImpl implements WarehouseOrderService {
     public List<WarehouseOrderResponse> fetchBySupplierId(Long supplierId) {
         log.info("Fetch warehouse orders by supplier id {}", supplierId);
 
-        return repository.findAllBySupplierId(supplierId)
+        List<WarehouseOrderResponse> responses = repository.findAllBySupplierId(supplierId)
                 .stream()
                 .map(mapper::toResponse)
                 .toList();
+        attachCashTotals(responses);
+        return responses;
     }
 
     @Override
@@ -234,7 +243,7 @@ public class WarehouseOrderServiceImpl implements WarehouseOrderService {
             }
         }
 
-        return mapper.toResponse(order);
+        return respond(order);
     }
 
     @Override
@@ -310,7 +319,7 @@ public class WarehouseOrderServiceImpl implements WarehouseOrderService {
         order = repository.save(order);
 
         log.info("Order transferred to stock. OrderId: {}, items: {}", id, items.size());
-        return mapper.toResponse(order);
+        return respond(order);
     }
 
     private BigDecimal resolveRate(Currency currency, LocalDateTime arrivalDate) {
@@ -355,5 +364,47 @@ public class WarehouseOrderServiceImpl implements WarehouseOrderService {
             case SEND_FAILED -> throw new BadRequestException(
                     "Xabar yuborishda Telegram API xatoligi yuz berdi. Qaytadan urinib ko'ring.");
         }
+    }
+
+    private WarehouseOrderResponse respond(WarehouseOrder order) {
+        WarehouseOrderResponse response = mapper.toResponse(order);
+        attachCashTotals(List.of(response));
+        return response;
+    }
+
+    private void attachCashTotals(List<WarehouseOrderResponse> responses) {
+        if (responses == null || responses.isEmpty()) {
+            return;
+        }
+        Map<Long, BigDecimal[]> sums = new HashMap<>();
+        for (Object[] row : warehouseOrderItemRepository.sumCashByOrder()) {
+            if (row[0] == null) {
+                continue;
+            }
+            Long orderId = ((Number) row[0]).longValue();
+            sums.put(orderId, new BigDecimal[] { toAmount(row[1]), toAmount(row[2]) });
+        }
+        for (WarehouseOrderResponse response : responses) {
+            BigDecimal[] pair = sums.get(response.getId());
+            BigDecimal fee = response.getServiceFee() != null ? response.getServiceFee() : BigDecimal.ZERO;
+            if (pair == null) {
+                BigDecimal total = response.getTotalSum() != null ? response.getTotalSum() : fee;
+                response.setCashTotal(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
+                response.setCombinedTotal(total.setScale(2, RoundingMode.HALF_UP));
+                continue;
+            }
+            response.setCashTotal(pair[0].setScale(2, RoundingMode.HALF_UP));
+            response.setCombinedTotal(pair[1].add(fee).setScale(2, RoundingMode.HALF_UP));
+        }
+    }
+
+    private static BigDecimal toAmount(Object value) {
+        if (value == null) {
+            return BigDecimal.ZERO;
+        }
+        if (value instanceof BigDecimal amount) {
+            return amount;
+        }
+        return new BigDecimal(value.toString());
     }
 }

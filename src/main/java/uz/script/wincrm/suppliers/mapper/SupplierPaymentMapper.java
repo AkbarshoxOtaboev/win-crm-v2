@@ -3,6 +3,7 @@ package uz.script.wincrm.suppliers.mapper;
 import lombok.experimental.UtilityClass;
 import uz.script.wincrm.payment.PaymentType;
 import uz.script.wincrm.suppliers.Supplier;
+import uz.script.wincrm.suppliers.SupplierDebtTarget;
 import uz.script.wincrm.suppliers.SupplierPayment;
 import uz.script.wincrm.suppliers.dto.SupplierPaymentDTO;
 import uz.script.wincrm.suppliers.response.SupplierPaymentResponse;
@@ -42,6 +43,7 @@ public class SupplierPaymentMapper {
                 .debtCurrency(payment.getDebtCurrency())
                 .exchangeRate(payment.getExchangeRate())
                 .appliedAmount(payment.appliedOrPaid())
+                .debtTarget(payment.getDebtTarget() != null ? payment.getDebtTarget() : SupplierDebtTarget.SUMMA)
                 .status(payment.getStatus())
                 .createdUsername(payment.getCreatedUsername())
                 .createdAt(payment.getCreatedAt())

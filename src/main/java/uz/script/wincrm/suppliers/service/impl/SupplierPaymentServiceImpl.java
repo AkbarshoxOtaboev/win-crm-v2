@@ -18,6 +18,7 @@ import uz.script.wincrm.expense.service.SupplierPaymentExpenseSync;
 import uz.script.wincrm.payment.PaymentType;
 import uz.script.wincrm.payment.repository.PaymentTypeRepository;
 import uz.script.wincrm.suppliers.Supplier;
+import uz.script.wincrm.suppliers.SupplierDebtTarget;
 import uz.script.wincrm.suppliers.SupplierPayment;
 import uz.script.wincrm.suppliers.dto.SupplierPaymentDTO;
 import uz.script.wincrm.suppliers.dto.SupplierPaymentFilterDTO;
@@ -68,9 +69,12 @@ public class SupplierPaymentServiceImpl implements SupplierPaymentService {
         payment.setStatus(Status.ACTIVE);
         applyCurrency(payment, dto, paymentType);
 
+        payment.setDebtTarget(resolveDebtTarget(dto));
         payment = repository.save(payment);
 
-        supplierBalanceService.increasePayment(supplier.getId(), payment.getDebtCurrency(), payment.getAppliedAmount());
+        if (payment.closesSummaDebt()) {
+            supplierBalanceService.increasePayment(supplier.getId(), payment.getDebtCurrency(), payment.getAppliedAmount());
+        }
         expenseSync.upsert(payment);
 
         log.info("Supplier payment created successfully. ID: {}", payment.getId());
@@ -98,6 +102,7 @@ public class SupplierPaymentServiceImpl implements SupplierPaymentService {
         Long supplierId = payment.getSupplier().getId();
         Currency oldDebtCurrency = payment.getDebtCurrency();
         BigDecimal oldApplied = payment.appliedOrPaid();
+        boolean oldSumma = payment.closesSummaDebt();
 
         boolean sameCash = payment.getPaymentType() != null
                 && payment.getPaymentType().getId().equals(paymentType.getId())
@@ -107,11 +112,16 @@ public class SupplierPaymentServiceImpl implements SupplierPaymentService {
 
         SupplierPaymentMapper.updateEntity(payment, dto, paymentType);
         applyCurrency(payment, dto, paymentType);
+        payment.setDebtTarget(resolveDebtTarget(dto));
 
         payment = repository.save(payment);
 
-        supplierBalanceService.decreasePayment(supplierId, oldDebtCurrency, oldApplied);
-        supplierBalanceService.increasePayment(supplierId, payment.getDebtCurrency(), payment.getAppliedAmount());
+        if (oldSumma) {
+            supplierBalanceService.decreasePayment(supplierId, oldDebtCurrency, oldApplied);
+        }
+        if (payment.closesSummaDebt()) {
+            supplierBalanceService.increasePayment(supplierId, payment.getDebtCurrency(), payment.getAppliedAmount());
+        }
         expenseSync.upsert(payment);
 
         log.info("Supplier payment updated successfully. ID: {}", payment.getId());
@@ -134,7 +144,9 @@ public class SupplierPaymentServiceImpl implements SupplierPaymentService {
 
         repository.save(payment);
 
-        supplierBalanceService.decreasePayment(payment.getSupplier().getId(), payment.getDebtCurrency(), payment.appliedOrPaid());
+        if (payment.closesSummaDebt()) {
+            supplierBalanceService.decreasePayment(payment.getSupplier().getId(), payment.getDebtCurrency(), payment.appliedOrPaid());
+        }
         expenseSync.remove(payment.getId());
 
         log.info("Supplier payment deleted successfully. ID: {}", id);
@@ -202,8 +214,12 @@ public class SupplierPaymentServiceImpl implements SupplierPaymentService {
 
         BigDecimal rate = BigDecimal.ONE;
         if (foreign != null) {
-            LocalDate date = dto.getPaidDate() != null ? dto.getPaidDate().toLocalDate() : LocalDate.now();
-            rate = exchangeRateService.rateOn(foreign, date);
+            if (dto.getExchangeRate() != null && dto.getExchangeRate().signum() > 0) {
+                rate = dto.getExchangeRate();
+            } else {
+                LocalDate date = dto.getPaidDate() != null ? dto.getPaidDate().toLocalDate() : LocalDate.now();
+                rate = exchangeRateService.rateOn(foreign, date);
+            }
         }
 
         BigDecimal paid = dto.getPaidSumm();
@@ -220,5 +236,9 @@ public class SupplierPaymentServiceImpl implements SupplierPaymentService {
         payment.setDebtCurrency(debtCurrency);
         payment.setExchangeRate(rate);
         payment.setAppliedAmount(applied);
+    }
+
+    private SupplierDebtTarget resolveDebtTarget(SupplierPaymentDTO dto) {
+        return dto.getDebtTarget() != null ? dto.getDebtTarget() : SupplierDebtTarget.SUMMA;
     }
 }

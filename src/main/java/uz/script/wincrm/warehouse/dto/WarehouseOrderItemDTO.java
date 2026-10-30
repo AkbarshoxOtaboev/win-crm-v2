@@ -40,6 +40,10 @@ public class WarehouseOrderItemDTO {
     @Schema(description = "Selling price for this batch", example = "12000.00", requiredMode = Schema.RequiredMode.REQUIRED)
     private BigDecimal priceSelling;
 
+    @DecimalMin(value = "0.0", inclusive = true, message = "Cash price must not be negative")
+    @Schema(description = "Cash price per 1 sq.m. Combined total = (cost + cash price) × quantity", example = "10000.00")
+    private BigDecimal cashPrice;
+
     @DecimalMin(value = "0.0", inclusive = true, message = "Weight must not be negative")
     @Schema(description = "Weight of the batch", example = "150.5")
     private BigDecimal weight;

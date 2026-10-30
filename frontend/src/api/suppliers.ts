@@ -37,6 +37,10 @@ export function fetchSuppliers(page = 0, size = 100) {
   )
 }
 
+export function fetchSupplier(id: number) {
+  return apiRequest<RestApiResponse<Supplier>>(`/api/suppliers/${id}`)
+}
+
 export function createSupplier(payload: SupplierPayload) {
   return apiRequest<RestApiResponse<Supplier>>('/api/suppliers/create', {
     method: 'POST',
@@ -101,6 +105,8 @@ export interface SupplierPayment {
   exchangeRate?: number
   /** Qarzdan yopilgan summa, `debtCurrency` da */
   appliedAmount?: number
+  /** SUMMA — kelgan summa qarzi, CASH — naqd qarz */
+  debtTarget?: 'SUMMA' | 'CASH'
   paidDate?: string
   comment?: string
   paymentTypeId?: number
@@ -133,6 +139,8 @@ export interface SupplierPaymentPayload {
   debtCurrency?: CurrencyCode
   /** Valyutalar farq qilsa; bo'sh bo'lsa - to'lov kunidagi kompaniya kursi */
   exchangeRate?: number
+  /** Qaysi qarz yopiladi. Bo'sh bo'lsa — summa. */
+  debtTarget?: 'SUMMA' | 'CASH'
 }
 
 export function fetchSupplierPayments(page = 0, size = 50) {

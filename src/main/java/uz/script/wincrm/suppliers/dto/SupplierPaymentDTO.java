@@ -5,6 +5,7 @@ import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import uz.script.wincrm.currency.Currency;
+import uz.script.wincrm.suppliers.SupplierDebtTarget;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -34,6 +35,14 @@ public class SupplierPaymentDTO {
     private Long paymentTypeId;
 
     @Schema(description = "Which debt currency to close; null - same as payment currency. "
-            + "Conversion uses the Central Bank rate for the payment date.", example = "USD")
+            + "Conversion uses exchangeRate when set, otherwise the Central Bank rate for the payment date.", example = "USD")
     private Currency debtCurrency;
+
+    @DecimalMin(value = "0.0001", message = "Exchange rate must be greater than 0")
+    @Schema(description = "1 foreign unit in UZS. Used when the cash currency and the debt currency differ. "
+            + "Empty uses the Central Bank rate for the payment date.", example = "12066.22")
+    private BigDecimal exchangeRate;
+
+    @Schema(description = "Which debt to close: SUMMA (arrival) or CASH (naqd). Empty means SUMMA.", example = "SUMMA")
+    private SupplierDebtTarget debtTarget;
 }
