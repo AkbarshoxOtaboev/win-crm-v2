@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import uz.script.wincrm.exceptions.BadRequestException;
 import uz.script.wincrm.exceptions.ResourceNotFoundException;
 import uz.script.wincrm.suppliers.Supplier;
+import uz.script.wincrm.suppliers.SupplierKind;
 import uz.script.wincrm.suppliers.repository.SupplierRepository;
 import uz.script.wincrm.suppliers.dto.SupplierDTO;
 import uz.script.wincrm.suppliers.dto.SupplierFilterDTO;
@@ -39,6 +40,7 @@ public class SupplierServiceImpl implements SupplierService {
     public SupplierResponse create(SupplierDTO dto) {
 
         log.info("Creating supplier: {}", dto.getName());
+        prepare(dto);
 
         if (dto.getInn() != null
                 && !dto.getInn().isBlank()
@@ -69,6 +71,7 @@ public class SupplierServiceImpl implements SupplierService {
     public SupplierResponse update(Long id, SupplierDTO dto) {
 
         log.info("Updating supplier with id: {}", id);
+        prepare(dto);
 
         Supplier supplier = repository.findById(id)
                 .orElseThrow(() ->
@@ -205,5 +208,46 @@ public class SupplierServiceImpl implements SupplierService {
                 supplier.getStatus());
 
         return SupplierMapper.toResponse(supplier);
+    }
+
+    private void prepare(SupplierDTO dto) {
+        if (dto.getKind() == null) {
+            dto.setKind(SupplierKind.LOCAL);
+        }
+        dto.setPhone(normalizePhone(dto.getPhone(), dto.getKind(), true));
+        if (dto.getAdditionalPhone() != null && !dto.getAdditionalPhone().isBlank()) {
+            dto.setAdditionalPhone(normalizePhone(dto.getAdditionalPhone(), dto.getKind(), false));
+        } else {
+            dto.setAdditionalPhone(null);
+        }
+    }
+
+    private String normalizePhone(String raw, SupplierKind kind, boolean required) {
+        String digits = raw == null ? "" : raw.replaceAll("\\D", "");
+        if (kind == SupplierKind.INTERNATIONAL) {
+            if (digits.length() < 8 || digits.length() > 15) {
+                throw new BadRequestException(required
+                        ? "Xalqaro telefonni + va davlat kodi bilan kiriting"
+                        : "Qo'shimcha telefonni + va davlat kodi bilan kiriting");
+            }
+            StringBuilder out = new StringBuilder("+");
+            for (int i = 0; i < digits.length(); i++) {
+                if (i > 0 && i % 3 == 0) out.append(' ');
+                out.append(digits.charAt(i));
+            }
+            return out.toString();
+        }
+        if (!digits.startsWith("998")) {
+            if (digits.length() <= 9) digits = "998" + digits;
+        }
+        digits = digits.length() > 12 ? digits.substring(0, 12) : digits;
+        if (digits.length() != 12 || !digits.startsWith("998")) {
+            throw new BadRequestException(required
+                    ? "Telefon +998-(97)-221-88-96 ko'rinishida to'liq kiriting"
+                    : "Qo'shimcha telefon to'liq formatda bo'lishi kerak");
+        }
+        String local = digits.substring(3);
+        return "+998-(" + local.substring(0, 2) + ")-" + local.substring(2, 5) + "-"
+                + local.substring(5, 7) + "-" + local.substring(7, 9);
     }
 }

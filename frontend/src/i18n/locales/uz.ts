@@ -34,6 +34,7 @@ export default {
     salary: 'Maosh',
     kpi: 'KPI',
     cashHandover: 'Kassa topshirish',
+    managerCash: 'Kassa',
     profitDashboard: 'Foyda dashboardi',
     discountRules: 'Chegirma qoidalari',
     currency: 'Valyuta',

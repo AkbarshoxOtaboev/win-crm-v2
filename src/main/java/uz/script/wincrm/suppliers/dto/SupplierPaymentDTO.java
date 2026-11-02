@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
+import uz.script.wincrm.cash.CashSource;
 import uz.script.wincrm.currency.Currency;
 import uz.script.wincrm.suppliers.SupplierDebtTarget;
 
@@ -45,4 +46,8 @@ public class SupplierPaymentDTO {
 
     @Schema(description = "Which debt to close: SUMMA (arrival) or CASH (naqd). Empty means SUMMA.", example = "SUMMA")
     private SupplierDebtTarget debtTarget;
+
+    @Schema(description = "OPERATIONAL — kassir kassasi; VAULT — rahbar kassasi. Bo'sh bo'lsa roldan default.",
+            example = "VAULT")
+    private CashSource cashSource;
 }

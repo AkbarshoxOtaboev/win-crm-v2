@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import uz.script.wincrm.cash.CashSource;
 import uz.script.wincrm.cash.repository.CashHandoverRepository;
 import uz.script.wincrm.currency.Currency;
 import uz.script.wincrm.currency.CurrencyMath;
@@ -226,13 +227,13 @@ public class DashboardServiceImpl implements DashboardService {
         LocalDateTime end = toDate.plusDays(1).atStartOfDay();
 
         Map<String, BigDecimal> inBefore = cashSums(paymentRepository.sumCashByType(BEGINNING, start));
-        Map<String, BigDecimal> outBefore = cashSums(supplierPaymentRepository.sumCashByType(BEGINNING, start));
+        Map<String, BigDecimal> outBefore = cashSums(supplierPaymentRepository.sumCashByType(BEGINNING, start, CashSource.OPERATIONAL));
         Map<String, BigDecimal> in = cashSums(paymentRepository.sumCashByType(start, end));
-        Map<String, BigDecimal> out = cashSums(supplierPaymentRepository.sumCashByType(start, end));
+        Map<String, BigDecimal> out = cashSums(supplierPaymentRepository.sumCashByType(start, end, CashSource.OPERATIONAL));
         Map<String, BigDecimal> handedBefore = cashSums(cashHandoverRepository.sumAcceptedByType(BEGINNING.toLocalDate(), fromDate));
         Map<String, BigDecimal> handed = cashSums(cashHandoverRepository.sumAcceptedByType(fromDate, toDate.plusDays(1)));
-        Map<String, BigDecimal> spentBefore = cashSums(expenseRepository.sumCashByType(BEGINNING.toLocalDate(), fromDate));
-        Map<String, BigDecimal> spent = cashSums(expenseRepository.sumCashByType(fromDate, toDate.plusDays(1)));
+        Map<String, BigDecimal> spentBefore = cashSums(expenseRepository.sumCashByType(BEGINNING.toLocalDate(), fromDate, CashSource.OPERATIONAL));
+        Map<String, BigDecimal> spent = cashSums(expenseRepository.sumCashByType(fromDate, toDate.plusDays(1), CashSource.OPERATIONAL));
 
         Set<String> keys = new LinkedHashSet<>();
         List<PaymentType> types = paymentTypeRepository.findAll().stream()

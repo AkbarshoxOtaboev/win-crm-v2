@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import uz.script.wincrm.cash.CashHandoverStatus;
+import uz.script.wincrm.cash.CashSource;
 import uz.script.wincrm.cash.repository.CashHandoverRepository;
 import uz.script.wincrm.cash.response.CashAvailableResponse;
 import uz.script.wincrm.currency.Currency;
@@ -23,9 +24,12 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Har bir kassaning (to'lov turi + valyuta) joriy qoldig'i: mijozlardan kirim - yetkazib beruvchilarga chiqim -
- * rahbarga topshirilgan (qabul qilingan yoki ko'rib chiqilayotgan) - kassadan qilingan xarajatlar.
- * Valyutalar bir-biriga qo'shilmaydi. Kassa hech qachon minusga tushmasligi kerak.
+ * Ikki kassa qoldig'i (filial filter bilan):
+ * <ul>
+ *   <li>OPERATIONAL = mijoz kirimi − topshirish(PENDING+ACCEPTED) − operatsion chiqimlar</li>
+ *   <li>VAULT = ACCEPTED topshirish − rahbar chiqimlari</li>
+ * </ul>
+ * PENDING topshirilgan pul hech qayerdan sarflanmaydi. Kassa minusga tushmasligi kerak.
  */
 @Service
 @RequiredArgsConstructor
@@ -44,46 +48,72 @@ public class CashAvailabilityService {
 
     @Transactional(readOnly = true)
     public List<CashAvailableResponse> balances() {
-        Map<String, BigDecimal> available = currentBalances();
+        Map<String, BigDecimal> operational = operationalBalances();
+        Map<String, BigDecimal> vault = vaultBalances();
         return paymentTypeRepository.findAll().stream()
                 .sorted(Comparator.comparing(PaymentType::getId))
                 .map(t -> {
                     Currency currency = CurrencyMath.orBase(t.getCurrency());
+                    String k = key(t.getId(), currency);
+                    BigDecimal ops = operational.getOrDefault(k, BigDecimal.ZERO);
+                    BigDecimal vlt = vault.getOrDefault(k, BigDecimal.ZERO);
                     return CashAvailableResponse.builder()
                             .paymentTypeId(t.getId())
                             .paymentTypeName(t.getName())
                             .paymentTypeIcon(t.getIcon())
                             .currency(currency)
-                            .available(available.getOrDefault(key(t.getId(), currency), BigDecimal.ZERO))
+                            .available(ops)
+                            .operationalAvailable(ops)
+                            .vaultAvailable(vlt)
                             .build();
                 })
                 .toList();
     }
 
     public BigDecimal available(Long paymentTypeId, Currency currency) {
-        return currentBalances().getOrDefault(key(paymentTypeId, CurrencyMath.orBase(currency)), BigDecimal.ZERO);
+        return available(paymentTypeId, currency, CashSource.OPERATIONAL);
     }
 
-    /** Hozirgi qoldiqlar: key = {@link #key(Long, Currency)}. */
+    public BigDecimal available(Long paymentTypeId, Currency currency, CashSource source) {
+        CashSource src = source != null ? source : CashSource.OPERATIONAL;
+        Map<String, BigDecimal> map = src == CashSource.VAULT ? vaultBalances() : operationalBalances();
+        return map.getOrDefault(key(paymentTypeId, CurrencyMath.orBase(currency)), BigDecimal.ZERO);
+    }
+
+    /** Hozirgi operatsion qoldiqlar (eski API bilan mos). */
     public Map<String, BigDecimal> currentBalances() {
-        return net(BEGINNING, FAR_FUTURE);
+        return operationalBalances();
     }
 
-    /** Kun boshidagi qoldiqlar - shu kundan oldingi barcha harakatlar. */
+    public Map<String, BigDecimal> operationalBalances() {
+        return operationalNet(BEGINNING, FAR_FUTURE);
+    }
+
+    public Map<String, BigDecimal> vaultBalances() {
+        return vaultNet(BEGINNING, FAR_FUTURE);
+    }
+
+    /** Kun boshidagi operatsion qoldiqlar — shu kundan oldingi harakatlar. */
     public Map<String, BigDecimal> balancesBefore(LocalDate day) {
-        return net(BEGINNING, day);
+        return operationalNet(BEGINNING, day);
     }
 
     /**
-     * Kassadan {@code amount} chiqarilsa minusga tushmasligini tekshiradi. {@code returned} - tahrirlanayotgan
-     * hujjat avval shu kassadan olgan summa (u kassaga qaytgan deb hisoblanadi). Entity o'zgartirilishidan oldin
-     * chaqirilishi kerak: aks holda so'rovdan oldingi auto-flush yangi summani qoldiqdan allaqachon ayirib qo'yadi.
+     * Kassadan {@code amount} chiqarilsa minusga tushmasligini tekshiradi. {@code returned} — tahrirlanayotgan
+     * hujjat avval shu kassadan olgan summa. Entity o'zgartirilishidan oldin chaqirilishi kerak.
      */
     public void requireEnough(PaymentType type, BigDecimal amount, BigDecimal returned, String action) {
+        requireEnough(type, amount, returned, action, CashSource.OPERATIONAL);
+    }
+
+    public void requireEnough(PaymentType type, BigDecimal amount, BigDecimal returned, String action, CashSource source) {
+        CashSource src = source != null ? source : CashSource.OPERATIONAL;
         Currency currency = CurrencyMath.orBase(type.getCurrency());
-        BigDecimal available = available(type.getId(), currency).add(returned != null ? returned : BigDecimal.ZERO);
+        BigDecimal available = available(type.getId(), currency, src)
+                .add(returned != null ? returned : BigDecimal.ZERO);
         if (amount != null && amount.compareTo(available) > 0) {
-            throw new BadRequestException("Kassada yetarli mablag' yo'q: \"" + type.getName() + "\" kassasida "
+            String pool = src == CashSource.VAULT ? "Rahbar kassasi" : "Operatsion kassa";
+            throw new BadRequestException(pool + "da yetarli mablag' yo'q: \"" + type.getName() + "\" da "
                     + plain(available.max(BigDecimal.ZERO)) + " " + currency
                     + " bor, " + action + " " + plain(amount) + " " + currency);
         }
@@ -93,13 +123,22 @@ public class CashAvailabilityService {
         return typeId + ":" + currency.name();
     }
 
-    private Map<String, BigDecimal> net(LocalDate fromDate, LocalDate toDate) {
+    private Map<String, BigDecimal> operationalNet(LocalDate fromDate, LocalDate toDate) {
         Map<String, BigDecimal> result = new HashMap<>();
         add(result, paymentRepository.sumCashByType(fromDate.atStartOfDay(), toDate.atStartOfDay()), BigDecimal.ONE);
-        add(result, supplierPaymentRepository.sumCashByType(fromDate.atStartOfDay(), toDate.atStartOfDay()),
-                BigDecimal.ONE.negate());
+        add(result, supplierPaymentRepository.sumCashByType(fromDate.atStartOfDay(), toDate.atStartOfDay(),
+                CashSource.OPERATIONAL), BigDecimal.ONE.negate());
         add(result, cashHandoverRepository.sumByType(fromDate, toDate, RESERVED), BigDecimal.ONE.negate());
-        add(result, expenseRepository.sumCashByType(fromDate, toDate), BigDecimal.ONE.negate());
+        add(result, expenseRepository.sumCashByType(fromDate, toDate, CashSource.OPERATIONAL), BigDecimal.ONE.negate());
+        return result;
+    }
+
+    private Map<String, BigDecimal> vaultNet(LocalDate fromDate, LocalDate toDate) {
+        Map<String, BigDecimal> result = new HashMap<>();
+        add(result, cashHandoverRepository.sumAcceptedByType(fromDate, toDate), BigDecimal.ONE);
+        add(result, supplierPaymentRepository.sumCashByType(fromDate.atStartOfDay(), toDate.atStartOfDay(),
+                CashSource.VAULT), BigDecimal.ONE.negate());
+        add(result, expenseRepository.sumCashByType(fromDate, toDate, CashSource.VAULT), BigDecimal.ONE.negate());
         return result;
     }
 

@@ -8,7 +8,9 @@ import uz.script.wincrm.exceptions.InsufficientStockException;
 import uz.script.wincrm.filial.FilialAccess;
 import uz.script.wincrm.goods.Goods;
 import uz.script.wincrm.goods.repository.GoodsRepository;
+import uz.script.wincrm.currency.Currency;
 import uz.script.wincrm.stock.Stock;
+import uz.script.wincrm.stock.StockArrival;
 import uz.script.wincrm.stock.StockPieces;
 import uz.script.wincrm.stock.mapper.StockMapper;
 import uz.script.wincrm.stock.repository.StockRepository;
@@ -17,11 +19,17 @@ import uz.script.wincrm.stock.service.StockHistoryService;
 import uz.script.wincrm.stock.service.StockService;
 import uz.script.wincrm.utils.Status;
 import uz.script.wincrm.warehouse.Warehouse;
+import uz.script.wincrm.warehouse.WarehouseOrder;
+import uz.script.wincrm.warehouse.WarehouseOrderItem;
+import uz.script.wincrm.warehouse.repository.WarehouseOrderItemRepository;
 import uz.script.wincrm.warehouse.repository.WarehouseRepository;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -33,40 +41,133 @@ public class StockServiceImpl implements StockService {
     private final StockMapper stockMapper;
     private final StockHistoryService stockHistoryService;
     private final FilialAccess filialAccess;
+    private final WarehouseOrderItemRepository warehouseOrderItemRepository;
 
     @Override
     @Transactional(readOnly = true)
     public StockResponse findById(Long id) {
         Stock stock = stockRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Stock not found with id: " + id));
-        return stockMapper.toResponse(stock);
+        return stockMapper.toResponse(stock, arrivalOf(stock, arrivalsByKey()));
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<StockResponse> fetchAll() {
-        return stockRepository.findAll()
-                .stream()
-                .map(stockMapper::toResponse)
-                .toList();
+        return present(stockRepository.findAllOrderedByGoodsId());
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<StockResponse> fetchByWarehouseId(Long warehouseId) {
-        return stockRepository.findAllByWarehouseId(warehouseId)
-                .stream()
-                .map(stockMapper::toResponse)
-                .toList();
+        return present(stockRepository.findAllByWarehouseId(warehouseId));
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<StockResponse> fetchByGoodsId(Long goodsId) {
-        return stockRepository.findAllByGoodsId(goodsId)
-                .stream()
-                .map(stockMapper::toResponse)
+        return present(stockRepository.findAllByGoodsId(goodsId));
+    }
+
+    private List<StockResponse> present(List<Stock> stocks) {
+        Map<String, StockArrival> arrivals = arrivalsByKey();
+        return stocks.stream()
+                .map(stock -> stockMapper.toResponse(stock, arrivalOf(stock, arrivals)))
                 .toList();
+    }
+
+    private StockArrival arrivalOf(Stock stock, Map<String, StockArrival> arrivals) {
+        if (stock.getGoods() == null || stock.getWarehouse() == null) {
+            return null;
+        }
+        return arrivals.get(stock.getGoods().getId() + ":" + stock.getWarehouse().getId());
+    }
+
+    /**
+     * Kelgan narx = pozitsiyadagi tannarx + naqd narx.
+     * Dollar kirimda so‘m qiymati shu hujjat kursiga ko‘paytiriladi.
+     */
+    private Map<String, StockArrival> arrivalsByKey() {
+        Map<String, List<WarehouseOrderItem>> grouped = new HashMap<>();
+        for (WarehouseOrderItem item : warehouseOrderItemRepository.findTransferred()) {
+            if (item.getGoods() == null || item.getWarehouse() == null || item.getWarehouseOrder() == null) {
+                continue;
+            }
+            if (item.getCount() == null || item.getCount().signum() <= 0) {
+                continue;
+            }
+            String key = item.getGoods().getId() + ":" + item.getWarehouse().getId();
+            grouped.computeIfAbsent(key, ignored -> new ArrayList<>()).add(item);
+        }
+        Map<String, StockArrival> arrivals = new HashMap<>();
+        grouped.forEach((key, items) -> arrivals.put(key, quote(items)));
+        return arrivals;
+    }
+
+    private StockArrival quote(List<WarehouseOrderItem> items) {
+        BigDecimal qty = BigDecimal.ZERO;
+        BigDecimal somValue = BigDecimal.ZERO;
+        BigDecimal foreignValue = BigDecimal.ZERO;
+        Currency foreignCurrency = null;
+        boolean hasBase = false;
+        boolean mixedCurrency = false;
+        WarehouseOrderItem latest = items.get(0);
+
+        for (WarehouseOrderItem item : items) {
+            WarehouseOrder order = item.getWarehouseOrder();
+            BigDecimal count = item.getCount();
+            BigDecimal unit = unitForeign(item);
+            qty = qty.add(count);
+            somValue = somValue.add(count.multiply(order.arrivalUnitBase(item.getPriceCost(), item.getCashPrice())));
+            Currency currency = order.getCurrency() != null ? order.getCurrency() : Currency.UZS;
+            if (currency.isBase()) {
+                hasBase = true;
+            } else {
+                if (foreignCurrency == null) {
+                    foreignCurrency = currency;
+                } else if (foreignCurrency != currency) {
+                    mixedCurrency = true;
+                }
+                foreignValue = foreignValue.add(count.multiply(unit));
+            }
+            if (item.getId() != null && (latest.getId() == null || item.getId() > latest.getId())) {
+                latest = item;
+            }
+        }
+
+        BigDecimal unitSom = qty.signum() > 0
+                ? somValue.divide(qty, 2, RoundingMode.HALF_UP)
+                : null;
+        WarehouseOrder latestOrder = latest.getWarehouseOrder();
+        Currency sellingCurrency = latestOrder.getCurrency() != null ? latestOrder.getCurrency() : Currency.UZS;
+        BigDecimal selling = latest.getPriceSelling();
+        BigDecimal sellingSom = latestOrder.toBase(selling);
+
+        if (mixedCurrency || hasBase || foreignCurrency == null || qty.signum() <= 0) {
+            return new StockArrival(unitSom, Currency.UZS.name(), null, null, selling, sellingCurrency.name(), sellingSom);
+        }
+
+        BigDecimal foreignUnit = foreignValue.divide(qty, 2, RoundingMode.HALF_UP);
+        BigDecimal rate = latestOrder.getExchangeRate();
+        boolean sameRate = true;
+        for (WarehouseOrderItem item : items) {
+            BigDecimal itemRate = item.getWarehouseOrder().getExchangeRate();
+            if (itemRate == null || rate == null || itemRate.compareTo(rate) != 0
+                    || item.getWarehouseOrder().getCurrency() != foreignCurrency) {
+                sameRate = false;
+                break;
+            }
+        }
+        if (!sameRate && foreignUnit.signum() > 0 && unitSom != null) {
+            rate = unitSom.divide(foreignUnit, 4, RoundingMode.HALF_UP);
+        }
+        return new StockArrival(unitSom, foreignCurrency.name(), rate, foreignUnit, selling, sellingCurrency.name(), sellingSom);
+    }
+
+    private BigDecimal unitForeign(WarehouseOrderItem item) {
+        BigDecimal price = item.getPriceCost() != null ? item.getPriceCost() : BigDecimal.ZERO;
+        BigDecimal cash = item.getCashPrice() != null ? item.getCashPrice() : BigDecimal.ZERO;
+        return price.add(cash);
     }
 
     @Override

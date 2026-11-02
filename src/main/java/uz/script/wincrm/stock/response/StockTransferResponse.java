@@ -57,11 +57,23 @@ public class StockTransferResponse {
     @Schema(description = "Joriy filialga nisbatan yo'nalish: INTERNAL, OUTGOING, INCOMING", example = "OUTGOING")
     private String direction;
 
-    @Schema(description = "Ko'chirilgan miqdor", example = "50")
+    @Schema(description = "Ko'chirilgan miqdor. Oyna uchun dona (list) soni.", example = "50")
     private BigDecimal count;
+
+    @Schema(description = "Oyna uchun dona soni. Eski yozuvlarda bo'sh.", example = "100")
+    private BigDecimal pieceCount;
 
     @Schema(description = "Izoh", example = "Filial uchun ko'chirish")
     private String comment;
+
+    @Schema(description = "TRANSFER yoki RETURN (orqaga qaytarish)", example = "TRANSFER")
+    private String movement;
+
+    @Schema(description = "Bu transfer allaqachon orqaga qaytarilgan", example = "false")
+    private boolean returned;
+
+    @Schema(description = "Qaytarish bo'lsa, asl transfer identifikatori", example = "3")
+    private Long returnOfId;
 
     @Schema(description = "Holati", example = "ACTIVE", implementation = Status.class)
     private Status status;

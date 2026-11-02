@@ -9,7 +9,7 @@ import java.math.BigDecimal;
 
 @Getter
 @Builder
-@Schema(name = "Cash Available Response", description = "Kassadagi joriy qoldiq (o'z valyutasida)")
+@Schema(name = "Cash Available Response", description = "Operatsion va Rahbar kassa qoldiqlari (o'z valyutasida)")
 public class CashAvailableResponse {
 
     private Long paymentTypeId;
@@ -22,6 +22,12 @@ public class CashAvailableResponse {
     @Schema(description = "Kassa valyutasi", example = "UZS")
     private Currency currency;
 
-    @Schema(description = "Kirim - yetkazib beruvchilarga chiqim - rahbarga topshirilgan - xarajatlar")
+    @Schema(description = "Operatsion (kassir) qoldiq — available bilan bir xil (eski klientlar uchun)")
     private BigDecimal available;
+
+    @Schema(description = "Operatsion kassa: kirim - topshirish(PENDING/ACCEPTED) - operatsion chiqimlar")
+    private BigDecimal operationalAvailable;
+
+    @Schema(description = "Rahbar kassa: qabul qilingan topshirishlar - rahbar chiqimlari")
+    private BigDecimal vaultAvailable;
 }

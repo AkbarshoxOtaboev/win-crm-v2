@@ -73,6 +73,7 @@ public class WarehouseOrderItemServiceImpl implements WarehouseOrderItemService 
 
         WarehouseOrderItem item = mapper.toEntity(dto, warehouse, warehouseOrder, supplier, goods);
         item.setCreatedUsername(username);
+        item.setSortOrder(nextSortOrder(warehouseOrder.getId(), dto.getInsertAfterItemId()));
 
         item = repository.save(item);
         applyLatestPrices(goods, warehouseOrder, dto);
@@ -86,7 +87,7 @@ public class WarehouseOrderItemServiceImpl implements WarehouseOrderItemService 
                     dto.getWarehouseId(),
                     dto.getCount(),
                     dto.getPieceCount(),
-                    warehouseOrder.toBase(dto.getPriceCost()));
+                    warehouseOrder.arrivalUnitBase(dto.getPriceCost(), dto.getCashPrice()));
         }
         recalculateOrderTotalSum(warehouseOrder);
 
@@ -121,7 +122,7 @@ public class WarehouseOrderItemServiceImpl implements WarehouseOrderItemService 
     public List<WarehouseOrderItemResponse> fetchByWarehouseOrderId(Long warehouseOrderId) {
         log.info("Fetch warehouse order items by order id {}", warehouseOrderId);
 
-        return repository.findAllByWarehouseOrderId(warehouseOrderId)
+        return repository.findOrderedByWarehouseOrderId(warehouseOrderId)
                 .stream()
                 .map(mapper::toResponse)
                 .toList();
@@ -191,7 +192,7 @@ public class WarehouseOrderItemServiceImpl implements WarehouseOrderItemService 
                     dto.getWarehouseId(),
                     dto.getCount(),
                     dto.getPieceCount(),
-                    warehouseOrder.toBase(dto.getPriceCost()));
+                    warehouseOrder.arrivalUnitBase(dto.getPriceCost(), dto.getCashPrice()));
         }
 
         recalculateOrderTotalSum(warehouseOrder);
@@ -231,6 +232,41 @@ public class WarehouseOrderItemServiceImpl implements WarehouseOrderItemService 
         }
 
         recalculateOrderTotalSum(item.getWarehouseOrder());
+    }
+
+    /**
+     * Yangi qator tartib raqami. Nusxa manba qatorning yoniga qo‘yiladi,
+     * oddiy qo‘shish oxiriga. Mavjud qatorlarning o‘rni saqlanadi.
+     */
+    private int nextSortOrder(Long orderId, Long insertAfterItemId) {
+        List<WarehouseOrderItem> items = repository.findOrderedByWarehouseOrderId(orderId);
+        int seq = 1;
+        for (WarehouseOrderItem existing : items) {
+            if (existing.getSortOrder() == null || existing.getSortOrder() != seq) {
+                existing.setSortOrder(seq);
+            }
+            seq++;
+        }
+        if (insertAfterItemId == null) {
+            repository.saveAll(items);
+            return seq;
+        }
+        int sourceIndex = -1;
+        for (int i = 0; i < items.size(); i++) {
+            if (insertAfterItemId.equals(items.get(i).getId())) {
+                sourceIndex = i;
+                break;
+            }
+        }
+        if (sourceIndex < 0) {
+            repository.saveAll(items);
+            return seq;
+        }
+        for (int i = sourceIndex + 1; i < items.size(); i++) {
+            items.get(i).setSortOrder(i + 2);
+        }
+        repository.saveAll(items);
+        return sourceIndex + 2;
     }
 
     /**
@@ -288,17 +324,11 @@ public class WarehouseOrderItemServiceImpl implements WarehouseOrderItemService 
 
         BigDecimal diff = newTotal.subtract(oldTotal);
         Long supplierId = warehouseOrder.getSupplier().getId();
-
-        Currency currency = warehouseOrder.getCurrency();
-
-        if (diff.compareTo(BigDecimal.ZERO) > 0) {
-            supplierBalanceService.increasePurchase(supplierId, currency, diff);
-            log.info("Supplier balance increased by purchase diff. SupplierId: {}, Diff: {} {}",
-                    supplierId, diff, currency);
-        } else if (diff.compareTo(BigDecimal.ZERO) < 0) {
-            supplierBalanceService.decreasePurchase(supplierId, currency, diff.abs());
-            log.info("Supplier balance decreased by purchase diff. SupplierId: {}, Diff: {} {}",
-                    supplierId, diff.abs(), currency);
+        // Summa + naqd (cashPrice) birgalikda balansda ko'rinsin.
+        supplierBalanceService.recalculate(supplierId);
+        if (diff.compareTo(BigDecimal.ZERO) != 0) {
+            log.info("Supplier balance recalculated after order total change. SupplierId: {}, Diff: {} {}",
+                    supplierId, diff, warehouseOrder.getCurrency());
         }
     }
 

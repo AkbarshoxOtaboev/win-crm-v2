@@ -252,6 +252,7 @@ import {
   ShieldCheck,
   TrendingUp,
   ChartLine,
+  Landmark,
   Truck,
   UserCircle,
   Wallet,
@@ -377,6 +378,7 @@ const rawMenuGroups = computed<MenuGroup[]>(() => {
         items: [
           paymentsItem,
           { icon: HandCoins, name: t('nav.cashHandover'), path: '/cash-handovers', perm: ['CASH_HANDOVER_VIEW'] },
+          { icon: TaskIcon, name: t('nav.expenses'), path: '/expenses', perm: ['EXPENSE_VIEW'] },
           { icon: UserGroupIcon, name: t('nav.clients'), path: '/clients' },
           { icon: UserCircleIcon, name: t('nav.profile'), path: '/profile' },
         ],
@@ -442,6 +444,7 @@ const rawMenuGroups = computed<MenuGroup[]>(() => {
     title: t('nav.finance'),
     items: [
       ...(auth.isElevated ? [{ icon: ChartLine, name: t('nav.profitDashboard'), path: '/finance/profit' }] : []),
+      ...(auth.isElevated ? [{ icon: Landmark, name: t('nav.managerCash'), path: '/finance/cash' }] : []),
       { icon: Banknote, name: t('nav.currency'), path: '/currency' },
       { icon: HandCoins, name: t('nav.cashHandover'), path: '/cash-handovers', perm: ['CASH_HANDOVER_VIEW'] },
       { icon: TaskIcon, name: t('nav.expenses'), path: '/expenses', perm: ['EXPENSE_VIEW'] },

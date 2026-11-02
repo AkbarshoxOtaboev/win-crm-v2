@@ -177,19 +177,23 @@
           <template v-if="isWindowGoods">
             <label class="lbl min-w-0 w-28 sm:flex-none">
               {{ t('saleOrderCreate.width') }}
-              <input v-model.number="itemForm.width" type="number" min="1" step="1" class="field" />
+              <input v-model.number="itemForm.width" type="number" min="1" step="1" class="field" :disabled="measuresLocked" />
             </label>
             <label class="lbl min-w-0 w-28 sm:flex-none">
               {{ t('saleOrderCreate.height') }}
-              <input v-model.number="itemForm.height" type="number" min="1" step="1" class="field" />
+              <input v-model.number="itemForm.height" type="number" min="1" step="1" class="field" :disabled="measuresLocked" />
             </label>
             <label class="lbl min-w-0 w-24 sm:flex-none">
               {{ t('common.count') }}
-              <input v-model.number="itemForm.count" type="number" min="0.01" step="0.01" class="field" />
+              <input v-model.number="itemForm.count" type="number" min="1" step="1" class="field" />
             </label>
             <label class="lbl min-w-0 w-28 sm:flex-none">
               {{ t('saleOrderCreate.kvm') }}
               <input :value="formatNum(computedKvm)" class="field" readonly />
+            </label>
+            <label class="lbl min-w-0 w-28 sm:flex-none">
+              {{ t('saleOrderCreate.weight') }}
+              <input :value="computedWeight != null ? formatNum(computedWeight) : '—'" class="field" readonly />
             </label>
             <label class="lbl min-w-0 w-36 sm:flex-none">
               {{ t('saleOrderCreate.sellingPrice') }} ({{ curLabel }})
@@ -205,7 +209,7 @@
             <template v-if="itemKind !== 'SERVICE'">
               <label class="lbl min-w-0 w-28 sm:flex-none">
                 {{ t('common.count') }}
-                <input v-model.number="itemForm.count" type="number" min="0.01" step="0.01" class="field" />
+                <input v-model.number="itemForm.count" type="number" min="1" step="1" class="field" />
               </label>
               <label class="lbl min-w-0 w-36 sm:flex-none">
                 {{ t('saleOrderCreate.selling') }} ({{ curLabel }})
@@ -224,6 +228,7 @@
             </button>
           </div>
         </div>
+        <!-- Kesish hisobi vaqtincha o‘chirilgan. Keyin qayta qo‘shamiz.
         <CuttingPreview
           v-if="showCuttingPreview"
           :goods-id="itemForm.goodsId"
@@ -233,6 +238,7 @@
           v-model:kerf="itemForm.cutKerfMm"
           v-model:allow-rotate="itemForm.cutAllowRotate"
         />
+        -->
         <p v-if="!headerReady" class="mt-2 text-xs text-amber-600">
           {{ t('saleOrderCreate.headerRequired') }}
         </p>
@@ -265,6 +271,7 @@
               <th class="th">{{ t('saleOrderCreate.height') }}</th>
               <th class="th">{{ t('common.count') }}</th>
               <th class="th">{{ t('saleOrderCreate.kvm') }}</th>
+              <th class="th">{{ t('saleOrderCreate.weight') }}</th>
               <th class="th">{{ t('saleOrderCreate.selling') }}</th>
               <th class="th">{{ t('common.sum') }}</th>
               <th class="th text-right">{{ t('common.actions') }}</th>
@@ -272,7 +279,7 @@
           </thead>
           <tbody>
             <tr v-if="displayItems.length === 0">
-              <td colspan="11" class="empty">{{ t('saleOrderCreate.noItems') }}</td>
+              <td colspan="12" class="empty">{{ t('saleOrderCreate.noItems') }}</td>
             </tr>
             <tr v-for="(row, idx) in displayItems" :key="row.key" class="border-b border-gray-100" :class="{ 'row-picked': selectedItemKeys.includes(row.key) }">
               <td class="td">
@@ -308,10 +315,50 @@
                   {{ row.isService ? t('saleOrderCreate.kindService') : t('saleOrderCreate.kindProduct') }}
                 </span>
               </td>
-              <td class="td">{{ row.width != null ? formatNum(row.width) : '—' }}</td>
-              <td class="td">{{ row.height != null ? formatNum(row.height) : '—' }}</td>
-              <td class="td">{{ row.pieces != null ? formatNum(row.pieces) : formatNum(row.count) }}</td>
+              <td class="td">
+                <input
+                  v-if="row.isWindow"
+                  class="cell-input"
+                  type="number"
+                  min="1"
+                  step="1"
+                  :value="row.width ?? ''"
+                  :disabled="saving || orderFinal || measuresLocked"
+                  :aria-label="t('saleOrderCreate.width')"
+                  @change="onRowMeasure(row.key, 'width', $event)"
+                />
+                <span v-else>—</span>
+              </td>
+              <td class="td">
+                <input
+                  v-if="row.isWindow"
+                  class="cell-input"
+                  type="number"
+                  min="1"
+                  step="1"
+                  :value="row.height ?? ''"
+                  :disabled="saving || orderFinal || measuresLocked"
+                  :aria-label="t('saleOrderCreate.height')"
+                  @change="onRowMeasure(row.key, 'height', $event)"
+                />
+                <span v-else>—</span>
+              </td>
+              <td class="td">
+                <input
+                  v-if="!row.isService"
+                  class="cell-input"
+                  type="number"
+                  min="1"
+                  step="1"
+                  :value="row.pieces != null ? row.pieces : row.count"
+                  :disabled="saving || orderFinal"
+                  :aria-label="t('common.count')"
+                  @change="onRowCount(row.key, $event)"
+                />
+                <span v-else>{{ formatNum(row.count) }}</span>
+              </td>
               <td class="td">{{ row.isWindow ? formatNum(row.count) : '—' }}</td>
+              <td class="td">{{ formatRowWeight(row) }}</td>
               <td class="td">{{ amt(row.priceSelling) }}</td>
               <td class="td">{{ amt(row.sum) }}</td>
               <td class="td text-right">
@@ -321,7 +368,11 @@
           </tbody>
           <tfoot v-if="displayItems.length">
             <tr class="border-t border-gray-200 bg-gray-50">
-              <td class="td font-semibold" colspan="9">{{ t('saleOrderCreate.itemsTotal') }}</td>
+              <td class="td font-semibold" colspan="8">{{ t('saleOrderCreate.itemsTotal') }}</td>
+              <td class="td font-semibold">
+                {{ itemsTotalWeight > 0 ? `${formatNum(itemsTotalWeight)} ${t('saleOrderCreate.kg')}` : '—' }}
+              </td>
+              <td class="td" />
               <td class="td font-semibold">{{ amt(itemsTotalSum) }}</td>
               <td class="td" />
             </tr>
@@ -572,7 +623,7 @@ import {
   type SaleType,
 } from '@/api/sales'
 import { fetchSaleOrderItems, type SaleOrderItem } from '@/api/saleOrderItems'
-import CuttingPreview from '@/components/crm/CuttingPreview.vue'
+// import CuttingPreview from '@/components/crm/CuttingPreview.vue'
 import { fetchWarehouses, type Warehouse } from '@/api/warehouses'
 import { createClient, fetchClients, type Client } from '@/api/clients'
 import { balanceIn, fetchClientBalance, type ClientBalance } from '@/api/clientBalances'
@@ -798,7 +849,9 @@ function isService(g?: Goods | null) {
 
 const selectedGoods = computed(() => goods.value.find((g) => g.id === itemForm.goodsId) || null)
 const isWindowGoods = computed(() => isWindow(selectedGoods.value))
+const measuresLocked = computed(() => form.saleType === 'WHOLESALE')
 const isServiceGoods = computed(() => isService(selectedGoods.value))
+/* Kesish hisobi vaqtincha o‘chirilgan. Keyin qayta qo‘shamiz.
 const showCuttingPreview = computed(
   () =>
     isWindowGoods.value &&
@@ -806,10 +859,18 @@ const showCuttingPreview = computed(
     Number(itemForm.height) > 0 &&
     Number(itemForm.count) > 0,
 )
+*/
 
 const computedKvm = computed(() => {
   if (!isWindowGoods.value) return 0
   return (Number(itemForm.width || 0) * Number(itemForm.height || 0) * Number(itemForm.count || 0)) / 10000
+})
+
+const computedWeight = computed(() => {
+  if (!isWindowGoods.value || !(computedKvm.value > 0)) return null
+  const per = Number(selectedGoods.value?.weightPerSqm || 0)
+  if (!(per > 0)) return null
+  return Math.round(computedKvm.value * per * 100) / 100
 })
 
 const computedSum = computed(() => {
@@ -930,6 +991,27 @@ const displayItems = computed(() =>
 
 const itemsTotalSum = computed(() => displayItems.value.reduce((acc, r) => acc + r.sum, 0))
 
+function goodsWeightPerSqm(goodsId: number): number {
+  return Number(goods.value.find((g) => g.id === goodsId)?.weightPerSqm || 0)
+}
+
+/** WINDOW: vazn (kg) = kv.m × 1 m² vazni */
+function rowWeight(row: { isWindow?: boolean; goodsId: number; count: number }): number | null {
+  if (!row.isWindow || !(row.count > 0)) return null
+  const per = goodsWeightPerSqm(row.goodsId)
+  if (!(per > 0)) return null
+  return Math.round(row.count * per * 100) / 100
+}
+
+function formatRowWeight(row: { isWindow?: boolean; goodsId: number; count: number }): string {
+  const w = rowWeight(row)
+  return w != null ? formatNum(w) : '—'
+}
+
+const itemsTotalWeight = computed(() =>
+  displayItems.value.reduce((acc, r) => acc + (rowWeight(r) || 0), 0),
+)
+
 function pullItemsTotal() {
   const total = Math.round(itemsTotalSum.value * 100) / 100
   if (!(total > 0)) return
@@ -951,6 +1033,32 @@ const discountText = computed(() => {
   if (!o?.discountType || !(Number(o.discountValue) > 0)) return ''
   return o.discountType === 'PERCENTAGE' ? `${Number(o.discountValue)}%` : amt(Number(o.discountValue))
 })
+
+watch(
+  () => form.saleType,
+  (type, prev) => {
+    if (type !== 'WHOLESALE' || !prev) return
+    const g = selectedGoods.value
+    if (g && isWindow(g)) {
+      itemForm.width = Number(g.width || 0)
+      itemForm.height = Number(g.height || 0)
+    }
+    for (const row of draftItems.value) {
+      if (!row.isWindow) continue
+      const goodsRow = goods.value.find((x) => x.id === row.goodsId)
+      const width = Number(goodsRow?.width || 0)
+      const height = Number(goodsRow?.height || 0)
+      if (!(width > 0) || !(height > 0)) continue
+      if (Number(row.width) === width && Number(row.height) === height) continue
+      detachSaved(row)
+      row.width = width
+      row.height = height
+      const pieces = Number(row.pieces || 0)
+      if (pieces > 0) row.count = windowKvm(width, height, pieces)
+    }
+    refreshStockError()
+  },
+)
 
 watch(
   () => itemForm.goodsId,
@@ -1132,6 +1240,58 @@ function refreshStockError() {
 
 function onRowGoodsChange(key: number, e: Event) {
   changeRowGoods(key, Number((e.target as HTMLSelectElement).value))
+}
+
+function detachSaved(row: DraftItem) {
+  if (!row.itemId) return
+  removedItems.value.push({ ...row })
+  row.itemId = undefined
+}
+
+function windowKvm(width: number, height: number, pieces: number) {
+  return (width * height * pieces) / 10000
+}
+
+function onRowMeasure(key: number, field: 'width' | 'height', e: Event) {
+  const row = draftItems.value.find((d) => d.key === key)
+  const input = e.target as HTMLInputElement
+  if (!row?.isWindow || orderFinal.value || form.saleType === 'WHOLESALE') return
+  const value = Number(input.value)
+  if (!(value > 0)) {
+    input.value = String(row[field] ?? '')
+    return
+  }
+  if (Number(row[field]) === value) return
+  detachSaved(row)
+  row[field] = value
+  const width = Number(row.width || 0)
+  const height = Number(row.height || 0)
+  const pieces = Number(row.pieces || 0)
+  if (width > 0 && height > 0 && pieces > 0) row.count = windowKvm(width, height, pieces)
+  refreshStockError()
+}
+
+function onRowCount(key: number, e: Event) {
+  const row = draftItems.value.find((d) => d.key === key)
+  const input = e.target as HTMLInputElement
+  if (!row || row.isService || orderFinal.value) return
+  const value = Number(input.value)
+  const current = row.pieces != null ? Number(row.pieces) : Number(row.count)
+  if (!(value > 0)) {
+    input.value = String(current)
+    return
+  }
+  if (current === value) return
+  detachSaved(row)
+  if (row.isWindow) {
+    row.pieces = value
+    const width = Number(row.width || 0)
+    const height = Number(row.height || 0)
+    if (width > 0 && height > 0) row.count = windowKvm(width, height, value)
+  } else {
+    row.count = value
+  }
+  refreshStockError()
 }
 
 function changeRowGoods(key: number, goodsId: number) {
@@ -1453,6 +1613,10 @@ async function onCreateClient() {
 .product-select { height: 2.25rem; width: 100%; min-width: 11rem; border-radius: 0.5rem; border: 1px solid #d1d5db; background: #fff; padding: 0 0.5rem; font-size: 0.8125rem; color: #374151; }
 .product-select:disabled { background: #f9fafb; cursor: not-allowed; }
 .product-select.short { border-color: #dc2626; }
+.cell-input { height: 2.25rem; width: 4.75rem; border-radius: 0.5rem; border: 1px solid #d1d5db; background: #fff; padding: 0 0.45rem; font-size: 0.8125rem; color: #374151; }
+.cell-input:disabled { background: #f3f4f6; color: #6b7280; }
+.cell-input:disabled { background: #f9fafb; cursor: not-allowed; }
+.dark .cell-input { border-color: #374151; background: #111827; color: #e5e7eb; }
 .dark .product-select { border-color: #374151; background: #111827; color: #e5e7eb; }
 .dark .product-select.short { border-color: #f87171; }
 .row-picked { background: #f5f8ff; }

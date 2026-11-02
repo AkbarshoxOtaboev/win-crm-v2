@@ -46,6 +46,25 @@ public class StockTransferController {
         );
     }
 
+    @PostMapping("/{id}/return")
+    @PreAuthorize("hasAuthority('STOCK_EDIT')")
+    @Operation(
+            summary = "Transferni orqaga qaytarish",
+            description = "Mahsulotni manba omborga qaytaradi. Asl transfer ro'yxatda qoladi, qaytarish yangi yozuv bo'ladi."
+    )
+    @ApiResponse(
+            responseCode = "200",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = StockTransferResponse.class))
+    )
+    public ResponseEntity<?> returnTransfer(@PathVariable Long id) {
+        return ResponseEntity.ok(
+                RestApiResponse.<StockTransferResponse>builder()
+                        .message("Stock transfer returned")
+                        .data(service.returnTransfer(id))
+                        .build()
+        );
+    }
+
     @GetMapping
     @PreAuthorize("hasAuthority('STOCK_VIEW')")
     @Operation(

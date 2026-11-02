@@ -30,13 +30,18 @@ public class Supplier extends FilialScopedEntity {
     @Column(nullable = false)
     private String name;
 
+    /** LOCAL — ichki bozor, INTERNATIONAL — chetdan. Bo'sh bo'lsa mahalliy. */
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private SupplierKind kind;
+
     @Column(length = 20)
     private String inn;
 
-    @Column(nullable = false, length = 32)
+    @Column(nullable = false, length = 40)
     private String phone;
 
-    @Column(length = 32)
+    @Column(length = 40)
     private String additionalPhone;
 
     @Column(columnDefinition = "TEXT")

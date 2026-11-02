@@ -101,4 +101,32 @@ public class SupplierBalanceController {
                         .build()
         );
     }
+
+    @PostMapping("/recalculate")
+    @PreAuthorize("hasAnyAuthority('SUPPLIER_BALANCE_EDIT', 'SUPPLIER_BALANCE_VIEW')")
+    @Operation(
+            summary = "Recalculate all supplier balances",
+            description = "Rebuilds purchase/paid/debt from warehouse orders (summa+cash) and all payments (SUMMA+CASH)."
+    )
+    public ResponseEntity<?> recalculateAll() {
+        service.recalculateAll();
+        return ResponseEntity.ok(
+                RestApiResponse.<Void>builder()
+                        .message("Supplier balances recalculated")
+                        .build()
+        );
+    }
+
+    @PostMapping("/recalculate/{supplierId}")
+    @PreAuthorize("hasAnyAuthority('SUPPLIER_BALANCE_EDIT', 'SUPPLIER_BALANCE_VIEW')")
+    @Operation(summary = "Recalculate one supplier balance")
+    public ResponseEntity<?> recalculateOne(@PathVariable Long supplierId) {
+        service.recalculate(supplierId);
+        return ResponseEntity.ok(
+                RestApiResponse.<List<SupplierBalanceResponse>>builder()
+                        .message("Supplier balance recalculated")
+                        .data(service.findBySupplierId(supplierId))
+                        .build()
+        );
+    }
 }

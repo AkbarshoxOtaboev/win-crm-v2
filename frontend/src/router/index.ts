@@ -156,6 +156,12 @@ const router = createRouter({
       meta: { title: 'Transferlar', requiresAuth: true },
     },
     {
+      path: '/stock/transfers/new',
+      name: 'StockTransferCreate',
+      component: () => import('../views/crm/StockTransferCreateView.vue'),
+      meta: { title: 'Yangi transfer', requiresAuth: true },
+    },
+    {
       path: '/stock/history',
       name: 'StockHistory',
       component: () => import('../views/crm/StockHistoryView.vue'),
@@ -190,6 +196,12 @@ const router = createRouter({
       name: 'ProfitDashboard',
       component: () => import('../views/crm/ProfitDashboardView.vue'),
       meta: { title: 'Foyda', requiresAuth: true, elevatedOnly: true },
+    },
+    {
+      path: '/finance/cash',
+      name: 'ManagerCash',
+      component: () => import('../views/crm/ManagerCashView.vue'),
+      meta: { title: 'Kassa', requiresAuth: true, elevatedOnly: true },
     },
     {
       path: '/sales/fx-difference',
@@ -467,6 +479,8 @@ router.beforeEach((to, _from, next) => {
       to.path === '/payments' ||
       to.path === '/payments/dashboard' ||
       to.path === '/cash-handovers' ||
+      to.path === '/expenses' ||
+      to.path.startsWith('/expenses/') ||
       to.path === '/clients' ||
       to.path.startsWith('/clients/') ||
       to.path === '/profile' ||

@@ -82,6 +82,14 @@ public class GoodsDTO {
     @Schema(description = "Default window height in centimeters (WINDOW type)", example = "150")
     private BigDecimal height;
 
+    @DecimalMin(value = "0.0", inclusive = false, message = "Thickness must be greater than 0")
+    @Schema(description = "Window thickness in millimeters (WINDOW type)", example = "4")
+    private BigDecimal thickness;
+
+    @DecimalMin(value = "0.0", inclusive = false, message = "Weight per m2 must be greater than 0")
+    @Schema(description = "Weight of 1 m2 in kilograms (WINDOW type)", example = "10")
+    private BigDecimal weightPerSqm;
+
     @Schema(
             description = "Goods photo file. Optional on create and update.",
             type = "string",

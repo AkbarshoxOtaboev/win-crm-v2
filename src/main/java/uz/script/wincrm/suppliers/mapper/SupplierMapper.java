@@ -2,6 +2,7 @@ package uz.script.wincrm.suppliers.mapper;
 
 import lombok.experimental.UtilityClass;
 import uz.script.wincrm.suppliers.Supplier;
+import uz.script.wincrm.suppliers.SupplierKind;
 import uz.script.wincrm.suppliers.dto.SupplierDTO;
 import uz.script.wincrm.suppliers.response.SupplierResponse;
 
@@ -18,6 +19,7 @@ public class SupplierMapper {
 
         return Supplier.builder()
                 .name(dto.getName())
+                .kind(dto.getKind() != null ? dto.getKind() : SupplierKind.LOCAL)
                 .inn(dto.getInn())
                 .phone(dto.getPhone())
                 .additionalPhone(dto.getAdditionalPhone())
@@ -40,6 +42,7 @@ public class SupplierMapper {
         return SupplierResponse.builder()
                 .id(supplier.getId())
                 .name(supplier.getName())
+                .kind(supplier.getKind() != null ? supplier.getKind() : SupplierKind.LOCAL)
                 .inn(supplier.getInn())
                 .phone(supplier.getPhone())
                 .additionalPhone(supplier.getAdditionalPhone())
@@ -60,6 +63,7 @@ public class SupplierMapper {
      */
     public void updateEntity(Supplier supplier, SupplierDTO dto) {
         supplier.setName(dto.getName());
+        supplier.setKind(dto.getKind() != null ? dto.getKind() : SupplierKind.LOCAL);
         supplier.setInn(dto.getInn());
         supplier.setPhone(dto.getPhone());
         supplier.setAdditionalPhone(dto.getAdditionalPhone());

@@ -193,6 +193,33 @@
               <label class="lbl">{{ t('goods.heightCm') }} *</label>
               <input v-model.number="form.height" type="number" min="1" step="1" required class="field" placeholder="150" />
             </div>
+            <div>
+              <label class="lbl">{{ t('goods.thicknessMm') }} *</label>
+              <input
+                v-model.number="form.thickness"
+                type="number"
+                min="0.1"
+                step="0.1"
+                required
+                class="field"
+                placeholder="4"
+                @input="syncWeightFromThickness"
+              />
+            </div>
+            <div>
+              <label class="lbl">{{ t('goods.weightPerSqm') }} *</label>
+              <input
+                v-model.number="form.weightPerSqm"
+                type="number"
+                min="0.01"
+                step="0.01"
+                required
+                readonly
+                class="field"
+                :title="t('goods.weightPerSqmHint')"
+              />
+              <p class="field-hint">{{ t('goods.weightPerSqmHint') }}</p>
+            </div>
           </div>
           <div>
             <label class="lbl">{{ t('goods.photo') }}</label>
@@ -290,7 +317,15 @@ const form = reactive({
   barcode: '',
   width: 0,
   height: 0,
+  thickness: 0,
+  weightPerSqm: 0,
 })
+
+/** 1 kv.m vazni (kg) = qalinlik (mm) × 2.5 */
+function syncWeightFromThickness() {
+  const th = Number(form.thickness || 0)
+  form.weightPerSqm = th > 0 ? Math.round(th * 2.5 * 100) / 100 : 0
+}
 
 function sellingLabel(g: Goods) {
   return g.priceCurrency && g.priceCurrency !== BASE_CURRENCY
@@ -382,6 +417,8 @@ function openCreate() {
     barcode: '',
     width: 0,
     height: 0,
+    thickness: 0,
+    weightPerSqm: 0,
   })
   resetPhoto()
   formError.value = null
@@ -398,7 +435,10 @@ function openEdit(g: Goods) {
     barcode: g.barcode || '',
     width: Number(g.width || 0),
     height: Number(g.height || 0),
+    thickness: Number(g.thickness || 0),
+    weightPerSqm: 0,
   })
+  syncWeightFromThickness()
   resetPhoto()
   formError.value = null
   modalOpen.value = true
@@ -415,6 +455,8 @@ function buildFormData() {
   if (form.type === 'WINDOW') {
     fd.append('width', String(form.width))
     fd.append('height', String(form.height))
+    fd.append('thickness', String(form.thickness))
+    fd.append('weightPerSqm', String(form.weightPerSqm))
   }
   if (photoFile.value) fd.append('photo', photoFile.value)
   return fd
@@ -428,7 +470,13 @@ async function onSubmit() {
       formError.value = t('goods.requiredFields')
       return
     }
-    if (form.type === 'WINDOW' && (Number(form.width) <= 0 || Number(form.height) <= 0)) {
+    if (
+      form.type === 'WINDOW' &&
+      (Number(form.width) <= 0 ||
+        Number(form.height) <= 0 ||
+        Number(form.thickness) <= 0 ||
+        Number(form.weightPerSqm) <= 0)
+    ) {
       formError.value = t('goods.windowSizeRequired')
       return
     }
@@ -568,6 +616,8 @@ onBeforeUnmount(revokeLocalPreview)
 .ghost { height: 2.5rem; border-radius: 0.5rem; border: 1px solid #d1d5db; padding: 0 1rem; font-size: 0.875rem; }
 .err { border-radius: 0.5rem; border: 1px solid #fecaca; background: #fef2f2; padding: 0.75rem 1rem; font-size: 0.875rem; color: #dc2626; }
 .lbl { display: block; margin-bottom: 0.25rem; font-size: 0.875rem; color: #4b5563; }
+.field-hint { margin-top: 0.25rem; font-size: 0.75rem; color: #6b7280; }
+.field[readonly] { background: #f9fafb; color: #374151; }
 .price-group { display: flex; gap: 0.25rem; }
 .price-group .field { min-width: 0; }
 .price-group .currency-select { width: 4.75rem; flex: none; padding: 0 0.4rem; }

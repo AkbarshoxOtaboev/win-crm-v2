@@ -17,6 +17,8 @@ export interface ExpenseCategoryPayload {
   description?: string
 }
 
+export type CashSource = 'OPERATIONAL' | 'VAULT'
+
 export interface Expense {
   id: number
   categoryId: number
@@ -27,6 +29,7 @@ export interface Expense {
   exchangeRate?: number | null
   paymentTypeId?: number | null
   paymentTypeName?: string | null
+  cashSource?: CashSource
   expenseDate: string
   description?: string
   status?: string
@@ -43,6 +46,8 @@ export interface ExpensePayload {
   description?: string
   /** Pul chiqadigan kassa; xarajat valyutasi shu kassa valyutasi. */
   paymentTypeId: number
+  /** OPERATIONAL — kassir; VAULT — rahbar (qabul qilingan). */
+  cashSource?: CashSource
 }
 
 /** Kassadagi joriy qoldiq o'z valyutasida. */
@@ -51,7 +56,10 @@ export interface CashAvailable {
   paymentTypeName: string
   paymentTypeIcon?: string | null
   currency: CurrencyCode
+  /** Operatsion qoldiq (eski maydon). */
   available: number
+  operationalAvailable?: number
+  vaultAvailable?: number
 }
 
 export function fetchCashAvailable() {
@@ -87,6 +95,31 @@ export function deleteExpenseCategory(id: number) {
 export function fetchExpenses(page = 0, size = 100) {
   return apiRequest<RestApiResponse<SpringPage<Expense>>>(
     `/api/expenses?page=${page}&size=${size}`,
+  )
+}
+
+export function fetchExpensesByDateRange(startDate: string, endDate: string) {
+  return apiRequest<RestApiResponse<Expense[]>>(
+    `/api/expenses/date-range?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`,
+  )
+}
+
+export function fetchExpensesByDateRangePaginated(
+  startDate: string,
+  endDate: string,
+  page = 0,
+  size = 20,
+  sort = 'expenseDate,desc',
+) {
+  const q = new URLSearchParams({
+    startDate,
+    endDate,
+    page: String(page),
+    size: String(size),
+    sort,
+  })
+  return apiRequest<RestApiResponse<SpringPage<Expense>>>(
+    `/api/expenses/date-range/paginated?${q}`,
   )
 }
 

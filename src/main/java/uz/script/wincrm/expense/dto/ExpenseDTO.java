@@ -10,6 +10,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import uz.script.wincrm.cash.CashSource;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
@@ -42,4 +44,8 @@ public class ExpenseDTO {
     @Schema(description = "Pul chiqadigan kassa (to'lov turi) ID; xarajat valyutasi shu kassa valyutasi",
             example = "1", requiredMode = Schema.RequiredMode.REQUIRED)
     private Long paymentTypeId;
+
+    @Schema(description = "OPERATIONAL — kassir kassasi; VAULT — rahbar kassasi. Bo'sh bo'lsa roldan default.",
+            example = "OPERATIONAL")
+    private CashSource cashSource;
 }

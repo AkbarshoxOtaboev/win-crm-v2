@@ -37,6 +37,15 @@ public class StockResponse {
     @Schema(description = "Window height in cm (WINDOW)", example = "180")
     private BigDecimal height;
 
+    @Schema(description = "Window thickness in mm (WINDOW)", example = "4")
+    private BigDecimal thickness;
+
+    @Schema(description = "Weight of 1 m2 in kg (WINDOW)", example = "10")
+    private BigDecimal weightPerSqm;
+
+    @Schema(description = "Total weight in stock: kvm × weightPerSqm (WINDOW)", example = "234")
+    private BigDecimal weight;
+
     @Schema(description = "Warehouse identifier", example = "1")
     private Long warehouseId;
 
@@ -57,6 +66,24 @@ public class StockResponse {
 
     @Schema(description = "Stock value by arrival price: count × priceCost", example = "1989000")
     private BigDecimal totalCost;
+
+    @Schema(description = "Arrival currency of the supplier inbound", example = "USD")
+    private String currency;
+
+    @Schema(description = "Exchange rate at arrival: 1 foreign unit in som", example = "12000")
+    private BigDecimal exchangeRate;
+
+    @Schema(description = "Arrival unit price in the document currency (cost + cash). Empty for som inbounds.")
+    private BigDecimal foreignUnitCost;
+
+    @Schema(description = "Selling price per unit in sellingCurrency")
+    private BigDecimal priceSelling;
+
+    @Schema(description = "Currency of the selling price", example = "USD")
+    private String sellingCurrency;
+
+    @Schema(description = "Selling price converted to som with the arrival rate")
+    private BigDecimal sellingBase;
 
     @Schema(description = "Current stock status", example = "ACTIVE", implementation = Status.class)
     private Status status;

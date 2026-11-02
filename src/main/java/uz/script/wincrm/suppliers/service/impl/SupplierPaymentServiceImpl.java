@@ -8,6 +8,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import uz.script.wincrm.audit.AuditAction;
 import uz.script.wincrm.audit.Auditable;
+import uz.script.wincrm.cash.CashSource;
+import uz.script.wincrm.cash.CashSourceAccess;
 import uz.script.wincrm.cash.service.CashAvailabilityService;
 import uz.script.wincrm.currency.Currency;
 import uz.script.wincrm.currency.CurrencyMath;
@@ -63,18 +65,18 @@ public class SupplierPaymentServiceImpl implements SupplierPaymentService {
         PaymentType paymentType = paymentTypeRepository.findById(dto.getPaymentTypeId())
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Payment type not found with id: " + dto.getPaymentTypeId()));
-        cashAvailabilityService.requireEnough(paymentType, dto.getPaidSumm(), BigDecimal.ZERO, "to'lov");
+        CashSource cashSource = CashSourceAccess.resolve(dto.getCashSource());
+        cashAvailabilityService.requireEnough(paymentType, dto.getPaidSumm(), BigDecimal.ZERO, "to'lov", cashSource);
 
         SupplierPayment payment = SupplierPaymentMapper.toEntity(dto, supplier, paymentType);
         payment.setStatus(Status.ACTIVE);
+        payment.setCashSource(cashSource);
         applyCurrency(payment, dto, paymentType);
 
         payment.setDebtTarget(resolveDebtTarget(dto));
         payment = repository.save(payment);
 
-        if (payment.closesSummaDebt()) {
-            supplierBalanceService.increasePayment(supplier.getId(), payment.getDebtCurrency(), payment.getAppliedAmount());
-        }
+        supplierBalanceService.recalculate(supplier.getId());
         expenseSync.upsert(payment);
 
         log.info("Supplier payment created successfully. ID: {}", payment.getId());
@@ -100,28 +102,25 @@ public class SupplierPaymentServiceImpl implements SupplierPaymentService {
         // Eslatma: to'lovni boshqa supplierga o'tkazish qo'llab-quvvatlanmaydi,
         // faqat summa/sana/izoh/turi/valyuta o'zgartiriladi.
         Long supplierId = payment.getSupplier().getId();
-        Currency oldDebtCurrency = payment.getDebtCurrency();
-        BigDecimal oldApplied = payment.appliedOrPaid();
-        boolean oldSumma = payment.closesSummaDebt();
 
+        CashSource cashSource = CashSourceAccess.resolve(
+                dto.getCashSource() != null ? dto.getCashSource()
+                        : (payment.getCashSource() != null ? payment.getCashSource() : CashSource.OPERATIONAL));
         boolean sameCash = payment.getPaymentType() != null
                 && payment.getPaymentType().getId().equals(paymentType.getId())
-                && CurrencyMath.orBase(payment.getCurrency()) == CurrencyMath.orBase(paymentType.getCurrency());
+                && CurrencyMath.orBase(payment.getCurrency()) == CurrencyMath.orBase(paymentType.getCurrency())
+                && cashSource == (payment.getCashSource() != null ? payment.getCashSource() : CashSource.OPERATIONAL);
         cashAvailabilityService.requireEnough(paymentType, dto.getPaidSumm(),
-                sameCash ? payment.getPaidSumm() : BigDecimal.ZERO, "to'lov");
+                sameCash ? payment.getPaidSumm() : BigDecimal.ZERO, "to'lov", cashSource);
 
         SupplierPaymentMapper.updateEntity(payment, dto, paymentType);
+        payment.setCashSource(cashSource);
         applyCurrency(payment, dto, paymentType);
         payment.setDebtTarget(resolveDebtTarget(dto));
 
         payment = repository.save(payment);
 
-        if (oldSumma) {
-            supplierBalanceService.decreasePayment(supplierId, oldDebtCurrency, oldApplied);
-        }
-        if (payment.closesSummaDebt()) {
-            supplierBalanceService.increasePayment(supplierId, payment.getDebtCurrency(), payment.getAppliedAmount());
-        }
+        supplierBalanceService.recalculate(supplierId);
         expenseSync.upsert(payment);
 
         log.info("Supplier payment updated successfully. ID: {}", payment.getId());
@@ -144,9 +143,7 @@ public class SupplierPaymentServiceImpl implements SupplierPaymentService {
 
         repository.save(payment);
 
-        if (payment.closesSummaDebt()) {
-            supplierBalanceService.decreasePayment(payment.getSupplier().getId(), payment.getDebtCurrency(), payment.appliedOrPaid());
-        }
+        supplierBalanceService.recalculate(payment.getSupplier().getId());
         expenseSync.remove(payment.getId());
 
         log.info("Supplier payment deleted successfully. ID: {}", id);

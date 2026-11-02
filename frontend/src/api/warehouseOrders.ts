@@ -57,6 +57,8 @@ export interface WarehouseOrderItem {
   /** Miqdor (dona) — bazada alohida */
   pieceCount?: number
   arrivalDate?: string
+  /** Jadvaldagi o‘rin. Tahrir buni o‘zgartirmaydi. */
+  sortOrder?: number
 }
 
 export interface WarehouseOrderItemPayload {
@@ -72,6 +74,8 @@ export interface WarehouseOrderItemPayload {
   arrivalDate: string
   weight?: number
   height?: number
+  /** Nusxa: yangi qator shu pozitsiyadan keyin turadi. */
+  insertAfterItemId?: number
 }
 
 export function fetchWarehouseOrders() {

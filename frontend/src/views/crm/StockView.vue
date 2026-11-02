@@ -58,20 +58,24 @@
               <th class="th">{{ t('stock.unit') }}</th>
               <th class="th">{{ t('stock.quantity') }}</th>
               <th class="th">{{ t('stock.kvm') }}</th>
+              <th class="th">{{ t('stock.weight') }}</th>
               <th class="th">{{ t('stock.arrivalPrice') }}</th>
+              <th class="th">{{ t('stock.sellingPrice') }}</th>
               <th class="th">{{ t('stock.arrivalTotal') }}</th>
+              <th class="th">{{ t('stock.sellingTotal') }}</th>
               <th class="th text-right">{{ t('common.actions') }}</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-if="loading"><td colspan="10" class="empty">{{ t('common.loading') }}</td></tr>
-            <tr v-else-if="items.length === 0"><td colspan="10" class="empty">{{ t('stock.empty') }}</td></tr>
+            <tr v-if="loading"><td colspan="13" class="empty">{{ t('common.loading') }}</td></tr>
+            <tr v-else-if="items.length === 0"><td colspan="13" class="empty">{{ t('stock.empty') }}</td></tr>
             <tr v-for="s in items" :key="s.id" class="border-b border-gray-100 dark:border-gray-800">
-              <td class="td">{{ s.id }}</td>
+              <td class="td">{{ s.goodsId ?? s.id }}</td>
               <td class="td">
                 <div>{{ s.goodsName || s.goodsId }}</div>
                 <div v-if="isWindow(s) && s.width && s.height" class="hint">
                   {{ formatNum(s.width) }}×{{ formatNum(s.height) }} {{ t('stock.cm') }}
+                  <template v-if="s.thickness"> · {{ formatNum(s.thickness) }} {{ t('stock.mm') }}</template>
                 </div>
               </td>
               <td class="td">{{ goodsTypeLabel(s) }}</td>
@@ -79,20 +83,69 @@
               <td class="td">{{ unitLabel(s) }}</td>
               <td class="td">{{ formatNum(pieceQty(s)) }}</td>
               <td class="td">{{ isWindow(s) ? formatNum(s.kvm ?? s.count) : '—' }}</td>
+              <td class="td">{{ isWindow(s) && stockWeight(s) != null ? formatNum(stockWeight(s)) : '—' }}</td>
               <td class="td whitespace-nowrap">
-                {{ s.priceCost != null ? money(s.priceCost) : '—' }}
-                <span v-if="s.priceCost != null" class="hint">/ {{ isWindow(s) ? t('stock.perKvm') : unitLabel(s) }}</span>
+                <div class="price-stack">
+                  <template v-if="isUsdArrival(s)">
+                    <span>{{ moneyIn(s.foreignUnitCost, 'USD') }}</span>
+                    <span>{{ moneyIn(s.priceCost, 'UZS') }}</span>
+                    <span v-if="s.exchangeRate" class="hint">{{ t('stock.rate') }} {{ formatRate(s.exchangeRate) }}</span>
+                  </template>
+                  <span v-else>{{ s.priceCost != null ? money(s.priceCost) : '—' }}</span>
+                  <span v-if="s.priceCost != null" class="hint">/ {{ isWindow(s) ? t('stock.perKvm') : unitLabel(s) }}</span>
+                </div>
+              </td>
+              <td class="td whitespace-nowrap">
+                <div class="price-stack">
+                  <template v-if="s.sellingCurrency === 'USD' && s.priceSelling != null">
+                    <span>{{ moneyIn(s.priceSelling, 'USD') }}</span>
+                    <span>{{ moneyIn(s.sellingBase, 'UZS') }}</span>
+                  </template>
+                  <span v-else>{{ s.priceSelling != null ? money(s.priceSelling) : '—' }}</span>
+                </div>
               </td>
               <td class="td whitespace-nowrap font-semibold text-gray-800 dark:text-white/90">
-                {{ s.totalCost != null ? money(s.totalCost) : '—' }}
+                <div class="price-stack">
+                  <template v-if="costLine(s).usd">
+                    <span>{{ moneyIn(costLine(s).foreign, 'USD') }}</span>
+                    <span>{{ moneyIn(costLine(s).som, 'UZS') }}</span>
+                  </template>
+                  <span v-else>{{ costLine(s).som != null ? money(costLine(s).som) : '—' }}</span>
+                </div>
+              </td>
+              <td class="td whitespace-nowrap font-semibold text-gray-800 dark:text-white/90">
+                <div class="price-stack">
+                  <template v-if="sellingLine(s).usd">
+                    <span>{{ moneyIn(sellingLine(s).foreign, 'USD') }}</span>
+                    <span>{{ moneyIn(sellingLine(s).som, 'UZS') }}</span>
+                  </template>
+                  <span v-else>{{ sellingLine(s).som != null ? money(sellingLine(s).som) : '—' }}</span>
+                </div>
               </td>
               <td class="td text-right"><RowActions :edit="false" @delete="onDelete(s)" /></td>
             </tr>
           </tbody>
           <tfoot v-if="items.length">
             <tr class="border-t border-gray-200 dark:border-gray-700">
-              <td class="td font-semibold" colspan="8">{{ t('stock.arrivalGrandTotal') }}</td>
-              <td class="td whitespace-nowrap font-semibold text-gray-800 dark:text-white/90">{{ money(grandTotal) }}</td>
+              <td class="td font-semibold" colspan="10">{{ t('stock.arrivalGrandTotal') }}</td>
+              <td class="td whitespace-nowrap font-semibold text-gray-800 dark:text-white/90">
+                <div class="price-stack">
+                  <template v-if="grandCost.usd">
+                    <span>{{ moneyIn(grandCost.foreign, 'USD') }}</span>
+                    <span>{{ moneyIn(grandCost.som, 'UZS') }}</span>
+                  </template>
+                  <span v-else>{{ money(grandCost.som) }}</span>
+                </div>
+              </td>
+              <td class="td whitespace-nowrap font-semibold text-gray-800 dark:text-white/90">
+                <div class="price-stack">
+                  <template v-if="grandSelling.usd">
+                    <span>{{ moneyIn(grandSelling.foreign, 'USD') }}</span>
+                    <span>{{ moneyIn(grandSelling.som, 'UZS') }}</span>
+                  </template>
+                  <span v-else>{{ money(grandSelling.som) }}</span>
+                </div>
+              </td>
               <td class="td" />
             </tr>
           </tfoot>
@@ -114,6 +167,7 @@ import { fetchWarehouses, type Warehouse } from '@/api/warehouses'
 import { fetchGoods, type Goods } from '@/api/goods'
 import { formatApiError } from '@/api/http'
 import { money } from '@/utils/format'
+import { formatRate, moneyIn } from '@/utils/currency'
 import Swal from 'sweetalert2'
 
 type Availability = 'all' | 'inStock' | 'outOfStock'
@@ -169,10 +223,25 @@ const items = computed(() => {
     return [s.goodsName, s.warehouseName, goods?.barcode, goods?.goodsGroupName, String(s.id)].some((v) =>
       String(v || '').toLowerCase().includes(q),
     )
-  })
+  }).sort((a, b) => (a.goodsId || 0) - (b.goodsId || 0) || a.id - b.id)
 })
 
-const grandTotal = computed(() => items.value.reduce((acc, s) => acc + Number(s.totalCost || 0), 0))
+const grandCost = computed(() => sumLines(items.value.map(costLine)))
+const grandSelling = computed(() => sumLines(items.value.map(sellingLine)))
+
+function sumLines(lines: { usd: boolean; foreign: number | null; som: number | null }[]) {
+  let foreign = 0
+  let som = 0
+  let usd = false
+  for (const line of lines) {
+    if (line.usd && line.foreign != null) {
+      usd = true
+      foreign += line.foreign
+    }
+    if (line.som != null) som += line.som
+  }
+  return { usd, foreign, som }
+}
 
 function clearFilters() {
   search.value = ''
@@ -184,6 +253,38 @@ function clearFilters() {
 
 function isWindow(s: Stock) {
   return (s.goodsType || '').toUpperCase() === 'WINDOW'
+}
+
+function isUsdArrival(s: Stock) {
+  return s.currency === 'USD' && s.foreignUnitCost != null
+}
+
+function costLine(s: Stock) {
+  const qty = Number(s.count || 0)
+  if (s.totalCost == null && s.foreignUnitCost == null) {
+    return { usd: false, foreign: null as number | null, som: null as number | null }
+  }
+  if (isUsdArrival(s)) {
+    return {
+      usd: true,
+      foreign: qty * Number(s.foreignUnitCost),
+      som: s.totalCost != null ? Number(s.totalCost) : null,
+    }
+  }
+  return { usd: false, foreign: null, som: s.totalCost != null ? Number(s.totalCost) : null }
+}
+
+function sellingLine(s: Stock) {
+  const qty = Number(s.count || 0)
+  if (s.priceSelling == null) return { usd: false, foreign: null as number | null, som: null as number | null }
+  if (s.sellingCurrency === 'USD') {
+    return {
+      usd: true,
+      foreign: qty * Number(s.priceSelling),
+      som: s.sellingBase != null ? qty * Number(s.sellingBase) : null,
+    }
+  }
+  return { usd: false, foreign: null, som: qty * Number(s.priceSelling) }
 }
 
 function goodsTypeLabel(s: Stock) {
@@ -201,6 +302,15 @@ function unitLabel(s: Stock) {
 function pieceQty(s: Stock) {
   if (s.pieceCount != null) return Number(s.pieceCount)
   return Number(s.count || 0)
+}
+
+/** Vazn = kv.m × 1 kv.m vazni; API bermasa frontendda hisoblanadi. */
+function stockWeight(s: Stock) {
+  if (s.weight != null && Number.isFinite(Number(s.weight))) return Number(s.weight)
+  const kvm = Number(s.kvm ?? s.count ?? 0)
+  const per = Number(s.weightPerSqm || 0)
+  if (!(kvm > 0) || !(per > 0)) return null
+  return Math.round(kvm * per * 100) / 100
 }
 
 function formatNum(v?: number | null) {
@@ -266,6 +376,8 @@ onMounted(load)
 .th { padding: 0.75rem 1.25rem; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; white-space: nowrap; }
 .td { padding: 0.75rem 1.25rem; font-size: 0.875rem; color: #4b5563; }
 .hint { margin-top: 0.15rem; font-size: 0.75rem; color: #9ca3af; }
+.price-stack { display: flex; flex-direction: column; gap: 0.1rem; line-height: 1.3; }
+.price-stack .hint { margin-top: 0; }
 .empty { padding: 2rem 1.25rem; text-align: center; font-size: 0.875rem; color: #6b7280; }
 .field { height: 2.5rem; border-radius: 0.5rem; border: 1px solid #d1d5db; background: transparent; padding: 0 0.75rem; font-size: 0.875rem; }
 .err { border-radius: 0.5rem; border: 1px solid #fecaca; background: #fef2f2; padding: 0.75rem 1rem; font-size: 0.875rem; color: #dc2626; }

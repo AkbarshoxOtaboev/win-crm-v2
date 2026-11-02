@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import uz.script.wincrm.cash.CashHandover;
 import uz.script.wincrm.cash.CashHandoverStatus;
+import uz.script.wincrm.cash.CashSource;
 import uz.script.wincrm.cash.dto.CashHandoverRequest;
 import uz.script.wincrm.cash.repository.CashHandoverRepository;
 import uz.script.wincrm.cash.response.CashHandoverResponse;
@@ -171,8 +172,8 @@ public class CashHandoverServiceImpl implements CashHandoverService {
     }
 
     /**
-     * Kassa barcha xodimlar uchun umumiy: kun davomida kim kirim qilgan, kim xarajat yoki yetkazib beruvchiga
-     * to'lov qilganidan qat'i nazar, topshiriladigan summa kassada qolgan puldir va topshirilgach kassa 0 bo'ladi.
+     * Operatsion kassa: kun davomida qolgan pul topshiriladi. Rahbar (VAULT) chiqimlari bu yerga kirmaydi —
+     * ACCEPTED topshirish Rahbar kassasiga o'tadi, PENDING esa qulflanadi.
      */
     private List<CashHandoverSummaryResponse> buildSummary(LocalDate day) {
         LocalDateTime start = day.atStartOfDay();
@@ -181,8 +182,8 @@ public class CashHandoverServiceImpl implements CashHandoverService {
         Map<String, BigDecimal> opening = cashAvailabilityService.balancesBefore(day);
         Map<String, BigDecimal> current = cashAvailabilityService.currentBalances();
         Map<String, BigDecimal> incoming = sums(paymentRepository.sumCashByType(start, end));
-        Map<String, BigDecimal> outgoing = sums(supplierPaymentRepository.sumCashByType(start, end));
-        sums(expenseRepository.sumCashByType(day, day.plusDays(1)))
+        Map<String, BigDecimal> outgoing = sums(supplierPaymentRepository.sumCashByType(start, end, CashSource.OPERATIONAL));
+        sums(expenseRepository.sumCashByType(day, day.plusDays(1), CashSource.OPERATIONAL))
                 .forEach((key, amount) -> outgoing.merge(key, amount, BigDecimal::add));
         Map<String, BigDecimal> pending = new HashMap<>();
         Map<String, BigDecimal> accepted = new HashMap<>();

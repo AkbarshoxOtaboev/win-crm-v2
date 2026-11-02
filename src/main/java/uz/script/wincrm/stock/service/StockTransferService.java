@@ -17,6 +17,12 @@ public interface StockTransferService {
      */
     StockTransferResponse transfer(StockTransferRequest request);
 
+    /**
+     * Transferni teskari yo‘nalishda qaytaradi. Asl yozuv o‘chirilmaydi,
+     * qaytarish alohida transfer sifatida ro‘yxatda qoladi.
+     */
+    StockTransferResponse returnTransfer(Long id);
+
     StockTransferResponse findById(Long id);
 
     List<StockTransferResponse> fetchAll();

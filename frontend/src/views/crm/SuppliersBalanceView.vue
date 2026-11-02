@@ -99,8 +99,8 @@
               <th class="th">ID</th>
               <th class="th">{{ t('common.supplier') }}</th>
               <th class="th">{{ t('suppliersBalance.purchaseSum') }}</th>
-              <th class="th">{{ t('suppliersBalance.paid') }}</th>
-              <th class="th">{{ t('suppliersBalance.debt') }}</th>
+              <th class="th th-paid">{{ t('suppliersBalance.paid') }}</th>
+              <th class="th th-debt">{{ t('suppliersBalance.debt') }}</th>
               <th class="th">{{ t('suppliersBalance.lastUpdated') }}</th>
               <th class="th text-end">{{ t('common.actions') }}</th>
             </tr>
@@ -117,8 +117,8 @@
                 <span v-if="!currencyFilter" class="cur-badge">{{ t(`suppliersBalance.currencyMode.${curOf(b)}`) }}</span>
               </td>
               <td class="td">{{ fmt(b.totalPurchase, curOf(b)) }}</td>
-              <td class="td text-emerald-600 dark:text-emerald-400">{{ fmt(b.totalPaid, curOf(b)) }}</td>
-              <td class="td text-red-600 dark:text-red-400">{{ fmt(debtOf(b), curOf(b)) }}</td>
+              <td class="td amount-paid">{{ fmt(b.totalPaid, curOf(b)) }}</td>
+              <td class="td amount-debt">{{ fmt(debtOf(b), curOf(b)) }}</td>
               <td class="td">{{ formatDateTime(b.lastUpdated || b.updatedAt) }}</td>
               <td class="td text-end">
                 <div class="inline-flex items-center gap-3">
@@ -210,14 +210,15 @@
               <th class="th">{{ t('common.amount') }}</th>
               <th class="th">{{ t('suppliersBalance.rateColumn') }}</th>
               <th class="th">{{ t('suppliersBalance.paymentType') }}</th>
+              <th class="th">{{ t('suppliersBalance.cashSource') }}</th>
               <th class="th">{{ t('common.note') }}</th>
               <th class="th">{{ t('suppliersBalance.createdBy') }}</th>
               <th class="th text-end">{{ t('common.actions') }}</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-if="paymentsLoading"><td colspan="9" class="empty">{{ t('common.loading') }}</td></tr>
-            <tr v-else-if="filteredPayments.length === 0"><td colspan="9" class="empty">{{ t('suppliersBalance.noPayments') }}</td></tr>
+            <tr v-if="paymentsLoading"><td colspan="10" class="empty">{{ t('common.loading') }}</td></tr>
+            <tr v-else-if="filteredPayments.length === 0"><td colspan="10" class="empty">{{ t('suppliersBalance.noPayments') }}</td></tr>
             <tr v-for="p in pagedPayments" :key="p.id" class="border-b border-gray-100 dark:border-gray-800">
               <td class="td">{{ p.id }}</td>
               <td class="td">{{ formatDate(p.paidDate) }}</td>
@@ -230,12 +231,17 @@
               </td>
               <td class="td">{{ paymentRate(p) }}</td>
               <td class="td">{{ p.paymentTypeName || '—' }}</td>
+              <td class="td">
+                <span class="source-badge" :class="(p.cashSource || 'OPERATIONAL') === 'VAULT' ? 'vault' : 'ops'">
+                  {{ (p.cashSource || 'OPERATIONAL') === 'VAULT' ? t('suppliersBalance.vault') : t('suppliersBalance.operational') }}
+                </span>
+              </td>
               <td class="td">{{ p.comment || '—' }}</td>
               <td class="td">{{ p.createdUsername || '—' }}</td>
               <td class="td text-end">
                 <RowActions
-                  :edit="auth.can('SUPPLIER_PAYMENT_EDIT') && !writeBlocked"
-                  :remove="auth.can('SUPPLIER_PAYMENT_DELETE') && !writeBlocked"
+                  :edit="auth.isElevated && auth.can('SUPPLIER_PAYMENT_EDIT') && !writeBlocked"
+                  :remove="auth.isElevated && auth.can('SUPPLIER_PAYMENT_DELETE') && !writeBlocked"
                   @edit="openPaymentEdit(p)"
                   @delete="onPaymentDelete(p)"
                 />
@@ -286,6 +292,30 @@
                 {{ t('suppliersBalance.debtTargetCash') }}
               </button>
             </div>
+          </div>
+          <div v-if="auth.isElevated">
+            <span class="lbl">{{ t('suppliersBalance.cashSource') }} *</span>
+            <div class="period-toggle debt-toggle" role="radiogroup" :aria-label="t('suppliersBalance.cashSource')">
+              <button
+                type="button"
+                class="period-btn"
+                :class="{ active: form.cashSource === 'OPERATIONAL' }"
+                @click="form.cashSource = 'OPERATIONAL'"
+              >
+                {{ t('suppliersBalance.operational') }}
+              </button>
+              <button
+                type="button"
+                class="period-btn"
+                :class="{ active: form.cashSource === 'VAULT' }"
+                @click="form.cashSource = 'VAULT'"
+              >
+                {{ t('suppliersBalance.vault') }}
+              </button>
+            </div>
+            <p v-if="form.cashSource === 'VAULT'" class="text-[11px] font-normal text-gray-500">
+              {{ t('suppliersBalance.vaultHint') }}
+            </p>
           </div>
           <label class="lbl">
             {{ t('suppliersBalance.debtCurrency') }}
@@ -367,6 +397,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { Banknote, ListFilter, RefreshCw } from 'lucide-vue-next'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
@@ -379,6 +410,7 @@ import {
   fetchSuppliers,
   filterSupplierPayments,
   updateSupplierPayment,
+  type CashSource,
   type Supplier,
   type SupplierBalance,
   type SupplierPayment,
@@ -394,6 +426,8 @@ import { CURRENCIES, currencySymbol, formatRate, moneyIn, type CurrencyCode } fr
 import { useCbuRate } from '@/composables/useCbuRate'
 
 const { t } = useI18n()
+const route = useRoute()
+const router = useRouter()
 const auth = useAuthStore()
 const { writeBlocked } = useFilialScope()
 
@@ -422,7 +456,7 @@ const paymentPage = ref(0)
 const paymentModal = ref(false)
 const editingPaymentId = ref<number | null>(null)
 const cash = ref<CashAvailable[]>([])
-const editingSpend = ref<{ paymentTypeId: number; amount: number } | null>(null)
+const editingSpend = ref<{ paymentTypeId: number; amount: number; cashSource: CashSource } | null>(null)
 const saving = ref(false)
 const formError = ref<string | null>(null)
 const amountText = ref('')
@@ -437,6 +471,7 @@ const form = reactive({
   debtCurrency: 'UZS' as CurrencyCode,
   exchangeRate: 0,
   debtTarget: '' as '' | 'SUMMA' | 'CASH',
+  cashSource: 'OPERATIONAL' as CashSource,
 })
 const hintOrders = ref<WarehouseOrder[]>([])
 const hintPayments = ref<SupplierPayment[]>([])
@@ -656,18 +691,30 @@ function onAmountInput(e: Event) {
   form.paidSumm = value
 }
 
+function poolOf(c: CashAvailable, source: CashSource) {
+  if (source === 'VAULT') return Number(c.vaultAvailable ?? 0)
+  return Number(c.operationalAvailable ?? c.available ?? 0)
+}
+
 const cashLeft = computed<number | null>(() => {
   const c = cash.value.find((x) => x.paymentTypeId === form.paymentTypeId)
   if (!c) return null
   const spend = editingSpend.value
-  return Number(c.available || 0) + (spend && spend.paymentTypeId === c.paymentTypeId ? spend.amount : 0)
+  const returned =
+    spend && spend.paymentTypeId === c.paymentTypeId && spend.cashSource === form.cashSource ? spend.amount : 0
+  return poolOf(c, form.cashSource) + returned
 })
 
 const exceedsCash = computed(() => cashLeft.value !== null && form.paidSumm > cashLeft.value + 1e-9)
 
 async function loadCash() {
   try {
-    cash.value = (await fetchCashAvailable()).data || []
+    cash.value = ((await fetchCashAvailable()).data || []).map((c) => ({
+      ...c,
+      available: Number(c.available || 0),
+      operationalAvailable: Number(c.operationalAvailable ?? c.available ?? 0),
+      vaultAvailable: Number(c.vaultAvailable ?? 0),
+    }))
   } catch {
     cash.value = []
   }
@@ -686,6 +733,7 @@ function openPayment(supplierId?: number, debt?: number, currency: CurrencyCode 
   form.debtTarget = ''
   form.paymentTypeId = defaultPaymentTypeFor(currency)
   form.comment = ''
+  form.cashSource = auth.isElevated ? 'VAULT' : 'OPERATIONAL'
   setAmount(debt && debt > 0 ? debt : 0)
   if (!debt) amountText.value = ''
   paymentModal.value = true
@@ -693,7 +741,10 @@ function openPayment(supplierId?: number, debt?: number, currency: CurrencyCode 
 
 function openPaymentEdit(p: SupplierPayment) {
   editingPaymentId.value = p.id
-  editingSpend.value = p.paymentTypeId ? { paymentTypeId: p.paymentTypeId, amount: Number(p.paidSumm || 0) } : null
+  const source: CashSource = p.cashSource || 'OPERATIONAL'
+  editingSpend.value = p.paymentTypeId
+    ? { paymentTypeId: p.paymentTypeId, amount: Number(p.paidSumm || 0), cashSource: source }
+    : null
   loadCash()
   formError.value = null
   form.supplierId = p.supplierId || 0
@@ -702,6 +753,7 @@ function openPaymentEdit(p: SupplierPayment) {
   form.debtTarget = p.debtTarget || 'SUMMA'
   form.paymentTypeId = p.paymentTypeId || 0
   form.comment = p.comment || ''
+  form.cashSource = auth.isElevated ? source : 'OPERATIONAL'
   const savedRate = Number(p.exchangeRate || 0)
   const cross = !!p.debtCurrency && p.debtCurrency !== (p.currency || 'UZS')
   rateTouched.value = cross && savedRate > 0
@@ -743,6 +795,7 @@ async function onPaymentSubmit() {
     debtCurrency: form.debtCurrency,
     exchangeRate: isCross.value && form.exchangeRate > 0 ? form.exchangeRate : undefined,
     debtTarget,
+    cashSource: form.cashSource,
   }
   saving.value = true
   try {
@@ -815,9 +868,24 @@ watch(tab, (v) => {
   if (v === 'payments') loadPayments()
 })
 
-onMounted(() => {
-  load()
-  loadLookups()
+async function openEditFromQuery() {
+  const raw = route.query.editPayment
+  const id = Number(Array.isArray(raw) ? raw[0] : raw)
+  if (!id) return
+  tab.value = 'payments'
+  await loadPayments()
+  const payment = payments.value.find((p) => p.id === id)
+  if (payment && auth.can('SUPPLIER_PAYMENT_EDIT') && !writeBlocked.value) {
+    openPaymentEdit(payment)
+  }
+  const nextQuery = { ...route.query }
+  delete nextQuery.editPayment
+  void router.replace({ query: nextQuery })
+}
+
+onMounted(async () => {
+  await Promise.all([load(), loadLookups()])
+  await openEditFromQuery()
 })
 </script>
 
@@ -840,7 +908,11 @@ onMounted(() => {
 .stat-value.debt { color: #dc2626; }
 .th { padding: 0.75rem 1rem; text-align: start; font-size: 0.75rem; font-weight: 500; color: #6b7280; white-space: nowrap; }
 .th.text-end { text-align: end; }
+.th-paid { color: #059669; font-weight: 600; }
+.th-debt { color: #dc2626; font-weight: 600; }
 .td { padding: 0.75rem 1rem; font-size: 0.875rem; color: #4b5563; }
+.td.amount-paid { color: #059669; font-weight: 600; }
+.td.amount-debt { color: #dc2626; font-weight: 600; }
 .empty { padding: 2rem; text-align: center; color: #6b7280; }
 .field { height: 2.5rem; width: 100%; border-radius: 0.5rem; border: 1px solid #d1d5db; padding: 0 0.75rem; font-size: 0.875rem; background: #fff; color: #1f2937; }
 .field.textarea { height: auto; padding-block: 0.5rem; }
@@ -874,11 +946,18 @@ onMounted(() => {
 :global(html.dark .period-btn) { color: #98a2b3; }
 :global(html.dark .period-btn.active) { background: #1d2939; color: #9cb0ff; }
 .sub-line { display: block; font-size: 0.75rem; color: #6b7280; }
+.source-badge { display: inline-flex; align-items: center; border-radius: 9999px; padding: 0.125rem 0.5rem; font-size: 0.75rem; font-weight: 600; white-space: nowrap; }
+.source-badge.ops { background: #eff4ff; color: #3538cd; }
+.source-badge.vault { background: #f4f3ff; color: #5925dc; }
 .dark .card { border-color: #1f2937; background: rgba(255, 255, 255, 0.03); }
 .dark .head, .dark .filters { border-bottom-color: #1f2937; }
 .dark .title { color: rgba(255, 255, 255, 0.9); }
 .dark .sub, .dark .lbl, .dark .th, .dark .empty { color: #9ca3af; }
+.dark .th-paid { color: #34d399; }
+.dark .th-debt { color: #f87171; }
 .dark .td { color: #d1d5db; }
+.dark .td.amount-paid { color: #34d399; }
+.dark .td.amount-debt { color: #f87171; }
 .dark .check { color: #d1d5db; }
 .dark .stat { border-color: #1f2937; background: rgba(255, 255, 255, 0.03); }
 .dark .stat-blue { border-bottom-color: #465fff !important; }
@@ -897,6 +976,8 @@ onMounted(() => {
 .dark .close-preview { background: rgba(59, 130, 246, 0.12); color: #93c5fd; }
 .dark .cur-badge { background: rgba(16, 185, 129, 0.12); color: #34d399; }
 .dark .sub-line { color: #9ca3af; }
+.dark .source-badge.ops { background: rgb(70 95 255 / 14%); color: #9cb0ff; }
+.dark .source-badge.vault { background: rgb(122 90 248 / 16%); color: #bdb4fe; }
 .dark .err { border-color: rgba(239, 68, 68, 0.3); background: rgba(239, 68, 68, 0.1); color: #fca5a5; }
 @media (max-width: 768px) {
   .stats { grid-template-columns: 1fr; }

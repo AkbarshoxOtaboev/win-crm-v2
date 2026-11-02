@@ -40,6 +40,7 @@ public class StockTransferMapper {
                 .toGoodsName(toGoods != null ? toGoods.getName() : null)
                 .direction(direction(fromFilialId, toFilialId, viewerFilialId))
                 .count(transfer.getCount())
+                .pieceCount(transfer.getPieceCount())
                 .comment(transfer.getComment())
                 .status(transfer.getStatus())
                 .createdAt(transfer.getCreatedAt())

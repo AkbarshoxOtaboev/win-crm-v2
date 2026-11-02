@@ -16,7 +16,8 @@
           <div>
             <h3 class="title">{{ supplier.name }}</h3>
             <p class="sub">
-              {{ supplier.phone ? formatUzPhone(supplier.phone) : '—' }}
+              {{ supplier.phone ? formatSupplierPhone(supplier.phone, supplier.kind) : '—' }}
+              · {{ supplier.kind === 'INTERNATIONAL' ? t('suppliers.kindInternational') : t('suppliers.kindLocal') }}
               <template v-if="supplier.inn"> · {{ t('common.inn') }} {{ supplier.inn }}</template>
               <template v-if="supplier.address"> · {{ supplier.address }}</template>
             </p>
@@ -133,6 +134,7 @@
                 <th class="th">{{ t('common.date') }}</th>
                 <th class="th">{{ t('suppliers.doc') }}</th>
                 <th class="th">{{ t('suppliers.paymentType') }}</th>
+                <th class="th">{{ t('suppliers.cashSource') }}</th>
                 <th class="th">{{ t('common.sum') }}</th>
                 <th class="th">{{ t('warehouseOrders.cashTotal') }}</th>
                 <th class="th">{{ t('common.total') }}</th>
@@ -141,7 +143,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-if="aktRows.length === 0"><td colspan="8" class="empty">{{ t('suppliers.emptyAkt') }}</td></tr>
+              <tr v-if="aktRows.length === 0"><td colspan="9" class="empty">{{ t('suppliers.emptyAkt') }}</td></tr>
               <tr v-for="row in aktPaged" :key="row.key" class="border-b border-gray-100">
                 <td class="td">{{ formatDate(row.date) }}</td>
                 <td class="td">
@@ -151,6 +153,12 @@
                   <span v-else>{{ row.doc }}</span>
                 </td>
                 <td class="td">{{ row.paymentType || '—' }}</td>
+                <td class="td">
+                  <span v-if="row.cashSource" class="source-badge" :class="row.cashSource === 'VAULT' ? 'vault' : 'ops'">
+                    {{ cashSourceLabel(row.cashSource) }}
+                  </span>
+                  <span v-else>—</span>
+                </td>
                 <td class="td">{{ row.sum ? amt(row.sum, row.currency) : '—' }}</td>
                 <td class="td">{{ row.cash ? amt(row.cash, row.currency) : '—' }}</td>
                 <td class="td">{{ row.total ? amt(row.total, row.currency) : '—' }}</td>
@@ -236,22 +244,39 @@
                 <th class="th">{{ t('common.date') }}</th>
                 <th class="th">{{ t('suppliers.doc') }}</th>
                 <th class="th">{{ t('suppliers.paymentType') }}</th>
+                <th class="th">{{ t('suppliers.cashSource') }}</th>
                 <th class="th">{{ t('suppliers.somColumn') }}</th>
                 <th class="th">{{ t('suppliers.rateColumn') }}</th>
                 <th class="th">{{ t('suppliers.usdColumn') }}</th>
                 <th class="th">{{ t('common.comment') }}</th>
+                <th v-if="canManagePayments" class="th text-right">{{ t('common.actions') }}</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-if="filteredPayments.length === 0"><td colspan="7" class="empty">{{ t('suppliers.emptyPayments') }}</td></tr>
+              <tr v-if="filteredPayments.length === 0">
+                <td :colspan="canManagePayments ? 9 : 8" class="empty">{{ t('suppliers.emptyPayments') }}</td>
+              </tr>
               <tr v-for="p in filteredPayments" :key="p.id" class="border-b border-gray-100">
                 <td class="td">{{ formatDate(p.paidDate) }}</td>
                 <td class="td">{{ t('suppliers.paymentDoc', { id: p.id }) }}</td>
                 <td class="td">{{ p.paymentTypeName || '—' }}</td>
+                <td class="td">
+                  <span class="source-badge" :class="(p.cashSource || 'OPERATIONAL') === 'VAULT' ? 'vault' : 'ops'">
+                    {{ cashSourceLabel(p.cashSource) }}
+                  </span>
+                </td>
                 <td class="td">{{ somPaid(p) ? amt(somPaid(p), 'UZS') : '—' }}</td>
                 <td class="td">{{ ratePaid(p) ? formatRate(ratePaid(p)) : '—' }}</td>
                 <td class="td">{{ usdPaid(p) ? amt(usdPaid(p), 'USD') : '—' }}</td>
                 <td class="td">{{ p.comment || '—' }}</td>
+                <td v-if="canManagePayments" class="td text-right">
+                  <RowActions
+                    :edit="canEditPayment && !writeBlocked"
+                    :remove="canDeletePayment && !writeBlocked"
+                    @edit="editPayment(p)"
+                    @delete="onPaymentDelete(p)"
+                  />
+                </td>
               </tr>
             </tbody>
           </table>
@@ -312,18 +337,23 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
+import RowActions from '@/components/crm/RowActions.vue'
 import {
+  deleteSupplierPayment,
   fetchSupplier,
   fetchSupplierBalance,
   filterSupplierPayments,
+  type CashSource,
   type Supplier,
   type SupplierBalance,
   type SupplierPayment,
 } from '@/api/suppliers'
+import { useAuthStore } from '@/stores/auth'
+import { useFilialScope } from '@/composables/useFilialScope'
 import {
   fetchWarehouseOrderItems,
   fetchWarehouseOrdersBySupplier,
@@ -332,12 +362,19 @@ import {
 } from '@/api/warehouseOrders'
 import { fetchPaymentTypes, type PaymentType } from '@/api/payments'
 import { formatApiError } from '@/api/http'
-import { formatUzPhone } from '@/utils/phone'
+import { formatSupplierPhone } from '@/utils/phone'
 import { formatDate } from '@/utils/format'
 import { formatRate, moneyIn, type CurrencyCode } from '@/utils/currency'
 
 const { t } = useI18n()
 const route = useRoute()
+const router = useRouter()
+const auth = useAuthStore()
+const { writeBlocked } = useFilialScope()
+
+const canEditPayment = computed(() => auth.isElevated && auth.can('SUPPLIER_PAYMENT_EDIT'))
+const canDeletePayment = computed(() => auth.isElevated && auth.can('SUPPLIER_PAYMENT_DELETE'))
+const canManagePayments = computed(() => canEditPayment.value || canDeletePayment.value)
 
 const loading = ref(true)
 const error = ref<string | null>(null)
@@ -535,27 +572,18 @@ function matchesView(currency: CurrencyCode) {
 const summaryRows = computed(() => {
   const list: CurrencyCode[] = viewMode.value === 'all' ? currencies.value : [viewMode.value]
   const rows = list.map((currency) => {
-    const balance = balances.value.find((b) => (b.currency || 'UZS') === currency)
     const ords = orders.value.filter((o) => orderCurrency(o) === currency)
     const pays = payments.value.filter((p) => paymentDebtCurrency(p) === currency)
-    const sumPurchase = balance
-      ? Number(balance.totalPurchase || 0)
-      : ords.reduce((sum, o) => sum + orderSum(o), 0)
-    const sumPaid = balance
-      ? Number(balance.totalPaid || 0)
-      : pays.filter((p) => !isCashPayment(p)).reduce((sum, p) => sum + paymentAmount(p), 0)
-    const sumDebt = balance?.totalDebt != null
-      ? Number(balance.totalDebt)
-      : balance?.balance != null
-        ? Number(balance.balance)
-        : sumPurchase - sumPaid
+    // Summa va naqd alohida: balansdagi combined totalPurchase ishlatilmaydi.
+    const sumPurchase = ords.reduce((sum, o) => sum + orderSum(o), 0)
+    const sumPaid = pays.filter((p) => !isCashPayment(p)).reduce((sum, p) => sum + paymentAmount(p), 0)
     const cashPurchase = ords.reduce((sum, o) => sum + orderCash(o), 0)
     const cashPaid = pays.filter(isCashPayment).reduce((sum, p) => sum + paymentAmount(p), 0)
     return {
       currency,
       sumPurchase,
       sumPaid,
-      sumDebt,
+      sumDebt: sumPurchase - sumPaid,
       cashPurchase,
       cashPaid,
       cashDebt: cashPurchase - cashPaid,
@@ -604,6 +632,7 @@ type AktEvent = {
   date?: string
   doc: string
   paymentType: string
+  cashSource?: CashSource | null
   currency: CurrencyCode
   sum: number
   cash: number
@@ -612,6 +641,24 @@ type AktEvent = {
   credit: number
   paid: number
   orderId?: number
+}
+
+function cashSourceLabel(source?: CashSource | null) {
+  return source === 'VAULT' ? t('suppliers.vault') : t('suppliers.operational')
+}
+
+function editPayment(p: SupplierPayment) {
+  void router.push({ path: '/suppliers/balances', query: { editPayment: String(p.id) } })
+}
+
+async function onPaymentDelete(p: SupplierPayment) {
+  if (!confirm(t('suppliersBalance.deleteConfirm', { id: p.id }))) return
+  try {
+    await deleteSupplierPayment(p.id)
+    await load()
+  } catch (e) {
+    error.value = formatApiError(e)
+  }
 }
 
 function movementsFor(currency: CurrencyCode) {
@@ -623,11 +670,13 @@ function movementsFor(currency: CurrencyCode) {
       date: order.arrivalDate,
       doc: t('suppliers.inboundDoc', { id: order.id }),
       paymentType: '',
+      cashSource: null,
       currency,
       sum: orderSum(order),
       cash: orderCash(order),
       total: orderCombined(order),
-      debit: orderSum(order),
+      // Qoldiq = summa + naqd (jami).
+      debit: orderCombined(order),
       credit: 0,
       paid: 0,
       orderId: order.id,
@@ -642,12 +691,14 @@ function movementsFor(currency: CurrencyCode) {
       date: p.paidDate,
       doc: t('suppliers.paymentDoc', { id: p.id }),
       paymentType: p.paymentTypeName || '',
+      cashSource: p.cashSource || 'OPERATIONAL',
       currency,
       sum: cash ? 0 : amount,
       cash: cash ? amount : 0,
       total: 0,
       debit: 0,
-      credit: cash ? 0 : amount,
+      // Naqd to'lov ham qoldiqni kamaytiradi.
+      credit: amount,
       paid: amount,
     })
   }
@@ -683,6 +734,7 @@ function movementsFor(currency: CurrencyCode) {
       date: range.from,
       doc: t('suppliers.openingBalance'),
       paymentType: '',
+      cashSource: null,
       currency,
       sum: 0,
       cash: 0,
@@ -754,6 +806,7 @@ function downloadAktExcel() {
     t('common.date'),
     t('suppliers.doc'),
     t('suppliers.paymentType'),
+    t('suppliers.cashSource'),
     t('common.sum'),
     t('warehouseOrders.cashTotal'),
     t('common.total'),
@@ -764,6 +817,7 @@ function downloadAktExcel() {
     formatDate(row.date),
     row.doc,
     row.paymentType || '',
+    row.cashSource ? cashSourceLabel(row.cashSource) : '',
     row.sum || '',
     row.cash || '',
     row.total || '',
@@ -880,6 +934,11 @@ watch(supplierId, () => void load(), { immediate: true })
 .td { padding: 0.75rem 1rem; font-size: 0.875rem; color: #4b5563; }
 .empty { padding: 2rem 1.25rem; text-align: center; font-size: 0.875rem; color: #6b7280; }
 .link { color: #465fff; font-weight: 500; }
+.source-badge { display: inline-flex; align-items: center; border-radius: 9999px; padding: 0.125rem 0.5rem; font-size: 0.75rem; font-weight: 600; white-space: nowrap; }
+.source-badge.ops { background: #eff4ff; color: #3538cd; }
+.source-badge.vault { background: #f4f3ff; color: #5925dc; }
+:global(html.dark .source-badge.ops) { background: rgb(70 95 255 / 14%); color: #9cb0ff; }
+:global(html.dark .source-badge.vault) { background: rgb(122 90 248 / 16%); color: #bdb4fe; }
 .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; padding: 0.75rem 1rem; border-bottom: 1px solid #f3f4f6; }
 .field { height: 2.5rem; border-radius: 0.5rem; border: 1px solid #d1d5db; background: transparent; padding: 0 0.75rem; font-size: 0.875rem; }
 .year-field { width: 6.5rem; }

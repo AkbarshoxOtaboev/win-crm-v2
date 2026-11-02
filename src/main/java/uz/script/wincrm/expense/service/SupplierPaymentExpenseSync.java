@@ -41,6 +41,9 @@ public class SupplierPaymentExpenseSync {
         expense.setCurrency(currency);
         expense.setExchangeRate(currency.isBase() ? null : payment.getExchangeRate());
         expense.setPaymentType(payment.getPaymentType());
+        expense.setCashSource(payment.getCashSource() != null
+                ? payment.getCashSource()
+                : uz.script.wincrm.cash.CashSource.OPERATIONAL);
         expense.setExpenseDate(payment.getPaidDate() != null ? payment.getPaidDate().toLocalDate() : LocalDate.now());
         expense.setDescription(describe(payment));
         expense.setStatus(Status.ACTIVE);

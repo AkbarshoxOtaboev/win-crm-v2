@@ -79,6 +79,7 @@ public class WarehouseOrderItemMapper {
                 .pieceCount(item.getPieceCount() != null ? item.getPieceCount() : item.getCount())
                 .count(item.getCount())
                 .arrivalDate(item.getArrivalDate())
+                .sortOrder(item.getSortOrder())
                 .status(item.getStatus())
                 .createdAt(item.getCreatedAt())
                 .updatedAt(item.getUpdatedAt())

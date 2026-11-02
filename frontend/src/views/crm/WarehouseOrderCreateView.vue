@@ -39,8 +39,8 @@
             <input v-model="form.arrivalDate" type="datetime-local" required class="field" :disabled="headerLocked" />
           </label>
 
-          <div class="lbl min-w-0 header-currency">
-            <span class="lbl-text" aria-hidden="true">&nbsp;</span>
+          <div class="lbl header-currency">
+            <span class="lbl-text">{{ t('warehouseOrders.currency') }}</span>
             <div
               class="type-toggle cur-toggle"
               role="radiogroup"
@@ -55,13 +55,10 @@
                 class="type-btn"
                 :class="{ active: form.currency === c }"
                 :aria-checked="form.currency === c"
-                :aria-label="t(`exchangeRates.currencies.${c}`)"
-                :title="t(`exchangeRates.currencies.${c}`)"
                 :disabled="headerLocked || items.length > 0"
                 @click="form.currency = c"
               >
-                <Banknote v-if="c === 'UZS'" class="cur-icon" />
-                <DollarSign v-else class="cur-icon" />
+                {{ t(`exchangeRates.currencies.${c}`) }}
               </button>
             </div>
           </div>
@@ -109,18 +106,20 @@
       </div>
 
       <div class="border-t border-gray-100 p-5">
-        <div class="form-row">
+        <div class="form-row item-grid">
           <div class="lbl product-col">
             <span class="lbl-text">{{ t('common.product') }}</span>
-            <SearchableSelect
-              v-model="itemForm.goodsId"
-              :options="goodsOptions"
-              :placeholder="t('warehouseOrders.selectGoods')"
-              :search-placeholder="t('warehouseOrders.searchGoods')"
-            />
-            <span v-if="selectedGoods" class="field-note unit-hint">
-              {{ t('warehouseOrders.unitLabel') }}: <b>{{ selectedUnit || '—' }}</b>
-            </span>
+            <div class="product-line">
+              <SearchableSelect
+                v-model="itemForm.goodsId"
+                :options="goodsOptions"
+                :placeholder="t('warehouseOrders.selectGoods')"
+                :search-placeholder="t('warehouseOrders.searchGoods')"
+              />
+              <span v-if="selectedGoods" class="unit-hint">
+                {{ t('warehouseOrders.unitLabel') }}: <b>{{ selectedUnit || '—' }}</b>
+              </span>
+            </div>
           </div>
 
           <template v-if="isWindowGoods">
@@ -137,7 +136,7 @@
           <label class="lbl col-sm">
             <span class="lbl-text">{{ t('common.count') }}</span>
             <span class="pct-field">
-              <input v-model.number="itemForm.count" type="number" min="0.01" step="0.01" class="field" :class="{ 'has-unit': selectedUnit }" />
+              <input v-model.number="itemForm.count" type="number" min="1" step="1" class="field" :class="{ 'has-unit': selectedUnit }" />
               <span v-if="selectedUnit" class="unit-sign">{{ selectedUnit }}</span>
             </span>
           </label>
@@ -239,47 +238,163 @@
         </p>
       </div>
 
-      <div class="overflow-x-auto">
-        <table class="min-w-full">
+      <div v-if="displayItems.length" class="items-bar">
+        <div class="items-bar-text">
+          <span class="items-bar-title">{{ t('warehouseOrders.itemsHeading') }}</span>
+          <span class="items-bar-count">{{ displayItems.length }}</span>
+          <span v-if="selectedItemIds.length === 0" class="items-bar-hint">{{ t('warehouseOrders.copyPickHint') }}</span>
+        </div>
+        <button
+          type="button"
+          class="ghost copy-btn"
+          :disabled="saving || selectedItemIds.length === 0"
+          :title="t('warehouseOrders.copyItemHint')"
+          @click="copySelectedItems"
+        >
+          {{ t('warehouseOrders.copyItem') }}
+          <span v-if="selectedItemIds.length" class="copy-count">{{ selectedItemIds.length }}</span>
+        </button>
+      </div>
+
+      <div class="table-scroll" :class="{ 'table-joined': displayItems.length > 0 }">
+        <table class="items-table">
           <thead>
             <tr class="border-b border-gray-100">
-              <th class="th">#</th>
-              <th class="th">{{ t('common.product') }}</th>
-              <th class="th">{{ t('warehouseOrders.widthCm') }}</th>
-              <th class="th">{{ t('warehouseOrders.heightCm') }}</th>
-              <th class="th">{{ t('common.count') }}</th>
-              <th class="th">{{ t('warehouseOrders.kvm') }}</th>
-              <th class="th">{{ isForeign ? t('warehouseOrders.colPriceUsd') : t('warehouseOrders.arrivalPrice') }}</th>
-              <th class="th">{{ isForeign ? t('warehouseOrders.colSumUsd') : t('common.sum') }}</th>
-              <th class="th">{{ t('warehouseOrders.cashSum') }}</th>
-              <th class="th">{{ t('warehouseOrders.cashTotal') }}</th>
-              <th class="th">{{ t('warehouseOrders.cashPlusTotal') }}</th>
-              <th class="th">{{ t('warehouseOrders.sellingPrice') }}</th>
-              <th class="th text-right">{{ t('common.actions') }}</th>
+              <th class="th col-check" />
+              <th class="th col-idx">#</th>
+              <th class="th col-product">{{ t('common.product') }}</th>
+              <th class="th num">{{ t('warehouseOrders.widthCm') }}</th>
+              <th class="th num">{{ t('warehouseOrders.heightCm') }}</th>
+              <th class="th num">{{ t('common.count') }}</th>
+              <th class="th num">{{ t('warehouseOrders.kvm') }}</th>
+              <th class="th num">{{ isForeign ? t('warehouseOrders.colPriceUsd') : t('warehouseOrders.arrivalPrice') }}</th>
+              <th class="th num">{{ isForeign ? t('warehouseOrders.colSumUsd') : t('common.sum') }}</th>
+              <th class="th num">{{ t('warehouseOrders.cashSum') }}</th>
+              <th class="th num">{{ t('warehouseOrders.cashTotal') }}</th>
+              <th class="th num">{{ t('warehouseOrders.cashPlusTotal') }}</th>
+              <th class="th num">{{ t('warehouseOrders.sellingPrice') }}</th>
+              <th class="th col-actions">{{ t('common.actions') }}</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="displayItems.length === 0">
-              <td colspan="13" class="empty">{{ t('warehouseOrders.noItemsYet') }}</td>
+              <td colspan="14" class="empty">{{ t('warehouseOrders.noItemsYet') }}</td>
             </tr>
-            <tr v-for="(row, idx) in displayItems" :key="row.id" class="border-b border-gray-100">
-              <td class="td">{{ idx + 1 }}</td>
-              <td class="td">{{ row.goodsName }}</td>
-              <td class="td">{{ row.width != null ? formatNum(row.width) : '—' }}</td>
-              <td class="td">{{ row.height != null ? formatNum(row.height) : '—' }}</td>
-              <td class="td whitespace-nowrap">
-                {{ row.pieces != null ? formatNum(row.pieces) : formatNum(row.count) }}
-                <span v-if="row.unitName" class="text-gray-400">{{ row.unitName }}</span>
+            <tr
+              v-for="(row, idx) in displayItems"
+              :key="row.id"
+              class="border-b border-gray-100"
+              :class="{ 'row-picked': selectedItemIds.includes(row.id) }"
+            >
+              <td class="td col-check">
+                <input
+                  type="checkbox"
+                  class="row-check"
+                  :checked="selectedItemIds.includes(row.id)"
+                  :disabled="saving"
+                  :aria-label="row.goodsName"
+                  @change="toggleItemSelect(row.id)"
+                />
               </td>
-              <td class="td">{{ row.isWindow ? formatNum(row.count) : '—' }}</td>
-              <td class="td">{{ amt(row.priceCost) }}</td>
-              <td class="td">{{ amt(row.sum) }}</td>
-              <td class="td">{{ row.cashSum > 0 ? amt(row.cashSum) : '—' }}</td>
-              <td class="td">{{ row.cashTotal > 0 ? amt(row.cashTotal) : '—' }}</td>
-              <td class="td">{{ amt(row.cashPlus) }}</td>
-              <td class="td">{{ row.priceSelling > 0 ? amt(row.priceSelling) : '—' }}</td>
-              <td class="td text-right">
-                <div class="inline-flex items-center justify-end gap-2">
+              <td class="td col-idx">{{ idx + 1 }}</td>
+              <td class="td col-product">
+                <select
+                  class="product-select"
+                  :value="row.goodsId"
+                  :disabled="saving"
+                  :aria-label="row.goodsName"
+                  @change="onRowGoods(row.id, $event)"
+                >
+                  <option v-for="opt in rowGoodsOptions(row.goodsId)" :key="opt.value" :value="opt.value">
+                    {{ opt.label }}
+                  </option>
+                </select>
+              </td>
+              <td class="td num">{{ row.width != null ? formatNum(row.width) : '—' }}</td>
+              <td class="td num">{{ row.height != null ? formatNum(row.height) : '—' }}</td>
+              <td class="td num">
+                <span class="cell-edit">
+                  <input
+                    class="cell-input qty"
+                    type="number"
+                    min="1"
+                    step="1"
+                    :value="row.pieces != null ? row.pieces : row.count"
+                    :disabled="saving"
+                    @change="onRowCount(row.id, $event)"
+                  />
+                  <span v-if="row.unitName && !row.isWindow" class="unit-suffix">{{ row.unitName }}</span>
+                </span>
+              </td>
+              <td class="td num">{{ row.isWindow ? formatNum(row.count) : '—' }}</td>
+              <td class="td num">
+                <input
+                  class="cell-input price"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  :value="row.priceCost"
+                  :disabled="saving"
+                  @change="onRowPrice(row.id, 'priceCost', $event)"
+                />
+              </td>
+              <td class="td num">
+                <input
+                  class="cell-input money"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  :value="round2(row.sum)"
+                  :disabled="saving"
+                  @change="onRowSum(row.id, 'sum', $event)"
+                />
+              </td>
+              <td class="td num">
+                <input
+                  class="cell-input price"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  :value="round2(row.cashSum)"
+                  :disabled="saving"
+                  @change="onRowSum(row.id, 'cash', $event)"
+                />
+              </td>
+              <td class="td num">
+                <input
+                  class="cell-input money"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  :value="round2(row.cashTotal)"
+                  :disabled="saving"
+                  @change="onRowSum(row.id, 'cashTotal', $event)"
+                />
+              </td>
+              <td class="td num">
+                <input
+                  class="cell-input money"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  :value="round2(row.cashPlus)"
+                  :disabled="saving"
+                  @change="onRowSum(row.id, 'combined', $event)"
+                />
+              </td>
+              <td class="td num">
+                <input
+                  class="cell-input price"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  :value="row.priceSelling"
+                  :disabled="saving"
+                  @change="onRowPrice(row.id, 'priceSelling', $event)"
+                />
+              </td>
+              <td class="td col-actions">
+                <div class="row-actions">
                   <button
                     type="button"
                     class="icon-btn edit-btn"
@@ -313,14 +428,14 @@
             </tr>
           </tbody>
           <tfoot v-if="displayItems.length">
-            <tr class="border-t border-gray-200 bg-gray-50">
-              <td class="td font-semibold" colspan="7">{{ t('common.total') }}</td>
-              <td class="td font-semibold">{{ amt(itemsTotalSum) }}</td>
-              <td class="td" />
-              <td class="td font-semibold">{{ amt(itemsTotalCash) }}</td>
-              <td class="td font-semibold">{{ amt(itemsTotalCashPlus) }}</td>
-              <td class="td" />
-              <td class="td" />
+            <tr class="border-t border-gray-200">
+              <td class="td font-semibold" colspan="8">{{ t('common.total') }}</td>
+              <td class="td num font-semibold">{{ amt(itemsTotalSum) }}</td>
+              <td class="td num" />
+              <td class="td num font-semibold">{{ amt(itemsTotalCash) }}</td>
+              <td class="td num font-semibold">{{ amt(itemsTotalCashPlus) }}</td>
+              <td class="td num" />
+              <td class="td col-actions" />
             </tr>
           </tfoot>
         </table>
@@ -343,7 +458,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { Banknote, ChevronRight, DollarSign } from 'lucide-vue-next'
+import { ChevronRight } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import Swal from 'sweetalert2'
@@ -377,6 +492,7 @@ const warehouses = ref<Warehouse[]>([])
 const suppliers = ref<Supplier[]>([])
 const goods = ref<Goods[]>([])
 const items = ref<WarehouseOrderItem[]>([])
+const selectedItemIds = ref<number[]>([])
 const orderId = ref<number | null>(null)
 const orderStatus = ref<string | null>(null)
 const saving = ref(false)
@@ -659,6 +775,7 @@ const displayItems = computed(() =>
     }
     return {
       id: it.id,
+      goodsId: it.goodsId,
       goodsName: it.goodsName || String(it.goodsId || ''),
       unitName: g?.unitTypeName || '',
       width,
@@ -782,7 +899,13 @@ async function reloadItems() {
     items.value = []
     return
   }
-  items.value = (await fetchWarehouseOrderItems(orderId.value)).data || []
+  const rows = (await fetchWarehouseOrderItems(orderId.value)).data || []
+  items.value = rows.slice().sort((a, b) => {
+    const as = a.sortOrder ?? Number.MAX_SAFE_INTEGER
+    const bs = b.sortOrder ?? Number.MAX_SAFE_INTEGER
+    if (as !== bs) return as - bs
+    return a.id - b.id
+  })
 }
 
 async function onAddItem() {
@@ -823,6 +946,183 @@ async function onAddItem() {
   } finally {
     saving.value = false
   }
+}
+
+function rowGoodsOptions(currentId?: number) {
+  const opts = goodsOptions.value.slice()
+  if (currentId && !opts.some((opt) => opt.value === currentId)) {
+    const g = goods.value.find((row) => row.id === currentId)
+    opts.unshift({ value: currentId, label: g?.name || String(currentId) })
+  }
+  return opts
+}
+
+function itemToPayload(
+  it: WarehouseOrderItem,
+  patch?: {
+    goodsId?: number
+    count?: number
+    priceCost?: number
+    priceSelling?: number
+    cashPrice?: number
+    weight?: number
+    height?: number
+  },
+  extra?: { insertAfterItemId?: number },
+) {
+  const goodsId = patch?.goodsId ?? Number(it.goodsId)
+  const g = goods.value.find((row) => row.id === goodsId)
+  const windowItem = isWindow(g)
+  const previousWindow = isWindow(goods.value.find((row) => row.id === it.goodsId))
+  const entered =
+    patch?.count ??
+    (windowItem || previousWindow
+      ? Number(it.pieceCount ?? it.count ?? 0)
+      : Number(it.count || 0))
+  return {
+    warehouseId: form.warehouseId,
+    warehouseOrderId: orderId.value || 0,
+    supplierId: form.supplierId,
+    goodsId,
+    priceCost: patch?.priceCost ?? Number(it.priceCost || 0),
+    priceSelling: patch?.priceSelling ?? Number(it.priceSelling || 0),
+    cashPrice: patch?.cashPrice ?? Number(it.cashPrice || 0),
+    count: entered,
+    weight: windowItem ? Number(patch?.weight ?? it.weight ?? g?.width ?? 0) : undefined,
+    height: windowItem ? Number(patch?.height ?? it.height ?? g?.height ?? 0) : undefined,
+    arrivalDate: dateToApi(form.arrivalDate),
+    insertAfterItemId: extra?.insertAfterItemId,
+  }
+}
+
+function toggleItemSelect(id: number) {
+  selectedItemIds.value = selectedItemIds.value.includes(id)
+    ? selectedItemIds.value.filter((key) => key !== id)
+    : [...selectedItemIds.value, id]
+}
+
+async function copySelectedItems() {
+  if (saving.value || selectedItemIds.value.length === 0 || !orderId.value) return
+  const picked = items.value.filter((it) => selectedItemIds.value.includes(it.id) && it.goodsId)
+  if (!picked.length) return
+  saving.value = true
+  error.value = null
+  try {
+    for (const it of picked) {
+      await createWarehouseOrderItem(itemToPayload(it, undefined, { insertAfterItemId: it.id }))
+    }
+    selectedItemIds.value = []
+    await reloadItems()
+  } catch (e) {
+    error.value = formatApiError(e)
+  } finally {
+    saving.value = false
+  }
+}
+
+async function patchItem(
+  id: number,
+  patch: {
+    goodsId?: number
+    count?: number
+    priceCost?: number
+    priceSelling?: number
+    cashPrice?: number
+    weight?: number
+    height?: number
+  },
+) {
+  const it = items.value.find((row) => row.id === id)
+  if (!it?.goodsId || !orderId.value || saving.value) return
+  saving.value = true
+  error.value = null
+  try {
+    await updateWarehouseOrderItem(id, itemToPayload(it, patch))
+    await reloadItems()
+    if (editingItemId.value === id) onEditItem(id)
+  } catch (e) {
+    error.value = formatApiError(e)
+    await reloadItems()
+  } finally {
+    saving.value = false
+  }
+}
+
+function onRowCount(id: number, event: Event) {
+  const next = Number((event.target as HTMLInputElement).value)
+  const it = items.value.find((row) => row.id === id)
+  if (!it || !(next > 0)) {
+    void reloadItems()
+    return
+  }
+  const current = isWindow(goods.value.find((row) => row.id === it.goodsId))
+    ? Number(it.pieceCount ?? it.count ?? 0)
+    : Number(it.count || 0)
+  if (Math.abs(current - next) < 1e-9) return
+  void patchItem(id, { count: next })
+}
+
+function onRowGoods(id: number, event: Event) {
+  const goodsId = Number((event.target as HTMLSelectElement).value)
+  const it = items.value.find((row) => row.id === id)
+  const g = goods.value.find((row) => row.id === goodsId)
+  if (!it || !g || it.goodsId === goodsId) return
+  const windowItem = isWindow(g)
+  void patchItem(id, {
+    goodsId,
+    weight: windowItem ? Number(g.width || it.weight || 0) : undefined,
+    height: windowItem ? Number(g.height || it.height || 0) : undefined,
+  })
+}
+
+function onRowPrice(id: number, field: 'priceCost' | 'priceSelling', event: Event) {
+  const next = Number((event.target as HTMLInputElement).value)
+  const it = items.value.find((row) => row.id === id)
+  if (!it || !(next >= 0) || Number.isNaN(next)) {
+    void reloadItems()
+    return
+  }
+  const current = Number(it[field] || 0)
+  if (Math.abs(current - next) < 1e-9) return
+  void patchItem(id, { [field]: next })
+}
+
+function onRowSum(id: number, field: 'sum' | 'cash' | 'cashTotal' | 'combined', event: Event) {
+  const next = Number((event.target as HTMLInputElement).value)
+  const it = items.value.find((row) => row.id === id)
+  const qty = Number(it?.count || 0)
+  if (!it || !(next >= 0) || Number.isNaN(next) || !(qty > 0)) {
+    void reloadItems()
+    return
+  }
+  const priceCost = Number(it.priceCost || 0)
+  const cashPrice = Number(it.cashPrice || 0)
+  if (field === 'sum') {
+    const unit = round2(next / qty)
+    if (Math.abs(unit - priceCost) < 0.001) return
+    void patchItem(id, { priceCost: unit })
+    return
+  }
+  if (field === 'cash') {
+    const unit = round2(next)
+    if (Math.abs(unit - cashPrice) < 0.001) return
+    void patchItem(id, { cashPrice: unit })
+    return
+  }
+  if (field === 'cashTotal') {
+    const unit = round2(next / qty)
+    if (Math.abs(unit - cashPrice) < 0.001) return
+    void patchItem(id, { cashPrice: unit })
+    return
+  }
+  const unitCombined = round2(next / qty)
+  if (unitCombined >= priceCost) {
+    const nextCash = round2(unitCombined - priceCost)
+    if (Math.abs(nextCash - cashPrice) < 0.001) return
+    void patchItem(id, { cashPrice: nextCash })
+    return
+  }
+  void patchItem(id, { priceCost: unitCombined, cashPrice: 0 })
 }
 
 function resetItemForm() {
@@ -884,6 +1184,7 @@ async function onRemoveItem(id: number, name: string) {
   if (!result.isConfirmed) return
   try {
     await deleteWarehouseOrderItem(id)
+    selectedItemIds.value = selectedItemIds.value.filter((key) => key !== id)
     if (editingItemId.value === id) resetItemForm()
     await reloadItems()
     await Swal.fire({
@@ -921,18 +1222,33 @@ onMounted(load)
 </script>
 
 <style scoped>
-.card { border-radius: 1rem; border: 1px solid #e5e7eb; background: #fff; }
+.card { min-width: 0; max-width: 100%; border-radius: 1rem; border: 1px solid #e5e7eb; background: #fff; }
 .title { font-size: 1.125rem; font-weight: 600; color: #1f2937; }
 .sub { margin-top: 0.25rem; font-size: 0.875rem; color: #6b7280; }
 .head { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; padding: 1.25rem 1.25rem 1rem; border-bottom: 1px solid #f3f4f6; }
 .form-row { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 0.75rem; }
-.header-row { flex-wrap: nowrap; }
+.header-row { flex-wrap: wrap; }
+.header-row > .lbl { flex: 1 1 12rem; }
+.header-row .field,
+.item-grid .field { min-width: 0; max-width: 100%; }
+.item-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 8.75rem), 1fr));
+  align-items: end;
+}
+.item-grid .product-col { grid-column: span 2; min-width: 0; }
+.item-grid .col-sm,
+.item-grid .col-md,
+.item-grid .total-with-cash,
+.item-grid .col-btn { min-width: 0; }
+.item-grid .col-btn .inline-flex { width: 100%; }
+.item-grid .col-btn .btn,
+.item-grid .col-btn .ghost { flex: 1; justify-content: center; }
+.header-row > .header-currency { flex: 0 0 auto; }
 .header-date { flex: 0 0 14.5rem; }
-.header-currency { flex: 0 0 auto; }
-.header-rate { flex: 0 0 9rem; }
-.type-toggle { display: inline-grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.15rem; border-radius: 0.6rem; background: #f2f4f7; padding: 0.15rem; width: auto; }
-.type-btn { display: inline-flex; height: 2.2rem; width: 2.2rem; align-items: center; justify-content: center; border-radius: 0.45rem; padding: 0; color: #667085; transition: background-color 0.15s, color 0.15s, box-shadow 0.15s; }
-.cur-icon { width: 1rem; height: 1rem; }
+.header-rate { flex: 0 1 9rem; min-width: 0; }
+.type-toggle { display: inline-grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.2rem; border-radius: 0.65rem; background: #f2f4f7; padding: 0.2rem; width: 16.5rem; max-width: 100%; }
+.type-btn { display: inline-flex; height: 2.5rem; min-width: 0; align-items: center; justify-content: center; border-radius: 0.5rem; padding: 0 0.65rem; font-size: 0.8125rem; font-weight: 600; color: #667085; white-space: nowrap; transition: background-color 0.15s, color 0.15s, box-shadow 0.15s; }
 .type-btn:hover:not(:disabled):not(.active) { color: #344054; background: rgb(255 255 255 / 60%); }
 .type-btn.active { background: #fff; color: #465fff; box-shadow: 0 1px 3px rgba(16, 24, 40, 0.12); }
 .type-btn:disabled { cursor: not-allowed; }
@@ -941,13 +1257,14 @@ onMounted(load)
 .dark .type-btn { color: #98a2b3; }
 .dark .type-btn:hover:not(:disabled):not(.active) { color: #e4e7ec; background: rgb(255 255 255 / 5%); }
 .dark .type-btn.active { background: #1d2939; color: #9cb0ff; }
-.product-col { flex: 2.2 1 15rem; min-width: 15rem; }
-.col-sm { flex: 1 1 6.5rem; min-width: 6.5rem; }
-.col-md { flex: 1.3 1 8.5rem; min-width: 8.5rem; }
+.product-col { min-width: 0; }
+.col-sm { min-width: 0; }
+.col-md { min-width: 0; }
 .col-btn { flex: 0 0 auto; }
 .lbl { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.75rem; font-weight: 500; color: #6b7280; }
 .lbl-text { display: block; height: 1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1rem; }
-.field-note { line-height: 1rem; }
+.product-line { display: flex; align-items: center; gap: 0.65rem; min-width: 0; }
+.product-line > :deep(.relative) { flex: 1 1 auto; width: auto; min-width: 0; }
 .product-col :deep(.field-btn) { height: 2.5rem; }
 .form-row input[type='number'] { appearance: textfield; -moz-appearance: textfield; }
 .form-row input[type='number']::-webkit-inner-spin-button,
@@ -962,14 +1279,15 @@ onMounted(load)
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2rem;
-  height: 2rem;
+  width: 1.7rem;
+  height: 1.7rem;
   flex: 0 0 auto;
-  border-radius: 0.5rem;
-  background: transparent;
+  border-radius: 0.4rem;
+  background: #fff;
   border: 1px solid currentColor;
 }
-.row-icon { width: 1rem; height: 1rem; }
+.row-icon { width: 0.9rem; height: 0.9rem; }
+.row-actions { display: inline-flex; align-items: center; gap: 0.25rem; }
 .edit-btn { color: #f79009; }
 .edit-btn:hover { background: #fff7ed; }
 .trash-btn { color: #dc2626; }
@@ -980,7 +1298,7 @@ onMounted(load)
 .pct-field { position: relative; display: block; }
 .pct-field .field { padding-right: 1.75rem; }
 .pct-field .field.has-unit { padding-right: 3rem; }
-.total-with-cash { flex: 1.8 1 13rem; min-width: 13rem; }
+.total-with-cash { min-width: 0; }
 .total-line { display: flex; align-items: center; gap: 0.4rem; }
 .total-line .field { flex: 1; min-width: 0; }
 .cash-toggle {
@@ -1000,15 +1318,114 @@ onMounted(load)
 .cash-toggle.on { background: #465fff; border-color: #465fff; color: #fff; }
 .cash-toggle.on .cash-toggle-icon { transform: rotate(90deg); }
 .unit-sign { position: absolute; right: 0.6rem; top: 50%; max-width: 2.6rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transform: translateY(-50%); font-size: 0.75rem; font-weight: 500; color: #6b7280; pointer-events: none; }
-.unit-hint { font-size: 0.75rem; font-weight: 400; color: #6b7280; }
+.unit-hint { flex: 0 0 auto; white-space: nowrap; font-size: 0.75rem; font-weight: 400; color: #6b7280; }
 .unit-hint b { font-weight: 600; color: #465fff; }
-.th { padding: 0.75rem 1rem; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; white-space: nowrap; }
-.td { padding: 0.75rem 1rem; font-size: 0.875rem; color: #4b5563; }
+.items-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0 1.25rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #e5e7eb;
+  border-bottom: none;
+  border-radius: 0.75rem 0.75rem 0 0;
+  background: #f9fafb;
+}
+.items-bar-text { display: flex; align-items: center; gap: 0.45rem; min-width: 0; }
+.items-bar-title { font-size: 0.8125rem; font-weight: 600; color: #1f2937; white-space: nowrap; }
+.items-bar-count {
+  display: inline-flex;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #eef2ff;
+  padding: 0 0.35rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #465fff;
+}
+.items-bar-hint { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.75rem; color: #98a2b3; }
+.copy-btn { height: 2rem; gap: 0.4rem; padding: 0 0.75rem; font-size: 0.8125rem; white-space: nowrap; }
+.copy-btn:disabled { background: #fff; opacity: 0.5; cursor: not-allowed; }
+.copy-count {
+  display: inline-flex;
+  min-width: 1.1rem;
+  height: 1.1rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #eef2ff;
+  padding: 0 0.3rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #465fff;
+}
+.table-scroll { width: auto; max-width: calc(100% - 2.5rem); margin: 0 1.25rem 1.25rem; overflow-x: auto; border: 1px solid #e5e7eb; border-radius: 0.75rem; }
+.table-scroll.table-joined { border-radius: 0 0 0.75rem 0.75rem; }
+.items-table { width: 100%; min-width: 54rem; border-collapse: separate; border-spacing: 0; }
+.th { padding: 0.45rem 0.4rem; text-align: left; font-size: 0.6875rem; font-weight: 500; color: #6b7280; white-space: nowrap; background: #fff; }
+.td { padding: 0.3rem 0.4rem; font-size: 0.8125rem; color: #4b5563; vertical-align: middle; background: #fff; }
+.th.num, .td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.col-check { width: 2rem; padding-left: 0.65rem; padding-right: 0.2rem; }
+.col-idx { width: 1.6rem; color: #98a2b3; }
+.col-product { min-width: 11rem; }
+.col-actions {
+  position: sticky;
+  right: 0;
+  width: 1%;
+  white-space: nowrap;
+  text-align: right;
+  background: #fff;
+  border-left: 1px solid #f3f4f6;
+}
+tfoot .td { background: #f9fafb; font-variant-numeric: tabular-nums; }
+tfoot .col-actions { background: #f9fafb; }
 .empty { padding: 2rem 1.25rem; text-align: center; font-size: 0.875rem; color: #6b7280; }
+.row-check { width: 0.95rem; height: 0.95rem; accent-color: #465fff; }
+.row-picked .td { background: #f5f8ff; }
+.cell-edit { display: inline-flex; align-items: center; justify-content: flex-end; gap: 0.25rem; }
+.unit-suffix { max-width: 2.4rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.65rem; color: #98a2b3; }
+.cell-input {
+  height: 1.7rem;
+  max-width: 100%;
+  border-radius: 0.4rem;
+  border: 1px solid #d0d5dd;
+  background: #fff;
+  padding: 0 0.35rem;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: #344054;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+.cell-input::-webkit-inner-spin-button,
+.cell-input::-webkit-outer-spin-button { margin: 0; -webkit-appearance: none; }
+.cell-input.qty { width: 3.6rem; }
+.cell-input.price { width: 3.4rem; }
+.cell-input.money { width: 4.85rem; }
+.product-select { height: 1.7rem; width: 100%; min-width: 0; border-radius: 0.4rem; border: 1px solid #d0d5dd; background: #fff; padding: 0 0.35rem; font-size: 0.75rem; color: #344054; }
+.product-select:disabled { background: #f9fafb; cursor: not-allowed; }
+.cell-input:disabled { background: #f9fafb; }
 .err { border-radius: 0.5rem; border: 1px solid #fecaca; background: #fef2f2; padding: 0.75rem 1rem; font-size: 0.875rem; color: #dc2626; }
-@media (max-width: 640px) {
-  .form-row:not(.header-row) > * { flex: 1 1 100%; }
-  .header-row { overflow-x: auto; }
-  .header-row > * { flex: 1 0 9rem; }
+:global(html.dark .items-bar) { border-color: #1f2937; background: #111827; }
+:global(html.dark .items-bar-title) { color: #e5e7eb; }
+:global(html.dark .copy-btn:disabled) { background: transparent; }
+:global(html.dark .table-scroll) { border-color: #1f2937; }
+:global(html.dark .th),
+:global(html.dark .td),
+:global(html.dark .col-actions) { background: #0b1220; }
+:global(html.dark tfoot .td),
+:global(html.dark tfoot .col-actions) { background: #111827; }
+:global(html.dark .row-picked .td) { background: rgb(70 95 255 / 12%); }
+:global(html.dark .icon-btn) { background: #0b1220; }
+:global(html.dark .cell-input) { border-color: #374151; background: #111827; color: #e5e7eb; }
+:global(html.dark .product-select) { border-color: #374151; background: #111827; color: #e5e7eb; }
+@media (max-width: 720px) {
+  .item-grid .product-col { grid-column: auto; }
+  .header-row > .lbl { flex-basis: 100%; }
 }
 </style>

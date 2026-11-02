@@ -41,6 +41,25 @@ export function isCompleteUzPhone(value?: string | null): boolean {
   return normalizeUzPhoneDigits(value).length === 12
 }
 
+/** International number: + and 8–15 digits, grouped by threes. */
+export function formatIntlPhone(value?: string | null): string {
+  const d = phoneDigits(value).slice(0, 15)
+  if (!d) return '+'
+  const parts: string[] = []
+  for (let i = 0; i < d.length; i += 3) parts.push(d.slice(i, i + 3))
+  return `+${parts.join(' ')}`
+}
+
+export function isCompleteIntlPhone(value?: string | null): boolean {
+  const n = phoneDigits(value).length
+  return n >= 8 && n <= 15
+}
+
+export function formatSupplierPhone(value?: string | null, kind?: string | null): string {
+  if (!value) return ''
+  return kind === 'INTERNATIONAL' ? formatIntlPhone(value) : formatUzPhone(value)
+}
+
 /** True if phones refer to the same number (digit-normalized). */
 export function phonesEqual(a?: string | null, b?: string | null): boolean {
   const da = normalizeUzPhoneDigits(a)

@@ -55,6 +55,14 @@ public class StockTransfer extends FilialScopedEntity {
     @Column(nullable = false)
     private BigDecimal count;
 
+    /** Oyna (list) uchun ko‘chirilgan dona soni. Eski yozuvlarda bo‘sh — u holda count kv.m. */
+    @Column(name = "piece_count", precision = 38, scale = 4)
+    private BigDecimal pieceCount;
+
     @Column(length = 500)
     private String comment;
+
+    /** Bu yozuv qaysi transferni orqaga qaytarganini ko‘rsatadi. Bo‘sh bo‘lsa — oddiy transfer. */
+    @Column(name = "return_of_id")
+    private Long returnOfId;
 }

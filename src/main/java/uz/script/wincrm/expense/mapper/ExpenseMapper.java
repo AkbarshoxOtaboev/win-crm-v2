@@ -45,6 +45,7 @@ public class ExpenseMapper {
                 .exchangeRate(entity.getExchangeRate())
                 .paymentTypeId(entity.getPaymentType() != null ? entity.getPaymentType().getId() : null)
                 .paymentTypeName(entity.getPaymentType() != null ? entity.getPaymentType().getName() : null)
+                .cashSource(entity.getCashSource() != null ? entity.getCashSource() : uz.script.wincrm.cash.CashSource.OPERATIONAL)
                 .expenseDate(entity.getExpenseDate())
                 .description(entity.getDescription())
                 .status(entity.getStatus())

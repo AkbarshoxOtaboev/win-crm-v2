@@ -55,12 +55,14 @@ public class RoleDataLoader implements CommandLineRunner {
             "CLIENT_VIEW"
     );
 
-    /** Kassir — mijozlardan kelgan to'lovlarni kiritadi (mijoz balansi va buyurtmalarni faqat ko'radi) */
+    /** Kassir — to'lovlar, kassa topshirish va operatsion kassadan xarajat yozish */
     private static final Set<String> CASHIER_PERMISSIONS = Set.of(
             "PAYMENT_VIEW", "PAYMENT_CREATE", "PAYMENT_TYPE_VIEW",
             "CLIENT_VIEW", "CLIENT_BALANCE_VIEW",
             "SALE_ORDER_VIEW",
-            "CASH_HANDOVER_VIEW", "CASH_HANDOVER_CREATE"
+            "CASH_HANDOVER_VIEW", "CASH_HANDOVER_CREATE",
+            "EXPENSE_VIEW", "EXPENSE_CREATE",
+            "EXPENSE_CATEGORY_VIEW"
     );
 
     /** Ishlab chiqarish boshlig‘i — sexlar + barcha production */

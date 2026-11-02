@@ -13,6 +13,10 @@ public interface StockTransferRepository extends JpaRepository<StockTransfer, Lo
 
     List<StockTransfer> findAllByGoodsId(Long goodsId);
 
+    boolean existsByReturnOfId(Long returnOfId);
+
+    boolean existsByComment(String comment);
+
     // Ombor yoki manba, yoki maqsad sifatida ishtirok etgan barcha transferlarni qaytaradi
     List<StockTransfer> findAllByFromWarehouseIdOrToWarehouseId(Long fromWarehouseId, Long toWarehouseId);
 

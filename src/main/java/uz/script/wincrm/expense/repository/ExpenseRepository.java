@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import uz.script.wincrm.cash.CashSource;
 import uz.script.wincrm.expense.Expense;
 
 import java.math.BigDecimal;
@@ -65,8 +66,10 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
      */
     @Query("SELECT e.paymentType.id, e.currency, COALESCE(SUM(e.amount), 0) FROM Expense e " +
             "WHERE e.paymentType IS NOT NULL AND e.supplierPaymentId IS NULL " +
+            "AND COALESCE(e.cashSource, uz.script.wincrm.cash.CashSource.OPERATIONAL) = :cashSource " +
             "AND e.expenseDate >= :fromDate AND e.expenseDate < :toDate " +
             "GROUP BY e.paymentType.id, e.currency")
     List<Object[]> sumCashByType(@Param("fromDate") LocalDate fromDate,
-                                 @Param("toDate") LocalDate toDate);
+                                 @Param("toDate") LocalDate toDate,
+                                 @Param("cashSource") CashSource cashSource);
 }

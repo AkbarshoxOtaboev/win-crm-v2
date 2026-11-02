@@ -75,4 +75,11 @@ public class WarehouseOrder extends FilialScopedEntity {
         return amount.multiply(exchangeRate).setScale(2, RoundingMode.HALF_UP);
     }
 
+    /** Kelgan narx: hujjatdagi tannarx va naqd narx yig‘indisi, so‘mda. */
+    public BigDecimal arrivalUnitBase(BigDecimal priceCost, BigDecimal cashPrice) {
+        BigDecimal price = priceCost != null ? priceCost : BigDecimal.ZERO;
+        BigDecimal cash = cashPrice != null ? cashPrice : BigDecimal.ZERO;
+        return toBase(price.add(cash));
+    }
+
 }

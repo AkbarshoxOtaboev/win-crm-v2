@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
+import uz.script.wincrm.cash.CashSource;
 import uz.script.wincrm.currency.Currency;
 import uz.script.wincrm.utils.Status;
 
@@ -40,6 +41,9 @@ public class ExpenseResponse {
 
     @Schema(description = "Pul chiqqan kassa nomi", example = "Naqd")
     private String paymentTypeName;
+
+    @Schema(description = "OPERATIONAL yoki VAULT", example = "OPERATIONAL")
+    private CashSource cashSource;
 
     @Schema(description = "Expense date", example = "2026-07-09")
     private LocalDate expenseDate;

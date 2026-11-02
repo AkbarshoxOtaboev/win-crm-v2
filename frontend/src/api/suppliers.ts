@@ -2,9 +2,12 @@ import { apiRequest } from './http'
 import type { RestApiResponse, SpringPage } from './types'
 import type { CurrencyCode } from '@/utils/currency'
 
+export type SupplierKind = 'LOCAL' | 'INTERNATIONAL'
+
 export interface Supplier {
   id: number
   name: string
+  kind?: SupplierKind
   inn?: string
   phone: string
   additionalPhone?: string
@@ -21,6 +24,7 @@ export interface Supplier {
 
 export interface SupplierPayload {
   name: string
+  kind?: SupplierKind
   phone: string
   inn?: string
   additionalPhone?: string
@@ -93,6 +97,8 @@ export function fetchSupplierBalance(supplierId: number) {
   return apiRequest<RestApiResponse<SupplierBalance[]>>(`/api/supplier-balances/${supplierId}`)
 }
 
+export type CashSource = 'OPERATIONAL' | 'VAULT'
+
 export interface SupplierPayment {
   id: number
   supplierId?: number
@@ -107,6 +113,8 @@ export interface SupplierPayment {
   appliedAmount?: number
   /** SUMMA — kelgan summa qarzi, CASH — naqd qarz */
   debtTarget?: 'SUMMA' | 'CASH'
+  /** OPERATIONAL — kassir; VAULT — rahbar */
+  cashSource?: CashSource
   paidDate?: string
   comment?: string
   paymentTypeId?: number
@@ -141,6 +149,8 @@ export interface SupplierPaymentPayload {
   exchangeRate?: number
   /** Qaysi qarz yopiladi. Bo'sh bo'lsa — summa. */
   debtTarget?: 'SUMMA' | 'CASH'
+  /** OPERATIONAL — kassir; VAULT — rahbar (qabul qilingan). */
+  cashSource?: CashSource
 }
 
 export function fetchSupplierPayments(page = 0, size = 50) {

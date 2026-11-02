@@ -20,6 +20,10 @@ export interface Goods {
   photo?: string
   width?: number
   height?: number
+  /** Oyna qalinligi (mm) */
+  thickness?: number
+  /** 1 kv.m vazni (kg) */
+  weightPerSqm?: number
   status?: string
 }
 

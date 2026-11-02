@@ -16,6 +16,7 @@ import uz.script.wincrm.goods.enums.Type;
 import uz.script.wincrm.goods.repository.GoodsGroupRepository;
 import uz.script.wincrm.goods.repository.GoodsRepository;
 import uz.script.wincrm.goods.repository.UnitTypeRepository;
+import uz.script.wincrm.stock.StockPieces;
 import uz.script.wincrm.stock.StockTransfer;
 import uz.script.wincrm.stock.mapper.StockTransferMapper;
 import uz.script.wincrm.stock.repository.StockTransferRepository;
@@ -29,13 +30,20 @@ import uz.script.wincrm.warehouse.Warehouse;
 import uz.script.wincrm.warehouse.repository.WarehouseRepository;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
 public class StockTransferServiceImpl implements StockTransferService {
+
+    private static final Pattern LEGACY_RETURN = Pattern.compile("^Qaytarish #(\\d+)$");
 
     private final StockTransferRepository stockTransferRepository;
     private final StockTransferMapper stockTransferMapper;
@@ -75,20 +83,39 @@ public class StockTransferServiceImpl implements StockTransferService {
             throw new BadRequestException("Mahsulot va manba ombor turli filiallarga tegishli");
         }
 
+        boolean window = goods.getType() == Type.WINDOW;
+        BigDecimal pieces = request.getCount();
+        BigDecimal requestedKvm = window ? sheetsToKvm(goods, pieces) : pieces;
+        BigDecimal[] movedQty = { requestedKvm };
+
         // Stock jadvali - yagona ishonch manbai (memory: "Stock as single source of truth")
         BigDecimal unitCost = FilialContext.callAs(sourceFilialId, () -> {
             BigDecimal available = stockService.getAvailableStock(request.getGoodsId(), request.getFromWarehouseId());
-            if (available.compareTo(request.getCount()) < 0) {
+            if (window) {
+                BigDecimal availablePieces = StockPieces.derive(goods, available);
+                if (availablePieces == null || pieces.compareTo(availablePieces) > 0) {
+                    throw new InsufficientStockException(
+                            "Manba ombordagi mahsulot yetarli emas. Mavjud: " + availablePieces,
+                            request.getGoodsId(),
+                            request.getFromWarehouseId(),
+                            availablePieces != null ? availablePieces : available,
+                            pieces);
+                }
+                if (pieces.compareTo(availablePieces) == 0) {
+                    movedQty[0] = available;
+                }
+            }
+            if (available.compareTo(movedQty[0]) < 0) {
+                BigDecimal availableQty = window ? StockPieces.derive(goods, available) : available;
                 throw new InsufficientStockException(
-                        "Manba ombordagi mahsulot yetarli emas. Mavjud: " + available + ", so'ralgan: " + request.getCount(),
+                        "Manba ombordagi mahsulot yetarli emas. Mavjud: " + availableQty,
                         request.getGoodsId(),
                         request.getFromWarehouseId(),
-                        available,
-                        request.getCount());
+                        availableQty != null ? availableQty : available,
+                        pieces);
             }
             BigDecimal cost = stockService.getUnitCost(request.getGoodsId(), request.getFromWarehouseId());
-            // Manba ombordan chiqim -> StockHistory OUT avtomatik yoziladi
-            stockService.decreaseStock(request.getGoodsId(), request.getFromWarehouseId(), request.getCount());
+            stockService.decreaseStock(request.getGoodsId(), request.getFromWarehouseId(), movedQty[0], window ? pieces : null);
             return cost;
         });
 
@@ -101,8 +128,8 @@ public class StockTransferServiceImpl implements StockTransferService {
         Long targetGoodsId = targetGoods.getId();
         // Maqsad omborga kirim -> StockHistory IN avtomatik yoziladi (maqsad filial nomidan)
         FilialContext.runAs(crossFilial ? targetFilialId : sourceFilialId, () ->
-                stockService.increaseStock(targetGoodsId, request.getToWarehouseId(), request.getCount(),
-                        request.getCount(), unitCost));
+                stockService.increaseStock(targetGoodsId, request.getToWarehouseId(), movedQty[0],
+                        window ? pieces : movedQty[0], unitCost));
 
         StockTransfer transfer = StockTransfer.builder()
                 .goods(goods)
@@ -111,7 +138,8 @@ public class StockTransferServiceImpl implements StockTransferService {
                 .toWarehouse(toWarehouse)
                 .toFilial(targetFilial)
                 .filial(sourceFilial)
-                .count(request.getCount())
+                .count(pieces)
+                .pieceCount(window ? pieces : null)
                 .comment(request.getComment())
                 .status(Status.ACTIVE)
                 .build();
@@ -119,6 +147,118 @@ public class StockTransferServiceImpl implements StockTransferService {
         StockTransfer saved = stockTransferRepository.save(transfer);
 
         return stockTransferMapper.toResponse(saved, FilialContext.getFilialId());
+    }
+
+    /** Oyna listi: dona soni × eni × bo‘yi / 10000 = kv.m. */
+    private BigDecimal sheetsToKvm(Goods goods, BigDecimal pieces) {
+        BigDecimal width = goods.getWidth();
+        BigDecimal height = goods.getHeight();
+        if (width == null || height == null || width.signum() <= 0 || height.signum() <= 0) {
+            throw new BadRequestException("Oyna (list) uchun eni va bo‘yi kerak. Soni bo‘yicha ko‘chirib bo‘lmaydi.");
+        }
+        return pieces.multiply(width).multiply(height)
+                .divide(BigDecimal.valueOf(10_000), 4, RoundingMode.HALF_UP);
+    }
+
+    @Override
+    @Transactional
+    public StockTransferResponse returnTransfer(Long id) {
+        ReturnPlan plan = FilialContext.callAs(null, () -> {
+            StockTransfer original = stockTransferRepository.findById(id)
+                    .orElseThrow(() -> new EntityNotFoundException("Stock transfer not found with id: " + id));
+            if (returnOf(original) != null) {
+                throw new BadRequestException("Orqaga qaytarilgan yozuvni qayta qaytarib bo'lmaydi");
+            }
+            if (stockTransferRepository.existsByReturnOfId(original.getId())
+                    || stockTransferRepository.existsByComment("Qaytarish #" + original.getId())) {
+                throw new BadRequestException("Bu transfer allaqachon qaytarilgan");
+            }
+            Goods sourceGoods = original.getGoods();
+            Goods held = original.getToGoods() != null ? original.getToGoods() : sourceGoods;
+            Warehouse from = original.getToWarehouse();
+            Warehouse to = original.getFromWarehouse();
+            if (held == null || from == null || to == null) {
+                throw new BadRequestException("Transferni qaytarib bo'lmaydi");
+            }
+            BigDecimal qty = original.getPieceCount();
+            if (qty == null && sourceGoods != null && sourceGoods.getType() == Type.WINDOW) {
+                qty = StockPieces.derive(sourceGoods, original.getCount());
+            }
+            if (qty == null) {
+                qty = original.getCount();
+            }
+            Filial holder = original.getToFilial() != null ? original.getToFilial() : from.getFilial();
+            return new ReturnPlan(
+                    held.getId(),
+                    from.getId(),
+                    to.getId(),
+                    qty,
+                    holder != null ? holder.getId() : null,
+                    original.getId());
+        });
+        if (plan.qty() == null || plan.qty().signum() <= 0) {
+            throw new BadRequestException("Qaytariladigan son topilmadi");
+        }
+        StockTransferRequest back = new StockTransferRequest();
+        back.setGoodsId(plan.goodsId());
+        back.setFromWarehouseId(plan.fromWarehouseId());
+        back.setToWarehouseId(plan.toWarehouseId());
+        back.setCount(plan.qty());
+        back.setComment("Qaytarish #" + plan.transferId());
+        StockTransferResponse created = plan.holderFilialId() == null
+                ? transfer(back)
+                : FilialContext.callAs(plan.holderFilialId(), () -> transfer(back));
+        FilialContext.callAs(null, () -> {
+            StockTransfer saved = stockTransferRepository.findById(created.getId())
+                    .orElseThrow(() -> new EntityNotFoundException("Stock transfer not found with id: " + created.getId()));
+            saved.setReturnOfId(plan.transferId());
+            stockTransferRepository.save(saved);
+            return null;
+        });
+        created.setReturnOfId(plan.transferId());
+        created.setMovement("RETURN");
+        created.setReturned(false);
+        return created;
+    }
+
+    private Long returnOf(StockTransfer transfer) {
+        if (transfer.getReturnOfId() != null) {
+            return transfer.getReturnOfId();
+        }
+        String comment = transfer.getComment();
+        if (comment == null) {
+            return null;
+        }
+        Matcher matcher = LEGACY_RETURN.matcher(comment.trim());
+        return matcher.matches() ? Long.valueOf(matcher.group(1)) : null;
+    }
+
+    private List<StockTransferResponse> present(List<StockTransfer> transfers, Long viewerFilialId) {
+        Set<Long> returnedIds = new HashSet<>();
+        for (StockTransfer transfer : transfers) {
+            Long of = returnOf(transfer);
+            if (of != null) {
+                returnedIds.add(of);
+            }
+        }
+        return transfers.stream().map(transfer -> {
+            StockTransferResponse response = stockTransferMapper.toResponse(transfer, viewerFilialId);
+            Long of = returnOf(transfer);
+            response.setReturnOfId(of);
+            response.setMovement(of != null ? "RETURN" : "TRANSFER");
+            response.setReturned(returnedIds.contains(transfer.getId()));
+            return response;
+        }).toList();
+    }
+
+    private record ReturnPlan(
+            Long goodsId,
+            Long fromWarehouseId,
+            Long toWarehouseId,
+            BigDecimal qty,
+            Long holderFilialId,
+            Long transferId
+    ) {
     }
 
     /**
@@ -207,16 +347,10 @@ public class StockTransferServiceImpl implements StockTransferService {
     public List<StockTransferResponse> fetchAll() {
         Long filialId = FilialContext.getFilialId();
         if (filialId == null || filialId <= 0) {
-            return stockTransferRepository.findAll(Sort.by(Sort.Direction.DESC, "id"))
-                    .stream()
-                    .map(transfer -> stockTransferMapper.toResponse(transfer, null))
-                    .toList();
+            return present(stockTransferRepository.findAll(Sort.by(Sort.Direction.DESC, "id")), null);
         }
         // Kiruvchi transferlar jo'natuvchi filialga tegishli, shuning uchun filtrsiz o'qiladi
-        return FilialContext.callAs(null, () -> stockTransferRepository.findAllVisibleForFilial(filialId)
-                .stream()
-                .map(transfer -> stockTransferMapper.toResponse(transfer, filialId))
-                .toList());
+        return FilialContext.callAs(null, () -> present(stockTransferRepository.findAllVisibleForFilial(filialId), filialId));
     }
 
     @Override

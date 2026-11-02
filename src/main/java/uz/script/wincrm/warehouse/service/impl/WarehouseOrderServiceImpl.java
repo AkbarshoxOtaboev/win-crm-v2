@@ -92,8 +92,8 @@ public class WarehouseOrderServiceImpl implements WarehouseOrderService {
 
         BigDecimal serviceFee = order.getServiceFee() != null ? order.getServiceFee() : BigDecimal.ZERO;
         if (serviceFee.compareTo(BigDecimal.ZERO) > 0) {
-            supplierBalanceService.increasePurchase(supplier.getId(), currency, serviceFee);
-            log.info("Supplier balance increased by service fee. SupplierId: {}, Fee: {} {}",
+            supplierBalanceService.recalculate(supplier.getId());
+            log.info("Supplier balance recalculated after service fee. SupplierId: {}, Fee: {} {}",
                     supplier.getId(), serviceFee, currency);
         }
 
@@ -222,21 +222,15 @@ public class WarehouseOrderServiceImpl implements WarehouseOrderService {
         order = repository.save(order);
 
         if (!Objects.equals(oldSupplierId, newSupplierId) || newCurrency != oldCurrency) {
-            if (currentTotalSum.signum() != 0) {
-                supplierBalanceService.decreasePurchase(oldSupplierId, oldCurrency, currentTotalSum);
+            supplierBalanceService.recalculate(oldSupplierId);
+            if (!Objects.equals(oldSupplierId, newSupplierId)) {
+                supplierBalanceService.recalculate(newSupplierId);
             }
-            if (newTotalSum.signum() != 0) {
-                supplierBalanceService.increasePurchase(newSupplierId, newCurrency, newTotalSum);
-            }
-            log.info("Order balance moved. {} {} (-{}) -> {} {} (+{})",
+            log.info("Order balance recalculated after move. {} {} (-{}) -> {} {} (+{})",
                     oldSupplierId, oldCurrency, currentTotalSum, newSupplierId, newCurrency, newTotalSum);
         } else {
             BigDecimal totalDiff = newTotalSum.subtract(currentTotalSum);
-            if (totalDiff.signum() > 0) {
-                supplierBalanceService.increasePurchase(newSupplierId, newCurrency, totalDiff);
-            } else if (totalDiff.signum() < 0) {
-                supplierBalanceService.decreasePurchase(newSupplierId, newCurrency, totalDiff.abs());
-            }
+            supplierBalanceService.recalculate(newSupplierId);
             if (totalDiff.signum() != 0) {
                 log.info("Order total updated. SupplierId: {}, Diff: {} {}, ServiceFee: {} -> {}",
                         newSupplierId, totalDiff, newCurrency, oldServiceFee, newServiceFee);
@@ -276,12 +270,8 @@ public class WarehouseOrderServiceImpl implements WarehouseOrderService {
         order.setStatus(Status.DELETED);
         repository.save(order);
 
-        BigDecimal totalSum = order.getTotalSum() != null ? order.getTotalSum() : BigDecimal.ZERO;
-        if (totalSum.compareTo(BigDecimal.ZERO) != 0) {
-            supplierBalanceService.decreasePurchase(order.getSupplier().getId(), order.getCurrency(), totalSum);
-            log.info("Supplier balance decreased by purchase. SupplierId: {}, Sum: {}",
-                    order.getSupplier().getId(), totalSum);
-        }
+        supplierBalanceService.recalculate(order.getSupplier().getId());
+        log.info("Supplier balance recalculated after order delete. SupplierId: {}", order.getSupplier().getId());
     }
 
     @Override
@@ -312,7 +302,7 @@ public class WarehouseOrderServiceImpl implements WarehouseOrderService {
                     item.getWarehouse().getId(),
                     item.getCount(),
                     pieces,
-                    order.toBase(item.getPriceCost()));
+                    order.arrivalUnitBase(item.getPriceCost(), item.getCashPrice()));
         }
 
         order.setOrderStatus(WarehouseOrderStatus.TRANSFERRED);

@@ -84,10 +84,13 @@
               <td class="td">{{ s.id }}</td>
               <td class="td">
                 <button type="button" class="link" @click="openSupplier(s)">{{ s.name }}</button>
+                <span class="kind-badge" :class="s.kind === 'INTERNATIONAL' ? 'kind-intl' : 'kind-local'">
+                  {{ s.kind === 'INTERNATIONAL' ? t('suppliers.kindInternational') : t('suppliers.kindLocal') }}
+                </span>
               </td>
               <td class="td">{{ s.inn || '—' }}</td>
-              <td class="td">{{ s.phone ? formatUzPhone(s.phone) : '—' }}</td>
-              <td class="td">{{ s.additionalPhone ? formatUzPhone(s.additionalPhone) : '—' }}</td>
+              <td class="td">{{ s.phone ? formatSupplierPhone(s.phone, s.kind) : '—' }}</td>
+              <td class="td">{{ s.additionalPhone ? formatSupplierPhone(s.additionalPhone, s.kind) : '—' }}</td>
               <td class="td">{{ s.address || '—' }}</td>
               <td class="td">
                 <span class="badge" :class="s.status === 'ACTIVE' ? 'badge-ok' : 'badge-off'">
@@ -136,13 +139,37 @@
 
         <form class="space-y-3" @submit.prevent="onSubmit">
           <div>
+            <span class="m-lbl">{{ t('suppliers.kind') }} <span class="req">*</span></span>
+            <div class="kind-toggle" role="radiogroup" :aria-label="t('suppliers.kind')">
+              <button
+                type="button"
+                class="kind-btn"
+                :class="{ active: form.kind === 'LOCAL' }"
+                @click="setKind('LOCAL')"
+              >
+                {{ t('suppliers.kindLocal') }}
+              </button>
+              <button
+                type="button"
+                class="kind-btn"
+                :class="{ active: form.kind === 'INTERNATIONAL' }"
+                @click="setKind('INTERNATIONAL')"
+              >
+                {{ t('suppliers.kindInternational') }}
+              </button>
+            </div>
+            <p v-if="form.kind" class="mt-1 text-xs text-gray-400">
+              {{ form.kind === 'LOCAL' ? t('suppliers.kindLocalHint') : t('suppliers.kindInternationalHint') }}
+            </p>
+          </div>
+          <div>
             <label class="m-lbl">{{ t('common.name') }} <span class="req">*</span></label>
             <div class="relative">
               <Building2 class="field-icon" />
               <input v-model="form.name" required class="m-field" :placeholder="t('suppliers.orgNamePlaceholder')" />
             </div>
           </div>
-          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div v-if="form.kind" class="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label class="m-lbl">{{ t('common.phone') }} <span class="req">*</span></label>
               <div class="relative">
@@ -151,8 +178,8 @@
                   :value="form.phone"
                   required
                   inputmode="tel"
-                  placeholder="+998-(97)-221-88-96"
-                  maxlength="19"
+                  :placeholder="form.kind === 'INTERNATIONAL' ? t('suppliers.intlPhonePlaceholder') : '+998-(97)-221-88-96'"
+                  :maxlength="form.kind === 'INTERNATIONAL' ? 20 : 19"
                   class="m-field"
                   @input="onPhoneInput('phone', $event)"
                 />
@@ -165,8 +192,8 @@
                 <input
                   :value="form.additionalPhone"
                   inputmode="tel"
-                  placeholder="+998-(97)-221-88-96"
-                  maxlength="19"
+                  :placeholder="form.kind === 'INTERNATIONAL' ? t('suppliers.intlPhonePlaceholder') : '+998-(97)-221-88-96'"
+                  :maxlength="form.kind === 'INTERNATIONAL' ? 20 : 19"
                   class="m-field"
                   @input="onPhoneInput('additionalPhone', $event)"
                 />
@@ -278,11 +305,15 @@ import {
   fetchSuppliers,
   updateSupplier,
   type Supplier,
+  type SupplierKind,
 } from '@/api/suppliers'
 import { formatApiError } from '@/api/http'
 import { useFilialScope } from '@/composables/useFilialScope'
 import {
+  formatIntlPhone,
+  formatSupplierPhone,
   formatUzPhone,
+  isCompleteIntlPhone,
   isCompleteUzPhone,
   phoneDigits,
   phonesEqual,
@@ -304,6 +335,7 @@ const editingId = ref<number | null>(null)
 const filters = reactive({ name: '', inn: '', phone: '', status: '' })
 const form = reactive({
   name: '',
+  kind: '' as '' | SupplierKind,
   phone: '',
   additionalPhone: '',
   inn: '',
@@ -362,9 +394,21 @@ function clearFilters() {
   filters.status = ''
 }
 
+function blankPhone(kind: SupplierKind) {
+  return kind === 'INTERNATIONAL' ? '+' : '+998-'
+}
+
+function setKind(kind: SupplierKind) {
+  if (form.kind === kind) return
+  form.kind = kind
+  form.phone = blankPhone(kind)
+  form.additionalPhone = ''
+}
+
 function onPhoneInput(field: 'phone' | 'additionalPhone', e: Event) {
   const el = e.target as HTMLInputElement
-  form[field] = formatUzPhone(el.value)
+  const format = form.kind === 'INTERNATIONAL' ? formatIntlPhone : formatUzPhone
+  form[field] = format(el.value)
   el.value = form[field]
 }
 
@@ -381,12 +425,15 @@ function closeModal() {
 }
 
 function payload() {
+  const international = form.kind === 'INTERNATIONAL'
+  const format = international ? formatIntlPhone : formatUzPhone
+  const complete = international ? isCompleteIntlPhone : isCompleteUzPhone
   const additional = form.additionalPhone.trim()
   return {
     name: form.name.trim(),
-    phone: formatUzPhone(form.phone),
-    additionalPhone:
-      additional && isCompleteUzPhone(additional) ? formatUzPhone(additional) : undefined,
+    kind: form.kind as SupplierKind,
+    phone: format(form.phone),
+    additionalPhone: additional && complete(additional) ? format(additional) : undefined,
     inn: form.inn.trim() || undefined,
     address: form.address.trim() || undefined,
     bankName: form.bankName.trim() || undefined,
@@ -413,7 +460,8 @@ function openCreate() {
   editingId.value = null
   Object.assign(form, {
     name: '',
-    phone: '+998-',
+    kind: '' as '' | SupplierKind,
+    phone: '',
     additionalPhone: '',
     inn: '',
     address: '',
@@ -430,8 +478,9 @@ function openEdit(s: Supplier) {
   editingId.value = s.id
   Object.assign(form, {
     name: s.name,
-    phone: formatUzPhone(s.phone || ''),
-    additionalPhone: s.additionalPhone ? formatUzPhone(s.additionalPhone) : '',
+    kind: (s.kind || 'LOCAL') as SupplierKind,
+    phone: formatSupplierPhone(s.phone || '', s.kind || 'LOCAL'),
+    additionalPhone: s.additionalPhone ? formatSupplierPhone(s.additionalPhone, s.kind || 'LOCAL') : '',
     inn: (s.inn || '').replace(/\D/g, '').slice(0, 9),
     address: s.address || '',
     bankName: s.bankName || '',
@@ -445,16 +494,24 @@ function openEdit(s: Supplier) {
 
 async function onSubmit() {
   formError.value = null
+  if (!form.kind) {
+    formError.value = t('suppliers.kindRequired')
+    return
+  }
   if (!form.name.trim()) {
     formError.value = t('suppliers.nameRequired')
     return
   }
-  if (!isCompleteUzPhone(form.phone)) {
-    formError.value = t('suppliers.phoneInvalid')
+  const international = form.kind === 'INTERNATIONAL'
+  const phoneOk = international ? isCompleteIntlPhone(form.phone) : isCompleteUzPhone(form.phone)
+  if (!phoneOk) {
+    formError.value = t(international ? 'suppliers.phoneInvalidIntl' : 'suppliers.phoneInvalid')
     return
   }
-  if (form.additionalPhone.trim() && !isCompleteUzPhone(form.additionalPhone)) {
-    formError.value = t('suppliers.additionalPhoneInvalid')
+  const extraOk = !form.additionalPhone.trim()
+    || (international ? isCompleteIntlPhone(form.additionalPhone) : isCompleteUzPhone(form.additionalPhone))
+  if (!extraOk) {
+    formError.value = t(international ? 'suppliers.phoneInvalidIntl' : 'suppliers.additionalPhoneInvalid')
     return
   }
   const inn = form.inn.trim()
@@ -467,9 +524,15 @@ async function onSubmit() {
     formError.value = t('suppliers.mfoLength')
     return
   }
-  const dup = items.value.find(
-    (s) => phonesEqual(s.phone, form.phone) && s.id !== editingId.value,
-  )
+  const dup = items.value.find((s) => {
+    if (s.id === editingId.value) return false
+    if (form.kind === 'INTERNATIONAL') {
+      const a = phoneDigits(s.phone)
+      const b = phoneDigits(form.phone)
+      return a.length >= 8 && a === b
+    }
+    return phonesEqual(s.phone, form.phone)
+  })
   if (dup) {
     formError.value = t('suppliers.phoneTaken', { name: dup.name })
     return
@@ -591,6 +654,12 @@ onMounted(load)
 .status-toggle.off .status-knob { transform: translateX(0); }
 .status-toggle.on .status-knob { transform: translateX(1.25rem); }
 .dark .status-toggle.off { background: #4b5563; }
+.kind-badge { display: inline-flex; margin-left: 0.4rem; border-radius: 9999px; padding: 0.05rem 0.45rem; font-size: 0.7rem; font-weight: 600; vertical-align: middle; }
+.kind-local { background: #eef2ff; color: #465fff; }
+.kind-intl { background: #fff6ed; color: #c4320a; }
+.kind-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 0.15rem; height: 2.5rem; border-radius: 0.6rem; background: #f2f4f7; padding: 0.15rem; }
+.kind-btn { border-radius: 0.45rem; font-size: 0.8125rem; font-weight: 600; color: #667085; cursor: pointer; }
+.kind-btn.active { background: #fff; color: #465fff; box-shadow: 0 1px 3px rgba(16, 24, 40, 0.12); }
 .badge { display: inline-flex; border-radius: 9999px; padding: 0.15rem 0.55rem; font-size: 0.75rem; font-weight: 600; }
 .badge-ok { background: #ecfdf5; color: #059669; }
 .badge-off { background: #f3f4f6; color: #6b7280; }

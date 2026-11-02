@@ -28,6 +28,8 @@ public class GoodsMapper {
                 .maxDiscountPercent(dto.getMaxDiscountPercent())
                 .width(dto.getType() == Type.WINDOW ? dto.getWidth() : null)
                 .height(dto.getType() == Type.WINDOW ? dto.getHeight() : null)
+                .thickness(dto.getType() == Type.WINDOW ? dto.getThickness() : null)
+                .weightPerSqm(dto.getType() == Type.WINDOW ? dto.getWeightPerSqm() : null)
                 .photo(photoPath)
                 .status(Status.ACTIVE)
                 .build();
@@ -56,9 +58,13 @@ public class GoodsMapper {
         if (dto.getType() == Type.WINDOW) {
             goods.setWidth(dto.getWidth());
             goods.setHeight(dto.getHeight());
+            goods.setThickness(dto.getThickness());
+            goods.setWeightPerSqm(dto.getWeightPerSqm());
         } else {
             goods.setWidth(null);
             goods.setHeight(null);
+            goods.setThickness(null);
+            goods.setWeightPerSqm(null);
         }
         if (photoPath != null) {
             goods.setPhoto(photoPath);
@@ -82,6 +88,8 @@ public class GoodsMapper {
                 .maxDiscountPercent(goods.getMaxDiscountPercent())
                 .width(goods.getWidth())
                 .height(goods.getHeight())
+                .thickness(goods.getThickness())
+                .weightPerSqm(goods.getWeightPerSqm())
                 .photo(goods.getPhoto())
                 .status(goods.getStatus())
                 .createdAt(goods.getCreatedAt())

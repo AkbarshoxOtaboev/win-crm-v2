@@ -96,6 +96,12 @@ public class GoodsResponse {
     @Schema(description = "Default window height in centimeters (WINDOW type)", example = "150")
     private BigDecimal height;
 
+    @Schema(description = "Window thickness in millimeters (WINDOW type)", example = "4")
+    private BigDecimal thickness;
+
+    @Schema(description = "Weight of 1 m2 in kilograms (WINDOW type)", example = "10")
+    private BigDecimal weightPerSqm;
+
     @Schema(
             description = "Goods photo URL or path",
             example = "https://cdn.wincrm.uz/goods/12345.png"

@@ -72,5 +72,9 @@ public class WarehouseOrderItem extends FilialScopedEntity {
     @Column(nullable = false)
     private LocalDateTime arrivalDate;
 
+    /** Jadvaldagi o‘rin. Tahrir bu qiymatni o‘zgartirmaydi. */
+    @Column(name = "sort_order")
+    private Integer sortOrder;
+
 
 }

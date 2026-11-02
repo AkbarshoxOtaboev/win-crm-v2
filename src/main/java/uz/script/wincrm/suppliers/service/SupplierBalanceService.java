@@ -45,4 +45,12 @@ public interface SupplierBalanceService {
      * Balanslarni filtrlash
      */
     Page<SupplierBalanceResponse> filter(SupplierBalanceFilterDTO filter, Pageable pageable);
+
+    /**
+     * Kirim (summa + naqd) va to'lovlar (SUMMA + CASH) asosida balansni qayta hisoblaydi.
+     */
+    void recalculate(Long supplierId);
+
+    /** Barcha ta'minotchilar balansini qayta hisoblaydi. */
+    void recalculateAll();
 }

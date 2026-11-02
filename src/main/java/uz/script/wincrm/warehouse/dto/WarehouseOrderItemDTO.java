@@ -60,6 +60,9 @@ public class WarehouseOrderItemDTO {
     @Schema(description = "Internal: piece count before WINDOW kv.m conversion (filled by service)", hidden = true)
     private BigDecimal pieceCount;
 
+    @Schema(description = "When copying, place the new line immediately after this item. Omitted lines are appended.", example = "12")
+    private Long insertAfterItemId;
+
     @NotNull(message = "Arrival date is required")
     @Schema(description = "Arrival date and time", example = "2026-07-10T14:00:00", requiredMode = Schema.RequiredMode.REQUIRED)
     private LocalDateTime arrivalDate;

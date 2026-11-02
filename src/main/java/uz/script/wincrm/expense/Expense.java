@@ -5,6 +5,7 @@ import lombok.*;
 import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.SQLRestriction;
+import uz.script.wincrm.cash.CashSource;
 import uz.script.wincrm.currency.Currency;
 import uz.script.wincrm.filial.FilialScopedEntity;
 import uz.script.wincrm.payment.PaymentType;
@@ -58,4 +59,11 @@ public class Expense extends FilialScopedEntity {
      */
     @Column(name = "supplier_payment_id")
     private Long supplierPaymentId;
+
+    /** OPERATIONAL — kassir kassasi; VAULT — rahbarga topshirilgan pul. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "cash_source", nullable = false, length = 20)
+    @ColumnDefault("'OPERATIONAL'")
+    @Builder.Default
+    private CashSource cashSource = CashSource.OPERATIONAL;
 }

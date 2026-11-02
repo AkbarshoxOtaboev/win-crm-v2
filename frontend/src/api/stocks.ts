@@ -9,6 +9,10 @@ export interface Stock {
   unitTypeName?: string
   width?: number
   height?: number
+  thickness?: number
+  weightPerSqm?: number
+  /** Ombordagi jami vazn (kg): kvm × weightPerSqm */
+  weight?: number
   warehouseId?: number
   warehouseName?: string
   count?: number
@@ -16,6 +20,12 @@ export interface Stock {
   kvm?: number
   priceCost?: number | null
   totalCost?: number | null
+  currency?: string | null
+  exchangeRate?: number | null
+  foreignUnitCost?: number | null
+  priceSelling?: number | null
+  sellingCurrency?: string | null
+  sellingBase?: number | null
   status?: string
 }
 
@@ -42,7 +52,11 @@ export interface StockTransfer {
   toGoodsId?: number | null
   toGoodsName?: string | null
   direction?: 'INTERNAL' | 'OUTGOING' | 'INCOMING'
+  movement?: 'TRANSFER' | 'RETURN'
+  returned?: boolean
+  returnOfId?: number | null
   count?: number
+  pieceCount?: number | null
   comment?: string
   status?: string
   createdAt?: string
@@ -76,6 +90,12 @@ export function createStockTransfer(payload: StockTransferPayload) {
   return apiRequest<RestApiResponse<StockTransfer>>('/api/stock-transfers', {
     method: 'POST',
     body: payload,
+  })
+}
+
+export function returnStockTransfer(id: number) {
+  return apiRequest<RestApiResponse<StockTransfer>>(`/api/stock-transfers/${id}/return`, {
+    method: 'POST',
   })
 }
 

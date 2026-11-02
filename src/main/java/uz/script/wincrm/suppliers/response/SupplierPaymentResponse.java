@@ -2,6 +2,7 @@ package uz.script.wincrm.suppliers.response;
 
 import lombok.Builder;
 import lombok.Data;
+import uz.script.wincrm.cash.CashSource;
 import uz.script.wincrm.currency.Currency;
 import uz.script.wincrm.suppliers.SupplierDebtTarget;
 import uz.script.wincrm.utils.Status;
@@ -38,6 +39,8 @@ public class SupplierPaymentResponse {
     private BigDecimal appliedAmount;
 
     private SupplierDebtTarget debtTarget;
+
+    private CashSource cashSource;
 
     private Status status;
 

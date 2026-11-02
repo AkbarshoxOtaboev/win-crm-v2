@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
+import uz.script.wincrm.suppliers.SupplierKind;
 
 @Data
 @Schema(description = "Supplier create/update request")
@@ -13,17 +14,20 @@ public class SupplierDTO {
     @Schema(description = "Supplier name", example = "Artel")
     private String name;
 
+    @Schema(description = "LOCAL for the domestic market, INTERNATIONAL when goods come from abroad", example = "LOCAL")
+    private SupplierKind kind;
+
     @Size(max = 20)
     @Schema(description = "INN (STIR)", example = "305987654")
     private String inn;
 
 
     @NotBlank(message = "Phone is required")
-    @Size(max = 32, message = "Phone number must not exceed 32 characters")
+    @Size(max = 40, message = "Phone number must not exceed 40 characters")
     @Schema(description = "Phone number", example = "+998-(97)-221-88-96")
     private String phone;
 
-    @Size(max = 32, message = "Additional phone number must not exceed 32 characters")
+    @Size(max = 40, message = "Additional phone number must not exceed 40 characters")
     @Schema(description = "Additional phone", example = "+998-(97)-221-88-96")
     private String additionalPhone;
 

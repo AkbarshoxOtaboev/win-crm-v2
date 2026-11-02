@@ -2,6 +2,7 @@ package uz.script.wincrm.suppliers.response;
 
 import lombok.Builder;
 import lombok.Data;
+import uz.script.wincrm.suppliers.SupplierKind;
 import uz.script.wincrm.utils.Status;
 
 import java.time.LocalDateTime;
@@ -13,6 +14,8 @@ public class SupplierResponse {
     private Long id;
 
     private String name;
+
+    private SupplierKind kind;
 
     private String inn;
 

@@ -79,6 +79,13 @@ public class Goods extends FilialScopedEntity {
     /** Oyna (WINDOW) uchun default bo‘yi (santimetr) */
     private BigDecimal height;
 
+    /** Oyna (WINDOW) qalinligi (millimetr), masalan 4 / 6 / 8 */
+    private BigDecimal thickness;
+
+    /** Oyna (WINDOW) uchun 1 kv.m vazni (kg) */
+    @Column(name = "weight_per_sqm")
+    private BigDecimal weightPerSqm;
+
     @OneToMany(mappedBy = "goods")
     private List<WarehouseOrderItem> warehouseOrderItems;
 

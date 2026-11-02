@@ -16,15 +16,20 @@ import uz.script.wincrm.suppliers.SupplierBalance;
 import uz.script.wincrm.suppliers.dto.SupplierBalanceFilterDTO;
 import uz.script.wincrm.suppliers.mapper.SupplierBalanceMapper;
 import uz.script.wincrm.suppliers.repository.SupplierBalanceRepository;
+import uz.script.wincrm.suppliers.repository.SupplierPaymentRepository;
 import uz.script.wincrm.suppliers.repository.SupplierRepository;
 import uz.script.wincrm.suppliers.response.SupplierBalanceResponse;
 import uz.script.wincrm.suppliers.service.SupplierBalanceService;
 import uz.script.wincrm.suppliers.specification.SupplierBalanceSpecification;
 import uz.script.wincrm.utils.Status;
+import uz.script.wincrm.warehouse.repository.WarehouseOrderItemRepository;
+import uz.script.wincrm.warehouse.repository.WarehouseOrderRepository;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -33,6 +38,9 @@ public class SupplierBalanceServiceImpl implements SupplierBalanceService {
 
     private final SupplierBalanceRepository balanceRepository;
     private final SupplierRepository supplierRepository;
+    private final SupplierPaymentRepository paymentRepository;
+    private final WarehouseOrderRepository warehouseOrderRepository;
+    private final WarehouseOrderItemRepository warehouseOrderItemRepository;
 
     @Override
     @Transactional
@@ -181,5 +189,54 @@ public class SupplierBalanceServiceImpl implements SupplierBalanceService {
             return balanceRepository.findBySupplierIdAndCurrencyForUpdate(supplierId, currency)
                     .orElseThrow(() -> e);
         }
+    }
+
+    @Override
+    @Transactional
+    @Auditable(action = AuditAction.UPDATE, entity = "SupplierBalance")
+    public void recalculate(Long supplierId) {
+        Supplier supplier = supplierRepository.findById(supplierId)
+                .orElseThrow(() -> new ResourceNotFoundException("Supplier not found: " + supplierId));
+
+        List<SupplierBalance> existing = balanceRepository.findAllBySupplierIdOrderByCurrencyAsc(supplierId);
+        Set<Currency> currencies = EnumSet.noneOf(Currency.class);
+        existing.forEach(b -> currencies.add(b.getCurrency()));
+        currencies.addAll(warehouseOrderRepository.findCurrenciesBySupplierId(supplierId));
+        currencies.addAll(paymentRepository.findDebtCurrenciesBySupplierId(supplierId));
+        if (currencies.isEmpty()) {
+            currencies.add(Currency.BASE);
+        }
+
+        for (Currency currency : currencies) {
+            BigDecimal summaPurchase = nz(warehouseOrderRepository.sumTotalSumBySupplierAndCurrency(supplierId, currency));
+            BigDecimal cashPurchase = nz(warehouseOrderItemRepository.sumCashBySupplierAndCurrency(supplierId, currency));
+            BigDecimal totalPurchase = summaPurchase.add(cashPurchase);
+            BigDecimal totalPaid = nz(paymentRepository.sumAppliedBySupplierAndDebtCurrency(supplierId, currency));
+            BigDecimal totalDebt = totalPurchase.subtract(totalPaid);
+
+            SupplierBalance balance = getOrCreateBalance(supplierId, currency);
+            balance.setSupplier(supplier);
+            balance.setTotalPurchase(totalPurchase);
+            balance.setTotalPaid(totalPaid);
+            balance.setTotalDebt(totalDebt);
+            balance.setLastUpdated(LocalDateTime.now());
+            balanceRepository.save(balance);
+
+            log.info("Supplier balance recalculated. supplierId={}, currency={}, purchase={} (summa={}, cash={}), paid={}, debt={}",
+                    supplierId, currency, totalPurchase, summaPurchase, cashPurchase, totalPaid, totalDebt);
+        }
+    }
+
+    @Override
+    @Transactional
+    @Auditable(action = AuditAction.UPDATE, entity = "SupplierBalance")
+    public void recalculateAll() {
+        for (Supplier supplier : supplierRepository.findAll()) {
+            recalculate(supplier.getId());
+        }
+    }
+
+    private static BigDecimal nz(BigDecimal value) {
+        return value != null ? value : BigDecimal.ZERO;
     }
 }

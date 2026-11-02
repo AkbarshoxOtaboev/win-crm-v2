@@ -203,6 +203,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import Swal from 'sweetalert2'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import {
@@ -375,6 +376,27 @@ async function submit() {
   }
 }
 
+function isDarkMode() {
+  return typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+}
+
+function swalTheme() {
+  const dark = isDarkMode()
+  return {
+    background: dark ? '#111827' : '#ffffff',
+    color: dark ? 'rgba(255,255,255,0.92)' : '#101828',
+  }
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 async function runAction(h: CashHandover, action: () => Promise<unknown>) {
   busyId.value = h.id
   error.value = null
@@ -389,19 +411,100 @@ async function runAction(h: CashHandover, action: () => Promise<unknown>) {
   }
 }
 
-function accept(h: CashHandover) {
-  if (!confirm(t('cashHandover.acceptConfirm', { name: h.cashierName || '', sum: amt(h.amount, h.currency) }))) return
-  return runAction(h, () => acceptCashHandover(h.id))
+function displaySum(h: CashHandover) {
+  return moneyIn(Number(h.amount || 0), h.currency || BASE_CURRENCY, t('common.currency'))
 }
 
-function reject(h: CashHandover) {
-  const reason = prompt(t('cashHandover.rejectPrompt'))
-  if (reason === null) return
-  return runAction(h, () => rejectCashHandover(h.id, reason.trim() || undefined))
+async function accept(h: CashHandover) {
+  const sum = displaySum(h)
+  const dark = isDarkMode()
+  const muted = dark ? 'rgba(255,255,255,0.65)' : '#667085'
+  const amountColor = dark ? '#32d583' : '#039855'
+  const cardBg = dark ? 'rgba(18,183,106,0.12)' : '#ecfdf3'
+  const cardBorder = dark ? 'rgba(18,183,106,0.35)' : '#a6f4c5'
+  const from = t('cashHandover.acceptFrom', {
+    name: h.cashierName || '—',
+    cashbox: h.paymentTypeName || '—',
+  })
+
+  const result = await Swal.fire({
+    ...swalTheme(),
+    icon: 'question',
+    title: t('cashHandover.acceptTitle'),
+    html: `
+      <p style="margin:0 0 0.75rem;font-size:0.875rem;color:${muted}">${escapeHtml(from)}</p>
+      <div style="margin:0 auto;max-width:18rem;border-radius:0.85rem;border:1px solid ${cardBorder};background:${cardBg};padding:1rem 1.1rem">
+        <div style="font-size:0.75rem;font-weight:600;letter-spacing:0.02em;text-transform:uppercase;color:${muted}">
+          ${escapeHtml(t('cashHandover.acceptAmountLabel'))}
+        </div>
+        <div style="margin-top:0.35rem;font-size:1.75rem;font-weight:700;line-height:1.2;color:${amountColor};font-variant-numeric:tabular-nums">
+          ${escapeHtml(sum)}
+        </div>
+      </div>
+    `,
+    showCancelButton: true,
+    focusCancel: true,
+    reverseButtons: true,
+    confirmButtonText: t('cashHandover.acceptYes'),
+    cancelButtonText: t('common.cancel'),
+    confirmButtonColor: '#12b76a',
+    cancelButtonColor: dark ? '#475467' : '#98a2b3',
+  })
+  if (!result.isConfirmed) return
+
+  await runAction(h, () => acceptCashHandover(h.id))
+  if (!error.value) {
+    await Swal.fire({
+      ...swalTheme(),
+      icon: 'success',
+      title: t('cashHandover.acceptedOk'),
+      html: `<p style="margin:0;font-size:1.25rem;font-weight:700;color:${amountColor};font-variant-numeric:tabular-nums">${escapeHtml(sum)}</p>`,
+      timer: 1600,
+      showConfirmButton: false,
+    })
+  }
 }
 
-function cancel(h: CashHandover) {
-  if (!confirm(t('cashHandover.cancelConfirm'))) return
+async function reject(h: CashHandover) {
+  const sum = displaySum(h)
+  const dark = isDarkMode()
+  const result = await Swal.fire({
+    ...swalTheme(),
+    icon: 'warning',
+    title: t('cashHandover.rejectTitle'),
+    html: `<p style="margin:0 0 0.5rem;font-size:1.15rem;font-weight:700;font-variant-numeric:tabular-nums">${escapeHtml(sum)}</p>
+           <p style="margin:0;font-size:0.875rem;opacity:0.75">${escapeHtml(h.cashierName || '—')} · ${escapeHtml(h.paymentTypeName || '')}</p>`,
+    input: 'text',
+    inputPlaceholder: t('cashHandover.rejectPrompt'),
+    inputAttributes: dark
+      ? { style: 'background:#1f2937;color:rgba(255,255,255,0.92);border:1px solid #374151' }
+      : undefined,
+    showCancelButton: true,
+    reverseButtons: true,
+    confirmButtonText: t('cashHandover.rejectYes'),
+    cancelButtonText: t('common.cancel'),
+    confirmButtonColor: '#d92d20',
+    cancelButtonColor: dark ? '#475467' : '#98a2b3',
+  })
+  if (!result.isConfirmed) return
+  const reason = typeof result.value === 'string' ? result.value.trim() : ''
+  return runAction(h, () => rejectCashHandover(h.id, reason || undefined))
+}
+
+async function cancel(h: CashHandover) {
+  const dark = isDarkMode()
+  const result = await Swal.fire({
+    ...swalTheme(),
+    icon: 'question',
+    title: t('cashHandover.cancelConfirm'),
+    showCancelButton: true,
+    reverseButtons: true,
+    confirmButtonText: t('common.yes'),
+    cancelButtonText: t('common.no'),
+    confirmButtonColor: '#d92d20',
+    cancelButtonColor: dark ? '#475467' : '#98a2b3',
+  })
+  if (!result.isConfirmed) return
   return runAction(h, () => cancelCashHandover(h.id))
 }
 

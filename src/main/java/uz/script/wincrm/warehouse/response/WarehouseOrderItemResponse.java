@@ -63,6 +63,9 @@ public class WarehouseOrderItemResponse {
     @Schema(description = "Arrival date and time", example = "2026-07-10T14:00:00")
     private LocalDateTime arrivalDate;
 
+    @Schema(description = "Stable row position. Editing a line does not change it.", example = "2")
+    private Integer sortOrder;
+
     @Schema(description = "Current item status", example = "ACTIVE", implementation = Status.class)
     private Status status;
 
