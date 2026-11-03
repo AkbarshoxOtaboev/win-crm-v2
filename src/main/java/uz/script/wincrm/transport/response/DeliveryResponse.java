@@ -25,6 +25,8 @@ public class DeliveryResponse {
     private LocalDateTime orderDate;
     private LocalDateTime plannedDeliveryDate;
     private BigDecimal orderTotalSum;
+    /** Buyurtma jami vazni (kg): WINDOW pozitsiyalar kv.m × 1 m² vazni */
+    private BigDecimal orderWeightKg;
     private String sellerFullName;
     private String orderComment;
 
@@ -38,6 +40,7 @@ public class DeliveryResponse {
     private String driverPhone;
     private String carModel;
     private String carNumber;
+    private BigDecimal driverMaxWeightKg;
     private List<WorkerRef> workers;
 
     private String note;
@@ -74,5 +77,6 @@ public class DeliveryResponse {
         private BigDecimal count;
         private BigDecimal width;
         private BigDecimal height;
+        private BigDecimal weightKg;
     }
 }

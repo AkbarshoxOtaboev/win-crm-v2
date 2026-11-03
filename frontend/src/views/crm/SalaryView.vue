@@ -22,6 +22,7 @@
             <tr class="border-b border-gray-100 dark:border-gray-800">
               <th class="th">#</th>
               <th class="th">{{ t('salary.employee') }}</th>
+              <th class="th">{{ t('salary.position') }}</th>
               <th class="th">{{ t('salary.baseSalary') }}</th>
               <th class="th">{{ t('salary.commission') }}</th>
               <th class="th">{{ t('common.from') }}</th>
@@ -30,13 +31,14 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-if="loading"><td colspan="7" class="empty">{{ t('common.loading') }}</td></tr>
-            <tr v-else-if="configs.length === 0"><td colspan="7" class="empty">{{ t('salary.noConfigs') }}</td></tr>
+            <tr v-if="loading"><td colspan="8" class="empty">{{ t('common.loading') }}</td></tr>
+            <tr v-else-if="configs.length === 0"><td colspan="8" class="empty">{{ t('salary.noConfigs') }}</td></tr>
             <tr v-for="c in configs" :key="c.id" class="border-b border-gray-100 dark:border-gray-800">
               <td class="td">{{ c.id }}</td>
               <td class="td font-medium text-gray-800 dark:text-white/90">{{ c.userFullName || c.userId }}</td>
+              <td class="td">{{ roleList(c.roleNames) }}</td>
               <td class="td">{{ money(c.baseSalary) }}</td>
-              <td class="td">{{ enumLabel('salary.commissionTypes', c.commissionType) }} {{ c.commissionValue }}</td>
+              <td class="td">{{ payLabel(c) }}</td>
               <td class="td">{{ c.effectiveFrom }}</td>
               <td class="td">{{ c.effectiveTo || '—' }}</td>
               <td class="td text-right">
@@ -171,6 +173,12 @@
           <span>{{ t('salary.commissionReversal') }}</span><span>{{ money(slip.totalCommissionReversal) }}</span>
         </div>
         <div class="flex justify-between border-b border-gray-100 py-2 dark:border-gray-800">
+          <span>{{ t('salary.transportCommission') }}</span><span>{{ money(slip.totalTransportCommission) }}</span>
+        </div>
+        <div class="flex justify-between border-b border-gray-100 py-2 dark:border-gray-800">
+          <span>{{ t('salary.transportReversal') }}</span><span>{{ money(slip.totalTransportCommissionReversal) }}</span>
+        </div>
+        <div class="flex justify-between border-b border-gray-100 py-2 dark:border-gray-800">
           <span>{{ t('salary.kpi') }}</span><span>{{ money(slip.totalKpi) }}</span>
         </div>
         <div class="flex justify-between border-b border-gray-100 py-2 dark:border-gray-800">
@@ -205,7 +213,9 @@
             <label class="lbl">{{ t('salary.baseSalary') }} *</label>
             <input v-model.number="configForm.baseSalary" type="number" min="0" step="0.01" required class="field" />
           </div>
-          <div class="grid grid-cols-2 gap-3">
+          <p v-if="selectedRoles.length" class="text-sm text-gray-500">{{ roleList(selectedRoles) }}</p>
+          <p v-if="!variablePay" class="text-sm text-gray-500">{{ t('salary.fixedHint') }}</p>
+          <div v-else class="grid grid-cols-2 gap-3">
             <div>
               <label class="lbl">{{ t('salary.commissionType') }} *</label>
               <select v-model="configForm.commissionType" required class="field">
@@ -218,6 +228,7 @@
               <input v-model.number="configForm.commissionValue" type="number" min="0" step="0.01" required class="field" />
             </div>
           </div>
+          <p v-if="variablePay" class="text-sm text-gray-500">{{ payHint }}</p>
           <div>
             <label class="lbl">{{ t('salary.effectiveFrom') }} *</label>
             <input v-model="configForm.effectiveFrom" type="date" required class="field" />
@@ -233,7 +244,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
@@ -303,6 +314,33 @@ function enumLabel(prefix: string, value: string) {
   return te(key) ? t(key) : value
 }
 
+const VARIABLE_ROLES = ['SELLER', 'TRANSPORT_MANAGER']
+
+const selectedUser = computed(() => users.value.find((u) => u.id === configForm.userId))
+const selectedRoles = computed(() => (selectedUser.value?.role || []).map((r) => r.name))
+const variablePay = computed(() => selectedRoles.value.some((name) => VARIABLE_ROLES.includes(name)))
+const payHint = computed(() => {
+  const seller = selectedRoles.value.includes('SELLER')
+  const transport = selectedRoles.value.includes('TRANSPORT_MANAGER')
+  const fixed = configForm.commissionType === 'FIXED'
+  const parts: string[] = []
+  if (seller) parts.push(t(fixed ? 'salary.sellerFixedHint' : 'salary.sellerPercentHint'))
+  if (transport) parts.push(t(fixed ? 'salary.transportFixedHint' : 'salary.transportPercentHint'))
+  return parts.join(' ')
+})
+
+function roleList(names?: string[]) {
+  if (!names?.length) return '—'
+  return names.map((name) => enumLabel('salary.roles', name)).join(', ')
+}
+
+function payLabel(c: SalaryConfig) {
+  if (!Number(c.commissionValue)) return t('salary.fixedOnly')
+  const kind = enumLabel('salary.commissionTypes', c.commissionType)
+  const suffix = c.commissionType === 'PERCENT' ? '%' : ''
+  return `${kind} ${c.commissionValue}${suffix}`
+}
+
 function isManualTx(type: string) {
   return type === 'BONUS' || type === 'DEDUCTION' || type === 'ADVANCE'
 }
@@ -339,7 +377,11 @@ async function onConfigSubmit() {
   saving.value = true
   formError.value = null
   try {
-    await createSalaryConfig({ ...configForm })
+    await createSalaryConfig({
+      ...configForm,
+      commissionType: variablePay.value ? configForm.commissionType : 'PERCENT',
+      commissionValue: variablePay.value ? Number(configForm.commissionValue) : 0,
+    })
     configModal.value = false
     await load()
   } catch (e) {

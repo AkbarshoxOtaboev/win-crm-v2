@@ -20,6 +20,7 @@ export interface TransportDriver {
   phone?: string | null
   carModel?: string | null
   carNumber?: string | null
+  maxWeightKg?: number | null
   note?: string | null
   status?: string
   createdAt?: string
@@ -30,6 +31,7 @@ export interface TransportDriverPayload {
   phone?: string
   carModel?: string
   carNumber?: string
+  maxWeightKg: number
   note?: string
 }
 
@@ -61,6 +63,7 @@ export interface DeliveryItem {
   count?: number | null
   width?: number | null
   height?: number | null
+  weightKg?: number | null
 }
 
 export interface Delivery {
@@ -71,6 +74,7 @@ export interface Delivery {
   orderDate?: string | null
   plannedDeliveryDate?: string | null
   orderTotalSum?: number | null
+  orderWeightKg?: number | null
   sellerFullName?: string | null
   orderComment?: string | null
   clientId?: number | null
@@ -82,6 +86,7 @@ export interface Delivery {
   driverPhone?: string | null
   carModel?: string | null
   carNumber?: string | null
+  driverMaxWeightKg?: number | null
   workers: DeliveryWorkerRef[]
   note?: string | null
   sentAt?: string | null

@@ -29,6 +29,7 @@
               <th class="th">{{ t('transport.fields.order') }}</th>
               <th class="th">{{ t('transport.orders.colClientAddress') }}</th>
               <th class="th">{{ t('common.sum') }}</th>
+              <th class="th">{{ t('transport.orders.weight') }}</th>
               <th class="th">{{ t('common.status') }}</th>
               <th class="th">{{ t('transport.orders.colDriverWorkers') }}</th>
               <th class="th">{{ t('transport.orders.colTimes') }}</th>
@@ -36,8 +37,8 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-if="loading && !visible.length"><td colspan="7" class="empty">{{ t('common.loading') }}</td></tr>
-            <tr v-else-if="!visible.length"><td colspan="7" class="empty">{{ t('transport.orders.empty') }}</td></tr>
+            <tr v-if="loading && !visible.length"><td colspan="8" class="empty">{{ t('common.loading') }}</td></tr>
+            <tr v-else-if="!visible.length"><td colspan="8" class="empty">{{ t('transport.orders.empty') }}</td></tr>
             <tr v-for="d in visible" :key="d.id" class="border-b border-gray-100 align-top dark:border-gray-800">
               <td class="td whitespace-nowrap">
                 <button type="button" class="link" @click="detail = d">#{{ d.saleOrderId }}</button>
@@ -49,11 +50,15 @@
                 <div v-if="d.address" class="text-xs text-gray-500">{{ d.address }}</div>
               </td>
               <td class="td whitespace-nowrap">{{ money(d.orderTotalSum) }}</td>
+              <td class="td whitespace-nowrap">{{ formatWeightKg(d.orderWeightKg) }}</td>
               <td class="td"><DeliveryStatusBadge :status="d.deliveryStatus" /></td>
               <td class="td min-w-44">
                 <template v-if="d.driverFullName">
                   <div class="font-medium text-gray-800 dark:text-white/90">{{ d.driverFullName }}</div>
                   <div class="text-xs text-gray-500">{{ [d.carModel, d.carNumber].filter(Boolean).join(' · ') || '—' }}</div>
+                  <div v-if="d.driverMaxWeightKg" class="text-xs text-gray-500">
+                    {{ t('transport.orders.vanMax', { kg: formatWeight(d.driverMaxWeightKg) }) }}
+                  </div>
                   <div v-if="d.workers.length" class="text-xs text-gray-500">
                     {{ t('transport.orders.workersList', { names: d.workers.map((w) => w.fullName).join(', ') }) }}
                   </div>
@@ -119,15 +124,21 @@
         <h3 class="title mb-1">
           {{ crewMode === 'accept' ? t('transport.orders.acceptTitle') : t('transport.orders.crewTitle') }} #{{ crewTarget.saleOrderId }}
         </h3>
-        <p class="sub mb-4">{{ crewTarget.clientFullName || '—' }} · {{ money(crewTarget.orderTotalSum) }}</p>
+        <p class="sub mb-4">
+          {{ crewTarget.clientFullName || '—' }} · {{ money(crewTarget.orderTotalSum) }}
+          <template v-if="crewTarget.orderWeightKg">
+            · {{ t('transport.orders.orderWeight', { kg: formatWeight(crewTarget.orderWeightKg) }) }}
+          </template>
+        </p>
         <div v-if="crewError" class="err mb-3">{{ crewError }}</div>
+        <p v-if="crewOverweight" class="err mb-3">{{ crewOverweight }}</p>
         <form class="space-y-3" @submit.prevent="onCrewSave">
           <label class="lbl">
             {{ t('transport.orders.driverLabel') }}
             <select v-model.number="crew.driverId" required class="field">
               <option :value="0" disabled>{{ t('common.select') }}</option>
               <option v-for="dr in drivers" :key="dr.id" :value="dr.id">
-                {{ dr.fullName }}{{ dr.carNumber ? ` · ${dr.carNumber}` : '' }}
+                {{ driverOptionLabel(dr) }}
               </option>
             </select>
           </label>
@@ -148,7 +159,7 @@
           <label class="lbl">{{ t('common.note') }}<input v-model="crew.note" class="field" /></label>
           <div class="flex justify-end gap-2">
             <button type="button" class="ghost" @click="crewTarget = null">{{ t('common.cancel') }}</button>
-            <button type="submit" class="btn" :disabled="crewSaving || !crew.driverId">
+            <button type="submit" class="btn" :disabled="crewSaving || !crew.driverId || !!crewOverweight">
               {{ crewSaving ? '...' : crewMode === 'accept' ? t('transport.orders.accept') : t('common.save') }}
             </button>
           </div>
@@ -170,6 +181,7 @@
           <div><span class="k">{{ t('common.phone') }}</span>{{ detail.clientPhone || '—' }}</div>
           <div class="sm:col-span-2"><span class="k">{{ t('common.address') }}</span>{{ detail.address || '—' }}</div>
           <div><span class="k">{{ t('common.sum') }}</span>{{ money(detail.orderTotalSum) }}</div>
+          <div><span class="k">{{ t('transport.orders.weight') }}</span>{{ formatWeightKg(detail.orderWeightKg) }}</div>
           <div><span class="k">{{ t('transport.orders.seller') }}</span>{{ detail.sellerFullName || '—' }}</div>
           <div><span class="k">{{ t('transport.orders.plannedDelivery') }}</span>{{ formatDate(detail.plannedDeliveryDate) }}</div>
           <div><span class="k">{{ t('common.note') }}</span>{{ detail.note || detail.orderComment || '—' }}</div>
@@ -182,14 +194,16 @@
               <th class="th">{{ t('transport.orders.product') }}</th>
               <th class="th">{{ t('transport.orders.quantity') }}</th>
               <th class="th">{{ t('transport.orders.size') }}</th>
+              <th class="th">{{ t('transport.orders.weight') }}</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-if="!detail.items.length"><td colspan="3" class="empty">{{ t('transport.orders.noItems') }}</td></tr>
+            <tr v-if="!detail.items.length"><td colspan="4" class="empty">{{ t('transport.orders.noItems') }}</td></tr>
             <tr v-for="it in detail.items" :key="it.id" class="border-b border-gray-100 dark:border-gray-800">
               <td class="td">{{ it.goodsName || '—' }}</td>
               <td class="td">{{ qty(it.count) }}{{ it.goodsType === 'WINDOW' ? ` ${t('transport.orders.sqm')}` : '' }}</td>
               <td class="td">{{ it.width && it.height ? `${qty(it.width)}×${qty(it.height)}` : '—' }}</td>
+              <td class="td">{{ formatWeightKg(it.weightKg) }}</td>
             </tr>
           </tbody>
         </table>
@@ -295,6 +309,37 @@ function qty(v?: number | null) {
   return new Intl.NumberFormat('uz-UZ', { maximumFractionDigits: 4 }).format(Number(v))
 }
 
+function formatWeight(v?: number | null) {
+  if (v == null) return '—'
+  return new Intl.NumberFormat('uz-UZ', { maximumFractionDigits: 2 }).format(Number(v))
+}
+
+function formatWeightKg(v?: number | null) {
+  if (v == null || !(Number(v) > 0)) return '—'
+  return `${formatWeight(v)} ${t('transport.drivers.kg')}`
+}
+
+function driverOptionLabel(dr: TransportDriver) {
+  const parts = [dr.fullName]
+  if (dr.carNumber) parts.push(dr.carNumber)
+  if (dr.maxWeightKg != null && Number(dr.maxWeightKg) > 0) {
+    parts.push(`${formatWeight(dr.maxWeightKg)} ${t('transport.drivers.kg')}`)
+  }
+  return parts.join(' · ')
+}
+
+const selectedCrewDriver = computed(() => drivers.value.find((d) => d.id === crew.driverId) || null)
+
+const crewOverweight = computed(() => {
+  const orderW = Number(crewTarget.value?.orderWeightKg || 0)
+  const maxW = Number(selectedCrewDriver.value?.maxWeightKg || 0)
+  if (!(orderW > 0) || !(maxW > 0) || orderW <= maxW) return null
+  return t('transport.orders.overweight', {
+    orderKg: formatWeight(orderW),
+    maxKg: formatWeight(maxW),
+  })
+})
+
 async function load() {
   loading.value = true
   error.value = null
@@ -329,6 +374,10 @@ async function openCrew(d: Delivery, mode: 'accept' | 'crew') {
 
 async function onCrewSave() {
   if (!crewTarget.value || !crew.driverId) return
+  if (crewOverweight.value) {
+    crewError.value = crewOverweight.value
+    return
+  }
   crewSaving.value = true
   crewError.value = null
   const payload = {

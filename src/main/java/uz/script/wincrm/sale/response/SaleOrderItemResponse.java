@@ -54,6 +54,9 @@ public class SaleOrderItemResponse {
     @Schema(description = "Product count", example = "5")
     private BigDecimal count;
 
+    @Schema(description = "Qator vazni, kg. Oyna: m² × 1 m² vazni", example = "12.50")
+    private BigDecimal weightKg;
+
     @Schema(description = "Oyna kesish: kesuv qalinligi, mm; null - sozlamadagi qiymat")
     private BigDecimal cutKerfMm;
 

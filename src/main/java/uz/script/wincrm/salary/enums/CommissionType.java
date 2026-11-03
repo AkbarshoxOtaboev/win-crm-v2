@@ -5,8 +5,8 @@ package uz.script.wincrm.salary.enums;
  * Admin SalaryConfig'da ushbu turni tanlaydi.
  */
 public enum CommissionType {
-    /** commissionValue foiz sifatida qaraladi (masalan 2 => har buyurtmadan 2%). */
+    /** commissionValue foiz. Sotuvchida to'langan summadan, transport menejerda buyurtma summasidan. */
     PERCENT,
-    /** commissionValue aniq summa sifatida qaraladi (har to'liq to'langan buyurtma uchun bir marta). */
+    /** commissionValue aniq summa: sotuvchida har yetkazilgan buyurtma, transportda har tasdiqlangan yetkazish. */
     FIXED
 }

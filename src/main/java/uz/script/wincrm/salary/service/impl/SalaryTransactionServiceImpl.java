@@ -36,8 +36,7 @@ public class SalaryTransactionServiceImpl implements SalaryTransactionService {
     @Auditable(action = AuditAction.CREATE, entity = "SalaryTransaction")
     public SalaryTransactionResponse addAdjustment(SalaryAdjustmentDTO dto) {
         // Faqat qo'lda tuzatishlar. COMMISSION/COMMISSION_REVERSAL faqat tizim (to'lov hodisasi) yozadi.
-        if (dto.getEntryType() == SalaryEntryType.COMMISSION
-                || dto.getEntryType() == SalaryEntryType.COMMISSION_REVERSAL) {
+        if (isSystemEntry(dto.getEntryType())) {
             throw new BadRequestException(
                     "COMMISSION turlari qo'lda kiritilmaydi - ular to'lov hodisasida avtomatik yoziladi");
         }
@@ -87,12 +86,18 @@ public class SalaryTransactionServiceImpl implements SalaryTransactionService {
         SalaryTransaction entity = repository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Salary transaction not found with id: " + id));
         // Avtomatik komissiya yozuvlarini qo'lda o'chirishga yo'l qo'ymaymiz - ular ledger yaxlitligini saqlaydi.
-        if (entity.getEntryType() == SalaryEntryType.COMMISSION
-                || entity.getEntryType() == SalaryEntryType.COMMISSION_REVERSAL) {
+        if (isSystemEntry(entity.getEntryType())) {
             throw new BadRequestException(
                     "Avtomatik komissiya yozuvini o'chirib bo'lmaydi - u to'lov o'zgarganda avtomatik to'g'rilanadi");
         }
         entity.setStatus(Status.DELETED);
         repository.save(entity);
+    }
+
+    private boolean isSystemEntry(SalaryEntryType type) {
+        return type == SalaryEntryType.COMMISSION
+                || type == SalaryEntryType.COMMISSION_REVERSAL
+                || type == SalaryEntryType.TRANSPORT_COMMISSION
+                || type == SalaryEntryType.TRANSPORT_COMMISSION_REVERSAL;
     }
 }

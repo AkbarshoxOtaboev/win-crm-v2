@@ -47,6 +47,9 @@ public class SaleOrderResponse {
     @Schema(description = "Order date and time", example = "2026-07-04T09:30:15")
     private LocalDateTime orderDate;
 
+    @Schema(description = "Oyna qatorlari jami vazni, kg", example = "42.50")
+    private BigDecimal totalWeightKg;
+
     @Schema(description = "Buyurtma tayyor bo'lishi rejalashtirilgan sana", example = "2026-07-17T00:00:00")
     private LocalDateTime plannedReadyDate;
 

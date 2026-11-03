@@ -126,6 +126,7 @@ export default {
     earned: 'Всего начислено',
     completedTitle: 'Выполненные работы',
     defaultFee: 'Стандартный процент',
+    pieceRate: 'Ставка',
     sale: 'Продажа',
     client: 'Клиент',
     orderSum: 'Сумма заказа',

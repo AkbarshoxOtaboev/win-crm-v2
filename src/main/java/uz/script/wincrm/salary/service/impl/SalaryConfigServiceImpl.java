@@ -46,6 +46,11 @@ public class SalaryConfigServiceImpl implements SalaryConfigService {
         User user = userRepository.findById(dto.getUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + dto.getUserId()));
 
+        boolean variablePay = hasRole(user, "SELLER") || hasRole(user, "TRANSPORT_MANAGER");
+        if (!variablePay && dto.getCommissionValue() != null && dto.getCommissionValue().signum() > 0) {
+            throw new BadRequestException("Bu lavozim uchun faqat fiksa oylik belgilanadi");
+        }
+
         LocalDate effectiveFrom = dto.getEffectiveFrom();
 
         Optional<SalaryConfig> openConfigOpt =
@@ -106,6 +111,10 @@ public class SalaryConfigServiceImpl implements SalaryConfigService {
         SalaryConfig entity = getEntity(id);
         entity.setStatus(Status.DELETED);
         repository.save(entity);
+    }
+
+    private boolean hasRole(User user, String role) {
+        return user.getRoles() != null && user.getRoles().stream().anyMatch(r -> role.equals(r.getName()));
     }
 
     private SalaryConfig getEntity(Long id) {

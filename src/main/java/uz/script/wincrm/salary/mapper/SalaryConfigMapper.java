@@ -1,8 +1,13 @@
 package uz.script.wincrm.salary.mapper;
 
 import org.springframework.stereotype.Component;
+import uz.script.wincrm.roles.Role;
 import uz.script.wincrm.salary.SalaryConfig;
 import uz.script.wincrm.salary.response.SalaryConfigResponse;
+import uz.script.wincrm.users.User;
+
+import java.util.Comparator;
+import java.util.List;
 
 @Component
 public class SalaryConfigMapper {
@@ -11,10 +16,12 @@ public class SalaryConfigMapper {
         if (entity == null) {
             return null;
         }
+        User user = entity.getUser();
         return SalaryConfigResponse.builder()
                 .id(entity.getId())
-                .userId(entity.getUser() != null ? entity.getUser().getId() : null)
-                .userFullName(entity.getUser() != null ? entity.getUser().getFullName() : null)
+                .userId(user != null ? user.getId() : null)
+                .userFullName(user != null ? user.getFullName() : null)
+                .roleNames(roleNames(user))
                 .baseSalary(entity.getBaseSalary())
                 .commissionType(entity.getCommissionType())
                 .commissionValue(entity.getCommissionValue())
@@ -25,5 +32,15 @@ public class SalaryConfigMapper {
                 .updatedAt(entity.getUpdatedAt())
                 .createdUsername(entity.getCreatedUsername())
                 .build();
+    }
+
+    private List<String> roleNames(User user) {
+        if (user == null || user.getRoles() == null) {
+            return List.of();
+        }
+        return user.getRoles().stream()
+                .map(Role::getName)
+                .sorted(Comparator.naturalOrder())
+                .toList();
     }
 }

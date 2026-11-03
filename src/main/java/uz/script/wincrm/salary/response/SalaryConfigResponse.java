@@ -10,6 +10,7 @@ import uz.script.wincrm.utils.Status;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Getter
 @Setter
@@ -25,6 +26,9 @@ public class SalaryConfigResponse {
 
     @Schema(description = "Xodimning to'liq ismi", example = "Ali Valiyev")
     private String userFullName;
+
+    @Schema(description = "Xodim lavozimlari")
+    private List<String> roleNames;
 
     @Schema(description = "Oylik fiksa", example = "3000000.00")
     private BigDecimal baseSalary;

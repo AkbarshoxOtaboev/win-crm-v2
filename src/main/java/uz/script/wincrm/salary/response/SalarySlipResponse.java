@@ -11,8 +11,9 @@ import java.math.BigDecimal;
  * Bir xodimning bitta oy uchun yig'ma oylik hisob-kitobi (payslip).
  * SalaryTransaction ledger'idan agregatsiya + amaldagi SalaryConfig'dan fiksa asosida hisoblanadi.
  *
- * netSalary = baseSalary + totalCommission - totalCommissionReversal + totalKpi
- *             + totalBonus - totalDeduction - totalAdvance
+ * netSalary = baseSalary + totalCommission - totalCommissionReversal
+ *             + totalTransportCommission - totalTransportCommissionReversal
+ *             + totalKpi + totalBonus - totalDeduction - totalAdvance
  */
 @Getter
 @Setter
@@ -40,6 +41,12 @@ public class SalarySlipResponse {
 
     @Schema(description = "Davr ichida qaytarilgan komissiya", example = "0.00")
     private BigDecimal totalCommissionReversal;
+
+    @Schema(description = "Transport menejerning tasdiqlangan yetkazish haqi", example = "150000.00")
+    private BigDecimal totalTransportCommission;
+
+    @Schema(description = "Qaytarilgan yetkazish haqi", example = "0.00")
+    private BigDecimal totalTransportCommissionReversal;
 
     @Schema(description = "Davr ichida yakunlangan buyurtmalardan yozilgan KPI", example = "250000.00")
     private BigDecimal totalKpi;

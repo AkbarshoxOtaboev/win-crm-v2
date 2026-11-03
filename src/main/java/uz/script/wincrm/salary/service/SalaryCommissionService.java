@@ -3,20 +3,23 @@ package uz.script.wincrm.salary.service;
 import uz.script.wincrm.sale.SaleOrder;
 
 /**
- * Komissiya hisoblash "dvigateli". Buyurtma COMPLETED bo'lganda yoki o'chirilganda (SaleOrderServiceImpl)
- * va to'lov o'zgarib paidSum qayta hisoblangandan KEYIN (PaymentServiceImpl) chaqiriladi.
- *
- * Yondashuv - single source of truth (recalculateSaleOrderSums / recalculateClientBalance
- * pattern'ingizdek): har safar buyurtma bo'yicha KUTILGAN komissiya qayta hisoblanadi va
- * allaqachon kitobga olingan komissiya bilan farqi (delta) yoziladi. Shu tufayli to'lov
- * qo'shilishi, kamayishi, buyurtma bekor bo'lishi - barchasi avtomatik to'g'rilanadi,
- * alohida "reversal" mantiqi yozish shart emas.
+ * Komissiya hisoblash. Har safar kutilgan summa qayta hisoblanadi va kitobdagi
+ * summa bilan farqi yoziladi. Qo'shimcha to'lov, kamayish va bekor qilish shu
+ * farq orqali tuzatiladi.
  */
 public interface SalaryCommissionService {
 
     /**
-     * Berilgan buyurtma uchun komissiyani qayta hisoblab, farq bo'lsa COMMISSION yoki
-     * COMMISSION_REVERSAL yozuvini yaratadi. Idempotent: farq bo'lmasa hech narsa yozmaydi.
+     * Sotuvchi komissiyasi. SELLER lavozimi, buyurtma yetkazilgan (optomda WORK_DONE)
+     * va kamida bitta to'lov bo'lsa yoziladi. Foiz to'langan summadan, aniq summa
+     * har shunday buyurtma uchun bir marta.
      */
     void recalculateCommissionForSaleOrder(SaleOrder saleOrder);
+
+    /**
+     * Transport menejer haqi. Yetkazish tasdiqlanganda yoziladi, bekor qilinsa qaytariladi.
+     * Foiz buyurtma summasidan, aniq summa har tasdiqlangan yetkazish uchun bir marta.
+     * Ishchilar ulushi bu yerga kirmaydi.
+     */
+    void recalculateTransportManagerCommission(SaleOrder saleOrder, boolean delivered);
 }

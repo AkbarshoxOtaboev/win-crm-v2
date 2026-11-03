@@ -11,6 +11,7 @@ import uz.script.wincrm.sale.SaleOrderItem;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -18,6 +19,17 @@ import java.util.Optional;
 public interface SaleOrderItemRepository extends JpaRepository<SaleOrderItem, Long> {
 
     List<SaleOrderItem> findAllBySaleOrderId(Long saleOrderId);
+
+    /** Oyna qatorlari: buyurtma, m² va 1 m² vazni. Jami qator bo‘yicha yaxlitlanadi. */
+    @Query("""
+            SELECT soi.saleOrder.id, soi.count, g.weightPerSqm
+            FROM SaleOrderItem soi JOIN soi.goods g
+            WHERE soi.saleOrder.id IN :orderIds
+              AND g.type = uz.script.wincrm.goods.enums.Type.WINDOW
+              AND g.weightPerSqm IS NOT NULL
+              AND soi.count > 0
+            """)
+    List<Object[]> windowWeightRowsByOrderIds(@Param("orderIds") Collection<Long> orderIds);
 
     Page<SaleOrderItem> findAllBySaleOrderId(Long saleOrderId, Pageable pageable);
 

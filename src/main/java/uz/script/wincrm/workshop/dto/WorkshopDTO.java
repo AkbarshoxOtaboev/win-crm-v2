@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
 import lombok.Setter;
+import uz.script.wincrm.workshop.enums.WorkshopPayBasis;
 
 @Getter
 @Setter
@@ -20,6 +21,12 @@ public class WorkshopDTO {
     @Schema(description = "Manager user id")
     private Long managerId;
 
-    @Schema(description = "Default fee percent of sale order total (0-100)", example = "5.00")
+    @Schema(description = "PERCENT bo'lsa buyurtma summasining foizi (0-100)", example = "5.00")
     private java.math.BigDecimal feePercent;
+
+    @Schema(description = "Ish haqi asosi. Bo'sh bo'lsa PERCENT", example = "SQUARE_METER")
+    private WorkshopPayBasis payBasis;
+
+    @Schema(description = "Kv.m, metr perimetr yoki metr uzunlik uchun so'm stavka", example = "5000.00")
+    private java.math.BigDecimal pieceRate;
 }

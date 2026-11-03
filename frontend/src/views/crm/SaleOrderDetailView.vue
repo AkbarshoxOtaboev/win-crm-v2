@@ -43,7 +43,8 @@
         </div>
         <div><span class="lbl">{{ t('saleOrderDetail.discount') }}</span>{{ order.discountType ? discountTypeLabel(order.discountType) : '—' }} {{ order.discountValue || '' }}</div>
         <div><span class="lbl">{{ t('common.status') }}</span><SaleStatusBadge :status="order.orderStatus" /></div>
-        <div><span class="lbl">{{ t('common.date') }}</span>{{ formatDate(order.orderDate) }}</div>
+        <div><span class="lbl">{{ t('common.date') }}</span>{{ formatOrderDate(order.orderDate, order.createdAt) }}</div>
+        <div><span class="lbl">{{ t('saleOrderDetail.weight') }}</span>{{ formatKg(orderWeight) }}</div>
         <div>
           <span class="lbl">{{ t('saleOrderCreate.deliveryTitle') }}</span>
           <span v-if="order.deliveryType" class="inline-flex items-center gap-1.5">
@@ -166,14 +167,15 @@
       <table class="min-w-full">
         <thead>
           <tr class="border-b border-gray-100 dark:border-gray-800">
-            <th class="th">{{ t('common.product') }}</th><th class="th">{{ t('common.count') }}</th><th class="th">{{ t('saleOrderDetail.selling') }}</th><th class="th">{{ t('saleOrderDetail.lineSum') }}</th><th class="th">{{ t('common.date') }}</th>
+            <th class="th">{{ t('common.product') }}</th><th class="th">{{ t('common.count') }}</th><th class="th">{{ t('saleOrderDetail.weight') }}</th><th class="th">{{ t('saleOrderDetail.selling') }}</th><th class="th">{{ t('saleOrderDetail.lineSum') }}</th><th class="th">{{ t('common.date') }}</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-if="items.length === 0"><td colspan="5" class="empty">{{ t('saleOrderDetail.noItems') }}</td></tr>
+          <tr v-if="items.length === 0"><td colspan="6" class="empty">{{ t('saleOrderDetail.noItems') }}</td></tr>
           <tr v-for="it in items" :key="it.id" class="border-b border-gray-100 dark:border-gray-800">
             <td class="td">{{ it.goodsName || it.goodsId }}</td>
             <td class="td">{{ itemQtyText(it) }}</td>
+            <td class="td whitespace-nowrap">{{ formatKg(it.weightKg) }}</td>
             <td class="td">{{ amt(it.priceSelling) }}</td>
             <td class="td font-medium text-gray-800 dark:text-white/90">{{ amt(lineSum(it)) }}</td>
             <td class="td">{{ formatDate(it.arrivalDate) }}</td>
@@ -181,8 +183,11 @@
         </tbody>
         <tfoot v-if="items.length">
           <tr class="sum-row">
-            <td class="td" colspan="3">{{ t('saleOrderDetail.itemsTotal') }}</td>
-            <td class="td" colspan="2">{{ amt(itemsTotal) }}</td>
+            <td class="td" colspan="2">{{ t('saleOrderDetail.itemsTotal') }}</td>
+            <td class="td whitespace-nowrap">{{ formatKg(itemsWeight) }}</td>
+            <td class="td"></td>
+            <td class="td">{{ amt(itemsTotal) }}</td>
+            <td class="td"></td>
           </tr>
         </tfoot>
       </table>
@@ -522,7 +527,7 @@ import { fetchGoods, type Goods } from '@/api/goods'
 import { fetchMyDiscountLimit } from '@/api/discountRules'
 import { formatApiError } from '@/api/http'
 import { useFilialScope } from '@/composables/useFilialScope'
-import { formatDate, money } from '@/utils/format'
+import { formatDate, formatKg, formatOrderDate, money } from '@/utils/format'
 import { BASE_CURRENCY, currencySymbol, formatRate, moneyIn, type CurrencyCode } from '@/utils/currency'
 import { fetchCurrentRate } from '@/api/exchangeRates'
 
@@ -670,6 +675,8 @@ function lineSum(it: SaleOrderItem) {
 }
 
 const itemsTotal = computed(() => items.value.reduce((sum, it) => sum + lineSum(it), 0))
+const itemsWeight = computed(() => items.value.reduce((sum, it) => sum + Number(it.weightKg || 0), 0))
+const orderWeight = computed(() => (items.value.length ? itemsWeight.value : Number(order.value?.totalWeightKg || 0)))
 
 function itemQtyText(it: SaleOrderItem) {
   if (!isWindowGoodsId(it.goodsId)) return formatQty(it.count)

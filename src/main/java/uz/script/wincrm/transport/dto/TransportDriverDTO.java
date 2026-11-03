@@ -1,9 +1,13 @@
 package uz.script.wincrm.transport.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
+
+import java.math.BigDecimal;
 
 @Getter
 @Setter
@@ -22,6 +26,11 @@ public class TransportDriverDTO {
 
     @Schema(example = "01 A 123 BC")
     private String carNumber;
+
+    @NotNull(message = "Max vehicle weight is required")
+    @DecimalMin(value = "0.01", message = "Max vehicle weight must be positive")
+    @Schema(description = "Max vehicle load capacity in kg", example = "800", requiredMode = Schema.RequiredMode.REQUIRED)
+    private BigDecimal maxWeightKg;
 
     private String note;
 }

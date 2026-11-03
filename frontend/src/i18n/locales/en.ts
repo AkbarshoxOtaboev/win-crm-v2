@@ -126,6 +126,7 @@ export default {
     earned: 'Total earned',
     completedTitle: 'Completed works',
     defaultFee: 'Default fee',
+    pieceRate: 'Rate',
     sale: 'Sale',
     client: 'Client',
     orderSum: 'Order total',

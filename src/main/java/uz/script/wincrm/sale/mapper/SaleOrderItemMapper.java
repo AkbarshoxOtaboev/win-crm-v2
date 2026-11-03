@@ -1,9 +1,14 @@
 package uz.script.wincrm.sale.mapper;
 
 import org.springframework.stereotype.Component;
+import uz.script.wincrm.goods.Goods;
+import uz.script.wincrm.goods.enums.Type;
 import uz.script.wincrm.sale.SaleOrderItem;
 import uz.script.wincrm.sale.dto.SaleOrderItemDTO;
 import uz.script.wincrm.sale.response.SaleOrderItemResponse;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 
 @Component
 public class SaleOrderItemMapper {
@@ -69,6 +74,7 @@ public class SaleOrderItemMapper {
                 .width(entity.getWidth())
                 .height(entity.getHeight())
                 .count(entity.getCount())
+                .weightKg(weightKg(entity))
                 .cutKerfMm(entity.getCutKerfMm())
                 .cutAllowRotate(entity.getCutAllowRotate())
                 .arrivalDate(entity.getArrivalDate())
@@ -77,5 +83,19 @@ public class SaleOrderItemMapper {
                 .updatedAt(entity.getUpdatedAt())
                 .createdUsername(entity.getCreatedUsername())
                 .build();
+    }
+
+    /** WINDOW: vazn = kv.m (count) × 1 m² vazni. */
+    private BigDecimal weightKg(SaleOrderItem entity) {
+        Goods goods = entity.getGoods();
+        if (goods == null || goods.getType() != Type.WINDOW) {
+            return null;
+        }
+        BigDecimal kvm = entity.getCount();
+        BigDecimal per = goods.getWeightPerSqm();
+        if (kvm == null || per == null || kvm.signum() <= 0 || per.signum() <= 0) {
+            return null;
+        }
+        return kvm.multiply(per).setScale(2, RoundingMode.HALF_UP);
     }
 }

@@ -22,13 +22,14 @@
               <th class="th">{{ t('common.phone') }}</th>
               <th class="th">{{ t('transport.drivers.car') }}</th>
               <th class="th">{{ t('transport.drivers.carNumber') }}</th>
+              <th class="th">{{ t('transport.drivers.maxWeight') }}</th>
               <th class="th">{{ t('common.status') }}</th>
               <th class="th text-right">{{ t('common.actions') }}</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-if="loading"><td colspan="7" class="empty">{{ t('common.loading') }}</td></tr>
-            <tr v-else-if="filtered.length === 0"><td colspan="7" class="empty">{{ t('transport.drivers.empty') }}</td></tr>
+            <tr v-if="loading"><td colspan="8" class="empty">{{ t('common.loading') }}</td></tr>
+            <tr v-else-if="filtered.length === 0"><td colspan="8" class="empty">{{ t('transport.drivers.empty') }}</td></tr>
             <tr v-for="d in filtered" :key="d.id" class="border-b border-gray-100 dark:border-gray-800">
               <td class="td">{{ d.id }}</td>
               <td class="td font-medium text-gray-800 dark:text-white/90">
@@ -40,6 +41,9 @@
               <td class="td whitespace-nowrap">
                 <span v-if="d.carNumber" class="plate-badge">{{ formatCarNumber(d.carNumber) }}</span>
                 <span v-else>—</span>
+              </td>
+              <td class="td whitespace-nowrap">
+                {{ d.maxWeightKg != null && Number(d.maxWeightKg) > 0 ? `${formatWeight(d.maxWeightKg)} ${t('transport.drivers.kg')}` : '—' }}
               </td>
               <td class="td">
                 <button
@@ -157,6 +161,25 @@
             </div>
           </div>
           <div>
+            <label for="driver-max-weight" class="lbl">
+              {{ t('transport.drivers.maxWeight') }} <span class="req">*</span>
+            </label>
+            <div class="relative">
+              <Scale class="field-icon" />
+              <input
+                id="driver-max-weight"
+                v-model.number="form.maxWeightKg"
+                type="number"
+                min="0.01"
+                step="0.01"
+                required
+                class="field field-with-icon"
+                :placeholder="t('transport.drivers.maxWeightPlaceholder')"
+              />
+            </div>
+            <p class="field-hint">{{ t('transport.drivers.maxWeightHint') }}</p>
+          </div>
+          <div>
             <label for="driver-note" class="lbl">{{ t('common.note') }}</label>
             <div class="relative">
               <MessageSquare class="field-icon" />
@@ -179,7 +202,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Car, Check, MessageSquare, Phone, RectangleHorizontal, Truck, User, X } from 'lucide-vue-next'
+import { Car, Check, MessageSquare, Phone, RectangleHorizontal, Scale, Truck, User, X } from 'lucide-vue-next'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import RowActions from '@/components/crm/RowActions.vue'
@@ -214,13 +237,18 @@ const formError = ref<string | null>(null)
 const search = ref('')
 const modalOpen = ref(false)
 const editingId = ref<number | null>(null)
-const form = reactive({ fullName: '', phone: '', carModel: '', carNumber: '', note: '' })
+const form = reactive({ fullName: '', phone: '', carModel: '', carNumber: '', maxWeightKg: null as number | null, note: '' })
 const plateKind = ref<CarNumberKind>('PERSONAL')
 
 function setPlateKind(kind: CarNumberKind) {
   if (plateKind.value === kind) return
   plateKind.value = kind
   form.carNumber = formatCarNumber(form.carNumber.replace(/\s/g, '').slice(0, 2), kind)
+}
+
+function formatWeight(v?: number | null) {
+  if (v == null) return '—'
+  return new Intl.NumberFormat('uz-UZ', { maximumFractionDigits: 2 }).format(Number(v))
 }
 
 function isActive(status?: string) {
@@ -270,7 +298,7 @@ async function load() {
 
 function openCreate() {
   editingId.value = null
-  Object.assign(form, { fullName: '', phone: '', carModel: '', carNumber: '', note: '' })
+  Object.assign(form, { fullName: '', phone: '', carModel: '', carNumber: '', maxWeightKg: null, note: '' })
   plateKind.value = 'PERSONAL'
   formError.value = null
   modalOpen.value = true
@@ -284,6 +312,7 @@ function openEdit(d: TransportDriver) {
     phone: d.phone ? formatUzPhone(d.phone) : '',
     carModel: d.carModel || '',
     carNumber: formatCarNumber(d.carNumber),
+    maxWeightKg: d.maxWeightKg != null ? Number(d.maxWeightKg) : null,
     note: d.note || '',
   })
   formError.value = null
@@ -301,12 +330,18 @@ async function onSubmit() {
     formError.value = t('transport.drivers.carNumberFormat')
     return
   }
+  const maxWeightKg = Number(form.maxWeightKg)
+  if (!(maxWeightKg > 0)) {
+    formError.value = t('transport.drivers.maxWeightRequired')
+    return
+  }
   saving.value = true
   const payload = {
     fullName: form.fullName.trim(),
     phone: phone || undefined,
     carModel: form.carModel.trim() || undefined,
     carNumber: form.carNumber || undefined,
+    maxWeightKg,
     note: form.note.trim() || undefined,
   }
   try {
@@ -354,6 +389,7 @@ onMounted(load)
 .field { height: 2.5rem; width: 100%; border-radius: 0.5rem; border: 1px solid #d1d5db; background: transparent; padding: 0 0.75rem; font-size: 0.875rem; }
 .lbl { display: block; margin-bottom: 0.375rem; font-size: 0.875rem; font-weight: 500; color: #374151; }
 .req { color: #ef4444; }
+.field-hint { margin-top: 0.35rem; font-size: 0.75rem; color: #6b7280; }
 .field:focus { outline: none; border-color: #9cb0ff; box-shadow: 0 0 0 4px rgb(70 95 255 / 10%); }
 .field-with-icon { height: 2.75rem; padding-left: 2.5rem; }
 .field-icon { position: absolute; top: 50%; left: 0.75rem; z-index: 1; height: 1.1rem; width: 1.1rem; transform: translateY(-50%); color: #98a2b3; pointer-events: none; }

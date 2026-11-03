@@ -12,6 +12,8 @@ import org.hibernate.annotations.SQLRestriction;
 import uz.script.wincrm.filial.FilialScopedEntity;
 import uz.script.wincrm.utils.TableName;
 
+import java.math.BigDecimal;
+
 /** Yetkazib beruvchi: o'z haydovchimiz va uning mashinasi. */
 @Entity
 @Getter
@@ -31,6 +33,10 @@ public class TransportDriver extends FilialScopedEntity {
     private String carModel;
 
     private String carNumber;
+
+    /** Mashina (van) yuk ko‘tara oladigan maksimal vazn, kg */
+    @Column(name = "max_weight_kg", precision = 12, scale = 2)
+    private BigDecimal maxWeightKg;
 
     @Column(columnDefinition = "TEXT")
     private String note;

@@ -126,6 +126,7 @@ export default {
     earned: 'Jami hisoblangan',
     completedTitle: 'Bajarilgan ishlar',
     defaultFee: 'Standart foiz',
+    pieceRate: 'Stavka',
     sale: 'Savdo',
     client: 'Mijoz',
     orderSum: 'Buyurtma summasi',

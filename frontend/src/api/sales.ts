@@ -12,6 +12,8 @@ export interface SaleOrder {
   userFullName?: string
   comment?: string
   orderDate?: string
+  createdAt?: string
+  totalWeightKg?: number | null
   originalTotalSum?: number
   discountType?: string
   discountValue?: number

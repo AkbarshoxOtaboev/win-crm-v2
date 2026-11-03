@@ -74,6 +74,7 @@ public class TransportDriverServiceImpl implements TransportDriverService {
         driver.setPhone(dto.getPhone());
         driver.setCarModel(dto.getCarModel());
         driver.setCarNumber(dto.getCarNumber());
+        driver.setMaxWeightKg(dto.getMaxWeightKg());
         driver.setNote(dto.getNote());
     }
 

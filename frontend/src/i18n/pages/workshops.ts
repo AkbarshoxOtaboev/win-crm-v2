@@ -12,6 +12,20 @@ export default {
     managerLabel: 'Mas’ul (manager)',
     notSelected: '— tanlanmagan —',
     defaultFee: 'Standart foiz (%)',
+    payBasis: 'Hisoblash',
+    pieceRate: 'Stavka (so‘m)',
+    ratePerM2: 'so‘m / m²',
+    ratePerM: 'so‘m / m',
+    bases: {
+      PERCENT: 'Buyurtma foizi',
+      SQUARE_METER: 'Kesish, kv.m',
+      PERIMETER: 'Steklo paket, perimetr',
+      LENGTH: 'Charhlash, uzunlik',
+    },
+    units: {
+      SQUARE_METER: 'm²',
+      METER: 'm',
+    },
     statusError: 'Statusni o‘zgartirishda xatolik',
   },
   ru: {
@@ -27,6 +41,20 @@ export default {
     managerLabel: 'Ответственный (менеджер)',
     notSelected: '— не выбран —',
     defaultFee: 'Стандартный процент (%)',
+    payBasis: 'Расчёт',
+    pieceRate: 'Ставка (сум)',
+    ratePerM2: 'сум / м²',
+    ratePerM: 'сум / м',
+    bases: {
+      PERCENT: 'Процент заказа',
+      SQUARE_METER: 'Резка, м²',
+      PERIMETER: 'Стеклопакет, периметр',
+      LENGTH: 'Обработка кромки, длина',
+    },
+    units: {
+      SQUARE_METER: 'м²',
+      METER: 'м',
+    },
     statusError: 'Ошибка при изменении статуса',
   },
   en: {
@@ -42,6 +70,20 @@ export default {
     managerLabel: 'Manager',
     notSelected: '— not selected —',
     defaultFee: 'Default fee (%)',
+    payBasis: 'Pay basis',
+    pieceRate: 'Rate',
+    ratePerM2: 'per m²',
+    ratePerM: 'per m',
+    bases: {
+      PERCENT: 'Percent of order',
+      SQUARE_METER: 'Cutting, m²',
+      PERIMETER: 'Glass unit, perimeter',
+      LENGTH: 'Edge work, length',
+    },
+    units: {
+      SQUARE_METER: 'm²',
+      METER: 'm',
+    },
     statusError: 'Failed to change status',
   },
 }

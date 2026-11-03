@@ -827,7 +827,10 @@ function todayLocal() {
 }
 
 function dateToApi(date: string) {
-  return date.length === 10 ? `${date}T00:00:00` : date
+  if (date.length !== 10) return date
+  const now = new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${date}T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
 }
 
 function formatNum(v?: number | null) {

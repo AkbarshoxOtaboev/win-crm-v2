@@ -10,6 +10,7 @@ import uz.script.wincrm.audit.AuditAction;
 import uz.script.wincrm.audit.Auditable;
 import uz.script.wincrm.exceptions.BadRequestException;
 import uz.script.wincrm.exceptions.ResourceNotFoundException;
+import uz.script.wincrm.salary.service.SalaryCommissionService;
 import uz.script.wincrm.sale.SaleOrder;
 import uz.script.wincrm.security.CustomUserDetails;
 import uz.script.wincrm.transport.TransportDelivery;
@@ -54,6 +55,7 @@ public class TransportDeliveryServiceImpl implements TransportDeliveryService {
     private final TransportWorkerRepository workerRepository;
     private final TransportWorkerSalaryRepository salaryRepository;
     private final TransportSalaryService salaryService;
+    private final SalaryCommissionService salaryCommissionService;
     private final TransportMapper mapper;
 
     @Override
@@ -96,6 +98,7 @@ public class TransportDeliveryServiceImpl implements TransportDeliveryService {
         delivery.setConfirmedBy(currentUser());
         salaryService.accrueForDelivery(delivery);
         deliveryRepository.save(delivery);
+        salaryCommissionService.recalculateTransportManagerCommission(saleOrder, true);
     }
 
     @Override
@@ -109,6 +112,9 @@ public class TransportDeliveryServiceImpl implements TransportDeliveryService {
             delivery.setCancelledAt(LocalDateTime.now());
             deliveryRepository.save(delivery);
             salaryService.rejectPendingForDelivery(delivery.getId(), "Sotuv buyurtmasi bekor qilindi");
+            if (delivery.getSaleOrder() != null) {
+                salaryCommissionService.recalculateTransportManagerCommission(delivery.getSaleOrder(), false);
+            }
         });
     }
 
@@ -224,6 +230,16 @@ public class TransportDeliveryServiceImpl implements TransportDeliveryService {
                 .orElseThrow(() -> new ResourceNotFoundException("Transport driver not found with id: " + dto.getDriverId()));
         if (driver.getStatus() != Status.ACTIVE) {
             throw new BadRequestException("Haydovchi faol emas: " + driver.getFullName());
+        }
+
+        BigDecimal orderWeight = mapper.orderWeightKg(delivery.getSaleOrder());
+        BigDecimal maxWeight = driver.getMaxWeightKg();
+        if (orderWeight.signum() > 0 && maxWeight != null && maxWeight.signum() > 0
+                && orderWeight.compareTo(maxWeight) > 0) {
+            throw new BadRequestException(
+                    "Buyurtma vazni (" + orderWeight.stripTrailingZeros().toPlainString()
+                            + " kg) mashina max yukidan (" + maxWeight.stripTrailingZeros().toPlainString()
+                            + " kg) oshib ketgan");
         }
 
         Set<Long> workerIds = dto.getWorkerIds() == null ? Set.of() : new LinkedHashSet<>(dto.getWorkerIds());

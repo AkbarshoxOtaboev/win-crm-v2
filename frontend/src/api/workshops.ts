@@ -1,6 +1,8 @@
 import { apiRequest } from './http'
 import type { RestApiResponse } from './types'
 
+export type WorkshopPayBasis = 'PERCENT' | 'SQUARE_METER' | 'PERIMETER' | 'LENGTH'
+
 export interface Workshop {
   id: number
   name: string
@@ -8,6 +10,8 @@ export interface Workshop {
   managerId?: number | null
   managerFullName?: string | null
   feePercent?: number | null
+  payBasis?: WorkshopPayBasis | null
+  pieceRate?: number | null
   status?: string
   createdAt?: string
   updatedAt?: string
@@ -19,6 +23,8 @@ export interface WorkshopPayload {
   description?: string
   managerId?: number | null
   feePercent?: number | null
+  payBasis?: WorkshopPayBasis | null
+  pieceRate?: number | null
 }
 
 export interface WorkshopDashboardCompletedWork {
@@ -28,6 +34,9 @@ export interface WorkshopDashboardCompletedWork {
   clientFullName?: string
   orderTotalSum?: number
   feePercent?: number
+  payBasis?: WorkshopPayBasis
+  measureQty?: number
+  pieceRate?: number
   earnedAmount?: number
   acceptedAt?: string
   submittedAt?: string
@@ -38,6 +47,8 @@ export interface WorkshopDashboard {
   workshopId: number
   workshopName: string
   feePercent?: number
+  payBasis?: WorkshopPayBasis
+  pieceRate?: number
   balance?: number
   totalEarned?: number
   queuedCount: number

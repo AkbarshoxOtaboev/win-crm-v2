@@ -17,7 +17,7 @@
               <th class="th">#</th>
               <th class="th">{{ t('common.name') }}</th>
               <th class="th">{{ t('workshops.manager') }}</th>
-              <th class="th">{{ t('workshops.feePercent') }}</th>
+              <th class="th">{{ t('workshops.payBasis') }}</th>
               <th class="th">{{ t('workshops.status') }}</th>
               <th class="th">{{ t('workshops.toggle') }}</th>
               <th class="th text-right">{{ t('common.actions') }}</th>
@@ -33,7 +33,7 @@
                 <div v-if="w.description" class="text-xs text-gray-500">{{ w.description }}</div>
               </td>
               <td class="td">{{ w.managerFullName || '—' }}</td>
-              <td class="td">{{ w.feePercent != null ? `${w.feePercent}%` : '—' }}</td>
+              <td class="td">{{ payLabel(w) }}</td>
               <td class="td">
                 <span
                   class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium"
@@ -84,8 +84,24 @@
             </select>
           </div>
           <div>
+            <label class="mb-1 block text-sm text-gray-600 dark:text-gray-400">{{ t('workshops.payBasis') }}</label>
+            <select v-model="form.payBasis" class="field">
+              <option value="PERCENT">{{ t('workshops.bases.PERCENT') }}</option>
+              <option value="SQUARE_METER">{{ t('workshops.bases.SQUARE_METER') }}</option>
+              <option value="PERIMETER">{{ t('workshops.bases.PERIMETER') }}</option>
+              <option value="LENGTH">{{ t('workshops.bases.LENGTH') }}</option>
+            </select>
+          </div>
+          <div v-if="form.payBasis === 'PERCENT'">
             <label class="mb-1 block text-sm text-gray-600 dark:text-gray-400">{{ t('workshops.defaultFee') }}</label>
             <input v-model.number="form.feePercent" type="number" min="0" max="100" step="0.01" class="field" />
+          </div>
+          <div v-else>
+            <label class="mb-1 block text-sm text-gray-600 dark:text-gray-400">
+              {{ t('workshops.pieceRate') }}
+              ({{ form.payBasis === 'SQUARE_METER' ? t('workshops.ratePerM2') : t('workshops.ratePerM') }})
+            </label>
+            <input v-model.number="form.pieceRate" type="number" min="0" step="0.01" class="field" />
           </div>
           <div class="flex justify-end gap-2">
             <button type="button" class="h-10 rounded-lg border border-gray-300 px-4 text-sm dark:border-gray-700" @click="modalOpen = false">{{ t('common.cancel') }}</button>
@@ -110,6 +126,7 @@ import {
   fetchWorkshops,
   updateWorkshop,
   type Workshop,
+  type WorkshopPayBasis,
 } from '@/api/workshops'
 import { fetchUserOptions, type UserItem } from '@/api/users'
 import { ApiError } from '@/api/http'
@@ -126,7 +143,22 @@ const formError = ref<string | null>(null)
 const search = ref('')
 const modalOpen = ref(false)
 const editingId = ref<number | null>(null)
-const form = reactive({ name: '', description: '', managerId: 0, feePercent: 0 as number | null })
+const form = reactive({
+  name: '',
+  description: '',
+  managerId: 0,
+  payBasis: 'PERCENT' as WorkshopPayBasis,
+  feePercent: 0 as number | null,
+  pieceRate: 0 as number | null,
+})
+
+function payLabel(w: Workshop) {
+  const basis = w.payBasis || 'PERCENT'
+  if (basis === 'PERCENT') return w.feePercent != null ? `${w.feePercent}%` : '—'
+  const unit = basis === 'SQUARE_METER' ? t('workshops.ratePerM2') : t('workshops.ratePerM')
+  const rate = w.pieceRate != null ? new Intl.NumberFormat('uz-UZ').format(Number(w.pieceRate)) : '0'
+  return `${t(`workshops.bases.${basis}`)} · ${rate} ${unit}`
+}
 
 function isActiveStatus(status?: string) {
   return !status || status === 'ACTIVE'
@@ -158,7 +190,9 @@ function openCreate() {
   form.name = ''
   form.description = ''
   form.managerId = 0
+  form.payBasis = 'PERCENT'
   form.feePercent = 0
+  form.pieceRate = 0
   formError.value = null
   modalOpen.value = true
 }
@@ -168,7 +202,9 @@ function openEdit(w: Workshop) {
   form.name = w.name
   form.description = w.description || ''
   form.managerId = w.managerId || 0
+  form.payBasis = w.payBasis || 'PERCENT'
   form.feePercent = w.feePercent != null ? Number(w.feePercent) : 0
+  form.pieceRate = w.pieceRate != null ? Number(w.pieceRate) : 0
   formError.value = null
   modalOpen.value = true
 }
@@ -180,7 +216,9 @@ async function onSubmit() {
     name: form.name.trim(),
     description: form.description.trim() || undefined,
     managerId: form.managerId || null,
-    feePercent: form.feePercent != null ? Number(form.feePercent) : 0,
+    payBasis: form.payBasis,
+    feePercent: form.payBasis === 'PERCENT' && form.feePercent != null ? Number(form.feePercent) : 0,
+    pieceRate: form.payBasis === 'PERCENT' ? null : Number(form.pieceRate || 0),
   }
   try {
     if (editingId.value) await updateWorkshop(editingId.value, payload)

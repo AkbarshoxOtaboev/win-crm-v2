@@ -2,12 +2,20 @@ import { apiRequest } from './http'
 import type { PageResponse, RestApiResponse } from './types'
 
 export type CommissionType = 'PERCENT' | 'FIXED'
-export type SalaryEntryType = 'BONUS' | 'DEDUCTION' | 'ADVANCE' | 'COMMISSION' | 'COMMISSION_REVERSAL'
+export type SalaryEntryType =
+  | 'BONUS'
+  | 'DEDUCTION'
+  | 'ADVANCE'
+  | 'COMMISSION'
+  | 'COMMISSION_REVERSAL'
+  | 'TRANSPORT_COMMISSION'
+  | 'TRANSPORT_COMMISSION_REVERSAL'
 
 export interface SalaryConfig {
   id: number
   userId: number
   userFullName?: string
+  roleNames?: string[]
   baseSalary: number
   commissionType: CommissionType
   commissionValue: number
@@ -62,6 +70,8 @@ export interface SalarySlip {
   baseSalary?: number
   totalCommission?: number
   totalCommissionReversal?: number
+  totalTransportCommission?: number
+  totalTransportCommissionReversal?: number
   totalKpi?: number
   totalBonus?: number
   totalDeduction?: number

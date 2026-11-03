@@ -14,17 +14,23 @@ public class SalarySlipAggregate {
 
     private final BigDecimal totalCommission;
     private final BigDecimal totalCommissionReversal;
+    private final BigDecimal totalTransportCommission;
+    private final BigDecimal totalTransportCommissionReversal;
     private final BigDecimal totalBonus;
     private final BigDecimal totalDeduction;
     private final BigDecimal totalAdvance;
 
     public SalarySlipAggregate(BigDecimal totalCommission,
                                BigDecimal totalCommissionReversal,
+                               BigDecimal totalTransportCommission,
+                               BigDecimal totalTransportCommissionReversal,
                                BigDecimal totalBonus,
                                BigDecimal totalDeduction,
                                BigDecimal totalAdvance) {
         this.totalCommission = totalCommission;
         this.totalCommissionReversal = totalCommissionReversal;
+        this.totalTransportCommission = totalTransportCommission;
+        this.totalTransportCommissionReversal = totalTransportCommissionReversal;
         this.totalBonus = totalBonus;
         this.totalDeduction = totalDeduction;
         this.totalAdvance = totalAdvance;

@@ -25,6 +25,24 @@ export function formatDate(v?: string | null) {
   return v.replace('T', ' ').slice(0, 16)
 }
 
+/** Buyurtma sanasi yaralganda 00:00 bo‘lib saqlangan bo‘lsa, haqiqiy soatni ko‘rsatadi. */
+export function formatOrderDate(orderDate?: string | null, createdAt?: string | null) {
+  if (!orderDate) return formatDate(createdAt)
+  const normalized = orderDate.replace('T', ' ')
+  const clock = normalized.length >= 16 ? normalized.slice(11, 16) : ''
+  const created = createdAt?.replace('T', ' ')
+  if ((!clock || clock === '00:00') && created && created.length >= 16) {
+    return `${normalized.slice(0, 10)} ${created.slice(11, 16)}`
+  }
+  return formatDate(orderDate)
+}
+
+export function formatKg(v?: number | null) {
+  const n = Number(v)
+  if (!Number.isFinite(n) || n <= 0) return '—'
+  return `${new Intl.NumberFormat('uz-UZ', { maximumFractionDigits: 2 }).format(n)} kg`
+}
+
 /** "2026-10-05T10:16:00" -> "05.10.2026 10:16" */
 export function formatDmyTime(v?: string | null) {
   if (!v) return '—'

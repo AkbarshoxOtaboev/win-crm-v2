@@ -50,6 +50,7 @@
               <th class="th">#</th>
               <th class="th">{{ t('common.client') }}</th>
               <th class="th">{{ t('common.date') }}</th>
+              <th class="th">{{ t('sales.weight') }}</th>
               <th class="th">{{ t('common.total') }}</th>
               <th class="th">{{ t('sales.paid') }}</th>
               <th class="th">{{ t('sales.debt') }}</th>
@@ -58,14 +59,15 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-if="loading"><td colspan="8" class="empty">{{ t('common.loading') }}</td></tr>
-            <tr v-else-if="filtered.length === 0"><td colspan="8" class="empty">{{ t('sales.noSales') }}</td></tr>
+            <tr v-if="loading"><td colspan="9" class="empty">{{ t('common.loading') }}</td></tr>
+            <tr v-else-if="filtered.length === 0"><td colspan="9" class="empty">{{ t('sales.noSales') }}</td></tr>
             <tr v-for="o in filtered" :key="o.id" class="border-b border-gray-100 dark:border-gray-800">
               <td class="td">
                 <router-link :to="`/sales/${o.id}`" class="text-brand-500 hover:underline">#{{ o.id }}</router-link>
               </td>
               <td class="td font-medium text-gray-800 dark:text-white/90">{{ o.clientFullName || '—' }}</td>
-              <td class="td">{{ formatDate(o.orderDate) }}</td>
+              <td class="td whitespace-nowrap">{{ formatOrderDate(o.orderDate, o.createdAt) }}</td>
+              <td class="td whitespace-nowrap">{{ formatKg(o.totalWeightKg) }}</td>
               <td class="td whitespace-nowrap">{{ amt(o, o.totalSum) }}</td>
               <td class="td whitespace-nowrap">{{ amt(o, o.paidSum) }}</td>
               <td class="td whitespace-nowrap">{{ amt(o, o.debtSum) }}</td>
@@ -155,7 +157,7 @@ import SaleStatusBadge from '@/components/crm/SaleStatusBadge.vue'
 import { changeSaleOrderStatus, fetchSaleOrdersByDateRange, type SaleOrder } from '@/api/sales'
 import { formatApiError } from '@/api/http'
 import { useFilialScope } from '@/composables/useFilialScope'
-import { formatDate, money } from '@/utils/format'
+import { formatKg, formatOrderDate, money } from '@/utils/format'
 import { moneyIn } from '@/utils/currency'
 import { nextSaleStatuses } from '@/utils/saleStatus'
 

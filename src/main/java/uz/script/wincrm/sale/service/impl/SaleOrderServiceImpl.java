@@ -56,10 +56,13 @@ import uz.script.wincrm.warehouse.Warehouse;
 import uz.script.wincrm.warehouse.repository.WarehouseRepository;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -251,7 +254,9 @@ public class SaleOrderServiceImpl implements SaleOrderService {
         SaleOrder entity = repository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Sale order not found with id: " + id));
 
-        return mapper.toResponse(entity);
+        SaleOrderResponse response = mapper.toResponse(entity);
+        attachWeights(List.of(response));
+        return response;
     }
 
     @Override
@@ -290,10 +295,43 @@ public class SaleOrderServiceImpl implements SaleOrderService {
     public List<SaleOrderResponse> fetchByDateRange(LocalDateTime startDate, LocalDateTime endDate) {
         log.info("Fetch sale orders by date range {} - {}", startDate, endDate);
 
-        return repository.findByOrderDateBetween(startDate, endDate)
+        List<SaleOrderResponse> orders = repository.findByOrderDateBetween(startDate, endDate)
                 .stream()
                 .map(mapper::toResponse)
                 .toList();
+        attachWeights(orders);
+        return orders;
+    }
+
+    private void attachWeights(List<SaleOrderResponse> orders) {
+        if (orders == null || orders.isEmpty()) {
+            return;
+        }
+        List<Long> ids = orders.stream()
+                .map(SaleOrderResponse::getId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (ids.isEmpty()) {
+            return;
+        }
+        Map<Long, BigDecimal> weights = new HashMap<>();
+        for (Object[] row : saleOrderItemRepository.windowWeightRowsByOrderIds(ids)) {
+            if (row == null || row.length < 3 || row[0] == null || row[1] == null || row[2] == null) {
+                continue;
+            }
+            BigDecimal kg = new BigDecimal(row[1].toString())
+                    .multiply(new BigDecimal(row[2].toString()))
+                    .setScale(2, RoundingMode.HALF_UP);
+            if (kg.signum() <= 0) {
+                continue;
+            }
+            long orderId = ((Number) row[0]).longValue();
+            weights.merge(orderId, kg, BigDecimal::add);
+        }
+        for (SaleOrderResponse order : orders) {
+            order.setTotalWeightKg(weights.get(order.getId()));
+        }
     }
 
     @Override
@@ -486,6 +524,11 @@ public class SaleOrderServiceImpl implements SaleOrderService {
 
         if (salesOrderStatus == SalesOrderStatus.COMPLETED) {
             kpiService.accrueForSaleOrder(entity);
+        }
+        if (salesOrderStatus == SalesOrderStatus.DELIVERED
+                || salesOrderStatus == SalesOrderStatus.WORK_DONE
+                || salesOrderStatus == SalesOrderStatus.COMPLETED
+                || salesOrderStatus == SalesOrderStatus.CANCELLED) {
             salaryCommissionService.recalculateCommissionForSaleOrder(entity);
         }
     }

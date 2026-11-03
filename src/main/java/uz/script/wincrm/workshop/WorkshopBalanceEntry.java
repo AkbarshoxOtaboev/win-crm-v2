@@ -16,6 +16,7 @@ import uz.script.wincrm.production.ProductionOrder;
 import uz.script.wincrm.sale.SaleOrder;
 import uz.script.wincrm.utils.TableName;
 import uz.script.wincrm.workshop.enums.WorkshopBalanceEventType;
+import uz.script.wincrm.workshop.enums.WorkshopPayBasis;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -77,6 +78,17 @@ public class WorkshopBalanceEntry extends FilialScopedEntity {
 
     @Column(nullable = false, precision = 7, scale = 2)
     private BigDecimal feePercent;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "pay_basis", length = 20)
+    private WorkshopPayBasis payBasis;
+
+    /** PERCENT bo'lmasa: m² yoki metr. */
+    @Column(name = "measure_qty", precision = 19, scale = 4)
+    private BigDecimal measureQty;
+
+    @Column(name = "piece_rate", precision = 19, scale = 2)
+    private BigDecimal pieceRate;
 
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal amount;

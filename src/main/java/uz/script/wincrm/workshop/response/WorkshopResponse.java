@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 import uz.script.wincrm.utils.Status;
+import uz.script.wincrm.workshop.enums.WorkshopPayBasis;
 
 import java.time.LocalDateTime;
 
@@ -20,6 +21,8 @@ public class WorkshopResponse {
     private Long managerId;
     private String managerFullName;
     private java.math.BigDecimal feePercent;
+    private WorkshopPayBasis payBasis;
+    private java.math.BigDecimal pieceRate;
     private Status status;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

@@ -80,8 +80,8 @@
               {{ t('productionDashboard.completedTitle') }}
             </h3>
             <p class="mt-1 text-sm text-gray-500">
-              {{ t('productionDashboard.defaultFee') }}:
-              <strong>{{ dash.feePercent ?? 0 }}%</strong>
+              {{ measurePay ? t('productionDashboard.pieceRate') : t('productionDashboard.defaultFee') }}:
+              <strong>{{ headerRate }}</strong>
             </p>
           </div>
         </div>
@@ -96,15 +96,15 @@
                 <th class="th">{{ t('productionDashboard.orderSum') }}</th>
                 <th class="th">{{ t('production.acceptedAt') }}</th>
                 <th class="th">{{ t('production.submittedAt') }}</th>
-                <th class="th">{{ t('productionDashboard.feePercent') }}</th>
+                <th class="th">{{ measurePay ? t('productionDashboard.pieceRate') : t('productionDashboard.feePercent') }}</th>
                 <th class="th">{{ t('productionDashboard.earnedAmount') }}</th>
-                <th v-if="auth.superAdmin" class="th text-right">{{ t('productionDashboard.setFee') }}</th>
+                <th v-if="auth.superAdmin && !measurePay" class="th text-right">{{ t('productionDashboard.setFee') }}</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-if="loading"><td :colspan="auth.superAdmin ? 9 : 8" class="empty">{{ t('common.loading') }}</td></tr>
+              <tr v-if="loading"><td :colspan="tableCols" class="empty">{{ t('common.loading') }}</td></tr>
               <tr v-else-if="!dash.completedWorks?.length">
-                <td :colspan="auth.superAdmin ? 9 : 8" class="empty">{{ t('productionDashboard.noCompleted') }}</td>
+                <td :colspan="tableCols" class="empty">{{ t('productionDashboard.noCompleted') }}</td>
               </tr>
               <tr
                 v-for="w in dash.completedWorks"
@@ -126,9 +126,9 @@
                 <td class="td whitespace-nowrap">{{ money(w.orderTotalSum) }}</td>
                 <td class="td whitespace-nowrap">{{ formatDate(w.acceptedAt) }}</td>
                 <td class="td whitespace-nowrap">{{ formatDate(w.submittedAt) }}</td>
-                <td class="td">{{ w.feePercent ?? 0 }}%</td>
+                <td class="td">{{ workRate(w) }}</td>
                 <td class="td whitespace-nowrap">{{ money(w.earnedAmount) }}</td>
-                <td v-if="auth.superAdmin" class="td text-right">
+                <td v-if="auth.superAdmin && !measurePay" class="td text-right">
                   <div class="inline-flex items-center gap-1.5">
                     <input
                       v-model.number="feeDraft[w.assignmentId]"
@@ -204,6 +204,26 @@ function todayLocal() {
 const fromDate = ref(monthStart())
 const toDate = ref(todayLocal())
 const isCurrentMonth = computed(() => fromDate.value === monthStart() && toDate.value === todayLocal())
+const measurePay = computed(() => {
+  const basis = dash.value?.payBasis
+  return !!basis && basis !== 'PERCENT'
+})
+const tableCols = computed(() => 8 + (auth.superAdmin && !measurePay.value ? 1 : 0))
+const headerRate = computed(() => {
+  const dashValue = dash.value
+  if (!dashValue) return '—'
+  if (!measurePay.value) return `${dashValue.feePercent ?? 0}%`
+  const unit = dashValue.payBasis === 'SQUARE_METER' ? t('workshops.ratePerM2') : t('workshops.ratePerM')
+  return `${money(dashValue.pieceRate)} ${unit}`
+})
+
+function workRate(w: WorkshopDashboardCompletedWork) {
+  const basis = w.payBasis || 'PERCENT'
+  if (basis === 'PERCENT') return `${w.feePercent ?? 0}%`
+  const unit = basis === 'SQUARE_METER' ? t('workshops.units.SQUARE_METER') : t('workshops.units.METER')
+  const qty = w.measureQty != null ? Number(w.measureQty) : 0
+  return `${qty} ${unit} × ${money(w.pieceRate)}`
+}
 
 function resetMonth() {
   fromDate.value = monthStart()

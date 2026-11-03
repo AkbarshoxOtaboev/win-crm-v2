@@ -3,6 +3,7 @@ package uz.script.wincrm.transport.mapper;
 import org.springframework.stereotype.Component;
 import uz.script.wincrm.clients.Client;
 import uz.script.wincrm.goods.Goods;
+import uz.script.wincrm.goods.enums.Type;
 import uz.script.wincrm.sale.SaleOrder;
 import uz.script.wincrm.sale.SaleOrderItem;
 import uz.script.wincrm.transport.TransportDelivery;
@@ -15,6 +16,8 @@ import uz.script.wincrm.transport.response.TransportWorkerResponse;
 import uz.script.wincrm.transport.response.WorkerSalaryResponse;
 import uz.script.wincrm.users.User;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Comparator;
 import java.util.List;
 
@@ -28,6 +31,7 @@ public class TransportMapper {
                 .phone(driver.getPhone())
                 .carModel(driver.getCarModel())
                 .carNumber(driver.getCarNumber())
+                .maxWeightKg(driver.getMaxWeightKg())
                 .note(driver.getNote())
                 .status(driver.getStatus())
                 .createdAt(driver.getCreatedAt())
@@ -66,6 +70,11 @@ public class TransportMapper {
                 .map(this::toItem)
                 .toList();
 
+        BigDecimal orderWeightKg = items.stream()
+                .map(DeliveryResponse.Item::getWeightKg)
+                .filter(w -> w != null && w.signum() > 0)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
         return DeliveryResponse.builder()
                 .id(delivery.getId())
                 .deliveryStatus(delivery.getDeliveryStatus())
@@ -74,6 +83,7 @@ public class TransportMapper {
                 .orderDate(order != null ? order.getOrderDate() : null)
                 .plannedDeliveryDate(order != null ? order.getPlannedDeliveryDate() : null)
                 .orderTotalSum(order != null ? order.getTotalSum() : null)
+                .orderWeightKg(orderWeightKg.signum() > 0 ? orderWeightKg : null)
                 .sellerFullName(order != null ? userName(order.getUser()) : null)
                 .orderComment(order != null ? order.getComment() : null)
                 .clientId(client != null ? client.getId() : null)
@@ -85,6 +95,7 @@ public class TransportMapper {
                 .driverPhone(driver != null ? driver.getPhone() : null)
                 .carModel(driver != null ? driver.getCarModel() : null)
                 .carNumber(driver != null ? driver.getCarNumber() : null)
+                .driverMaxWeightKg(driver != null ? driver.getMaxWeightKg() : null)
                 .workers(workers)
                 .note(delivery.getNote())
                 .sentAt(delivery.getSentAt())
@@ -139,7 +150,32 @@ public class TransportMapper {
                 .count(item.getCount())
                 .width(item.getWidth())
                 .height(item.getHeight())
+                .weightKg(itemWeightKg(item))
                 .build();
+    }
+
+    /** WINDOW: vazn = kv.m (count) × 1 m² vazni */
+    public BigDecimal orderWeightKg(SaleOrder order) {
+        if (order == null || order.getSaleOrderItems() == null) {
+            return BigDecimal.ZERO;
+        }
+        return order.getSaleOrderItems().stream()
+                .map(this::itemWeightKg)
+                .filter(w -> w != null && w.signum() > 0)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private BigDecimal itemWeightKg(SaleOrderItem item) {
+        Goods goods = item.getGoods();
+        if (goods == null || goods.getType() != Type.WINDOW) {
+            return null;
+        }
+        BigDecimal kvm = item.getCount();
+        BigDecimal per = goods.getWeightPerSqm();
+        if (kvm == null || per == null || kvm.signum() <= 0 || per.signum() <= 0) {
+            return null;
+        }
+        return kvm.multiply(per).setScale(2, RoundingMode.HALF_UP);
     }
 
     private String userName(User user) {

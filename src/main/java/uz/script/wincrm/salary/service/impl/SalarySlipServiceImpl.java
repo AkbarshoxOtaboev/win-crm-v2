@@ -47,6 +47,8 @@ public class SalarySlipServiceImpl implements SalarySlipService {
         SalarySlipAggregate agg = transactionRepository.aggregateForPeriod(userId, year, month);
         BigDecimal commission = safe(agg != null ? agg.getTotalCommission() : null);
         BigDecimal commissionReversal = safe(agg != null ? agg.getTotalCommissionReversal() : null);
+        BigDecimal transport = safe(agg != null ? agg.getTotalTransportCommission() : null);
+        BigDecimal transportReversal = safe(agg != null ? agg.getTotalTransportCommissionReversal() : null);
         BigDecimal bonus = safe(agg != null ? agg.getTotalBonus() : null);
         BigDecimal deduction = safe(agg != null ? agg.getTotalDeduction() : null);
         BigDecimal advance = safe(agg != null ? agg.getTotalAdvance() : null);
@@ -55,6 +57,8 @@ public class SalarySlipServiceImpl implements SalarySlipService {
         BigDecimal net = baseSalary
                 .add(commission)
                 .subtract(commissionReversal)
+                .add(transport)
+                .subtract(transportReversal)
                 .add(kpi)
                 .add(bonus)
                 .subtract(deduction)
@@ -68,6 +72,8 @@ public class SalarySlipServiceImpl implements SalarySlipService {
                 .baseSalary(baseSalary)
                 .totalCommission(commission)
                 .totalCommissionReversal(commissionReversal)
+                .totalTransportCommission(transport)
+                .totalTransportCommissionReversal(transportReversal)
                 .totalKpi(kpi)
                 .totalBonus(bonus)
                 .totalDeduction(deduction)

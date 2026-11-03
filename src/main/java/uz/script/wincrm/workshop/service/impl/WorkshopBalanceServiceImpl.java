@@ -12,11 +12,14 @@ import uz.script.wincrm.production.enums.ProductionAssignmentStatus;
 import uz.script.wincrm.production.enums.ProductionOrderStatus;
 import uz.script.wincrm.production.repository.ProductionAssignmentRepository;
 import uz.script.wincrm.sale.SaleOrder;
+import uz.script.wincrm.sale.repository.SaleOrderItemRepository;
 import uz.script.wincrm.sale.service.SaleOrderBaseConverter;
 import uz.script.wincrm.utils.Status;
 import uz.script.wincrm.workshop.Workshop;
 import uz.script.wincrm.workshop.WorkshopBalance;
 import uz.script.wincrm.workshop.WorkshopBalanceEntry;
+import uz.script.wincrm.workshop.WorkshopPayCalculator;
+import uz.script.wincrm.workshop.enums.WorkshopPayBasis;
 import uz.script.wincrm.workshop.enums.WorkshopBalanceEventType;
 import uz.script.wincrm.workshop.repository.WorkshopBalanceEntryRepository;
 import uz.script.wincrm.workshop.repository.WorkshopBalanceRepository;
@@ -40,6 +43,7 @@ public class WorkshopBalanceServiceImpl implements WorkshopBalanceService {
     private final WorkshopBalanceRepository balanceRepository;
     private final WorkshopBalanceEntryRepository entryRepository;
     private final ProductionAssignmentRepository assignmentRepository;
+    private final SaleOrderItemRepository saleOrderItemRepository;
     private final SaleOrderBaseConverter baseConverter;
 
     @Override
@@ -59,24 +63,19 @@ public class WorkshopBalanceServiceImpl implements WorkshopBalanceService {
             return;
         }
 
-        BigDecimal feePercent = resolveFeePercent(assignment, workshop);
-        if (feePercent.compareTo(BigDecimal.ZERO) <= 0) {
+        PayQuote quote = quote(workshop, assignment, saleOrder);
+        if (quote.amount().compareTo(BigDecimal.ZERO) <= 0) {
             return;
         }
 
-        SaleOrderBaseConverter.Conversion fx = baseConverter.convertToday(saleOrder, saleOrder.totalSumWithoutDelivery());
-        BigDecimal orderTotal = fx.baseAmount();
-        BigDecimal amount = orderTotal
-                .multiply(feePercent)
-                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
-            return;
-        }
-
-        if (assignment.getFeePercent() == null) {
-            assignment.setFeePercent(feePercent);
+        if (quote.basis() == WorkshopPayBasis.PERCENT && assignment.getFeePercent() == null) {
+            assignment.setFeePercent(quote.feePercent());
             assignmentRepository.save(assignment);
         }
+        SaleOrderBaseConverter.Conversion fx = quote.fx();
+        BigDecimal feePercent = quote.feePercent();
+        BigDecimal orderTotal = quote.orderTotal();
+        BigDecimal amount = quote.amount();
 
         WorkshopBalance balance = getOrCreateBalance(workshop.getId());
         balance.setTotalEarned(nullSafe(balance.getTotalEarned()).add(amount));
@@ -95,6 +94,9 @@ public class WorkshopBalanceServiceImpl implements WorkshopBalanceService {
                 .sourceAmount(fx.sourceAmount())
                 .exchangeRate(fx.rate())
                 .feePercent(feePercent)
+                .payBasis(quote.basis())
+                .measureQty(quote.measureQty())
+                .pieceRate(quote.pieceRate())
                 .amount(amount)
                 .occurredAt(LocalDateTime.now())
                 .status(Status.ACTIVE)
@@ -119,6 +121,12 @@ public class WorkshopBalanceServiceImpl implements WorkshopBalanceService {
 
         if (assignment.getAssignmentStatus() != ProductionAssignmentStatus.DONE) {
             throw new BadRequestException("Faqat bajarilgan ish uchun foiz belgilash mumkin");
+        }
+        WorkshopPayBasis basis = assignment.getWorkshop() != null && assignment.getWorkshop().getPayBasis() != null
+                ? assignment.getWorkshop().getPayBasis()
+                : WorkshopPayBasis.PERCENT;
+        if (basis != WorkshopPayBasis.PERCENT) {
+            throw new BadRequestException("Bu sex foiz bilan emas, o‘lchov stavkasi bilan hisoblanadi");
         }
 
         assignment.setFeePercent(feePercent);
@@ -175,11 +183,8 @@ public class WorkshopBalanceServiceImpl implements WorkshopBalanceService {
         for (ProductionAssignment a : done) {
             BigDecimal sum = orderSum(a);
             doneSum = doneSum.add(sum);
-            BigDecimal fee = a.getFeePercent() != null
-                    ? a.getFeePercent()
-                    : (workshop.getFeePercent() != null ? workshop.getFeePercent() : BigDecimal.ZERO);
-            BigDecimal earned = sum.multiply(fee).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
             SaleOrder sale = a.getProductionOrder() != null ? a.getProductionOrder().getSaleOrder() : null;
+            PayQuote quote = sale != null ? quote(workshop, a, sale) : PayQuote.empty();
             completed.add(WorkshopDashboardResponse.CompletedWorkItem.builder()
                     .assignmentId(a.getId())
                     .productionOrderId(a.getProductionOrder() != null ? a.getProductionOrder().getId() : null)
@@ -188,8 +193,11 @@ public class WorkshopBalanceServiceImpl implements WorkshopBalanceService {
                             ? sale.getClient().getFullName()
                             : null)
                     .orderTotalSum(sum)
-                    .feePercent(fee)
-                    .earnedAmount(earned)
+                    .feePercent(quote.feePercent())
+                    .payBasis(quote.basis())
+                    .measureQty(quote.measureQty())
+                    .pieceRate(quote.pieceRate())
+                    .earnedAmount(quote.amount())
                     .acceptedAt(a.getStartedAt())
                     .submittedAt(a.getFinishedAt())
                     .sequenceNo(a.getSequenceNo())
@@ -202,6 +210,8 @@ public class WorkshopBalanceServiceImpl implements WorkshopBalanceService {
                 .workshopId(workshop.getId())
                 .workshopName(workshop.getName())
                 .feePercent(workshop.getFeePercent() != null ? workshop.getFeePercent() : BigDecimal.ZERO)
+                .payBasis(basisOf(workshop))
+                .pieceRate(workshop.getPieceRate())
                 .balance(balance != null ? nullSafe(balance.getBalance()) : BigDecimal.ZERO)
                 .totalEarned(balance != null ? nullSafe(balance.getTotalEarned()) : BigDecimal.ZERO)
                 .queuedCount(queuedCount)
@@ -218,14 +228,11 @@ public class WorkshopBalanceServiceImpl implements WorkshopBalanceService {
         Workshop workshop = assignment.getWorkshop();
         ProductionOrder order = assignment.getProductionOrder();
         SaleOrder saleOrder = order.getSaleOrder();
-        BigDecimal feePercent = assignment.getFeePercent() != null
-                ? assignment.getFeePercent()
-                : resolveFeePercent(assignment, workshop);
-        SaleOrderBaseConverter.Conversion fx = baseConverter.convertToday(saleOrder, saleOrder.totalSumWithoutDelivery());
-        BigDecimal orderTotal = fx.baseAmount();
-        BigDecimal newAmount = orderTotal
-                .multiply(feePercent)
-                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        PayQuote quote = quote(workshop, assignment, saleOrder);
+        BigDecimal feePercent = quote.feePercent();
+        SaleOrderBaseConverter.Conversion fx = quote.fx();
+        BigDecimal orderTotal = quote.orderTotal();
+        BigDecimal newAmount = quote.amount();
 
         var existingOpt = entryRepository.findByAssignment_IdAndEventType(assignment.getId(), eventType);
         WorkshopBalance balance = getOrCreateBalance(workshop.getId());
@@ -240,6 +247,9 @@ public class WorkshopBalanceServiceImpl implements WorkshopBalanceService {
             balanceRepository.save(balance);
 
             entry.setFeePercent(feePercent);
+            entry.setPayBasis(quote.basis());
+            entry.setMeasureQty(quote.measureQty());
+            entry.setPieceRate(quote.pieceRate());
             entry.setOrderTotalSum(orderTotal);
             entry.setSourceCurrency(fx.currency());
             entry.setSourceAmount(fx.sourceAmount());
@@ -269,6 +279,9 @@ public class WorkshopBalanceServiceImpl implements WorkshopBalanceService {
                 .sourceAmount(fx.sourceAmount())
                 .exchangeRate(fx.rate())
                 .feePercent(feePercent)
+                .payBasis(quote.basis())
+                .measureQty(quote.measureQty())
+                .pieceRate(quote.pieceRate())
                 .amount(newAmount)
                 .occurredAt(LocalDateTime.now())
                 .status(Status.ACTIVE)
@@ -313,5 +326,42 @@ public class WorkshopBalanceServiceImpl implements WorkshopBalanceService {
 
     private BigDecimal nullSafe(BigDecimal v) {
         return v != null ? v : BigDecimal.ZERO;
+    }
+
+    private WorkshopPayBasis basisOf(Workshop workshop) {
+        return workshop.getPayBasis() != null ? workshop.getPayBasis() : WorkshopPayBasis.PERCENT;
+    }
+
+    private PayQuote quote(Workshop workshop, ProductionAssignment assignment, SaleOrder saleOrder) {
+        WorkshopPayBasis basis = basisOf(workshop);
+        SaleOrderBaseConverter.Conversion fx = baseConverter.convertToday(
+                saleOrder, saleOrder.totalSumWithoutDelivery());
+        BigDecimal orderTotal = fx.baseAmount();
+        if (basis == WorkshopPayBasis.PERCENT) {
+            BigDecimal fee = resolveFeePercent(assignment, workshop);
+            BigDecimal amount = orderTotal.multiply(fee)
+                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+            return new PayQuote(basis, orderTotal, fee, null, null, amount, fx);
+        }
+        BigDecimal rate = workshop.getPieceRate() != null ? workshop.getPieceRate() : BigDecimal.ZERO;
+        BigDecimal measure = WorkshopPayCalculator.measure(
+                saleOrderItemRepository.findAllBySaleOrderId(saleOrder.getId()), basis);
+        BigDecimal amount = measure.multiply(rate).setScale(2, RoundingMode.HALF_UP);
+        return new PayQuote(basis, orderTotal, BigDecimal.ZERO, measure, rate, amount, fx);
+    }
+
+    private record PayQuote(
+            WorkshopPayBasis basis,
+            BigDecimal orderTotal,
+            BigDecimal feePercent,
+            BigDecimal measureQty,
+            BigDecimal pieceRate,
+            BigDecimal amount,
+            SaleOrderBaseConverter.Conversion fx
+    ) {
+        static PayQuote empty() {
+            return new PayQuote(WorkshopPayBasis.PERCENT, BigDecimal.ZERO, BigDecimal.ZERO,
+                    null, null, BigDecimal.ZERO, null);
+        }
     }
 }
