@@ -14,7 +14,9 @@ import uz.script.wincrm.dashboard.responses.*;
 import uz.script.wincrm.exceptions.BadRequestException;
 import uz.script.wincrm.expense.Expense;
 import uz.script.wincrm.expense.ExpenseCategory;
+import uz.script.wincrm.expense.ImportExpense;
 import uz.script.wincrm.expense.repository.ExpenseRepository;
+import uz.script.wincrm.expense.repository.ImportExpenseRepository;
 import uz.script.wincrm.payment.Payment;
 import uz.script.wincrm.payment.PaymentType;
 import uz.script.wincrm.payment.repository.PaymentRepository;
@@ -52,6 +54,7 @@ public class DashboardServiceImpl implements DashboardService {
     private final SupplierPaymentRepository supplierPaymentRepository;
     private final CashHandoverRepository cashHandoverRepository;
     private final ExpenseRepository expenseRepository;
+    private final ImportExpenseRepository importExpenseRepository;
     private final ExchangeRateService exchangeRateService;
 
     /** Mahsulot/guruh bo'yicha yig'ilgan miqdor va ko'rsatish valyutasidagi summa. */
@@ -233,7 +236,11 @@ public class DashboardServiceImpl implements DashboardService {
         Map<String, BigDecimal> handedBefore = cashSums(cashHandoverRepository.sumAcceptedByType(BEGINNING.toLocalDate(), fromDate));
         Map<String, BigDecimal> handed = cashSums(cashHandoverRepository.sumAcceptedByType(fromDate, toDate.plusDays(1)));
         Map<String, BigDecimal> spentBefore = cashSums(expenseRepository.sumCashByType(BEGINNING.toLocalDate(), fromDate, CashSource.OPERATIONAL));
+        cashSums(importExpenseRepository.sumCashByType(BEGINNING.toLocalDate(), fromDate, CashSource.OPERATIONAL))
+                .forEach((k, v) -> spentBefore.merge(k, v, BigDecimal::add));
         Map<String, BigDecimal> spent = cashSums(expenseRepository.sumCashByType(fromDate, toDate.plusDays(1), CashSource.OPERATIONAL));
+        cashSums(importExpenseRepository.sumCashByType(fromDate, toDate.plusDays(1), CashSource.OPERATIONAL))
+                .forEach((k, v) -> spent.merge(k, v, BigDecimal::add));
 
         Set<String> keys = new LinkedHashSet<>();
         List<PaymentType> types = paymentTypeRepository.findAll().stream()
@@ -435,6 +442,9 @@ public class DashboardServiceImpl implements DashboardService {
         for (Expense e : expenseRepository.findOperatingExpenses(fromDate, toDate)) {
             expensesByDay.merge(e.getExpenseDate(), expenseIn(fx, e), BigDecimal::add);
         }
+        for (ImportExpense e : importExpenseRepository.findByExpenseDateBetweenOrderByExpenseDateDescIdDesc(fromDate, toDate)) {
+            expensesByDay.merge(e.getExpenseDate(), importIn(fx, e), BigDecimal::add);
+        }
         BigDecimal expenses = expensesByDay.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal netProfit = total.profit().subtract(expenses);
 
@@ -549,6 +559,10 @@ public class DashboardServiceImpl implements DashboardService {
     }
 
     private static BigDecimal expenseIn(ReportFx fx, Expense e) {
+        return fx.convert(e.getAmount(), e.getCurrency(), e.getExchangeRate(), e.getExpenseDate());
+    }
+
+    private static BigDecimal importIn(ReportFx fx, ImportExpense e) {
         return fx.convert(e.getAmount(), e.getCurrency(), e.getExchangeRate(), e.getExpenseDate());
     }
 

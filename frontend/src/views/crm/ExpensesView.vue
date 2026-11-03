@@ -93,10 +93,13 @@
       </div>
     </section>
 
-    <div class="mb-4 flex gap-2">
+    <div class="mb-4 flex flex-wrap gap-2">
       <button type="button" class="tab" :class="{ active: tab === 'expenses' }" @click="tab = 'expenses'">{{ t('nav.expenses') }}</button>
+      <button type="button" class="tab" :class="{ active: tab === 'import' }" @click="tab = 'import'">{{ t('expenses.importTab') }}</button>
       <button type="button" class="tab" :class="{ active: tab === 'categories' }" @click="tab = 'categories'">{{ t('expenses.categories') }}</button>
     </div>
+
+    <ImportExpensesPanel v-if="tab === 'import'" @changed="loadCash(true)" />
 
     <!-- Expenses -->
     <div v-show="tab === 'expenses'" class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
@@ -437,7 +440,7 @@
                   v-if="selectedCash && selectedAvailable > 0"
                   type="button"
                   class="link-btn"
-                  @click="expenseForm.amount = selectedAvailable"
+                  @click="setExpenseAmount(selectedAvailable)"
                 >
                   {{ t('expenses.useAll') }}
                 </button>
@@ -446,14 +449,14 @@
                 <Banknote class="field-icon" />
                 <input
                   id="expense-amount"
-                  v-model.number="expenseForm.amount"
-                  type="number"
-                  min="0.01"
-                  step="0.01"
+                  v-model="expenseAmountText"
+                  type="text"
+                  inputmode="decimal"
                   required
                   class="field field-with-icon field-with-suffix"
                   :class="{ invalid: exceedsCash }"
                   :placeholder="t('expenses.amountPlaceholder')"
+                  @input="onExpenseAmountInput"
                 />
                 <span class="field-suffix">{{ expenseForm.currency === 'USD' ? '$' : t('common.currency') }}</span>
               </div>
@@ -565,6 +568,7 @@ import { paymentTypeIcon } from '@/utils/paymentTypeIcons'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import RowActions from '@/components/crm/RowActions.vue'
+import ImportExpensesPanel from '@/views/crm/ImportExpensesPanel.vue'
 import {
   createExpense,
   createExpenseCategory,
@@ -585,11 +589,12 @@ import { ApiError } from '@/api/http'
 import { useAuthStore } from '@/stores/auth'
 import { useFilialScope } from '@/composables/useFilialScope'
 import { CURRENCIES, moneyIn, type CurrencyCode } from '@/utils/currency'
+import { amountToText, formatAmountInput } from '@/utils/format'
 
 const { t } = useI18n()
 const auth = useAuthStore()
 const { writeBlocked } = useFilialScope()
-const tab = ref<'expenses' | 'categories'>('expenses')
+const tab = ref<'expenses' | 'import' | 'categories'>('expenses')
 const expenses = ref<Expense[]>([])
 const categories = ref<ExpenseCategory[]>([])
 const cash = ref<CashAvailable[]>([])
@@ -632,6 +637,7 @@ const expenseForm = reactive({
   expenseDate: '',
   description: '',
 })
+const expenseAmountText = ref('')
 
 const categoryModal = ref(false)
 const categoryEditingId = ref<number | null>(null)
@@ -838,6 +844,20 @@ function cashMoney(v: number) {
   return moneyIn(v, expenseForm.currency, t('common.currency'))
 }
 
+function setExpenseAmount(v: number | null) {
+  const n = Number(v || 0)
+  expenseForm.amount = n > 0 ? n : null
+  expenseAmountText.value = n > 0 ? amountToText(n) : ''
+}
+
+function onExpenseAmountInput(e: Event) {
+  const el = e.target as HTMLInputElement
+  const { text, value } = formatAmountInput(el.value)
+  expenseAmountText.value = text
+  el.value = text
+  expenseForm.amount = value > 0 ? value : null
+}
+
 function today() {
   return isoDate(new Date())
 }
@@ -949,7 +969,7 @@ async function openExpenseCreate(from?: { paymentTypeId?: number; currency: Curr
   expenseEditingId.value = null
   editingSpend.value = null
   expenseForm.categoryId = categories.value[0]?.id || 0
-  expenseForm.amount = null
+  setExpenseAmount(null)
   expenseForm.expenseDate = today()
   expenseForm.description = ''
   expenseForm.paymentTypeId = from?.paymentTypeId || 0
@@ -968,7 +988,7 @@ async function openExpenseEdit(e: Expense) {
     ? { paymentTypeId: e.paymentTypeId, currency, amount: Number(e.amount), cashSource: source }
     : null
   expenseForm.categoryId = e.categoryId
-  expenseForm.amount = Number(e.amount)
+  setExpenseAmount(Number(e.amount))
   expenseForm.expenseDate = e.expenseDate
   expenseForm.description = e.description || ''
   expenseForm.paymentTypeId = e.paymentTypeId || 0

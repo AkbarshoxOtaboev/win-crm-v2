@@ -21,6 +21,7 @@ import uz.script.wincrm.exceptions.BadRequestException;
 import uz.script.wincrm.exceptions.ForbiddenException;
 import uz.script.wincrm.exceptions.ResourceNotFoundException;
 import uz.script.wincrm.expense.repository.ExpenseRepository;
+import uz.script.wincrm.expense.repository.ImportExpenseRepository;
 import uz.script.wincrm.payment.PaymentType;
 import uz.script.wincrm.payment.repository.PaymentRepository;
 import uz.script.wincrm.payment.repository.PaymentTypeRepository;
@@ -49,6 +50,7 @@ public class CashHandoverServiceImpl implements CashHandoverService {
     private final PaymentRepository paymentRepository;
     private final SupplierPaymentRepository supplierPaymentRepository;
     private final ExpenseRepository expenseRepository;
+    private final ImportExpenseRepository importExpenseRepository;
     private final PaymentTypeRepository paymentTypeRepository;
     private final UserRepository userRepository;
     private final CashAvailabilityService cashAvailabilityService;
@@ -184,6 +186,8 @@ public class CashHandoverServiceImpl implements CashHandoverService {
         Map<String, BigDecimal> incoming = sums(paymentRepository.sumCashByType(start, end));
         Map<String, BigDecimal> outgoing = sums(supplierPaymentRepository.sumCashByType(start, end, CashSource.OPERATIONAL));
         sums(expenseRepository.sumCashByType(day, day.plusDays(1), CashSource.OPERATIONAL))
+                .forEach((key, amount) -> outgoing.merge(key, amount, BigDecimal::add));
+        sums(importExpenseRepository.sumCashByType(day, day.plusDays(1), CashSource.OPERATIONAL))
                 .forEach((key, amount) -> outgoing.merge(key, amount, BigDecimal::add));
         Map<String, BigDecimal> pending = new HashMap<>();
         Map<String, BigDecimal> accepted = new HashMap<>();

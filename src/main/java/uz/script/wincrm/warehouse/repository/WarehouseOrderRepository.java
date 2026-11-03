@@ -12,6 +12,13 @@ import java.util.List;
 
 @Repository
 public interface WarehouseOrderRepository extends JpaRepository<WarehouseOrder, Long> {
+    @Query("""
+            select o from WarehouseOrder o
+            join fetch o.supplier
+            order by o.id desc
+            """)
+    List<WarehouseOrder> findAllWithSupplier();
+
     List<WarehouseOrder> findAllByWarehouseId(Long warehouseId);
     List<WarehouseOrder> findAllBySupplierId(Long supplierId);
 

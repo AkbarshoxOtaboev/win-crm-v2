@@ -38,6 +38,8 @@ public interface TableName {
     String SALARY_TRANSACTIONS = "salary_transactions";
     String EXPENSE = "expenses";
     String EXPENSE_CATEGORY = "expense_categories";
+    String IMPORT_EXPENSE = "import_expenses";
+    String IMPORT_EXPENSE_ALLOCATION = "import_expense_allocations";
     String COMPANY_DETAIL = "company_detail";
     String DEBT_NOTIFICATION_HISTORY = "debt_notification_history";
     String TELEGRAM_USERS = "telegram_users";

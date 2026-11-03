@@ -11,6 +11,7 @@ import uz.script.wincrm.currency.Currency;
 import uz.script.wincrm.currency.CurrencyMath;
 import uz.script.wincrm.exceptions.BadRequestException;
 import uz.script.wincrm.expense.repository.ExpenseRepository;
+import uz.script.wincrm.expense.repository.ImportExpenseRepository;
 import uz.script.wincrm.payment.PaymentType;
 import uz.script.wincrm.payment.repository.PaymentRepository;
 import uz.script.wincrm.payment.repository.PaymentTypeRepository;
@@ -44,6 +45,7 @@ public class CashAvailabilityService {
     private final SupplierPaymentRepository supplierPaymentRepository;
     private final CashHandoverRepository cashHandoverRepository;
     private final ExpenseRepository expenseRepository;
+    private final ImportExpenseRepository importExpenseRepository;
     private final PaymentTypeRepository paymentTypeRepository;
 
     @Transactional(readOnly = true)
@@ -130,6 +132,7 @@ public class CashAvailabilityService {
                 CashSource.OPERATIONAL), BigDecimal.ONE.negate());
         add(result, cashHandoverRepository.sumByType(fromDate, toDate, RESERVED), BigDecimal.ONE.negate());
         add(result, expenseRepository.sumCashByType(fromDate, toDate, CashSource.OPERATIONAL), BigDecimal.ONE.negate());
+        add(result, importExpenseRepository.sumCashByType(fromDate, toDate, CashSource.OPERATIONAL), BigDecimal.ONE.negate());
         return result;
     }
 
@@ -139,6 +142,7 @@ public class CashAvailabilityService {
         add(result, supplierPaymentRepository.sumCashByType(fromDate.atStartOfDay(), toDate.atStartOfDay(),
                 CashSource.VAULT), BigDecimal.ONE.negate());
         add(result, expenseRepository.sumCashByType(fromDate, toDate, CashSource.VAULT), BigDecimal.ONE.negate());
+        add(result, importExpenseRepository.sumCashByType(fromDate, toDate, CashSource.VAULT), BigDecimal.ONE.negate());
         return result;
     }
 
