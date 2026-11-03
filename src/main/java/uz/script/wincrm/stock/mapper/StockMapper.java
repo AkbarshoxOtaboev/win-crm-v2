@@ -73,6 +73,7 @@ public class StockMapper {
                 .currency(arrival != null ? arrival.currency() : null)
                 .exchangeRate(arrival != null ? arrival.exchangeRate() : null)
                 .foreignUnitCost(arrival != null ? arrival.foreignUnit() : null)
+                .importUnitCost(arrival != null ? arrival.importUnitSom() : null)
                 .priceSelling(selling)
                 .sellingCurrency(sellingCurrency)
                 .sellingBase(arrival != null ? arrival.sellingSom() : selling)

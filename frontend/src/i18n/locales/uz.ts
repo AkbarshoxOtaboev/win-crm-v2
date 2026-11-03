@@ -144,6 +144,7 @@ export default {
     allFilials: 'Barcha filiallar',
     selectFilial: 'Filialni tanlang',
     addOrder: 'Buyurtma qo‘shish',
+    addInbound: 'Kirim qo‘shish',
     makePayment: 'To‘lov qilish',
     fxBuy: 'Olish',
     fxSell: 'Sotish',

@@ -86,6 +86,7 @@
                   </button>
                   <span v-else class="transferred-badge">{{ t('warehouseOrders.transferred') }}</span>
                   <RowActions
+                    :remove="!isTransferred(o)"
                     @edit="openEdit(o)"
                     @delete="onDelete(o)"
                   />
@@ -334,6 +335,10 @@ function openEdit(o: WarehouseOrder) {
 }
 
 async function onDelete(o: WarehouseOrder) {
+  if (isTransferred(o)) {
+    error.value = t('warehouseOrders.deleteTransferredBlocked')
+    return
+  }
   const result = await Swal.fire({
     title: t('warehouseOrders.deleteConfirm', { id: o.id }),
     icon: 'warning',

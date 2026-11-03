@@ -33,12 +33,22 @@
       <article class="kpi-card" style="--accent: #f59e0b">
         <p class="kpi-label"><Package class="h-4 w-4" />{{ t('profitDashboard.cost') }}</p>
         <p class="kpi-value">{{ fmt(report?.cost) }}</p>
-        <p class="kpi-hint">{{ t('profitDashboard.costHint') }}</p>
+        <p class="kpi-hint">
+          {{ t('profitDashboard.costHint') }}
+          <template v-if="Number(report?.importInCost || 0) > 0">
+            · {{ t('profitDashboard.importInCost', { amount: fmt(report?.importInCost) }) }}
+          </template>
+        </p>
       </article>
       <article class="kpi-card" style="--accent: #f97316">
         <p class="kpi-label"><Receipt class="h-4 w-4" />{{ t('profitDashboard.expenses') }}</p>
         <p class="kpi-value">{{ fmt(report?.expenses) }}</p>
-        <p class="kpi-hint">{{ t('profitDashboard.expensesHint') }}</p>
+        <p class="kpi-hint">
+          <template v-if="Number(report?.importInCost || 0) > 0 && !(Number(report?.expenses || 0) > 0)">
+            {{ t('profitDashboard.expensesMovedToCost') }}
+          </template>
+          <template v-else>{{ t('profitDashboard.expensesHint') }}</template>
+        </p>
       </article>
       <article class="kpi-card" :style="{ '--accent': profitTone === 'loss' ? '#ef4444' : '#10b981' }">
         <p class="kpi-label"><TrendingUp class="h-4 w-4" />{{ t('profitDashboard.profit') }}</p>

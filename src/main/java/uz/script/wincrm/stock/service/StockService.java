@@ -35,8 +35,17 @@ public interface StockService {
 
     BigDecimal getAvailableStock(Long goodsId, Long warehouseId);
 
-    /** Ombordagi o'rtacha kelgan narx (qoldiq bo'lmasa null). */
+    /**
+     * Ombordagi o'rtacha kelgan narx so‘mda (import boj/yo‘l ulushi bilan).
+     * Qoldiq/kirim bo'lmasa null.
+     */
     BigDecimal getUnitCost(Long goodsId, Long warehouseId);
+
+    /**
+     * Barcha goodsId:warehouseId juftliklari uchun import ulushli o'rtacha tannarx (so‘mda).
+     * Foyda hisoboti kabi ommaviy hisoblar uchun bir marta chaqiriladi.
+     */
+    java.util.Map<String, BigDecimal> landedUnitCostsByKey();
 
     void decreaseStock(Long goodsId, Long warehouseId, BigDecimal count, BigDecimal pieceCount);
 

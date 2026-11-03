@@ -205,8 +205,10 @@ export interface ProfitSellerRow extends ProfitTotals {
 export interface ProfitReport extends ProfitTotals {
   currency: CurrencyCode
   grossProfit: number
-  /** Yetkazib beruvchiga to'lovlarsiz xarajatlar. */
+  /** Operatsion xarajatlar (yetkazuvchi to‘lovi va importsiz). */
   expenses: number
+  /** Import boj/yo‘l — tannarxga kiritilgan, xarajatlarda qayta ayirilmaydi. */
+  importInCost?: number
   discount: number
   deliveryFee: number
   orderCount: number

@@ -144,6 +144,7 @@ export default {
     allFilials: 'All branches',
     selectFilial: 'Select branch',
     addOrder: 'Add order',
+    addInbound: 'Add inbound',
     makePayment: 'Make payment',
     fxBuy: 'Buy',
     fxSell: 'Sell',

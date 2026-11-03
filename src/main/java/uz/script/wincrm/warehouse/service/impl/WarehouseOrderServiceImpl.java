@@ -252,19 +252,18 @@ public class WarehouseOrderServiceImpl implements WarehouseOrderService {
         WarehouseOrder order = repository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Warehouse order not found with id: " + id));
 
+        // Omborga o'tgan kirim qoldig'i partiyasiz aralashadi (sotuv/boshqa kirim).
+        // Qaytarib ayirish boshqa kirim qoldig'ini noto'g'ri nolga tushiradi — o'chirish taqiqlanadi.
         if (order.getOrderStatus() == WarehouseOrderStatus.TRANSFERRED) {
-            List<WarehouseOrderItem> items = warehouseOrderItemRepository.findAllByWarehouseOrderId(id);
-            for (WarehouseOrderItem item : items) {
-                if (item.getStatus() == Status.ACTIVE) {
-                    BigDecimal pieces = item.getPieceCount() != null ? item.getPieceCount() : item.getCount();
-                    stockService.decreaseStock(
-                            item.getGoods().getId(),
-                            item.getWarehouse().getId(),
-                            item.getCount(),
-                            pieces);
-                }
+            throw new BadRequestException(
+                    "Omborga o'tkazilgan kirimni o'chirib bo'lmaydi. Qoldiq allaqachon sotilgan yoki boshqa kirimlar bilan aralashgan bo'lishi mumkin.");
+        }
+
+        List<WarehouseOrderItem> items = warehouseOrderItemRepository.findAllByWarehouseOrderId(id);
+        for (WarehouseOrderItem item : items) {
+            if (item.getStatus() == Status.ACTIVE) {
+                item.setStatus(Status.DELETED);
             }
-            log.info("Order was TRANSFERRED, stock reverted for {} items", items.size());
         }
 
         order.setStatus(Status.DELETED);

@@ -24,13 +24,16 @@ public class ProfitReportResponse {
     @Schema(description = "Tovarlardan tushum: chegirmadan keyingi buyurtma summasi, yetkazib berish haqisiz")
     private BigDecimal revenue;
 
-    @Schema(description = "Sotilgan tovarlar tannarxi (sotuv paytidagi ombor o'rtacha narxi)")
+    @Schema(description = "Sotilgan tovarlar tannarxi (ombor o'rtacha kelgan narx + taqsimlangan import boj/yo'l)")
     private BigDecimal cost;
+
+    @Schema(description = "Davrdagi import boj/yo'l to'lovlari jami (tannarxga kiritilgan, xarajatlarda qayta ayirilmaydi)")
+    private BigDecimal importInCost;
 
     @Schema(description = "Yalpi foyda: revenue - cost")
     private BigDecimal grossProfit;
 
-    @Schema(description = "Davrdagi xarajatlar (yetkazib beruvchiga to'lovlarsiz - ular tannarxda hisoblangan)")
+    @Schema(description = "Davrdagi operatsion xarajatlar (yetkazuvchi to'lovi va import boj/yo'lsiz)")
     private BigDecimal expenses;
 
     @Schema(description = "Sof foyda: grossProfit - expenses")

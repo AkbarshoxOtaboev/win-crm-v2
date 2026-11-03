@@ -30,7 +30,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { RouteLocationRaw } from 'vue-router'
-import { ShoppingCart, Wallet } from 'lucide-vue-next'
+import { ClipboardPlus, ShoppingCart, Wallet } from 'lucide-vue-next'
 import { useFilialScope } from '@/composables/useFilialScope'
 import { useAuthStore } from '@/stores/auth'
 
@@ -40,6 +40,7 @@ const { filialMissing, writeBlockedMessage } = useFilialScope()
 
 const restricted = computed(() => auth.isProductionManagerOnly || auth.isTransportManagerOnly)
 const showOrder = computed(() => !restricted.value && !auth.isCashierOnly && auth.can('SALE_ORDER_CREATE'))
+const showInbound = computed(() => !restricted.value && !auth.isCashierOnly && auth.can('WAREHOUSE_ORDER_CREATE'))
 const showPayment = computed(() => !restricted.value && auth.can('PAYMENT_CREATE'))
 
 const actions = computed(() => {
@@ -52,6 +53,16 @@ const actions = computed(() => {
       icon: ShoppingCart,
       tone: 'bg-brand-500',
       hover: 'hover:bg-brand-600',
+    })
+  }
+  if (showInbound.value) {
+    list.push({
+      key: 'inbound',
+      label: t('header.addInbound'),
+      to: '/warehouse-orders/create',
+      icon: ClipboardPlus,
+      tone: 'bg-indigo-500',
+      hover: 'hover:bg-indigo-600',
     })
   }
   if (showPayment.value) {

@@ -519,11 +519,11 @@ const form = reactive({
   warehouseId: 0,
   arrivalDate: nowLocal(),
   comment: '',
-  currency: 'UZS' as CurrencyCode,
+  currency: null as CurrencyCode | null,
   exchangeRate: 0,
 })
 
-const isForeign = computed(() => form.currency !== 'UZS')
+const isForeign = computed(() => !!form.currency && form.currency !== 'UZS')
 /** Saqlangan hujjat kursi: sana va valyuta o'zgarmasa yoki hujjat omborga o'tkazilgan bo'lsa server uni qoldiradi. */
 const savedRate = ref<{ currency: CurrencyCode; rate: number; day: string } | null>(null)
 
@@ -588,7 +588,7 @@ function resetRate() {
 
 /** Hujjat yaratilgan bo'lsa yangi kurs darhol saqlanadi - pozitsiyalar so'mdagi qiymati shu kurs bilan hisoblanadi. */
 async function persistRate() {
-  if (!orderId.value || !canEditRate.value || !(form.exchangeRate > 0)) return
+  if (!orderId.value || !form.currency || !canEditRate.value || !(form.exchangeRate > 0)) return
   error.value = null
   try {
     await updateWarehouseOrder(orderId.value, buildOrderPayload())
@@ -748,6 +748,7 @@ const headerReady = computed(
     form.supplierId > 0 &&
     form.warehouseId > 0 &&
     !!form.arrivalDate &&
+    !!form.currency &&
     (!isForeign.value || form.exchangeRate > 0),
 )
 
@@ -798,6 +799,7 @@ const itemsTotalCash = computed(() => displayItems.value.reduce((acc, r) => acc 
 const itemsTotalCashPlus = computed(() => displayItems.value.reduce((acc, r) => acc + r.cashPlus, 0))
 
 function buildOrderPayload() {
+  if (!form.currency) throw new Error(t('warehouseOrders.currencyRequired'))
   return {
     supplierId: form.supplierId,
     warehouseId: form.warehouseId,
@@ -851,7 +853,7 @@ function applyOrderToForm(order: {
   form.warehouseId = order.warehouseId || 0
   form.arrivalDate = toLocalInput(order.arrivalDate)
   form.comment = order.comment || ''
-  form.currency = order.currency || 'UZS'
+  form.currency = order.currency || null
   manualRate.value = null
   savedRate.value =
     order.currency && order.currency !== 'UZS'
@@ -1206,6 +1208,10 @@ async function onRemoveItem(id: number, name: string) {
 
 async function onSave() {
   if (!orderId.value) return
+  if (!form.currency) {
+    error.value = t('warehouseOrders.currencyRequired')
+    return
+  }
   saving.value = true
   error.value = null
   try {

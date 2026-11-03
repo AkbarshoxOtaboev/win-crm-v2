@@ -73,8 +73,11 @@ public class StockResponse {
     @Schema(description = "Exchange rate at arrival: 1 foreign unit in som", example = "12000")
     private BigDecimal exchangeRate;
 
-    @Schema(description = "Arrival unit price in the document currency (cost + cash). Empty for som inbounds.")
+    @Schema(description = "Arrival unit price in the document currency (cost + cash + import). Empty for som inbounds.")
     private BigDecimal foreignUnitCost;
+
+    @Schema(description = "Import duty/road share per unit in som", example = "15409.25")
+    private BigDecimal importUnitCost;
 
     @Schema(description = "Selling price per unit in sellingCurrency")
     private BigDecimal priceSelling;

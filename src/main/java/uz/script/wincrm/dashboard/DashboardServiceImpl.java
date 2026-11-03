@@ -27,6 +27,7 @@ import uz.script.wincrm.sale.SaleOrder;
 import uz.script.wincrm.sale.SaleOrderItem;
 import uz.script.wincrm.sale.repository.SaleOrderItemRepository;
 import uz.script.wincrm.sale.repository.SaleOrderRepository;
+import uz.script.wincrm.stock.service.StockService;
 import uz.script.wincrm.suppliers.repository.SupplierPaymentRepository;
 import uz.script.wincrm.utils.Status;
 
@@ -56,6 +57,7 @@ public class DashboardServiceImpl implements DashboardService {
     private final ExpenseRepository expenseRepository;
     private final ImportExpenseRepository importExpenseRepository;
     private final ExchangeRateService exchangeRateService;
+    private final StockService stockService;
 
     /** Mahsulot/guruh bo'yicha yig'ilgan miqdor va ko'rsatish valyutasidagi summa. */
     private record Totals(Long id, String name, BigDecimal count, BigDecimal amount) {
@@ -388,6 +390,9 @@ public class DashboardServiceImpl implements DashboardService {
         Map<Long, ProfitAcc> byGoods = new HashMap<>();
         Map<Long, ProfitAcc> bySeller = new HashMap<>();
 
+        // Tannarx: ombor o'rtacha kelgan narx + taqsimlangan import (boj/yo'l). Import xarajatlarida qayta sanamaslik.
+        Map<String, BigDecimal> landedCosts = stockService.landedUnitCostsByKey();
+
         List<SaleOrder> orders = saleOrderRepository.findForProfitReport(range[0], range[1]);
         for (SaleOrder order : orders) {
             LocalDate day = order.getOrderDate().toLocalDate();
@@ -412,7 +417,8 @@ public class DashboardServiceImpl implements DashboardService {
                     BigDecimal share = item.getCount().multiply(nz(item.getPriceSelling()))
                             .divide(itemsTotal, 10, RoundingMode.HALF_UP);
                     BigDecimal itemRevenue = revenue.multiply(share).setScale(2, RoundingMode.HALF_UP);
-                    BigDecimal itemCost = costIn(fx, item.getCount().multiply(nz(item.getPriceCost())), order, day);
+                    BigDecimal unitCost = unitCostForProfit(item, order, landedCosts);
+                    BigDecimal itemCost = costIn(fx, item.getCount().multiply(unitCost), order, day);
                     orderCost = orderCost.add(itemCost);
 
                     Goods goods = item.getGoods();
@@ -442,8 +448,10 @@ public class DashboardServiceImpl implements DashboardService {
         for (Expense e : expenseRepository.findOperatingExpenses(fromDate, toDate)) {
             expensesByDay.merge(e.getExpenseDate(), expenseIn(fx, e), BigDecimal::add);
         }
+        // Import boj/yo'l tannarxga (landed) kiritiladi — sof foydadan qayta ayirilmaydi, faqat ko'rsatiladi.
+        BigDecimal importInCost = BigDecimal.ZERO;
         for (ImportExpense e : importExpenseRepository.findByExpenseDateBetweenOrderByExpenseDateDescIdDesc(fromDate, toDate)) {
-            expensesByDay.merge(e.getExpenseDate(), importIn(fx, e), BigDecimal::add);
+            importInCost = importInCost.add(importIn(fx, e));
         }
         BigDecimal expenses = expensesByDay.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal netProfit = total.profit().subtract(expenses);
@@ -493,6 +501,7 @@ public class DashboardServiceImpl implements DashboardService {
                 .currency(fx.display())
                 .revenue(total.revenue)
                 .cost(total.cost)
+                .importInCost(importInCost)
                 .grossProfit(total.profit())
                 .expenses(expenses)
                 .profit(netProfit)
@@ -506,6 +515,27 @@ public class DashboardServiceImpl implements DashboardService {
                 .goods(goods)
                 .sellers(sellers)
                 .build();
+    }
+
+    /**
+     * 1 birlik tannarx so‘mda: import ulushli ombor o‘rtachasi, bo‘lmasa sotuvdagi saqlangan priceCost.
+     */
+    private static BigDecimal unitCostForProfit(
+            SaleOrderItem item,
+            SaleOrder order,
+            Map<String, BigDecimal> landedCosts
+    ) {
+        Long goodsId = item.getGoods() != null ? item.getGoods().getId() : null;
+        Long warehouseId = item.getWarehouse() != null
+                ? item.getWarehouse().getId()
+                : (order.getWarehouse() != null ? order.getWarehouse().getId() : null);
+        if (goodsId != null && warehouseId != null) {
+            BigDecimal landed = landedCosts.get(goodsId + ":" + warehouseId);
+            if (landed != null && landed.signum() > 0) {
+                return landed;
+            }
+        }
+        return nz(item.getPriceCost());
     }
 
     /**

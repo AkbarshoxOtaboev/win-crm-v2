@@ -18,6 +18,7 @@ public interface WarehouseOrderItemRepository extends JpaRepository<WarehouseOrd
             join fetch i.goods g
             join fetch i.warehouse w
             where o.orderStatus = uz.script.wincrm.warehouse.enums.WarehouseOrderStatus.TRANSFERRED
+              and o.status <> uz.script.wincrm.utils.Status.DELETED
               and i.status = uz.script.wincrm.utils.Status.ACTIVE
             """)
     List<WarehouseOrderItem> findTransferred();

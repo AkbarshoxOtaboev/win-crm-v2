@@ -92,6 +92,7 @@
                     <span v-if="s.exchangeRate" class="hint">{{ t('stock.rate') }} {{ formatRate(s.exchangeRate) }}</span>
                   </template>
                   <span v-else>{{ s.priceCost != null ? money(s.priceCost) : '—' }}</span>
+                  <span v-if="s.importUnitCost" class="hint">{{ t('stock.importShare') }} {{ moneyIn(s.importUnitCost, 'UZS') }}</span>
                   <span v-if="s.priceCost != null" class="hint">/ {{ isWindow(s) ? t('stock.perKvm') : unitLabel(s) }}</span>
                 </div>
               </td>

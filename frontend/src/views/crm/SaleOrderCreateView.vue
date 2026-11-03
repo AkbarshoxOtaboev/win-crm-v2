@@ -250,7 +250,7 @@
           <WarehouseIcon class="h-4 w-4 shrink-0" />
           {{ t('saleOrderCreate.stockLeft', { qty: stockLeftText(selectedGoods) }) }}
         </p>
-        <p v-if="selectedGoods && goodsCurrency(selectedGoods) !== form.currency" class="stock-hint">
+        <p v-if="selectedGoods && form.currency && goodsCurrency(selectedGoods) !== form.currency" class="stock-hint">
           {{ t('saleOrderCreate.priceConverted', {
             from: moneyIn(selectedGoods.priceSelling, goodsCurrency(selectedGoods), t('common.currency')),
             rate: formatRate(form.exchangeRate),
@@ -701,12 +701,12 @@ const form = reactive({
   deliveryType: 'PICKUP' as DeliveryType,
   saleType: '' as SaleType | '',
   deliveryFee: 0,
-  currency: BASE_CURRENCY as CurrencyCode,
+  currency: null as CurrencyCode | null,
   /** Xorijiy buyurtmada buyurtma kursi; so'mdagi buyurtmada faqat xorijiy narxli mahsulotni o'girish uchun. */
   exchangeRate: 0,
 })
 
-const isForeign = computed(() => form.currency !== BASE_CURRENCY)
+const isForeign = computed(() => !!form.currency && form.currency !== BASE_CURRENCY)
 const hasForeignGoods = computed(() => goods.value.some((g) => goodsCurrency(g) !== BASE_CURRENCY))
 const needsRate = computed(() => isForeign.value || hasForeignGoods.value)
 const curLabel = computed(() => currencySymbol(form.currency, t('common.currency')))
@@ -973,7 +973,8 @@ const headerReady = computed(
     form.clientId > 0 &&
     form.warehouseId > 0 &&
     form.userId > 0 &&
-    !!form.orderDate,
+    !!form.orderDate &&
+    !!form.currency,
 )
 
 const canAddItem = computed(() => {
@@ -1024,6 +1025,7 @@ function pullItemsTotal() {
 
 const saveBlockReason = computed(() => {
   if (!form.saleType) return t('saleOrderCreate.chooseSaleTypeFirst')
+  if (!form.currency) return t('saleOrderCreate.currencyRequired')
   if (!headerReady.value) return t('saleOrderCreate.selectHeader')
   if (!(form.totalSum > 0)) return t('saleOrderCreate.enterSum')
   if (isForeign.value && !(form.exchangeRate > 0)) return t('saleOrderCreate.rateMissing')
@@ -1406,9 +1408,9 @@ async function fillFromOrder() {
   form.deliveryFee = Number(order.deliveryFee || 0)
   deliveryFeeText.value = form.deliveryFee > 0 ? amountToText(form.deliveryFee) : ''
   form.saleType = order.saleType || 'RETAIL'
-  form.currency = order.currency || BASE_CURRENCY
+  form.currency = order.currency || null
   const rate = Number(order.exchangeRate || 0)
-  manualRate.value = form.currency !== BASE_CURRENCY && rate > 0 ? rate : null
+  manualRate.value = !!form.currency && form.currency !== BASE_CURRENCY && rate > 0 ? rate : null
   draftItems.value = (its.data || []).filter((it) => it.status !== 'DELETED' && it.goodsId).map(toDraft)
   removedItems.value = []
 }
@@ -1435,6 +1437,10 @@ function itemPayload(d: DraftItem): SaleOrderInitialItem {
 }
 
 async function saveEdit() {
+  if (!form.currency) {
+    error.value = t('saleOrderCreate.currencyRequired')
+    return
+  }
   saving.value = true
   error.value = null
   try {
@@ -1482,6 +1488,10 @@ async function onSave() {
       reverseButtons: true,
     })
     if (!result.isConfirmed) return
+  }
+  if (!form.currency) {
+    error.value = t('saleOrderCreate.currencyRequired')
+    return
   }
   saving.value = true
   error.value = null

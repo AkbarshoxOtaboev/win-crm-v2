@@ -144,6 +144,7 @@ export default {
     allFilials: 'Все филиалы',
     selectFilial: 'Выберите филиал',
     addOrder: 'Добавить заказ',
+    addInbound: 'Добавить приход',
     makePayment: 'Оплата',
     fxBuy: 'Покупка',
     fxSell: 'Продажа',

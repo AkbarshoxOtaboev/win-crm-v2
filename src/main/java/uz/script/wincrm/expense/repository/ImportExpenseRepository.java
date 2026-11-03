@@ -11,6 +11,7 @@ import uz.script.wincrm.expense.ImportExpenseKind;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 
 @Repository
@@ -29,6 +30,15 @@ public interface ImportExpenseRepository extends JpaRepository<ImportExpense, Lo
                                 @Param("currency") Currency currency);
 
     long countByOrderIdAndKindAndCurrency(Long orderId, ImportExpenseKind kind, Currency currency);
+
+    /** Xorijiy to'lov kursi: bir xil kirim+tur+valyuta bo'yicha oxirgi qotirilgan kurs. */
+    @Query("""
+            select e.orderId, e.kind, e.currency, max(e.exchangeRate)
+            from ImportExpense e
+            where e.orderId in :orderIds and e.exchangeRate is not null
+            group by e.orderId, e.kind, e.currency
+            """)
+    List<Object[]> maxRateByOrderGroups(@Param("orderIds") Collection<Long> orderIds);
 
     /**
      * Shu pozitsiya va tur bo'yicha valyuta kesimida jami.

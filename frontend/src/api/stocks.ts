@@ -23,6 +23,8 @@ export interface Stock {
   currency?: string | null
   exchangeRate?: number | null
   foreignUnitCost?: number | null
+  /** Import boj/yo‘l ulushi, 1 birlik so‘mda. */
+  importUnitCost?: number | null
   priceSelling?: number | null
   sellingCurrency?: string | null
   sellingBase?: number | null
