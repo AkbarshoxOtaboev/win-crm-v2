@@ -35,6 +35,10 @@ public class SecurityConfig {
     @Value("${app.cors.allowed-origins:http://localhost:5174}")
     private String allowedOrigins;
 
+    /** Lokal tarmoq / wildcard: masalan http://192.168.*.*:5174 */
+    @Value("${app.cors.allowed-origin-patterns:}")
+    private String allowedOriginPatterns;
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 
@@ -122,12 +126,18 @@ public class SecurityConfig {
 
         CorsConfiguration configuration = new CorsConfiguration();
 
-        List<String> origins = Arrays.stream(allowedOrigins.split(","))
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .toList();
+        List<String> origins = splitCsv(allowedOrigins);
+        List<String> patterns = splitCsv(allowedOriginPatterns);
 
-        configuration.setAllowedOrigins(origins);
+        // Exact origins + patterns (LAN IP o'zgarsa ham ishlashi uchun patterns).
+        // setAllowedOriginPatterns credentials bilan ham ishlaydi.
+        if (!origins.isEmpty() || !patterns.isEmpty()) {
+            java.util.LinkedHashSet<String> merged = new java.util.LinkedHashSet<>(patterns);
+            merged.addAll(origins);
+            configuration.setAllowedOriginPatterns(merged.stream().toList());
+        } else {
+            configuration.setAllowedOriginPatterns(List.of("http://localhost:*", "http://127.0.0.1:*"));
+        }
 
         configuration.setAllowedMethods(List.of(
                 "GET",
@@ -142,6 +152,7 @@ public class SecurityConfig {
                 "Authorization",
                 "Content-Type",
                 "Accept",
+                "Accept-Language",
                 "X-Filial-Id"
         ));
 
@@ -157,5 +168,15 @@ public class SecurityConfig {
         source.registerCorsConfiguration("/**", configuration);
 
         return source;
+    }
+
+    private static List<String> splitCsv(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return List.of();
+        }
+        return Arrays.stream(raw.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toList();
     }
 }

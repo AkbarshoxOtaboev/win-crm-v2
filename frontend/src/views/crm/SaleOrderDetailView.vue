@@ -3,6 +3,9 @@
     <PageBreadcrumb :pageTitle="order ? t('saleOrderDetail.title', { id: order.id }) : t('saleOrderDetail.titleFallback')" />
     <div class="mb-4 flex flex-wrap items-center gap-2">
       <router-link to="/sales" class="ghost">{{ t('common.backToList') }}</router-link>
+      <router-link v-if="order" :to="`/sales/${order.id}/optimize`" class="ghost">
+        {{ t('cuttingOptimize.open') }}
+      </router-link>
       <button
         v-if="order"
         type="button"

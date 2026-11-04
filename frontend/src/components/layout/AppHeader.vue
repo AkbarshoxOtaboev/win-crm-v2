@@ -78,10 +78,8 @@
           <HeaderQuickActions />
           <FxRatesWidget />
           <FilialSwitcher />
-          <LanguageSwitcher />
-          <ThemeToggler />
+          <UserMenu />
         </div>
-        <UserMenu />
       </div>
     </div>
   </header>
@@ -90,10 +88,8 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useSidebar } from '@/composables/useSidebar'
-import ThemeToggler from '../common/ThemeToggler.vue'
 import SearchBar from './header/SearchBar.vue'
 import HeaderLogo from './header/HeaderLogo.vue'
-import LanguageSwitcher from './header/LanguageSwitcher.vue'
 import FilialSwitcher from './header/FilialSwitcher.vue'
 import HeaderQuickActions from './header/HeaderQuickActions.vue'
 import FxRatesWidget from './header/FxRatesWidget.vue'

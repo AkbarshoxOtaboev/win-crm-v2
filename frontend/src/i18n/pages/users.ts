@@ -20,6 +20,9 @@ export default {
     showPassword: 'Parolni ko‘rish',
     roleLabel: 'Rol',
     selectRole: 'Rolni tanlang',
+    warehouses: 'Omborlar',
+    warehousesHint: 'Sotuvchi faqat tanlangan omborlardan sotadi',
+    noWarehouses: 'Ombor yo‘q',
     noFilial: 'Filial tanlanmagan',
     phoneFormatError: 'Telefon +998-(12)-345-67-89 formatida to‘liq bo‘lishi kerak',
     roleNames: {
@@ -53,6 +56,9 @@ export default {
     showPassword: 'Показать пароль',
     roleLabel: 'Роль',
     selectRole: 'Выберите роль',
+    warehouses: 'Склады',
+    warehousesHint: 'Продавец может продавать только с выбранных складов',
+    noWarehouses: 'Нет складов',
     noFilial: 'Филиал не выбран',
     phoneFormatError: 'Телефон должен быть полностью в формате +998-(12)-345-67-89',
     roleNames: {
@@ -86,6 +92,9 @@ export default {
     showPassword: 'Show password',
     roleLabel: 'Role',
     selectRole: 'Select a role',
+    warehouses: 'Warehouses',
+    warehousesHint: 'Seller can sell only from selected warehouses',
+    noWarehouses: 'No warehouses',
     noFilial: 'No branch selected',
     phoneFormatError: 'Phone must be complete in the +998-(12)-345-67-89 format',
     roleNames: {

@@ -27,7 +27,8 @@
         autocomplete="off"
         :placeholder="t('header.searchClients')"
         class="dark:bg-dark-900 h-10 w-full rounded-lg border border-gray-200 bg-transparent py-2 ps-10 pe-14 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-white/3 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 xl:w-[200px] 2xl:w-[260px]"
-        @focus="open = true"
+        @focus="onFocus"
+        @input="onInput"
         @keydown.down.prevent="move(1)"
         @keydown.up.prevent="move(-1)"
         @keydown.enter.prevent="selectActive"
@@ -46,16 +47,19 @@
 
       <div
         v-if="open && query.trim()"
-        class="absolute start-0 top-12 z-50 w-full overflow-hidden rounded-xl border border-gray-200 bg-white shadow-theme-lg dark:border-gray-800 dark:bg-gray-dark"
+        class="absolute start-0 top-12 z-50 w-full min-w-[280px] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-theme-lg dark:border-gray-800 dark:bg-gray-dark"
       >
         <p class="border-b border-gray-100 px-3 py-2 text-xs text-gray-500 dark:border-gray-800">
           {{ t('header.searchHint') }}
         </p>
-        <ul v-if="filtered.length" class="max-h-72 overflow-y-auto py-1">
+        <p v-if="loading" class="px-3 py-6 text-center text-sm text-gray-500">{{ t('common.loading') }}</p>
+        <ul v-else-if="filtered.length" class="max-h-72 overflow-y-auto py-1" role="listbox">
           <li v-for="(c, i) in filtered" :key="c.id">
             <button
               type="button"
-              class="flex w-full flex-col gap-0.5 px-3 py-2 text-left text-sm transition"
+              role="option"
+              :aria-selected="i === activeIndex"
+              class="flex w-full flex-col gap-0.5 px-3 py-2 text-start text-sm transition"
               :class="
                 i === activeIndex
                   ? 'bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400'
@@ -65,7 +69,9 @@
               @mouseenter="activeIndex = i"
             >
               <span class="font-medium">{{ c.fullName }}</span>
-              <span class="text-xs text-gray-500">{{ c.phone }}{{ c.additionalPhone ? ` · ${c.additionalPhone}` : '' }}</span>
+              <span class="text-xs text-gray-500 dark:text-gray-400">
+                {{ c.phone }}{{ c.additionalPhone ? ` · ${c.additionalPhone}` : '' }}
+              </span>
             </button>
           </li>
         </ul>
@@ -88,22 +94,32 @@
           type="search"
           class="h-11 w-full rounded-lg border border-gray-200 bg-transparent px-3 text-sm dark:border-gray-700 dark:text-white/90"
           :placeholder="t('header.searchClients')"
+          @input="onInput"
           @keydown.down.prevent="move(1)"
           @keydown.up.prevent="move(-1)"
           @keydown.enter.prevent="selectActive"
           @keydown.esc="closeOverlay"
         />
       </div>
-      <ul v-if="filtered.length" class="max-h-80 overflow-y-auto py-1">
+      <p v-if="loading" class="px-4 py-8 text-center text-sm text-gray-500">{{ t('common.loading') }}</p>
+      <ul v-else-if="filtered.length" class="max-h-80 overflow-y-auto py-1" role="listbox">
         <li v-for="(c, i) in filtered" :key="c.id">
           <button
             type="button"
-            class="flex w-full flex-col gap-0.5 px-4 py-2.5 text-left text-sm"
-            :class="i === activeIndex ? 'bg-brand-50 text-brand-600' : 'text-gray-700'"
+            role="option"
+            :aria-selected="i === activeIndex"
+            class="flex w-full flex-col gap-0.5 px-4 py-2.5 text-start text-sm"
+            :class="
+              i === activeIndex
+                ? 'bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400'
+                : 'text-gray-700 dark:text-gray-300'
+            "
             @click="goTo(c.id)"
           >
             <span class="font-medium">{{ c.fullName }}</span>
-            <span class="text-xs text-gray-500">{{ c.phone }}</span>
+            <span class="text-xs text-gray-500">
+              {{ c.phone }}{{ c.additionalPhone ? ` · ${c.additionalPhone}` : '' }}
+            </span>
           </button>
         </li>
       </ul>
@@ -127,12 +143,14 @@ const router = useRouter()
 const query = ref('')
 const open = ref(false)
 const overlayOpen = ref(false)
+const loading = ref(false)
 const clients = ref<Client[]>([])
 const activeIndex = ref(0)
 const inputEl = ref<HTMLInputElement | null>(null)
 const overlayInput = ref<HTMLInputElement | null>(null)
 const root = ref<HTMLElement | null>(null)
 let loaded = false
+let loadPromise: Promise<void> | null = null
 
 const filtered = computed(() => {
   const q = query.value.trim()
@@ -143,8 +161,6 @@ const filtered = computed(() => {
         fullName: c.fullName,
         phone: c.phone,
         additionalPhone: c.additionalPhone,
-        address: c.address,
-        inn: c.inn,
       }),
     )
     .slice(0, 12)
@@ -156,12 +172,30 @@ watch(filtered, () => {
 
 async function ensureClients() {
   if (loaded) return
-  try {
-    clients.value = (await fetchClients()).data || []
-    loaded = true
-  } catch {
-    clients.value = []
-  }
+  if (loadPromise) return loadPromise
+  loading.value = true
+  loadPromise = (async () => {
+    try {
+      clients.value = (await fetchClients()).data || []
+      loaded = true
+    } catch {
+      clients.value = []
+    } finally {
+      loading.value = false
+      loadPromise = null
+    }
+  })()
+  return loadPromise
+}
+
+function onFocus() {
+  open.value = true
+  void ensureClients()
+}
+
+function onInput() {
+  open.value = true
+  void ensureClients()
 }
 
 function focusInput() {

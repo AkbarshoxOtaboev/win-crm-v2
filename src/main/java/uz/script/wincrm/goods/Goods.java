@@ -71,6 +71,21 @@ public class Goods extends FilialScopedEntity {
     @Column(name = "max_discount_percent", precision = 5, scale = 2)
     private BigDecimal maxDiscountPercent;
 
+    /**
+     * Ombordagi minimal qoldiq (ixtiyoriy).
+     * PRODUCT — o‘lchov birligida; WINDOW — kv.m da.
+     * null — chegaralanmagan; jami qoldiq shu qiymatdan kam yoki teng bo‘lsa «kam qolgan» hisoblanadi.
+     */
+    @Column(name = "min_quantity", precision = 19, scale = 4)
+    private BigDecimal minQuantity;
+
+    /**
+     * Oyna (WINDOW) uchun minimal qoldiq donada (ixtiyoriy).
+     * null — dona bo‘yicha chegara yo‘q.
+     */
+    @Column(name = "min_piece_quantity", precision = 19, scale = 4)
+    private BigDecimal minPieceQuantity;
+
     private String photo;
 
     /** Oyna (WINDOW) uchun default eni (santimetr) */

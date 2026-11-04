@@ -12,6 +12,11 @@ export interface AuthResponse {
   filialName?: string | null
   /** Workshops this user manages; empty = not restricted to any workshop. */
   workshopIds?: number[]
+  /**
+   * Seller warehouses. `null`/`undefined` = no restriction;
+   * `[]` = cannot sell from any warehouse; otherwise only listed ids.
+   */
+  warehouseIds?: number[] | null
 }
 
 export interface LoginPayload {

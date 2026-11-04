@@ -33,6 +33,7 @@ import uz.script.wincrm.permissions.Permissions;
 import uz.script.wincrm.roles.Role;
 import uz.script.wincrm.users.User;
 import uz.script.wincrm.users.repository.UserRepository;
+import uz.script.wincrm.warehouse.WarehouseAccess;
 import uz.script.wincrm.workshop.service.WorkshopAccess;
 
 import java.time.LocalDateTime;
@@ -51,6 +52,7 @@ public class AuthController {
     private final SessionService sessionService;
     private final UserRepository userRepository;
     private final WorkshopAccess workshopAccess;
+    private final WarehouseAccess warehouseAccess;
 
     @PostMapping("/login")
     @Auditable(
@@ -256,6 +258,7 @@ public class AuthController {
                 .filialId(user.getFilial() != null ? user.getFilial().getId() : null)
                 .filialName(user.getFilial() != null ? user.getFilial().getName() : null)
                 .workshopIds(workshopAccess.restrictedWorkshopIds(user))
+                .warehouseIds(warehouseAccess.authWarehouseIds(user))
                 .build();
     }
 

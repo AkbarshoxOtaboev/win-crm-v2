@@ -34,7 +34,7 @@
           type="button"
           class="chip"
           :class="{ active: availability === opt.id }"
-          @click="availability = opt.id"
+          @click="setAvailability(opt.id)"
         >
           {{ opt.label }}
         </button>
@@ -157,8 +157,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute, useRouter } from 'vue-router'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import RowActions from '@/components/crm/RowActions.vue'
@@ -171,9 +172,13 @@ import { money } from '@/utils/format'
 import { formatRate, moneyIn } from '@/utils/currency'
 import Swal from 'sweetalert2'
 
-type Availability = 'all' | 'inStock' | 'outOfStock'
+type Availability = 'all' | 'inStock' | 'lowStock' | 'outOfStock'
+
+const AVAILABILITIES: Availability[] = ['all', 'inStock', 'lowStock', 'outOfStock']
 
 const { t } = useI18n()
+const route = useRoute()
+const router = useRouter()
 const allItems = ref<Stock[]>([])
 const warehouses = ref<Warehouse[]>([])
 const goodsOptions = ref<Goods[]>([])
@@ -181,9 +186,14 @@ const search = ref('')
 const warehouseFilter = ref(0)
 const groupFilter = ref(0)
 const typeFilter = ref('')
-const availability = ref<Availability>('all')
+const availability = ref<Availability>(parseAvailability(route.query.availability))
 const loading = ref(false)
 const error = ref<string | null>(null)
+
+function parseAvailability(raw: unknown): Availability {
+  const v = Array.isArray(raw) ? raw[0] : raw
+  return AVAILABILITIES.includes(v as Availability) ? (v as Availability) : 'all'
+}
 
 const goodsById = computed(() => new Map(goodsOptions.value.map((g) => [g.id, g])))
 
@@ -198,8 +208,60 @@ const groups = computed(() => {
 const availabilityOptions = computed<{ id: Availability; label: string }[]>(() => [
   { id: 'all', label: t('stock.availability.all') },
   { id: 'inStock', label: t('stock.availability.inStock') },
+  { id: 'lowStock', label: t('stock.availability.lowStock') },
   { id: 'outOfStock', label: t('stock.availability.outOfStock') },
 ])
+
+function stockRowQty(s: Stock) {
+  const pieces = Number(s.pieceCount)
+  if (Number.isFinite(pieces) && pieces > 0) return pieces
+  return Number(s.count || 0)
+}
+
+function stockRowKvm(s: Stock) {
+  if ((s.goodsType || '').toUpperCase() === 'WINDOW') return Number(s.kvm ?? s.count ?? 0)
+  return 0
+}
+
+function stockRowPieces(s: Stock) {
+  const pieces = Number(s.pieceCount)
+  if (Number.isFinite(pieces)) return pieces
+  return Number(s.count || 0)
+}
+
+/** Mahsulot bo‘yicha barcha omborlardagi jami qoldiq. */
+const totalsByGoodsId = computed(() => {
+  const map = new Map<number, { qty: number; kvm: number; pieces: number }>()
+  for (const s of allItems.value) {
+    const id = Number(s.goodsId || 0)
+    if (!id) continue
+    const cur = map.get(id) || { qty: 0, kvm: 0, pieces: 0 }
+    cur.qty += stockRowQty(s)
+    cur.kvm += stockRowKvm(s)
+    cur.pieces += stockRowPieces(s)
+    map.set(id, cur)
+  }
+  return map
+})
+
+function isLowStockRow(s: Stock) {
+  const goods = s.goodsId ? goodsById.value.get(s.goodsId) : undefined
+  if (!goods) return false
+  const tot = totalsByGoodsId.value.get(Number(s.goodsId)) || { qty: 0, kvm: 0, pieces: 0 }
+  const isWindow = (goods.type || s.goodsType || '').toUpperCase() === 'WINDOW'
+  if (isWindow) {
+    const minKvm = goods.minQuantity != null ? Number(goods.minQuantity) : null
+    const minPieces = goods.minPieceQuantity != null ? Number(goods.minPieceQuantity) : null
+    const byKvm = minKvm != null && Number.isFinite(minKvm) && tot.kvm > 0 && tot.kvm <= minKvm
+    const byPieces =
+      minPieces != null && Number.isFinite(minPieces) && tot.pieces > 0 && tot.pieces <= minPieces
+    return byKvm || byPieces
+  }
+  if (goods.minQuantity == null) return false
+  const minQty = Number(goods.minQuantity)
+  if (!Number.isFinite(minQty) || minQty < 0) return false
+  return tot.qty > 0 && tot.qty <= minQty
+}
 
 const hasFilters = computed(
   () =>
@@ -217,9 +279,10 @@ const items = computed(() => {
     if (warehouseFilter.value && s.warehouseId !== warehouseFilter.value) return false
     if (groupFilter.value && goods?.goodsGroupId !== groupFilter.value) return false
     if (typeFilter.value && (s.goodsType || '').toUpperCase() !== typeFilter.value) return false
-    const qty = Number(s.count || 0)
+    const qty = stockRowQty(s)
     if (availability.value === 'inStock' && qty <= 0) return false
     if (availability.value === 'outOfStock' && qty > 0) return false
+    if (availability.value === 'lowStock' && !isLowStockRow(s)) return false
     if (!q) return true
     return [s.goodsName, s.warehouseName, goods?.barcode, goods?.goodsGroupName, String(s.id)].some((v) =>
       String(v || '').toLowerCase().includes(q),
@@ -244,13 +307,34 @@ function sumLines(lines: { usd: boolean; foreign: number | null; som: number | n
   return { usd, foreign, som }
 }
 
+function setAvailability(next: Availability) {
+  availability.value = next
+  syncAvailabilityQuery()
+}
+
+function syncAvailabilityQuery() {
+  const query = { ...route.query }
+  if (availability.value === 'all') delete query.availability
+  else query.availability = availability.value
+  void router.replace({ query })
+}
+
 function clearFilters() {
   search.value = ''
   warehouseFilter.value = 0
   groupFilter.value = 0
   typeFilter.value = ''
   availability.value = 'all'
+  syncAvailabilityQuery()
 }
+
+watch(
+  () => route.query.availability,
+  (raw) => {
+    const next = parseAvailability(raw)
+    if (availability.value !== next) availability.value = next
+  },
+)
 
 function isWindow(s: Stock) {
   return (s.goodsType || '').toUpperCase() === 'WINDOW'

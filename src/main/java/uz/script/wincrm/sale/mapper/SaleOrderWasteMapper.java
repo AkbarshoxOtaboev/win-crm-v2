@@ -54,6 +54,7 @@ public class SaleOrderWasteMapper {
                 .width(entity.getWidth())
                 .height(entity.getHeight())
                 .comment(entity.getComment())
+                .useful(entity.getUseful())
                 .status(entity.getStatus())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())

@@ -18,6 +18,7 @@ const ASSIGNED_FILIAL_NAME_KEY = 'wincrm_assigned_filial_name'
 const ROLES_KEY = 'wincrm_roles'
 const PERMISSIONS_KEY = 'wincrm_permissions'
 const WORKSHOPS_KEY = 'wincrm_workshop_ids'
+const WAREHOUSES_KEY = 'wincrm_warehouse_ids'
 
 function readList<T = string>(key: string): T[] {
   try {
@@ -25,6 +26,17 @@ function readList<T = string>(key: string): T[] {
     return raw ? (JSON.parse(raw) as T[]) : []
   } catch {
     return []
+  }
+}
+
+/** `null` = unrestricted; array = seller-restricted (may be empty). */
+function readWarehouseIds(): number[] | null {
+  try {
+    const raw = localStorage.getItem(WAREHOUSES_KEY)
+    if (raw == null || raw === 'null') return null
+    return JSON.parse(raw) as number[]
+  } catch {
+    return null
   }
 }
 
@@ -38,6 +50,7 @@ export const useAuthStore = defineStore('auth', () => {
   const roles = ref<string[]>(readList(ROLES_KEY))
   const permissions = ref<string[]>(readList(PERMISSIONS_KEY))
   const workshopIds = ref<number[]>(readList<number>(WORKSHOPS_KEY))
+  const warehouseIds = ref<number[] | null>(readWarehouseIds())
   const superAdmin = ref(localStorage.getItem(SUPER_ADMIN_KEY) === 'true')
   const assignedFilialId = ref<number | null>(
     localStorage.getItem(ASSIGNED_FILIAL_KEY) ? Number(localStorage.getItem(ASSIGNED_FILIAL_KEY)) : null,
@@ -109,6 +122,8 @@ export const useAuthStore = defineStore('auth', () => {
     assignedFilialName.value = data.filialName ?? null
     workshopIds.value = data.workshopIds || []
     localStorage.setItem(WORKSHOPS_KEY, JSON.stringify(workshopIds.value))
+    warehouseIds.value = data.warehouseIds === undefined ? null : data.warehouseIds
+    localStorage.setItem(WAREHOUSES_KEY, JSON.stringify(warehouseIds.value))
     persistAuthProfile({
       superAdmin: data.superAdmin,
       roles: data.roles,
@@ -178,6 +193,8 @@ export const useAuthStore = defineStore('auth', () => {
       permissions.value = []
       workshopIds.value = []
       localStorage.removeItem(WORKSHOPS_KEY)
+      warehouseIds.value = null
+      localStorage.removeItem(WAREHOUSES_KEY)
       superAdmin.value = false
       assignedFilialId.value = null
       assignedFilialName.value = null
@@ -195,6 +212,7 @@ export const useAuthStore = defineStore('auth', () => {
     roles,
     permissions,
     workshopIds,
+    warehouseIds,
     superAdmin,
     assignedFilialId,
     assignedFilialName,

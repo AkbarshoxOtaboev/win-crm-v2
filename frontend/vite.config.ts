@@ -12,6 +12,7 @@ export default defineConfig({
     },
   },
   server: {
+    host: true, // lokal tarmoqdagi boshqa kompyuterlar uchun (0.0.0.0)
     port: 5174,
     strictPort: true,
     proxy: {

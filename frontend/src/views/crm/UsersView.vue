@@ -18,6 +18,7 @@
               <th class="th">{{ t('common.phone') }}</th>
               <th class="th">{{ t('users.status') }}</th>
               <th class="th">{{ t('users.role') }}</th>
+              <th class="th">{{ t('users.warehouses') }}</th>
               <th v-if="showFilialColumn" class="th">{{ t('users.filial') }}</th>
               <th class="th text-right whitespace-nowrap">{{ t('common.actions') }}</th>
             </tr>
@@ -32,6 +33,7 @@
                 <button type="button" class="text-brand-500" @click="onToggle(u)">{{ statusLabel(u.status) }}</button>
               </td>
               <td class="td">{{ formatRoles(u.role) }}</td>
+              <td class="td">{{ formatWarehouses(u) }}</td>
               <td v-if="showFilialColumn" class="td">{{ u.filialName || '—' }}</td>
               <td class="td text-right whitespace-nowrap">
                 <RowActions @edit="openEdit(u)" @delete="onDelete(u)" />
@@ -171,6 +173,22 @@
             </div>
           </div>
 
+          <div v-if="isSellerRole">
+            <label class="lbl">{{ t('users.warehouses') }}</label>
+            <p class="mb-2 text-xs text-gray-500 dark:text-gray-400">{{ t('users.warehousesHint') }}</p>
+            <div class="warehouse-list">
+              <label
+                v-for="w in activeWarehouses"
+                :key="w.id"
+                class="warehouse-item"
+              >
+                <input v-model="form.warehouseIds" type="checkbox" :value="w.id" class="h-4 w-4 rounded border-gray-300" />
+                <span>{{ w.name }}</span>
+              </label>
+              <p v-if="activeWarehouses.length === 0" class="text-sm text-gray-500">{{ t('users.noWarehouses') }}</p>
+            </div>
+          </div>
+
           <div class="flex justify-end gap-2 pt-1">
             <button type="button" class="ghost" @click="closeModal">{{ t('common.cancel') }}</button>
             <button type="submit" class="btn" :disabled="saving">
@@ -201,6 +219,7 @@ import {
 } from '@/api/users'
 import { fetchRoles, type RoleItem } from '@/api/roles'
 import { fetchFilials, type FilialItem } from '@/api/filials'
+import { fetchWarehouses, type Warehouse } from '@/api/warehouses'
 import { formatApiError } from '@/api/http'
 import { useFilialScope } from '@/composables/useFilialScope'
 import { useAuthStore } from '@/stores/auth'
@@ -219,23 +238,41 @@ const createModalTitle = computed(() => (isEmployeesPage.value ? t('users.newEmp
 const editModalTitle = computed(() => (isEmployeesPage.value ? t('users.editEmployee') : t('users.editUser')))
 const emptyLabel = computed(() => (isEmployeesPage.value ? t('users.noEmployees') : t('users.noUsers')))
 const showFilialColumn = computed(() => auth.superAdmin || auth.canAccessSettings)
-const emptyColspan = computed(() => (showFilialColumn.value ? 8 : 7))
+const emptyColspan = computed(() => (showFilialColumn.value ? 9 : 8))
 
 const users = ref<UserItem[]>([])
 const roles = ref<RoleItem[]>([])
 const filials = ref<FilialItem[]>([])
+const warehouses = ref<Warehouse[]>([])
 const error = ref<string | null>(null)
 const formError = ref<string | null>(null)
 const modal = ref(false)
 const editingId = ref<number | null>(null)
 const showPassword = ref(false)
 const saving = ref(false)
-const form = reactive({ username: '', fullName: '', phone: '', password: '', roleId: 0, filialId: 0 })
+const form = reactive({
+  username: '',
+  fullName: '',
+  phone: '',
+  password: '',
+  roleId: 0,
+  filialId: 0,
+  warehouseIds: [] as number[],
+})
 
 const assignableRoles = computed(() => {
   if (!isEmployeesPage.value && auth.canAccessSettings) return roles.value
   return roles.value.filter((r) => !DIRECTOR_BLOCKED_ROLES.has(r.name))
 })
+
+const isSellerRole = computed(() => {
+  const role = roles.value.find((r) => r.id === form.roleId)
+  return role?.name === 'SELLER'
+})
+
+const activeWarehouses = computed(() =>
+  warehouses.value.filter((w) => !w.status || w.status === 'ACTIVE'),
+)
 
 function statusLabel(status?: string) {
   if (status === 'ACTIVE') return t('common.active')
@@ -248,6 +285,11 @@ function formatRoles(role?: RoleItem[]) {
   return role.map((r) => roleLabel(r.name)).join(', ')
 }
 
+function formatWarehouses(u: UserItem) {
+  if (!u.warehouseNames?.length) return '—'
+  return u.warehouseNames.join(', ')
+}
+
 function roleLabel(name: string) {
   const key = `users.roleNames.${name}`
   return te(key) ? t(key) : name
@@ -256,14 +298,16 @@ function roleLabel(name: string) {
 async function load() {
   error.value = null
   try {
-    const [u, r, f] = await Promise.all([
+    const [u, r, f, w] = await Promise.all([
       fetchUsers(),
       fetchRoles(),
       auth.superAdmin ? fetchFilials() : Promise.resolve({ data: [] as FilialItem[] }),
+      fetchWarehouses(),
     ])
     users.value = u.data || []
     roles.value = r.data || []
     filials.value = f.data || []
+    warehouses.value = w.data || []
   } catch (e) {
     error.value = formatApiError(e)
   }
@@ -283,6 +327,7 @@ function openCreate() {
     password: '',
     roleId: assignableRoles.value[0]?.id || 0,
     filialId: auth.assignedFilialId || 0,
+    warehouseIds: [],
   })
   formError.value = null
   showPassword.value = false
@@ -298,6 +343,7 @@ function openEdit(u: UserItem) {
     password: '',
     roleId: u.role?.[0]?.id || 0,
     filialId: u.filialId || 0,
+    warehouseIds: [...(u.warehouseIds || [])],
   })
   formError.value = null
   showPassword.value = false
@@ -319,6 +365,11 @@ function fd() {
   if (form.password) data.append('password', form.password)
   data.append('roleIds', String(form.roleId))
   if (auth.superAdmin && form.filialId) data.append('filialId', String(form.filialId))
+  if (isSellerRole.value) {
+    for (const id of form.warehouseIds) {
+      data.append('warehouseIds', String(id))
+    }
+  }
   return data
 }
 
@@ -420,4 +471,24 @@ onMounted(load)
 }
 .dark .ghost { border-color: #344054; color: #d1d5db; }
 .dark .modal { background: #101828; }
+.warehouse-list {
+  max-height: 10rem;
+  overflow-y: auto;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.warehouse-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: #374151;
+  cursor: pointer;
+}
+.dark .warehouse-list { border-color: #344054; }
+.dark .warehouse-item { color: #d1d5db; }
 </style>

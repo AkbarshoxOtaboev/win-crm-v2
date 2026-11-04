@@ -2,15 +2,16 @@ export default {
   uz: {
     newWarehouse: '+ Yangi ombor',
     empty: 'Ombor yo‘q',
-    status: 'Status',
-    statusActive: 'Active',
-    statusInactive: 'No active',
+    status: 'Holat',
+    statusActive: 'Faol',
+    statusInactive: 'Nofaol',
     toggle: 'Yoqish / o‘chirish',
-    turnOn: 'Yoqish',
-    turnOff: 'O‘chirish',
+    turnOn: 'Faollashtirish',
+    turnOff: 'O‘chirish (nofaol)',
     editTitle: 'Omborni tahrirlash',
     createTitle: 'Yangi ombor',
     statusError: 'Statusni o‘zgartirishda xatolik',
+    writeBlocked: 'Ombor qo‘shish/tahrirlash uchun filial tanlang',
   },
   ru: {
     newWarehouse: '+ Новый склад',
@@ -24,6 +25,7 @@ export default {
     editTitle: 'Редактирование склада',
     createTitle: 'Новый склад',
     statusError: 'Ошибка изменения статуса',
+    writeBlocked: 'Выберите филиал, чтобы добавить или изменить склад',
   },
   en: {
     newWarehouse: '+ New warehouse',
@@ -37,5 +39,6 @@ export default {
     editTitle: 'Edit warehouse',
     createTitle: 'New warehouse',
     statusError: 'Failed to change status',
+    writeBlocked: 'Select a branch to create or edit warehouses',
   },
 }

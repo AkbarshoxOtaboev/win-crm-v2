@@ -6,7 +6,7 @@
       <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <label v-if="canViewAll" class="lbl-block">
           {{ t('sellerDebts.seller') }}
-          <select v-model.number="userId" class="field" @change="load">
+          <select v-model.number="userId" class="field" @change="onSellerChange">
             <option :value="0">{{ t('sellerDebts.allSellers') }}</option>
             <option v-for="u in users" :key="u.id" :value="u.id">{{ u.fullName || u.username }}</option>
           </select>
@@ -99,8 +99,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute, useRouter } from 'vue-router'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import { fetchSellerDebts, type SellerClientDebt, type SellerDebt } from '@/api/sales'
@@ -112,6 +113,8 @@ import { formatDate, money } from '@/utils/format'
 import { formatUzPhone } from '@/utils/phone'
 
 const { t } = useI18n()
+const route = useRoute()
+const router = useRouter()
 const auth = useAuthStore()
 const canViewAll = computed(() => auth.can('DEBT_NOTIFICATION_VIEW'))
 
@@ -123,6 +126,26 @@ const endDate = ref('')
 const search = ref('')
 const loading = ref(false)
 const error = ref<string | null>(null)
+
+function parseUserIdQuery(raw: unknown) {
+  const n = Number(Array.isArray(raw) ? raw[0] : raw)
+  return Number.isFinite(n) && n > 0 ? n : 0
+}
+
+function syncUserIdFromRoute() {
+  userId.value = canViewAll.value ? parseUserIdQuery(route.query.userId) : 0
+}
+
+async function onSellerChange() {
+  const next = userId.value > 0 ? { userId: String(userId.value) } : {}
+  const cur = route.query.userId != null ? String(route.query.userId) : ''
+  const want = next.userId || ''
+  if (cur === want) {
+    await load()
+    return
+  }
+  await router.replace({ path: '/sales/debts', query: next })
+}
 
 const filtered = computed(() => {
   const q = search.value.trim().toLowerCase()
@@ -181,6 +204,14 @@ async function load() {
   }
 }
 
+watch(
+  () => route.query.userId,
+  async () => {
+    syncUserIdFromRoute()
+    await load()
+  },
+)
+
 onMounted(async () => {
   if (canViewAll.value) {
     try {
@@ -189,6 +220,7 @@ onMounted(async () => {
       users.value = []
     }
   }
+  syncUserIdFromRoute()
   await load()
 })
 </script>

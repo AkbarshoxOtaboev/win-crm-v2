@@ -177,11 +177,11 @@
           <template v-if="isWindowGoods">
             <label class="lbl min-w-0 w-28 sm:flex-none">
               {{ t('saleOrderCreate.width') }}
-              <input v-model.number="itemForm.width" type="number" min="1" step="1" class="field" :disabled="measuresLocked" />
+              <input v-model.number="itemForm.width" type="number" min="0.1" step="0.1" class="field" :disabled="measuresLocked" />
             </label>
             <label class="lbl min-w-0 w-28 sm:flex-none">
               {{ t('saleOrderCreate.height') }}
-              <input v-model.number="itemForm.height" type="number" min="1" step="1" class="field" :disabled="measuresLocked" />
+              <input v-model.number="itemForm.height" type="number" min="0.1" step="0.1" class="field" :disabled="measuresLocked" />
             </label>
             <label class="lbl min-w-0 w-24 sm:flex-none">
               {{ t('common.count') }}
@@ -228,7 +228,7 @@
             </button>
           </div>
         </div>
-        <!-- Kesish hisobi vaqtincha o‘chirilgan. Keyin qayta qo‘shamiz.
+        <!-- Kesish optimizatsiyasi yangi sotuvda emas — buyurtma saqlangach /sales/:id/optimize.
         <CuttingPreview
           v-if="showCuttingPreview"
           :goods-id="itemForm.goodsId"
@@ -320,8 +320,8 @@
                   v-if="row.isWindow"
                   class="cell-input"
                   type="number"
-                  min="1"
-                  step="1"
+                  min="0.1"
+                  step="0.1"
                   :value="row.width ?? ''"
                   :disabled="saving || orderFinal || measuresLocked"
                   :aria-label="t('saleOrderCreate.width')"
@@ -334,8 +334,8 @@
                   v-if="row.isWindow"
                   class="cell-input"
                   type="number"
-                  min="1"
-                  step="1"
+                  min="0.1"
+                  step="0.1"
                   :value="row.height ?? ''"
                   :disabled="saving || orderFinal || measuresLocked"
                   :aria-label="t('saleOrderCreate.height')"
@@ -854,7 +854,7 @@ const selectedGoods = computed(() => goods.value.find((g) => g.id === itemForm.g
 const isWindowGoods = computed(() => isWindow(selectedGoods.value))
 const measuresLocked = computed(() => form.saleType === 'WHOLESALE')
 const isServiceGoods = computed(() => isService(selectedGoods.value))
-/* Kesish hisobi vaqtincha o‘chirilgan. Keyin qayta qo‘shamiz.
+/* Kesish rejasi yangi sotuv formasida yopiq — optimizatsiya alohida sahifada.
 const showCuttingPreview = computed(
   () =>
     isWindowGoods.value &&
@@ -884,9 +884,12 @@ const computedSum = computed(() => {
   return Number(itemForm.count || 0) * Number(itemForm.priceSelling || 0)
 })
 
-const activeWarehouses = computed(() =>
-  warehouses.value.filter((w) => !w.status || w.status === 'ACTIVE'),
-)
+const activeWarehouses = computed(() => {
+  const active = warehouses.value.filter((w) => !w.status || w.status === 'ACTIVE')
+  if (auth.warehouseIds == null) return active
+  const allowed = new Set(auth.warehouseIds)
+  return active.filter((w) => allowed.has(w.id))
+})
 
 const clientOptions = computed(() =>
   clients.value
@@ -1513,7 +1516,8 @@ async function onSave() {
     const id = res.data?.id
     if (!id) throw new Error(t('saleOrderCreate.notCreated'))
     saved.value = true
-    void router.push(`/sales/${id}`)
+    const hasWindow = draftItems.value.some((d) => d.isWindow)
+    void router.push(hasWindow ? `/sales/${id}/optimize` : `/sales/${id}`)
   } catch (e) {
     error.value = formatApiError(e)
     window.scrollTo({ top: 0, behavior: 'smooth' })

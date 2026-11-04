@@ -23,6 +23,8 @@ public class UserDTO {
     private String phone;
     @NotEmpty(message = "Role IDs cannot be empty")
     private Set<Long> roleIds;
+    /** Sotuvchiga biriktiriladigan omborlar (ixtiyoriy). */
+    private Set<Long> warehouseIds;
     private Long filialId;
     private MultipartFile photo;
 }

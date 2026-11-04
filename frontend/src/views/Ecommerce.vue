@@ -25,7 +25,7 @@
     </div>
     <p v-if="rateMissing" class="mb-4 text-sm text-warning-600 dark:text-warning-400">{{ t('reportCurrency.rateMissing') }}</p>
 
-    <div class="mb-4 grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-6">
+    <div class="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 md:gap-6">
       <article
         v-for="card in totalCards"
         :key="card.key"
@@ -37,8 +37,9 @@
         </div>
         <p class="mt-4 text-sm" :class="card.label">{{ t(card.titleKey) }}</p>
         <h4 class="mt-1 text-title-sm font-bold text-gray-800 dark:text-white/90">{{ fmt(totals[card.key]) }}</h4>
+        <p v-if="card.key === 'cash'" class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{{ t('home.cashOnHandHint') }}</p>
         <template v-if="split">
-          <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{{ t('home.convertedTotal') }}</p>
+          <p v-if="card.key !== 'cash'" class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{{ t('home.convertedTotal') }}</p>
           <div class="mt-3 grid grid-cols-2 gap-2 border-t border-gray-200/70 pt-3 dark:border-white/10">
             <div class="min-w-0">
               <p class="flex items-center gap-1 text-[11px] text-gray-500 dark:text-gray-400">
@@ -61,60 +62,160 @@
       </article>
     </div>
 
-    <div class="mb-4 rounded-2xl border border-gray-200 bg-white px-5 pb-5 pt-5 dark:border-gray-800 dark:bg-white/[0.03] sm:px-6 sm:pt-6">
-      <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <div class="flex items-center gap-2.5">
-          <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-success-50 text-success-600 dark:bg-success-500/15 dark:text-success-400">
-            <Landmark class="h-4 w-4" />
-          </span>
-          <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('home.cashBalances') }}</h3>
+    <div class="mb-4 grid grid-cols-1 gap-4 xl:grid-cols-3 md:gap-6">
+      <div
+        class="flex min-h-0 flex-col rounded-2xl border border-gray-200 bg-white px-5 pb-5 pt-5 dark:border-gray-800 dark:bg-white/[0.03] sm:px-6 sm:pt-6"
+      >
+        <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <div class="flex items-center gap-2.5">
+            <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-error-50 text-error-600 dark:bg-error-500/15 dark:text-error-400">
+              <Users class="h-4 w-4" />
+            </span>
+            <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('home.debtorSellers') }}</h3>
+          </div>
+          <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('home.debtorSellersHint') }}</p>
         </div>
-        <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('home.cashBalancesHint') }}</p>
+        <div class="min-h-0 h-[280px] overflow-x-auto overflow-y-auto">
+          <p v-if="sellerDebts.length === 0" class="py-6 text-center text-sm text-gray-500">{{ t('home.debtorSellersEmpty') }}</p>
+          <table v-else class="min-w-full text-sm">
+            <thead class="sticky top-0 bg-white dark:bg-[#0b1220]">
+              <tr class="border-b border-gray-100 text-left text-xs text-gray-500 dark:border-gray-800">
+                <th class="py-2 pe-4 font-medium">{{ t('home.name') }}</th>
+                <th class="py-2 pe-4 text-right font-medium">{{ t('home.inUzs') }}</th>
+                <th class="py-2 text-right font-medium">{{ t('home.inUsd') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="s in sellerDebts"
+                :key="s.userId"
+                class="border-b border-gray-100 dark:border-gray-800"
+              >
+                <td class="py-2 pe-4">
+                  <router-link
+                    :to="{ path: '/sales/debts', query: { userId: String(s.userId) } }"
+                    class="font-medium text-brand-600 hover:underline dark:text-brand-400"
+                  >
+                    {{ s.userFullName || '—' }}
+                  </router-link>
+                </td>
+                <td class="py-2 pe-4 text-right font-semibold text-error-600 dark:text-error-400">
+                  {{ cashMoney(sellerDebtAmount(s, 'UZS'), 'UZS') }}
+                </td>
+                <td class="py-2 text-right font-semibold text-error-600 dark:text-error-400">
+                  {{ cashMoney(sellerDebtAmount(s, 'USD'), 'USD') }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
-      <p v-if="visibleCash.length === 0" class="py-6 text-center text-sm text-gray-500">{{ t('home.empty') }}</p>
-      <div v-else class="overflow-x-auto">
-        <table class="min-w-full text-sm">
-          <thead>
-            <tr class="border-b border-gray-100 text-left text-xs text-gray-500 dark:border-gray-800">
-              <th class="py-2 pe-4 font-medium">{{ t('home.cashbox') }}</th>
-              <th class="py-2 pe-4 text-right font-medium">{{ t('home.cashOpening') }}</th>
-              <th class="py-2 pe-4 text-right font-medium">{{ t('home.cashIn') }}</th>
-              <th class="py-2 pe-4 text-right font-medium">{{ t('home.cashOut') }}</th>
-              <th class="py-2 pe-4 text-right font-medium">{{ t('home.cashExpenses') }}</th>
-              <th class="py-2 pe-4 text-right font-medium">{{ t('home.cashHanded') }}</th>
-              <th class="py-2 text-right font-medium">{{ t('home.cashClosing') }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="c in visibleCash"
-              :key="`${c.paymentTypeId}-${c.currency}`"
-              class="border-b border-gray-100 dark:border-gray-800"
-            >
-              <td class="py-2 pe-4 text-gray-700 dark:text-gray-300">
-                {{ c.paymentTypeName }}
-                <span class="ms-1 rounded bg-gray-100 px-1.5 py-0.5 text-[11px] text-gray-500 dark:bg-white/5">{{ c.currency }}</span>
-              </td>
-              <td class="py-2 pe-4 text-right text-gray-600 dark:text-gray-400">{{ cashMoney(c.opening, c.currency) }}</td>
-              <td class="py-2 pe-4 text-right text-success-600 dark:text-success-400">+{{ cashMoney(c.incoming, c.currency) }}</td>
-              <td class="py-2 pe-4 text-right text-error-600 dark:text-error-400">−{{ cashMoney(c.outgoing, c.currency) }}</td>
-              <td class="py-2 pe-4 text-right text-error-600 dark:text-error-400">−{{ cashMoney(c.expenses, c.currency) }}</td>
-              <td class="py-2 pe-4 text-right text-orange-600 dark:text-orange-400">−{{ cashMoney(c.handedOver, c.currency) }}</td>
-              <td class="py-2 text-right font-semibold text-gray-800 dark:text-white/90">{{ cashMoney(c.closing, c.currency) }}</td>
-            </tr>
-          </tbody>
-          <tfoot>
-            <tr v-for="tot in cashTotals" :key="tot.currency" class="text-gray-800 dark:text-white/90">
-              <td class="py-2 pe-4 font-semibold">{{ t('home.cashTotal', { currency: tot.currency }) }}</td>
-              <td class="py-2 pe-4 text-right">{{ cashMoney(tot.opening, tot.currency) }}</td>
-              <td class="py-2 pe-4 text-right">+{{ cashMoney(tot.incoming, tot.currency) }}</td>
-              <td class="py-2 pe-4 text-right">−{{ cashMoney(tot.outgoing, tot.currency) }}</td>
-              <td class="py-2 pe-4 text-right">−{{ cashMoney(tot.expenses, tot.currency) }}</td>
-              <td class="py-2 pe-4 text-right">−{{ cashMoney(tot.handedOver, tot.currency) }}</td>
-              <td class="py-2 text-right font-semibold">{{ cashMoney(tot.closing, tot.currency) }}</td>
-            </tr>
-          </tfoot>
-        </table>
+
+      <div
+        class="flex min-h-0 flex-col rounded-2xl border border-gray-200 bg-white px-5 pb-5 pt-5 dark:border-gray-800 dark:bg-white/[0.03] sm:px-6 sm:pt-6"
+      >
+        <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <div class="flex items-center gap-2.5">
+            <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gray-100 text-gray-700 dark:bg-white/10 dark:text-gray-300">
+              <PackageX class="h-4 w-4" />
+            </span>
+            <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('warehouseDashboard.outOfStockTitle') }}</h3>
+          </div>
+          <router-link
+            :to="{ path: '/stock', query: { availability: 'outOfStock' } }"
+            class="text-sm font-medium text-brand-600 hover:underline dark:text-brand-400"
+          >
+            {{ t('nav.stock') }}
+          </router-link>
+        </div>
+        <div class="min-h-0 h-[280px] overflow-auto">
+          <p v-if="outOfStockRows.length === 0" class="py-6 text-center text-sm text-gray-500">
+            {{ t('warehouseDashboard.outOfStockEmpty') }}
+          </p>
+          <table v-else class="min-w-full text-sm">
+            <thead class="sticky top-0 bg-white dark:bg-[#0b1220]">
+              <tr class="border-b border-gray-100 text-left text-xs text-gray-500 dark:border-gray-800">
+                <th class="py-2 pe-4 font-medium">{{ t('warehouseDashboard.goods') }}</th>
+                <th class="py-2 pe-4 text-right font-medium">{{ t('warehouseDashboard.qty') }}</th>
+                <th class="py-2 font-medium">{{ t('warehouseDashboard.warehouses') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="row in outOfStockRows"
+                :key="`out-${row.goodsId}`"
+                class="border-b border-gray-100 dark:border-gray-800"
+              >
+                <td class="py-2 pe-4">
+                  <span class="font-medium text-gray-800 dark:text-white/90">{{ row.name }}</span>
+                  <span v-if="row.unit" class="ms-1 text-xs text-gray-400">{{ row.unit }}</span>
+                </td>
+                <td class="py-2 pe-4 text-right font-semibold text-gray-700 dark:text-gray-300 whitespace-pre-line">
+                  {{ row.qtyLabel }}
+                </td>
+                <td class="py-2 text-gray-600 dark:text-gray-400">{{ row.warehouses || '—' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div
+        class="flex min-h-0 flex-col rounded-2xl border border-gray-200 bg-white px-5 pb-5 pt-5 dark:border-gray-800 dark:bg-white/[0.03] sm:px-6 sm:pt-6"
+      >
+        <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <div class="flex items-center gap-2.5">
+            <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-error-50 text-error-600 dark:bg-error-500/15 dark:text-error-400">
+              <AlertTriangle class="h-4 w-4" />
+            </span>
+            <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('warehouseDashboard.lowStockTitle') }}</h3>
+          </div>
+          <router-link
+            :to="{ path: '/stock', query: { availability: 'lowStock' } }"
+            class="text-sm font-medium text-brand-600 hover:underline dark:text-brand-400"
+          >
+            {{ t('stock.availability.lowStock') }}
+          </router-link>
+        </div>
+        <div class="min-h-0 h-[280px] overflow-auto">
+          <p v-if="lowStockRows.length === 0" class="py-6 text-center text-sm text-gray-500">
+            {{ t('warehouseDashboard.lowStockEmpty') }}
+          </p>
+          <table v-else class="min-w-full text-sm">
+            <thead class="sticky top-0 bg-white dark:bg-[#0b1220]">
+              <tr class="border-b border-gray-100 text-left text-xs text-gray-500 dark:border-gray-800">
+                <th class="py-2 pe-4 font-medium">{{ t('warehouseDashboard.goods') }}</th>
+                <th class="py-2 pe-4 text-right font-medium">{{ t('warehouseDashboard.qty') }}</th>
+                <th class="py-2 pe-4 text-right font-medium">{{ t('warehouseDashboard.minQty') }}</th>
+                <th class="py-2 font-medium">{{ t('warehouseDashboard.warehouses') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="row in lowStockRows"
+                :key="`low-${row.goodsId}`"
+                class="border-b border-gray-100 dark:border-gray-800"
+              >
+                <td class="py-2 pe-4">
+                  <router-link
+                    :to="{ path: '/stock', query: { availability: 'lowStock' } }"
+                    class="font-medium text-brand-600 hover:underline dark:text-brand-400"
+                  >
+                    {{ row.name }}
+                  </router-link>
+                  <span v-if="row.unit" class="ms-1 text-xs text-gray-400">{{ row.unit }}</span>
+                </td>
+                <td class="py-2 pe-4 text-right font-semibold text-error-600 dark:text-error-400 whitespace-pre-line">
+                  {{ row.qtyLabel }}
+                </td>
+                <td class="py-2 pe-4 text-right text-gray-600 dark:text-gray-400 whitespace-pre-line">
+                  {{ row.minLabel }}
+                </td>
+                <td class="py-2 text-gray-600 dark:text-gray-400">{{ row.warehouses || '—' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -198,30 +299,27 @@ import {
   fetchCashBalances,
   fetchDailyPayments,
   fetchExpenseInfo,
-  fetchGoodsGroupSummary,
   fetchPaymentsByType,
-  fetchTopGoodsByAmount,
-  fetchTopGoodsByQuantity,
   fetchTopSellers,
   type CashBalance,
 } from '@/api/dashboard'
-import { fetchSaleOrdersByDateRange, type SaleOrder } from '@/api/sales'
+import { fetchSaleOrdersByDateRange, fetchSellerDebts, type SaleOrder, type SellerDebt } from '@/api/sales'
 import { formatApiError } from '@/api/http'
-import { moneyIn, type CurrencyCode } from '@/utils/currency'
+import { BASE_CURRENCY, moneyIn, type CurrencyCode } from '@/utils/currency'
 import { useReportCurrency } from '@/composables/useReportCurrency'
+import { useStockAlerts } from '@/composables/useStockAlerts'
 import VueApexCharts from 'vue3-apexcharts'
 import draggable from 'vuedraggable'
 import {
+  AlertTriangle,
   Banknote,
   BarChart3,
-  Boxes,
   Coins,
   DollarSign,
-  Landmark,
-  Package,
+  HandCoins,
+  PackageX,
   Receipt,
   ShoppingBag,
-  Trophy,
   Users,
   Wallet,
 } from 'lucide-vue-next'
@@ -258,10 +356,10 @@ const chartCategories = ref<string[]>([])
 const chartValues = ref<number[]>([])
 const paymentsCategories = ref<string[]>([])
 const paymentsValues = ref<number[]>([])
-type TotalKey = 'sales' | 'payments' | 'expenses'
+type TotalKey = 'sales' | 'payments' | 'expenses' | 'cash'
 type CurrencySplit = Record<CurrencyCode, number>
 
-const totals = ref<Record<TotalKey, number>>({ sales: 0, payments: 0, expenses: 0 })
+const totals = ref<Record<TotalKey, number>>({ sales: 0, payments: 0, expenses: 0, cash: 0 })
 /** "Umumiy" rejimida har bir karta uchun so'm va dollardagi hujjatlar o'z valyutasida; boshqa rejimlarda null. */
 const split = ref<Record<TotalKey, CurrencySplit> | null>(null)
 
@@ -297,9 +395,19 @@ const totalCards: {
     iconBox: 'bg-orange-500',
     label: 'text-orange-600 dark:text-orange-400',
   },
+  {
+    key: 'cash',
+    titleKey: 'home.cashOnHand',
+    icon: HandCoins,
+    box: 'border-violet-200 from-violet-50 dark:border-violet-500/20 dark:from-violet-500/10',
+    iconBox: 'bg-violet-500',
+    label: 'text-violet-600 dark:text-violet-400',
+  },
 ]
 const widgets = ref<WidgetDef[]>(defaultWidgets())
 const cashBalances = ref<CashBalance[]>([])
+const sellerDebts = ref<SellerDebt[]>([])
+const { outOfStockRows, lowStockRows, loadStockAlerts } = useStockAlerts()
 const { display, setDisplay, loadRates, conv, fmt, compact: compactMoney, rateMissing } = useReportCurrency()
 
 const SCOPE_KEY = 'wincrm_home_currency_scope'
@@ -315,44 +423,40 @@ function inScope(currency?: CurrencyCode | null) {
   return !only.value || (currency || 'UZS') === display.value
 }
 
-const visibleCash = computed(() => cashBalances.value.filter((c) => inScope(c.currency)))
+/** Davr ichidagi kassa qoldig'i: kirim − chiqim − xarajat − topshirilgan (qabul qilingan). */
+function cashPeriodRemaining(c: CashBalance) {
+  return (
+    Number(c.incoming || 0) -
+    Number(c.outgoing || 0) -
+    Number(c.expenses || 0) -
+    Number(c.handedOver || 0)
+  )
+}
 
-const cashTotals = computed(() => {
-  const map = new Map<
-    CurrencyCode,
-    {
-      currency: CurrencyCode
-      opening: number
-      incoming: number
-      outgoing: number
-      expenses: number
-      handedOver: number
-      closing: number
-    }
-  >()
-  for (const c of visibleCash.value) {
-    const cur = map.get(c.currency) || {
-      currency: c.currency,
-      opening: 0,
-      incoming: 0,
-      outgoing: 0,
-      expenses: 0,
-      handedOver: 0,
-      closing: 0,
-    }
-    cur.opening += Number(c.opening || 0)
-    cur.incoming += Number(c.incoming || 0)
-    cur.outgoing += Number(c.outgoing || 0)
-    cur.expenses += Number(c.expenses || 0)
-    cur.handedOver += Number(c.handedOver || 0)
-    cur.closing += Number(c.closing || 0)
-    map.set(c.currency, cur)
+function cashOnHandTotals(rows: CashBalance[]): { total: number; split: CurrencySplit } {
+  const byCur: CurrencySplit = { UZS: 0, USD: 0 }
+  let total = 0
+  const asOf = endDate.value
+  for (const c of rows) {
+    if (!inScope(c.currency)) continue
+    const remaining = cashPeriodRemaining(c)
+    // Qabul/topshirilgandan keyin manfiy ko'rinmasin — 0
+    const v = remaining > 0 ? remaining : 0
+    byCur[c.currency === 'USD' ? 'USD' : 'UZS'] += v
+    total += only.value ? v : conv(v, c.currency, null, asOf)
   }
-  return [...map.values()]
-})
+  return { total, split: byCur }
+}
 
 function cashMoney(v: number, currency: CurrencyCode) {
   return moneyIn(Number(v || 0), currency, t('common.currency'))
+}
+
+function sellerDebtAmount(s: SellerDebt, currency: CurrencyCode) {
+  const fromDebts = s.debts?.find((d) => d.currency === currency)
+  if (fromDebts) return Number(fromDebts.amount || 0)
+  if (currency === BASE_CURRENCY) return Number(s.totalDebt || 0)
+  return 0
 }
 
 function splitMoney(v: number, currency: CurrencyCode) {
@@ -465,9 +569,6 @@ function formatDayLabel(raw?: string) {
 
 function defaultWidgets(): WidgetDef[] {
   return [
-    { id: 'topAmount', titleKey: 'home.topProducts', icon: Trophy, nameKey: 'home.name', valueKey: 'home.netRevenue', tone: 'blue', formatAs: 'money', rows: [] },
-    { id: 'topQty', titleKey: 'home.topProducts', icon: Package, nameKey: 'home.name', valueKey: 'home.quantity', tone: 'indigo', formatAs: 'number', rows: [] },
-    { id: 'groups', titleKey: 'home.productGroups', icon: Boxes, nameKey: 'home.name', valueKey: 'home.netRevenue', tone: 'violet', formatAs: 'money', rows: [] },
     { id: 'sellers', titleKey: 'home.topSellers', icon: Users, nameKey: 'home.name', valueKey: 'home.netRevenue', tone: 'green', formatAs: 'money', rows: [] },
     { id: 'payTypes', titleKey: 'home.paymentTypes', icon: Banknote, nameKey: 'home.name', valueKey: 'home.netRevenue', tone: 'teal', formatAs: 'money', rows: [] },
   ]
@@ -583,7 +684,10 @@ async function setChartPeriod(period: ChartPeriod) {
 }
 
 /** Hujjatlar o'z valyutasida, o'girilmasdan: backend "only" rejimida faqat shu valyutadagilarni jamlaydi. */
-async function loadSplit(orders: SaleOrder[]): Promise<Record<TotalKey, CurrencySplit>> {
+async function loadSplit(
+  orders: SaleOrder[],
+  cashRows: CashBalance[],
+): Promise<Record<TotalKey, CurrencySplit>> {
   const from = startDate.value
   const to = endDate.value
   const [payUzs, payUsd, expUzs, expUsd] = await Promise.all([
@@ -603,6 +707,7 @@ async function loadSplit(orders: SaleOrder[]): Promise<Record<TotalKey, Currency
     sales,
     payments: { UZS: sum(payUzs.data), USD: sum(payUsd.data) },
     expenses: { UZS: sum(expUzs.data), USD: sum(expUsd.data) },
+    cash: cashOnHandTotals(cashRows).split,
   }
 }
 
@@ -611,44 +716,20 @@ async function load() {
   try {
     const cur = display.value
     const one = only.value
-    const [a, q, g, s, p, d, exp, sales, cash] = await Promise.all([
-      fetchTopGoodsByAmount(startDate.value, endDate.value, cur, one),
-      fetchTopGoodsByQuantity(startDate.value, endDate.value, cur, one),
-      fetchGoodsGroupSummary(startDate.value, endDate.value, cur, one),
+    const [s, p, d, exp, sales, cash, debts] = await Promise.all([
       fetchTopSellers(startDate.value, endDate.value, cur, one),
       fetchPaymentsByType(startDate.value, endDate.value),
       fetchDailyPayments(startDate.value, endDate.value, cur, one),
       fetchExpenseInfo(startDate.value, endDate.value, cur, one),
       fetchSaleOrdersByDateRange(`${startDate.value}T00:00:00`, `${endDate.value}T23:59:59`),
       fetchCashBalances(startDate.value, endDate.value),
+      fetchSellerDebts(),
       loadRates(startDate.value, endDate.value),
+      loadStockAlerts(),
     ])
     cashBalances.value = cash.data || []
+    sellerDebts.value = debts.data || []
 
-    setWidgetRows(
-      'topAmount',
-      (a.data || []).map((x) => ({
-        id: x.goodsId,
-        name: x.goodsName || '—',
-        value: amt(x.totalAmount ?? x.amount),
-      })),
-    )
-    setWidgetRows(
-      'topQty',
-      (q.data || []).map((x) => ({
-        id: x.goodsId,
-        name: x.goodsName || '—',
-        value: amt(x.totalCount ?? x.quantity),
-      })),
-    )
-    setWidgetRows(
-      'groups',
-      (g.data || []).map((x) => ({
-        id: x.goodsGroupId,
-        name: x.goodsGroupName || '—',
-        value: amt(x.totalAmount ?? x.amount),
-      })),
-    )
     setWidgetRows(
       'sellers',
       (s.data || []).map((x) => ({
@@ -673,12 +754,14 @@ async function load() {
     paymentsCategories.value = dailyRows.map((x) => formatDayLabel(x.date))
     paymentsValues.value = dailyRows.map((x) => amt(x.totalAmount ?? x.amount))
 
+    const cashHand = cashOnHandTotals(cashBalances.value)
     totals.value = {
       sales: (sales.data || []).reduce((sum, o) => sum + orderAmount(o), 0),
       payments: dailyRows.reduce((sum, x) => sum + amt(x.totalAmount ?? x.amount), 0),
       expenses: (exp.data || []).reduce((sum, x) => sum + amt(x.totalAmount ?? x.amount), 0),
+      cash: cashHand.total,
     }
-    split.value = one ? null : await loadSplit(sales.data || [])
+    split.value = one ? null : await loadSplit(sales.data || [], cashBalances.value)
     await loadChart()
   } catch (e) {
     error.value = formatApiError(e)

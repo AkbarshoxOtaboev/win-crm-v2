@@ -53,6 +53,7 @@ import uz.script.wincrm.users.User;
 import uz.script.wincrm.users.repository.UserRepository;
 import uz.script.wincrm.utils.Status;
 import uz.script.wincrm.warehouse.Warehouse;
+import uz.script.wincrm.warehouse.WarehouseAccess;
 import uz.script.wincrm.warehouse.repository.WarehouseRepository;
 
 import java.math.BigDecimal;
@@ -78,6 +79,7 @@ public class SaleOrderServiceImpl implements SaleOrderService {
     private final SaleOrderMapper mapper;
     private final ClientRepository clientRepository;
     private final WarehouseRepository warehouseRepository;
+    private final WarehouseAccess warehouseAccess;
     private final UserRepository userRepository;
     private final ClientBalanceService clientBalanceService;
     private final SaleOrderHistoryService saleOrderHistoryService;
@@ -109,6 +111,7 @@ public class SaleOrderServiceImpl implements SaleOrderService {
 
         Warehouse warehouse = warehouseRepository.findById(dto.getWarehouseId())
                 .orElseThrow(() -> new ResourceNotFoundException("Warehouse not found with id: " + dto.getWarehouseId()));
+        warehouseAccess.assertWarehouse(dto.getWarehouseId());
 
         Client client = null;
         if (dto.getClientId() != null) {
@@ -355,6 +358,7 @@ public class SaleOrderServiceImpl implements SaleOrderService {
             }
             Warehouse warehouse = warehouseRepository.findById(dto.getWarehouseId())
                     .orElseThrow(() -> new ResourceNotFoundException("Warehouse not found with id: " + dto.getWarehouseId()));
+            warehouseAccess.assertWarehouse(dto.getWarehouseId());
             saleOrderItemService.moveItemsToWarehouse(entity.getId(), warehouse);
             entity.setWarehouse(warehouse);
         }

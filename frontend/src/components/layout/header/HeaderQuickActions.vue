@@ -30,7 +30,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { RouteLocationRaw } from 'vue-router'
-import { ClipboardPlus, ShoppingCart, Wallet } from 'lucide-vue-next'
+import { ClipboardPlus, Receipt, ShoppingCart, Wallet } from 'lucide-vue-next'
 import { useFilialScope } from '@/composables/useFilialScope'
 import { useAuthStore } from '@/stores/auth'
 
@@ -42,19 +42,10 @@ const restricted = computed(() => auth.isProductionManagerOnly || auth.isTranspo
 const showOrder = computed(() => !restricted.value && !auth.isCashierOnly && auth.can('SALE_ORDER_CREATE'))
 const showInbound = computed(() => !restricted.value && !auth.isCashierOnly && auth.can('WAREHOUSE_ORDER_CREATE'))
 const showPayment = computed(() => !restricted.value && auth.can('PAYMENT_CREATE'))
+const showExpense = computed(() => !restricted.value && auth.can('EXPENSE_VIEW'))
 
 const actions = computed(() => {
   const list: { key: string; label: string; to: RouteLocationRaw; icon: typeof Wallet; tone: string; hover: string }[] = []
-  if (showOrder.value) {
-    list.push({
-      key: 'order',
-      label: t('header.addOrder'),
-      to: '/sales/create',
-      icon: ShoppingCart,
-      tone: 'bg-brand-500',
-      hover: 'hover:bg-brand-600',
-    })
-  }
   if (showInbound.value) {
     list.push({
       key: 'inbound',
@@ -65,6 +56,16 @@ const actions = computed(() => {
       hover: 'hover:bg-indigo-600',
     })
   }
+  if (showOrder.value) {
+    list.push({
+      key: 'order',
+      label: t('header.addOrder'),
+      to: '/sales/create',
+      icon: ShoppingCart,
+      tone: 'bg-brand-500',
+      hover: 'hover:bg-brand-600',
+    })
+  }
   if (showPayment.value) {
     list.push({
       key: 'payment',
@@ -73,6 +74,16 @@ const actions = computed(() => {
       icon: Wallet,
       tone: 'bg-success-500',
       hover: 'hover:bg-success-600',
+    })
+  }
+  if (showExpense.value) {
+    list.push({
+      key: 'expense',
+      label: t('header.expenses'),
+      to: '/expenses',
+      icon: Receipt,
+      tone: 'bg-orange-500',
+      hover: 'hover:bg-orange-600',
     })
   }
   return list

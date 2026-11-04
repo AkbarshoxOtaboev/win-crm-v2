@@ -9,6 +9,7 @@
           <button type="button" class="btn" :disabled="writeBlocked" @click="openCreate">{{ t('warehouses.newWarehouse') }}</button>
         </div>
       </div>
+      <div v-if="writeBlocked" class="warn mx-5 mt-4">{{ t('warehouses.writeBlocked') }}</div>
       <div v-if="error" class="err mx-5 mt-4">{{ error }}</div>
       <div class="overflow-x-auto">
         <table class="min-w-full">
@@ -32,7 +33,7 @@
                   class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium"
                   :class="isActiveStatus(w.status) ? 'bg-success-50 text-success-600' : 'bg-gray-100 text-gray-500'"
                 >
-                  {{ isActiveStatus(w.status) ? t('warehouses.statusActive') : t('warehouses.statusInactive') }}
+                  {{ isActiveStatus(w.status) ? t('common.active') : t('common.inactive') }}
                 </span>
               </td>
               <td class="td">
@@ -40,7 +41,9 @@
                   type="button"
                   class="status-toggle"
                   :class="isActiveStatus(w.status) ? 'on' : 'off'"
+                  :disabled="writeBlocked || statusBusyId === w.id"
                   :aria-pressed="isActiveStatus(w.status)"
+                  :aria-label="isActiveStatus(w.status) ? t('warehouses.turnOff') : t('warehouses.turnOn')"
                   :title="isActiveStatus(w.status) ? t('warehouses.turnOff') : t('warehouses.turnOn')"
                   @click="onStatus(w)"
                 >
@@ -48,7 +51,12 @@
                 </button>
               </td>
               <td class="td text-right">
-                <RowActions @edit="openEdit(w)" @delete="onDelete(w)" />
+                <RowActions
+                  :edit="!writeBlocked"
+                  :remove="!writeBlocked"
+                  @edit="openEdit(w)"
+                  @delete="onDelete(w)"
+                />
               </td>
             </tr>
           </tbody>
@@ -91,7 +99,7 @@ import {
   updateWarehouse,
   type Warehouse,
 } from '@/api/warehouses'
-import { ApiError } from '@/api/http'
+import { formatApiError } from '@/api/http'
 import { useFilialScope } from '@/composables/useFilialScope'
 
 const { t } = useI18n()
@@ -99,6 +107,7 @@ const { writeBlocked } = useFilialScope()
 const items = ref<Warehouse[]>([])
 const loading = ref(false)
 const saving = ref(false)
+const statusBusyId = ref<number | null>(null)
 const error = ref<string | null>(null)
 const formError = ref<string | null>(null)
 const search = ref('')
@@ -124,13 +133,17 @@ async function load() {
     const res = await fetchWarehouses()
     items.value = res.data || []
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : t('common.loadError')
+    error.value = formatApiError(e, t('common.loadError'))
   } finally {
     loading.value = false
   }
 }
 
 function openCreate() {
+  if (writeBlocked.value) {
+    error.value = t('warehouses.writeBlocked')
+    return
+  }
   editingId.value = null
   name.value = ''
   formError.value = null
@@ -138,6 +151,10 @@ function openCreate() {
 }
 
 function openEdit(w: Warehouse) {
+  if (writeBlocked.value) {
+    error.value = t('warehouses.writeBlocked')
+    return
+  }
   editingId.value = w.id
   name.value = w.name
   formError.value = null
@@ -145,36 +162,57 @@ function openEdit(w: Warehouse) {
 }
 
 async function onSubmit() {
+  if (writeBlocked.value) {
+    formError.value = t('warehouses.writeBlocked')
+    return
+  }
+  const trimmed = name.value.trim()
+  if (!trimmed) {
+    formError.value = t('common.required')
+    return
+  }
   saving.value = true
   formError.value = null
   try {
-    if (editingId.value) await updateWarehouse(editingId.value, name.value.trim())
-    else await createWarehouse(name.value.trim())
+    if (editingId.value) await updateWarehouse(editingId.value, trimmed)
+    else await createWarehouse(trimmed)
     modalOpen.value = false
     await load()
   } catch (e) {
-    formError.value = e instanceof ApiError ? e.message : t('common.saveError')
+    formError.value = formatApiError(e, t('common.saveError'))
   } finally {
     saving.value = false
   }
 }
 
 async function onDelete(w: Warehouse) {
+  if (writeBlocked.value) {
+    error.value = t('warehouses.writeBlocked')
+    return
+  }
   if (!confirm(t('common.deleteConfirmNamed', { name: w.name }))) return
   try {
     await deleteWarehouse(w.id)
     await load()
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : t('common.deleteError')
+    error.value = formatApiError(e, t('common.deleteError'))
   }
 }
 
 async function onStatus(w: Warehouse) {
+  if (writeBlocked.value) {
+    error.value = t('warehouses.writeBlocked')
+    return
+  }
+  statusBusyId.value = w.id
+  error.value = null
   try {
     await changeWarehouseStatus(w.id)
     await load()
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : t('warehouses.statusError')
+    error.value = formatApiError(e, t('warehouses.statusError'))
+  } finally {
+    statusBusyId.value = null
   }
 }
 
@@ -188,6 +226,8 @@ onMounted(load)
 .field { height: 2.5rem; width: 100%; border-radius: 0.5rem; border: 1px solid #d1d5db; background: transparent; padding: 0 0.75rem; font-size: 0.875rem; }
 .btn { display: inline-flex; height: 2.5rem; align-items: center; justify-content: center; border-radius: 0.5rem; background: #465fff; padding: 0 1rem; font-size: 0.875rem; font-weight: 500; color: #fff; }
 .err { border-radius: 0.5rem; border: 1px solid #fecaca; background: #fef2f2; padding: 0.75rem 1rem; font-size: 0.875rem; color: #dc2626; }
+.warn { border-radius: 0.5rem; border: 1px solid #fde68a; background: #fffbeb; padding: 0.75rem 1rem; font-size: 0.875rem; color: #b45309; }
+.status-toggle:disabled { opacity: 0.5; cursor: not-allowed; }
 .status-toggle {
   position: relative;
   display: inline-flex;

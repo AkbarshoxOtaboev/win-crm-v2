@@ -17,6 +17,10 @@ export interface Goods {
   priceCurrency?: CurrencyCode
   barcode?: string
   maxDiscountPercent?: number | null
+  /** Minimal qoldiq: PRODUCT — birlik; WINDOW — kv.m; null/undefined — chegaralanmagan. */
+  minQuantity?: number | null
+  /** WINDOW uchun minimal qoldiq donada; null/undefined — chegara yo‘q. */
+  minPieceQuantity?: number | null
   photo?: string
   width?: number
   height?: number

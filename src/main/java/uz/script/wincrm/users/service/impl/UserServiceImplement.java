@@ -27,10 +27,13 @@ import uz.script.wincrm.users.response.UserResponse;
 import uz.script.wincrm.users.response.UserStatResponse;
 import uz.script.wincrm.users.service.UserService;
 import uz.script.wincrm.utils.Status;
+import uz.script.wincrm.warehouse.Warehouse;
+import uz.script.wincrm.warehouse.repository.WarehouseRepository;
 
 import java.math.BigDecimal;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -49,6 +52,8 @@ public class UserServiceImplement implements UserService {
     private final UserRepository userRepository;
     private final FilialRepository filialRepository;
     private final FilialAccess filialAccess;
+    private final WarehouseRepository warehouseRepository;
+
     @Override
 //    @Caching(evict = {
 //            @CacheEvict(value = "users", allEntries = true)
@@ -84,6 +89,7 @@ public class UserServiceImplement implements UserService {
                 .fullName(dto.getFullName())
                 .phone(dto.getPhone())
                 .roles(roles)
+                .warehouses(resolveWarehouses(roles, dto.getWarehouseIds()))
                 .photoLink(photoLink)
                 .filial(resolveFilial(dto.getFilialId()))
                 .status(Status.ACTIVE)
@@ -177,6 +183,7 @@ public class UserServiceImplement implements UserService {
             assertAssignableRoles(roles);
             assertCanManageUser(user);
             user.setRoles(roles);
+            user.setWarehouses(resolveWarehouses(roles, dto.getWarehouseIds()));
             user.setFilial(resolveFilial(dto.getFilialId()));
         } else if (!isCurrentUser(user)) {
             throw new ForbiddenException("Ruxsat yo'q");
@@ -294,6 +301,11 @@ public class UserServiceImplement implements UserService {
     }
 
     private UserResponse mapUserToUserResponse(User user) {
+        List<Warehouse> warehouses = user.getWarehouses() == null
+                ? List.of()
+                : user.getWarehouses().stream()
+                        .filter(w -> w.getStatus() == null || w.getStatus() != Status.DELETED)
+                        .toList();
 
         return UserResponse.builder()
                 .id(user.getId())
@@ -312,7 +324,38 @@ public class UserServiceImplement implements UserService {
                 .updateAt(user.getUpdatedAt())
                 .filialId(user.getFilial() != null ? user.getFilial().getId() : null)
                 .filialName(user.getFilial() != null ? user.getFilial().getName() : null)
+                .warehouseIds(warehouses.stream().map(Warehouse::getId).toList())
+                .warehouseNames(warehouses.stream().map(Warehouse::getName).toList())
                 .build();
+    }
+
+    private Set<Warehouse> resolveWarehouses(Set<Role> roles, Set<Long> warehouseIds) {
+        boolean seller = roles != null && roles.stream().anyMatch(r -> "SELLER".equals(r.getName()));
+        if (!seller) {
+            return new HashSet<>();
+        }
+        if (warehouseIds == null || warehouseIds.isEmpty()) {
+            return new HashSet<>();
+        }
+        List<Warehouse> found = warehouseRepository.findAllById(warehouseIds);
+        if (found.size() != warehouseIds.size()) {
+            throw new BadRequestException("One or more warehouses not found");
+        }
+        boolean hasDeleted = found.stream().anyMatch(w -> w.getStatus() == Status.DELETED);
+        if (hasDeleted) {
+            throw new BadRequestException("One or more warehouses not found");
+        }
+        if (!filialAccess.isSuperAdmin()) {
+            Long filialId = filialAccess.currentFilialId();
+            boolean outside = found.stream().anyMatch(w ->
+                    w.getFilial() == null
+                            || filialId == null
+                            || !Objects.equals(filialId, w.getFilial().getId()));
+            if (outside) {
+                throw new ForbiddenException("Faqat o‘z filialingiz omborlarini biriktirishingiz mumkin");
+            }
+        }
+        return new HashSet<>(found);
     }
 
     private Filial resolveFilial(Long filialId) {

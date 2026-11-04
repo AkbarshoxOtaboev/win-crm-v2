@@ -16,6 +16,7 @@ import uz.script.wincrm.sale.SaleOrder;
 import uz.script.wincrm.sale.SaleOrderItem;
 import uz.script.wincrm.utils.BaseEntity;
 import uz.script.wincrm.utils.TableName;
+import uz.script.wincrm.warehouse.Warehouse;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -46,6 +47,16 @@ public class User extends BaseEntity {
             inverseJoinColumns = @JoinColumn(name = "role_id")
     )
     private Set<Role> roles;
+
+    /** Sotuvchi (SELLER) ga biriktirilgan omborlar; admin/direktor uchun ishlatilmaydi. */
+    @ManyToMany(fetch = FetchType.EAGER)
+    @Fetch(FetchMode.SUBSELECT)
+    @JoinTable(
+            name = TableName.USER_WAREHOUSES,
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "warehouse_id")
+    )
+    private Set<Warehouse> warehouses;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "filial_id")

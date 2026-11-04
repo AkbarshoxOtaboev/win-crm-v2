@@ -26,6 +26,8 @@ public class GoodsMapper {
                 .priceCurrency(dto.getPriceCurrency() != null ? dto.getPriceCurrency() : Currency.BASE)
                 .barcode(dto.getBarcode())
                 .maxDiscountPercent(dto.getMaxDiscountPercent())
+                .minQuantity(dto.getMinQuantity())
+                .minPieceQuantity(dto.getType() == Type.WINDOW ? dto.getMinPieceQuantity() : null)
                 .width(dto.getType() == Type.WINDOW ? dto.getWidth() : null)
                 .height(dto.getType() == Type.WINDOW ? dto.getHeight() : null)
                 .thickness(dto.getType() == Type.WINDOW ? dto.getThickness() : null)
@@ -55,12 +57,15 @@ public class GoodsMapper {
         if (dto.getMaxDiscountPercent() != null) {
             goods.setMaxDiscountPercent(dto.getMaxDiscountPercent());
         }
+        goods.setMinQuantity(dto.getMinQuantity());
         if (dto.getType() == Type.WINDOW) {
+            goods.setMinPieceQuantity(dto.getMinPieceQuantity());
             goods.setWidth(dto.getWidth());
             goods.setHeight(dto.getHeight());
             goods.setThickness(dto.getThickness());
             goods.setWeightPerSqm(dto.getWeightPerSqm());
         } else {
+            goods.setMinPieceQuantity(null);
             goods.setWidth(null);
             goods.setHeight(null);
             goods.setThickness(null);
@@ -86,6 +91,8 @@ public class GoodsMapper {
                 .priceCurrency(goods.getPriceCurrency())
                 .barcode(goods.getBarcode())
                 .maxDiscountPercent(goods.getMaxDiscountPercent())
+                .minQuantity(goods.getMinQuantity())
+                .minPieceQuantity(goods.getMinPieceQuantity())
                 .width(goods.getWidth())
                 .height(goods.getHeight())
                 .thickness(goods.getThickness())

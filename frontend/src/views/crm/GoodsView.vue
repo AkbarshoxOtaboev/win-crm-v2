@@ -27,13 +27,14 @@
               <th class="th">{{ t('goods.unit') }}</th>
               <th class="th">{{ t('goods.type') }}</th>
               <th class="th">{{ t('goods.selling') }}</th>
+              <th class="th">{{ t('goods.minQuantity') }}</th>
               <th class="th">{{ t('goods.maxDiscount') }}</th>
               <th class="th text-right">{{ t('common.actions') }}</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-if="loading"><td colspan="8" class="empty">{{ t('common.loading') }}</td></tr>
-            <tr v-else-if="filtered.length === 0"><td colspan="8" class="empty">{{ t('goods.noGoods') }}</td></tr>
+            <tr v-if="loading"><td colspan="9" class="empty">{{ t('common.loading') }}</td></tr>
+            <tr v-else-if="filtered.length === 0"><td colspan="9" class="empty">{{ t('goods.noGoods') }}</td></tr>
             <tr v-for="g in filtered" :key="g.id" class="border-b border-gray-100 dark:border-gray-800">
               <td class="td">{{ g.id }}</td>
               <td class="td font-medium text-gray-800 dark:text-white/90">{{ g.name }}</td>
@@ -41,6 +42,23 @@
               <td class="td">{{ g.unitTypeName || '—' }}</td>
               <td class="td">{{ g.typeLabel || g.type || '—' }}</td>
               <td class="td whitespace-nowrap">{{ sellingLabel(g) }}</td>
+              <td class="td whitespace-nowrap text-xs">
+                <template v-if="isWindowGoods(g)">
+                  <template v-if="g.minPieceQuantity != null || g.minQuantity != null">
+                    <div v-if="displayMinPieces(g) != null">
+                      {{ displayMinPieces(g) }} {{ t('goods.minPiecesUnit') }}
+                    </div>
+                    <div v-if="displayMinKvm(g) != null" class="text-gray-400">
+                      ≈ {{ displayMinKvm(g) }} {{ t('stock.kvm') }}
+                    </div>
+                  </template>
+                  <span v-else class="text-gray-400">—</span>
+                </template>
+                <template v-else>
+                  <span v-if="g.minQuantity != null">{{ Number(g.minQuantity) }}</span>
+                  <span v-else class="text-gray-400">—</span>
+                </template>
+              </td>
               <td class="td">
                 <span v-if="g.maxDiscountPercent != null" class="inline-flex rounded-full bg-warning-50 px-2 py-0.5 text-xs font-medium text-warning-700 dark:bg-warning-500/10 dark:text-warning-400">
                   ≤ {{ Number(g.maxDiscountPercent) }}%
@@ -184,14 +202,26 @@
               <input v-model="form.barcode" class="field" />
             </div>
           </div>
+          <div v-if="form.type !== 'WINDOW'">
+            <label class="lbl">{{ t('goods.minQuantity') }}</label>
+            <input
+              v-model="form.minQuantity"
+              type="number"
+              min="0"
+              step="any"
+              class="field"
+              :placeholder="t('goods.minQuantityPlaceholder')"
+            />
+            <p class="field-hint">{{ t('goods.minQuantityHint') }}</p>
+          </div>
           <div v-if="form.type === 'WINDOW'" class="grid grid-cols-2 gap-3">
             <div>
               <label class="lbl">{{ t('goods.widthCm') }} *</label>
-              <input v-model.number="form.width" type="number" min="1" step="1" required class="field" placeholder="120" />
+              <input v-model.number="form.width" type="number" min="0.1" step="0.1" required class="field" placeholder="120" />
             </div>
             <div>
               <label class="lbl">{{ t('goods.heightCm') }} *</label>
-              <input v-model.number="form.height" type="number" min="1" step="1" required class="field" placeholder="150" />
+              <input v-model.number="form.height" type="number" min="0.1" step="0.1" required class="field" placeholder="150" />
             </div>
             <div>
               <label class="lbl">{{ t('goods.thicknessMm') }} *</label>
@@ -219,6 +249,29 @@
                 :title="t('goods.weightPerSqmHint')"
               />
               <p class="field-hint">{{ t('goods.weightPerSqmHint') }}</p>
+            </div>
+            <div>
+              <label class="lbl">{{ t('goods.minQuantityPieces') }}</label>
+              <input
+                v-model="form.minPieceQuantity"
+                type="number"
+                min="0"
+                step="any"
+                class="field"
+                :placeholder="t('goods.minQuantityPlaceholder')"
+              />
+            </div>
+            <div>
+              <label class="lbl">{{ t('goods.minQuantityKvm') }}</label>
+              <input
+                type="number"
+                class="field"
+                :value="autoMinKvm ?? ''"
+                readonly
+                :placeholder="t('goods.minQuantityKvmAuto')"
+                :title="t('goods.minQuantityWindowHint')"
+              />
+              <p class="field-hint">{{ t('goods.minQuantityWindowHint') }}</p>
             </div>
           </div>
           <div>
@@ -315,16 +368,59 @@ const form = reactive({
   unitTypeId: 0,
   type: 'PRODUCT',
   barcode: '',
+  minQuantity: '' as string | number,
+  minPieceQuantity: '' as string | number,
   width: 0,
   height: 0,
   thickness: 0,
   weightPerSqm: 0,
 })
 
+function isWindowGoods(g: Goods) {
+  return (g.type || '').toUpperCase() === 'WINDOW'
+}
+
 /** 1 kv.m vazni (kg) = qalinlik (mm) × 2.5 */
 function syncWeightFromThickness() {
   const th = Number(form.thickness || 0)
   form.weightPerSqm = th > 0 ? Math.round(th * 2.5 * 100) / 100 : 0
+}
+
+function optionalNumber(v: string | number) {
+  if (v === '' || v == null) return null
+  const n = Number(v)
+  return Number.isFinite(n) && n >= 0 ? n : null
+}
+
+/** dona → kv.m: pieces × eni × bo'yi / 10000 */
+function piecesToKvm(pieces: number, widthCm: number, heightCm: number) {
+  if (!(pieces >= 0) || !(widthCm > 0) || !(heightCm > 0)) return null
+  return Math.round(((pieces * widthCm * heightCm) / 10000) * 10000) / 10000
+}
+
+/** kv.m → dona: kvm × 10000 / (eni × bo'yi) */
+function kvmToPieces(kvm: number, widthCm: number, heightCm: number) {
+  if (!(kvm >= 0) || !(widthCm > 0) || !(heightCm > 0)) return null
+  return Math.round(((kvm * 10000) / (widthCm * heightCm)) * 10000) / 10000
+}
+
+const autoMinKvm = computed(() => {
+  if (form.type !== 'WINDOW') return null
+  const pieces = optionalNumber(form.minPieceQuantity)
+  if (pieces == null) return null
+  return piecesToKvm(pieces, Number(form.width || 0), Number(form.height || 0))
+})
+
+function displayMinPieces(g: Goods) {
+  if (g.minPieceQuantity != null) return Number(g.minPieceQuantity)
+  if (g.minQuantity == null) return null
+  return kvmToPieces(Number(g.minQuantity), Number(g.width || 0), Number(g.height || 0))
+}
+
+function displayMinKvm(g: Goods) {
+  if (g.minQuantity != null) return Number(g.minQuantity)
+  if (g.minPieceQuantity == null) return null
+  return piecesToKvm(Number(g.minPieceQuantity), Number(g.width || 0), Number(g.height || 0))
 }
 
 function sellingLabel(g: Goods) {
@@ -415,6 +511,8 @@ function openCreate() {
     unitTypeId: units.value[0]?.id || 0,
     type: 'PRODUCT',
     barcode: '',
+    minQuantity: '',
+    minPieceQuantity: '',
     width: 0,
     height: 0,
     thickness: 0,
@@ -427,12 +525,21 @@ function openCreate() {
 
 function openEdit(g: Goods) {
   editingId.value = g.id
+  let minPieces: string | number = ''
+  if (isWindowGoods(g)) {
+    if (g.minPieceQuantity != null) minPieces = Number(g.minPieceQuantity)
+    else if (g.minQuantity != null) {
+      minPieces = kvmToPieces(Number(g.minQuantity), Number(g.width || 0), Number(g.height || 0)) ?? ''
+    }
+  }
   Object.assign(form, {
     name: g.name || '',
     goodsGroupId: g.goodsGroupId || 0,
     unitTypeId: g.unitTypeId || 0,
     type: g.type || 'PRODUCT',
     barcode: g.barcode || '',
+    minQuantity: !isWindowGoods(g) && g.minQuantity != null ? Number(g.minQuantity) : '',
+    minPieceQuantity: minPieces,
     width: Number(g.width || 0),
     height: Number(g.height || 0),
     thickness: Number(g.thickness || 0),
@@ -453,10 +560,19 @@ function buildFormData() {
   fd.append('type', form.type)
   if (form.barcode.trim()) fd.append('barcode', form.barcode.trim())
   if (form.type === 'WINDOW') {
+    const minPieces = optionalNumber(form.minPieceQuantity)
+    if (minPieces != null) {
+      fd.append('minPieceQuantity', String(minPieces))
+      const kvm = piecesToKvm(minPieces, Number(form.width || 0), Number(form.height || 0))
+      if (kvm != null) fd.append('minQuantity', String(kvm))
+    }
     fd.append('width', String(form.width))
     fd.append('height', String(form.height))
     fd.append('thickness', String(form.thickness))
     fd.append('weightPerSqm', String(form.weightPerSqm))
+  } else {
+    const minQty = optionalNumber(form.minQuantity)
+    if (minQty != null) fd.append('minQuantity', String(minQty))
   }
   if (photoFile.value) fd.append('photo', photoFile.value)
   return fd

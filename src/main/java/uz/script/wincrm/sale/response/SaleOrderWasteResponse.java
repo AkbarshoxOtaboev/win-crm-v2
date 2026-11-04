@@ -42,6 +42,9 @@ public class SaleOrderWasteResponse {
     @Schema(description = "Izoh")
     private String comment;
 
+    @Schema(description = "Foydali qoldiqmi")
+    private Boolean useful;
+
     @Schema(description = "Current status", example = "ACTIVE")
     private Status status;
 

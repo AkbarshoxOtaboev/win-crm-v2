@@ -82,23 +82,77 @@
       </div>
     </section>
 
-    <div class="card">
+    <div class="card mb-5">
       <div class="head">
         <div>
-          <h3 class="title">{{ t('managerCash.historyTitle') }}</h3>
-          <p class="sub">{{ t('managerCash.historySubtitle') }}</p>
+          <h3 class="title">{{ t('managerCash.periodBalances') }}</h3>
+          <p class="sub">{{ t('managerCash.periodBalancesHint') }}</p>
         </div>
       </div>
       <div class="filters">
         <div class="flex flex-wrap items-end gap-3">
           <label class="lbl">
             {{ t('common.from') }}
-            <input v-model="fromDate" type="date" class="field" @change="loadHistory" />
+            <input v-model="fromDate" type="date" class="field" />
           </label>
           <label class="lbl">
             {{ t('common.to') }}
-            <input v-model="toDate" type="date" class="field" @change="loadHistory" />
+            <input v-model="toDate" type="date" class="field" />
           </label>
+          <DateRangePresets v-model:start="fromDate" v-model:end="toDate" />
+        </div>
+      </div>
+      <div v-if="balancesError" class="err mx-5 mt-4">{{ balancesError }}</div>
+      <div v-else-if="balancesLoading && periodBalances.length === 0" class="empty">{{ t('common.loading') }}</div>
+      <div v-else-if="periodBalances.length === 0" class="empty">{{ t('managerCash.emptyBalances') }}</div>
+      <div v-else class="overflow-x-auto">
+        <table class="min-w-full">
+          <thead>
+            <tr class="border-b border-gray-100 dark:border-gray-800">
+              <th class="th">{{ t('managerCash.cashbox') }}</th>
+              <th class="th text-end">{{ t('managerCash.cashIn') }}</th>
+              <th class="th text-end">{{ t('managerCash.cashOut') }}</th>
+              <th class="th text-end">{{ t('managerCash.cashExpenses') }}</th>
+              <th class="th text-end">{{ t('managerCash.cashHanded') }}</th>
+              <th class="th text-end">{{ t('managerCash.cashClosing') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="c in periodBalances"
+              :key="`${c.paymentTypeId}-${c.currency}`"
+              class="border-b border-gray-100 dark:border-gray-800"
+            >
+              <td class="td">
+                {{ c.paymentTypeName }}
+                <span class="cur-badge" :class="c.currency === 'USD' ? 'usd' : 'uzs'">{{ c.currency }}</span>
+              </td>
+              <td class="td text-end text-success-600 dark:text-success-400">+{{ cashMoney(c.incoming, c.currency) }}</td>
+              <td class="td text-end text-error-600 dark:text-error-400">−{{ cashMoney(c.outgoing, c.currency) }}</td>
+              <td class="td text-end text-error-600 dark:text-error-400">−{{ cashMoney(c.expenses, c.currency) }}</td>
+              <td class="td text-end text-orange-600 dark:text-orange-400">−{{ cashMoney(c.handedOver, c.currency) }}</td>
+              <td class="td text-end font-semibold text-gray-800 dark:text-white/90">{{ cashMoney(c.closing, c.currency) }}</td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr v-for="tot in balanceTotals" :key="tot.currency" class="border-t border-gray-200 dark:border-gray-700">
+              <td class="td font-semibold">{{ t('managerCash.cashTotal', { currency: tot.currency }) }}</td>
+              <td class="td text-end">+{{ cashMoney(tot.incoming, tot.currency) }}</td>
+              <td class="td text-end">−{{ cashMoney(tot.outgoing, tot.currency) }}</td>
+              <td class="td text-end">−{{ cashMoney(tot.expenses, tot.currency) }}</td>
+              <td class="td text-end">−{{ cashMoney(tot.handedOver, tot.currency) }}</td>
+              <td class="td text-end font-semibold">{{ cashMoney(tot.closing, tot.currency) }}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="head">
+        <div>
+          <h3 class="title">{{ t('managerCash.historyTitle') }}</h3>
+          <p class="sub">{{ t('managerCash.historySubtitle') }}</p>
         </div>
       </div>
 
@@ -143,16 +197,18 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Coins, DollarSign, Landmark, RefreshCw } from 'lucide-vue-next'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
+import DateRangePresets from '@/components/crm/DateRangePresets.vue'
 import { fetchCashAvailable, type CashAvailable } from '@/api/expenses'
 import { fetchCashHandovers, type CashHandover } from '@/api/cashHandovers'
+import { fetchCashBalances, type CashBalance } from '@/api/dashboard'
 import { formatApiError } from '@/api/http'
 import { formatDate } from '@/utils/format'
-import { CURRENCIES, moneyIn } from '@/utils/currency'
+import { CURRENCIES, moneyIn, type CurrencyCode } from '@/utils/currency'
 import { paymentTypeIcon } from '@/utils/paymentTypeIcons'
 
 const { t } = useI18n()
@@ -164,6 +220,10 @@ const cashPool = ref<CashPool>('VAULT')
 const cash = ref<CashAvailable[]>([])
 const cashLoading = ref(false)
 const cashError = ref<string | null>(null)
+
+const periodBalances = ref<CashBalance[]>([])
+const balancesLoading = ref(false)
+const balancesError = ref<string | null>(null)
 
 const history = ref<CashHandover[]>([])
 const historyLoading = ref(false)
@@ -231,6 +291,42 @@ function cashIcon(c: CashAvailable) {
   return paymentTypeIcon(cashKind(c).toUpperCase())
 }
 
+function cashMoney(v: number | null | undefined, currency: CurrencyCode) {
+  return moneyIn(Number(v || 0), currency, t('common.currency'))
+}
+
+const balanceTotals = computed(() => {
+  const map = new Map<
+    CurrencyCode,
+    {
+      currency: CurrencyCode
+      incoming: number
+      outgoing: number
+      expenses: number
+      handedOver: number
+      closing: number
+    }
+  >()
+  for (const c of periodBalances.value) {
+    const currency = (c.currency || 'UZS') as CurrencyCode
+    const cur = map.get(currency) || {
+      currency,
+      incoming: 0,
+      outgoing: 0,
+      expenses: 0,
+      handedOver: 0,
+      closing: 0,
+    }
+    cur.incoming += Number(c.incoming || 0)
+    cur.outgoing += Number(c.outgoing || 0)
+    cur.expenses += Number(c.expenses || 0)
+    cur.handedOver += Number(c.handedOver || 0)
+    cur.closing += Number(c.closing || 0)
+    map.set(currency, cur)
+  }
+  return [...map.values()]
+})
+
 function formatDateTime(v?: string | null) {
   if (!v) return '—'
   const d = new Date(v)
@@ -258,6 +354,21 @@ async function loadCash() {
   }
 }
 
+async function loadBalances() {
+  if (!fromDate.value || !toDate.value || fromDate.value > toDate.value) return
+  balancesLoading.value = true
+  balancesError.value = null
+  try {
+    const res = await fetchCashBalances(fromDate.value, toDate.value)
+    periodBalances.value = res.data || []
+  } catch (e) {
+    balancesError.value = formatApiError(e)
+    periodBalances.value = []
+  } finally {
+    balancesLoading.value = false
+  }
+}
+
 async function loadHistory() {
   historyLoading.value = true
   historyError.value = null
@@ -280,9 +391,17 @@ async function loadHistory() {
   }
 }
 
-async function reload() {
-  await Promise.all([loadCash(), loadHistory()])
+async function onPeriodChange() {
+  await Promise.all([loadBalances(), loadHistory()])
 }
+
+async function reload() {
+  await Promise.all([loadCash(), loadBalances(), loadHistory()])
+}
+
+watch([fromDate, toDate], ([from, to]) => {
+  if (from && to && from <= to) void onPeriodChange()
+})
 
 onMounted(() => {
   void reload()

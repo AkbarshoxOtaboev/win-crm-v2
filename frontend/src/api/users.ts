@@ -13,6 +13,8 @@ export interface UserItem {
   createdAt?: string
   filialId?: number | null
   filialName?: string | null
+  warehouseIds?: number[]
+  warehouseNames?: string[]
 }
 
 export interface UserStat {

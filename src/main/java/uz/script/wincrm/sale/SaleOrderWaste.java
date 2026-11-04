@@ -74,4 +74,7 @@ public class SaleOrderWaste extends FilialScopedEntity {
      * Ixtiyoriy izoh (masalan, qoldiq qayerda saqlanayotgani yoki nima uchun ortib qolgani).
      */
     private String comment;
+
+    /** true — foydali qoldiq; false/null — chiqindi yoki qo‘lda yozuv. */
+    private Boolean useful;
 }

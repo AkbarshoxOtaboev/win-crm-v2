@@ -9,6 +9,7 @@ import uz.script.wincrm.roles.RoleResponse;
 import uz.script.wincrm.utils.Status;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Set;
 
 @Getter
@@ -28,4 +29,6 @@ public class UserResponse {
     private String photoLink;
     private Long filialId;
     private String filialName;
+    private List<Long> warehouseIds;
+    private List<String> warehouseNames;
 }

@@ -24,6 +24,7 @@ public class CustomUserDetailsService implements UserDetailsService {
                 .orElseThrow(() -> new UsernameNotFoundException(username));
         Hibernate.initialize(user.getRoles());
         Hibernate.initialize(user.getFilial());
+        Hibernate.initialize(user.getWarehouses());
         if (user.getRoles() != null) {
             for (Role role : user.getRoles()) {
                 Hibernate.initialize(role.getPermissions());

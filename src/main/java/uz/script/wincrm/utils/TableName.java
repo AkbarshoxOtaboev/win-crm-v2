@@ -2,6 +2,7 @@ package uz.script.wincrm.utils;
 
 public interface TableName {
     String USERS = "_users";
+    String USER_WAREHOUSES = "user_warehouses";
     String FILIALS = "filials";
     String ROLES = "roles";
     String PERMISSIONS = "permissions";
@@ -27,6 +28,8 @@ public interface TableName {
     String SALE_ORDER_HISTORY = "sale_order_history";
     String SALE_ORDER_DISCOUNT_HISTORY = "sale_order_discount_history";
     String SALE_ORDER_WASTES = "sale_order_wastes";
+    String GLASS_REMNANTS = "glass_remnants";
+    String CUTTING_ALLOCATIONS = "cutting_allocations";
     String SALE_ORDER_IMAGES = "sale_order_images";
     String STOCKS = "stocks";
     String STOCK_HISTORIES = "stock_histories";

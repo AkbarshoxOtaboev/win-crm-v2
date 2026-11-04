@@ -132,6 +132,9 @@ const props = defineProps<{
   pieceWidth: number
   pieceHeight: number
   quantity: number
+  /** Berilsa list o‘lchami shu (foydali qoldiq). Bo‘lmasa mahsulotning butun listi. */
+  sheetWidth?: number
+  sheetHeight?: number
   /** Saqlangan qoidalarni faqat ko'rsatish (ishlab chiqarish): sozlab bo'lmaydi. */
   readonly?: boolean
   title?: string
@@ -191,6 +194,8 @@ async function run() {
   try {
     const res = await calculateCutting({
       goodsId: props.goodsId,
+      sheetWidth: props.sheetWidth || undefined,
+      sheetHeight: props.sheetHeight || undefined,
       pieceWidth: Number(props.pieceWidth),
       pieceHeight: Number(props.pieceHeight),
       quantity: pieces.value,
@@ -211,7 +216,7 @@ async function run() {
 }
 
 watch(
-  () => [props.goodsId, props.pieceWidth, props.pieceHeight, pieces.value, kerf.value, allowRotate.value],
+  () => [props.goodsId, props.sheetWidth, props.sheetHeight, props.pieceWidth, props.pieceHeight, pieces.value, kerf.value, allowRotate.value],
   () => {
     clearTimeout(timer)
     timer = setTimeout(run, 350)

@@ -90,6 +90,12 @@ public class GoodsResponse {
     @Schema(description = "Sotuvchi bera oladigan maksimal chegirma, % (null — cheklanmagan)", example = "5")
     private BigDecimal maxDiscountPercent;
 
+    @Schema(description = "Minimal qoldiq: PRODUCT — birlik; WINDOW — kv.m (null — chegaralanmagan)", example = "10")
+    private BigDecimal minQuantity;
+
+    @Schema(description = "WINDOW uchun minimal qoldiq donada (null — chegara yo'q)", example = "5")
+    private BigDecimal minPieceQuantity;
+
     @Schema(description = "Default window width in centimeters (WINDOW type)", example = "120")
     private BigDecimal width;
 

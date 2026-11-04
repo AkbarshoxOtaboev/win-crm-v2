@@ -74,6 +74,14 @@ public class GoodsDTO {
     @Schema(description = "Sotuvchi bera oladigan maksimal chegirma, % (yaratishda bo'sh — cheklanmagan, tahrirda bo'sh — o'zgarmaydi)", example = "5")
     private BigDecimal maxDiscountPercent;
 
+    @DecimalMin(value = "0.0", inclusive = true, message = "Minimal qoldiq manfiy bo'lishi mumkin emas")
+    @Schema(description = "Minimal qoldiq (ixtiyoriy). PRODUCT — birlikda; WINDOW — kv.m. Bo'sh — chegaralanmagan.", example = "10")
+    private BigDecimal minQuantity;
+
+    @DecimalMin(value = "0.0", inclusive = true, message = "Minimal dona manfiy bo'lishi mumkin emas")
+    @Schema(description = "WINDOW uchun minimal qoldiq donada (ixtiyoriy). Bo'sh — chegara yo'q.", example = "5")
+    private BigDecimal minPieceQuantity;
+
     @DecimalMin(value = "0.0", inclusive = false, message = "Width must be greater than 0")
     @Schema(description = "Default window width in centimeters (WINDOW type)", example = "120")
     private BigDecimal width;

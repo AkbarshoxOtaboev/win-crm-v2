@@ -125,11 +125,11 @@
           <template v-if="isWindowGoods">
             <label class="lbl col-sm">
               <span class="lbl-text">{{ t('warehouseOrders.widthCm') }}</span>
-              <input v-model.number="itemForm.width" type="number" min="1" step="1" class="field" />
+              <input v-model.number="itemForm.width" type="number" min="0.1" step="0.1" class="field" />
             </label>
             <label class="lbl col-sm">
               <span class="lbl-text">{{ t('warehouseOrders.heightCm') }}</span>
-              <input v-model.number="itemForm.height" type="number" min="1" step="1" class="field" />
+              <input v-model.number="itemForm.height" type="number" min="0.1" step="0.1" class="field" />
             </label>
           </template>
 

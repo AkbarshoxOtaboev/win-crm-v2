@@ -24,4 +24,9 @@ public class AuthResponse {
     private String filialName;
     /** Sex boshlig'i faqat shu sexlar bilan ishlaydi; bo'sh - cheklov yo'q. */
     private List<Long> workshopIds;
+    /**
+     * Sotuvchiga biriktirilgan omborlar.
+     * {@code null} — cheklov yo‘q; bo‘sh ro‘yxat — hech qaysi ombordan sota olmaydi.
+     */
+    private List<Long> warehouseIds;
 }
