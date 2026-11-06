@@ -30,9 +30,8 @@ public class SaleOrderMapper {
         if (dto.getOrderDate() != null) {
             entity.setOrderDate(dto.getOrderDate());
         }
-        if (dto.getPlannedReadyDate() != null) {
-            entity.setPlannedReadyDate(dto.getPlannedReadyDate());
-        }
+        // null — tugatish muddatini tozalash (FE bo'sh qoldirganda)
+        entity.setPlannedReadyDate(dto.getPlannedReadyDate());
         if (dto.getPlannedDeliveryDate() != null) {
             entity.setPlannedDeliveryDate(dto.getPlannedDeliveryDate());
         }

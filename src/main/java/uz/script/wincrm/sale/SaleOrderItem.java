@@ -10,6 +10,7 @@ import org.hibernate.annotations.SQLRestriction;
 import uz.script.wincrm.clients.Client;
 import uz.script.wincrm.filial.FilialScopedEntity;
 import uz.script.wincrm.goods.Goods;
+import uz.script.wincrm.goods.GoodsCategory;
 import uz.script.wincrm.users.User;
 import uz.script.wincrm.utils.TableName;
 import uz.script.wincrm.warehouse.Warehouse;
@@ -68,6 +69,19 @@ public class SaleOrderItem extends FilialScopedEntity {
     /** Bo'lakni 90° burish mumkinmi; null - mumkin. */
     @Column(name = "cut_allow_rotate")
     private Boolean cutAllowRotate;
+
+    /** Foydali qoldiqning minimal tomoni, sm. Optimizatsiyada foydalanuvchi yozadi. */
+    @Column(name = "cut_min_remnant_cm", precision = 8, scale = 2)
+    private BigDecimal cutMinRemnantCm;
+
+    /** Shu qatorni qaysi list turlaridan kesish mumkin. Vergul bilan: "12,15,18". */
+    @Column(name = "cut_candidate_goods_ids", length = 1000)
+    private String cutCandidateGoodsIds;
+
+    /** Kesish kategoriyasi: optimizatsiya shu kategoriyadagi listlardan o‘lcham bo‘yicha tanlaydi. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cut_category_id")
+    private GoodsCategory cutCategory;
 
     @Column(nullable = false)
     private LocalDateTime arrivalDate;

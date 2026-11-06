@@ -186,7 +186,7 @@
                 {{ moneyIn(h.amount, h.currency, t('common.currency')) }}
               </td>
               <td class="td">{{ h.reviewerName || '—' }}</td>
-              <td class="td">{{ formatDateTime(h.reviewedAt) }}</td>
+              <td class="td">{{ formatDate(h.reviewedAt) }}</td>
               <td class="td">{{ h.reviewComment || h.comment || '—' }}</td>
             </tr>
           </tbody>
@@ -326,14 +326,6 @@ const balanceTotals = computed(() => {
   }
   return [...map.values()]
 })
-
-function formatDateTime(v?: string | null) {
-  if (!v) return '—'
-  const d = new Date(v)
-  if (Number.isNaN(d.getTime())) return String(v).replace('T', ' ').slice(0, 19)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}, ${pad(d.getHours())}:${pad(d.getMinutes())}`
-}
 
 async function loadCash() {
   cashLoading.value = true

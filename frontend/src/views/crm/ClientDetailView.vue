@@ -682,6 +682,15 @@
                     <span v-else>{{ row.title }}</span>
                     <span v-if="row.badge" class="ms-1.5 inline-flex rounded-md bg-warning-50 px-1.5 py-0.5 text-xs text-warning-700 dark:bg-warning-500/10 dark:text-warning-400">{{ row.badge }}</span>
                     <div v-if="row.cashNote" class="text-xs text-gray-400">{{ t('clientDetail.statement.paidIn', { amount: row.cashNote }) }}</div>
+                    <button
+                      v-if="row.refundable"
+                      type="button"
+                      class="mt-1 block text-xs font-medium text-error-600 hover:underline"
+                      @click="onRefund(row)"
+                    >
+                      {{ t('clientDetail.statement.refund') }}
+                    </button>
+                    <span v-else-if="row.refunded" class="mt-1 block text-xs text-gray-400">{{ t('clientDetail.statement.refunded') }}</span>
                   </td>
                   <td class="td text-end">{{ row.debit ? stmtMoney(row.debit) : '' }}</td>
                   <td class="td text-end text-success-600">{{ row.credit ? stmtMoney(row.credit) : '' }}</td>
@@ -984,12 +993,12 @@ import {
   type ClientNote,
 } from '@/api/clientNotes'
 import { fetchSaleOrdersByClient, type SaleOrder } from '@/api/sales'
-import { allocatePayments, fetchPaymentsByClient, unallocatePayment, type Payment } from '@/api/payments'
+import { allocatePayments, fetchPaymentsByClient, refundPayment, unallocatePayment, type Payment } from '@/api/payments'
 import { useAuthStore } from '@/stores/auth'
 import { fetchDebtHistoryByClient, sendDebtSmsToClient, type DebtNotificationHistory } from '@/api/debt'
 import { fetchSaleOrderItemsByClient, type SaleOrderItem } from '@/api/saleOrderItems'
 import { formatApiError } from '@/api/http'
-import { formatDate, money, today } from '@/utils/format'
+import { formatDate, formatDateOnly, money, today } from '@/utils/format'
 import { BASE_CURRENCY, CURRENCIES, moneyIn, type CurrencyCode } from '@/utils/currency'
 import { phoneDigits } from '@/utils/phone'
 
@@ -1254,6 +1263,20 @@ async function onAllocate() {
   }
 }
 
+async function onRefund(row: StatementRow) {
+  if (!row.paymentId) return
+  const payment = payments.value.find((p) => p.id === row.paymentId)
+  const amount = payment ? cashText(payment) : stmtMoney(row.credit)
+  if (!confirm(t('clientDetail.statement.refundConfirm', { id: row.paymentId, amount }))) return
+  error.value = null
+  try {
+    await refundPayment(row.paymentId)
+    await load()
+  } catch (e) {
+    error.value = formatApiError(e)
+  }
+}
+
 async function onUnallocate(p: Payment) {
   if (!confirm(t('clientDetail.allocation.unallocateConfirm', { id: p.id, order: p.saleOrderId }))) return
   error.value = null
@@ -1274,10 +1297,15 @@ type StatementRow = {
   /** Boshqa valyutada to'langan bo'lsa, kassaga tushgan summa. */
   cashNote?: string
   orderId?: number
+  paymentId?: number
+  refundable?: boolean
+  refunded?: boolean
   debit: number
   credit: number
   balance: number
 }
+
+const refundedPaymentIds = computed(() => new Set(payments.value.map((p) => p.refundOfId).filter((id): id is number => id != null)))
 
 const statementRows = computed<StatementRow[]>(() => {
   const entries: Omit<StatementRow, 'balance'>[] = []
@@ -1293,16 +1321,25 @@ const statementRows = computed<StatementRow[]>(() => {
     })
   }
   for (const p of payments.value) {
+    const amount = applied(p)
+    const isRefund = amount < 0 || p.refundOfId != null
+    const alreadyRefunded = refundedPaymentIds.value.has(p.id)
     entries.push({
       key: `p${p.id}`,
       date: p.paymentDate || '',
-      title: p.saleOrderId
-        ? t('clientDetail.statement.paymentFor', { id: p.id, type: p.paymentTypeName || '—', order: p.saleOrderId })
-        : t('clientDetail.statement.payment', { id: p.id, type: p.paymentTypeName || '—' }),
-      badge: p.saleOrderId ? undefined : t('clientDetail.allocation.unallocatedShort'),
+      title: isRefund
+        ? t('clientDetail.statement.refundOf', { id: p.refundOfId || p.id, type: p.paymentTypeName || '—' })
+        : p.saleOrderId
+          ? t('clientDetail.statement.paymentFor', { id: p.id, type: p.paymentTypeName || '—', order: p.saleOrderId })
+          : t('clientDetail.statement.payment', { id: p.id, type: p.paymentTypeName || '—' }),
+      badge: !isRefund && !p.saleOrderId ? t('clientDetail.allocation.unallocatedShort') : undefined,
       cashNote: (p.currency || BASE_CURRENCY) !== viewCurrency.value ? cashText(p) : undefined,
-      debit: 0,
-      credit: applied(p),
+      orderId: p.saleOrderId,
+      paymentId: p.id,
+      refundable: canAllocate.value && !isRefund && !alreadyRefunded && amount > 0,
+      refunded: alreadyRefunded,
+      debit: isRefund ? Math.abs(amount) : 0,
+      credit: isRefund ? 0 : amount,
     })
   }
   entries.sort((a, b) => a.date.localeCompare(b.date) || b.debit - a.debit)
@@ -1351,9 +1388,7 @@ const lastActivityDate = computed(() => {
 const lastActivityLabel = computed(() => {
   const d = lastActivityDate.value
   if (!d) return '—'
-  const raw = formatDate(d).slice(0, 10)
-  const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})/)
-  return m ? `${m[3]}-${m[2]}-${m[1]}` : raw
+  return formatDateOnly(d)
 })
 
 const lastActivityRelative = computed(() => {
@@ -1491,7 +1526,7 @@ async function load() {
     const [c, b, n, s, p, h] = await Promise.all([
       fetchClient(id),
       fetchClientBalance(id, { fromDate: '2000-01-01', toDate: today() }),
-      fetchClientNotes(id),
+      fetchClientNotes(id).catch(() => ({ data: [] as ClientNote[] })),
       fetchSaleOrdersByClient(id, 0, 200),
       fetchPaymentsByClient(id, 0, 200),
       fetchDebtHistoryByClient(id, 0, 100).catch(() => ({ data: { content: [] as DebtNotificationHistory[] } })),

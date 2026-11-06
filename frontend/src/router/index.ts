@@ -66,6 +66,24 @@ const router = createRouter({
       meta: { title: 'Mahsulotlar', requiresAuth: true },
     },
     {
+      path: '/finished-goods',
+      name: 'FinishedGoodsCatalog',
+      component: () => import('../views/crm/FinishedGoodsCatalogView.vue'),
+      meta: { title: 'Tayyor mahsulotlar', requiresAuth: true },
+    },
+    {
+      path: '/finished-goods/issues',
+      name: 'MaterialIssues',
+      component: () => import('../views/crm/MaterialIssuesView.vue'),
+      meta: { title: 'Material chiqim', requiresAuth: true },
+    },
+    {
+      path: '/finished-goods/receipts',
+      name: 'FinishedGoodsReceipts',
+      component: () => import('../views/crm/FinishedGoodsReceiptsView.vue'),
+      meta: { title: 'Tayyor mahsulot prixodi', requiresAuth: true },
+    },
+    {
       path: '/warehouses',
       name: 'Warehouses',
       component: () => import('../views/crm/WarehousesView.vue'),
@@ -154,6 +172,12 @@ const router = createRouter({
       name: 'Stock',
       component: () => import('../views/crm/StockView.vue'),
       meta: { title: 'Qoldiq', requiresAuth: true },
+    },
+    {
+      path: '/stock/remnants',
+      name: 'GlassRemnants',
+      component: () => import('../views/crm/GlassRemnantsView.vue'),
+      meta: { title: 'Qoldiq materiallar', requiresAuth: true },
     },
     {
       path: '/stock/transfers',
@@ -465,6 +489,8 @@ router.beforeEach((to, _from, next) => {
       to.path.startsWith('/production/board/') ||
       to.path === '/workshops' ||
       to.path.startsWith('/workshops/') ||
+      to.path === '/finished-goods' ||
+      to.path.startsWith('/finished-goods/') ||
       to.path === '/profile' ||
       to.path.startsWith('/profile/')
     if (to.path === '/' || to.path === '' || to.path === '/production') {

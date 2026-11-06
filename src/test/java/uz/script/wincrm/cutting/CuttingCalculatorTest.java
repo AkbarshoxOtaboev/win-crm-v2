@@ -24,7 +24,7 @@ class CuttingCalculatorTest {
         return CuttingCalculator.calculate(new CuttingInput(
                 BigDecimal.valueOf(sw), BigDecimal.valueOf(sh),
                 BigDecimal.valueOf(pw), BigDecimal.valueOf(ph),
-                qty, BigDecimal.valueOf(kerfMm), rotate, BigDecimal.valueOf(30)));
+                qty, BigDecimal.valueOf(kerfMm), rotate, BigDecimal.valueOf(30), null, null));
     }
 
     private static void assertNum(String expected, BigDecimal actual) {
@@ -114,6 +114,51 @@ class CuttingCalculatorTest {
         assertNum("100", gap.getX());
         assertNum("30", gap.getY());
         assertEquals(3, gap.getFitsPieces());
+    }
+
+    @Test
+    void usefulStripIsCutInTheOtherDirection() {
+        CuttingResultResponse full = CuttingCalculator.calculate(new CuttingInput(
+                BigDecimal.valueOf(260), BigDecimal.valueOf(180),
+                BigDecimal.valueOf(40), BigDecimal.valueOf(70),
+                15, BigDecimal.ZERO, true, BigDecimal.valueOf(50), null, null));
+
+        assertFalse(full.isRotated());
+        assertEquals(6, full.getColumns());
+        assertEquals(2, full.getRows());
+        assertEquals(15, full.getPerSheet());
+        assertEquals(1, full.getSheetsNeeded());
+
+        SheetLayout sheet = full.getSheets().getFirst();
+        assertEquals(15, sheet.getPieces());
+        assertEquals(3, sheet.getPlaced().size());
+        assertNum("70", sheet.getPlaced().getFirst().getWidth());
+        assertNum("40", sheet.getPlaced().getFirst().getHeight());
+        assertNum("0", sheet.getPlaced().getFirst().getX());
+        assertNum("140", sheet.getPlaced().getFirst().getY());
+        assertTrue(sheet.getRemnants().stream().noneMatch(remnant -> remnant.getFitsPieces() >= 3));
+        assertEquals(0, remnant(sheet.getRemnants(), "30", "40").getFitsPieces());
+
+        CuttingResultResponse partial = CuttingCalculator.calculate(new CuttingInput(
+                BigDecimal.valueOf(260), BigDecimal.valueOf(180),
+                BigDecimal.valueOf(40), BigDecimal.valueOf(70),
+                12, BigDecimal.ZERO, true, BigDecimal.valueOf(50), null, null));
+        SheetLayout untouched = partial.getSheets().getFirst();
+        assertEquals(12, untouched.getPieces());
+        assertTrue(untouched.getPlaced().isEmpty());
+        assertEquals(3, remnant(untouched.getRemnants(), "240", "40").getFitsPieces());
+    }
+
+    @Test
+    void offcutLargerThanLimitGoesToAnotherSheet() {
+        CuttingResultResponse r = CuttingCalculator.calculate(new CuttingInput(
+                BigDecimal.valueOf(260), BigDecimal.valueOf(180),
+                BigDecimal.valueOf(40), BigDecimal.valueOf(70),
+                15, BigDecimal.ZERO, true, BigDecimal.valueOf(20), null, null));
+
+        assertEquals(12, r.getPerSheet());
+        assertEquals(2, r.getSheetsNeeded());
+        assertTrue(r.getSheets().getFirst().getPlaced().isEmpty());
     }
 
     @Test

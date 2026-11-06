@@ -13,6 +13,13 @@ export interface CuttingRemnant {
   fitsPieces: number
 }
 
+export interface CuttingPlacedPiece {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
 export interface CuttingSheetLayout {
   /** Number of sheets cut with this layout */
   count: number
@@ -23,6 +30,8 @@ export interface CuttingSheetLayout {
   usedWidth: number
   usedHeight: number
   remnants: CuttingRemnant[]
+  /** Pieces cut inside a remnant, in a different orientation from the main grid */
+  placed?: CuttingPlacedPiece[]
 }
 
 export interface CuttingResult {
@@ -33,6 +42,8 @@ export interface CuttingResult {
   quantity: number
   kerfMm: number
   minRemnantCm: number
+  minRemnantWidthCm?: number
+  minRemnantHeightCm?: number
   rotated: boolean
   layoutPieceWidth: number
   layoutPieceHeight: number
@@ -62,6 +73,8 @@ export interface CuttingPayload {
   kerfMm?: number
   allowRotate?: boolean
   minRemnantCm?: number
+  minRemnantWidthCm?: number
+  minRemnantHeightCm?: number
 }
 
 export function calculateCutting(body: CuttingPayload) {
@@ -75,13 +88,33 @@ export interface OptimizeRemnant {
   width: number
   height: number
   pieceCount: number
+  warehouseName?: string | null
+  sourceSaleOrderId?: number | null
 }
 
 export interface OptimizePick {
-  remnantId: number
+  remnantId?: number | null
+  goodsId?: number | null
   quantity: number
   width?: number
   height?: number
+  /** Shu buyurtma kesishidan chiqadigan, omborda hali yo'q qoldiq. */
+  planned?: boolean
+}
+
+export interface SheetOption {
+  goodsId: number
+  goodsName?: string
+  width?: number
+  height?: number
+}
+
+export interface SheetUse {
+  goodsId: number
+  goodsName?: string
+  width?: number
+  height?: number
+  quantity: number
 }
 
 export interface OptimizeLine {
@@ -92,8 +125,12 @@ export interface OptimizeLine {
   height: number
   count: number
   kerfMm?: number | null
+  minRemnantCm?: number | null
   allowRotate?: boolean | null
   sheetQuantity?: number | null
+  candidateGoodsIds?: number[]
+  candidates?: SheetOption[]
+  sheetUses?: SheetUse[]
   picks?: OptimizePick[]
 }
 
@@ -102,6 +139,11 @@ export interface OptimizePlan {
   warehouseId?: number | null
   warehouseName?: string | null
   optimized: boolean
+  kerfMm?: number | null
+  minRemnantCm?: number | null
+  minRemnantWidthCm?: number | null
+  minRemnantHeightCm?: number | null
+  source?: 'REMNANT' | 'SHEET' | null
   lines: OptimizeLine[]
   remnants: OptimizeRemnant[]
 }
@@ -110,12 +152,55 @@ export function fetchCuttingOptimize(saleOrderId: number) {
   return apiRequest<RestApiResponse<OptimizePlan>>(`/api/cutting/optimize/${saleOrderId}`)
 }
 
+export function suggestCuttingOptimize(
+  saleOrderId: number,
+  body: {
+    kerfMm: number
+    minRemnantCm?: number
+    minRemnantWidthCm?: number
+    minRemnantHeightCm?: number
+    source?: 'REMNANT' | 'SHEET'
+    allowRotate?: boolean
+  },
+) {
+  return apiRequest<RestApiResponse<OptimizePlan>>(`/api/cutting/optimize/${saleOrderId}/suggest`, {
+    method: 'POST',
+    body,
+  })
+}
+
+export function fetchGlassRemnants() {
+  return apiRequest<RestApiResponse<OptimizeRemnant[]>>('/api/cutting/remnants')
+}
+
+export function deleteGlassRemnant(id: number) {
+  return apiRequest<void>(`/api/cutting/remnants/${id}`, { method: 'DELETE' })
+}
+
+export function deleteGlassRemnants(ids: number[]) {
+  return apiRequest<void>('/api/cutting/remnants/delete', {
+    method: 'POST',
+    body: { ids },
+  })
+}
+
 export function confirmCuttingOptimize(
   saleOrderId: number,
-  lines: { saleOrderItemId: number; sheetQuantity: number; remnants: { remnantId: number; quantity: number }[] }[],
+  body: {
+    kerfMm: number
+    minRemnantCm: number
+    allowRotate?: boolean
+    lines: {
+      saleOrderItemId: number
+      sheetQuantity: number
+      sheets: { goodsId: number; quantity: number }[]
+      remnants: { remnantId: number; quantity: number }[]
+      planned: { goodsId?: number; width: number; height: number; quantity: number }[]
+    }[]
+  },
 ) {
   return apiRequest<RestApiResponse<OptimizePlan>>(`/api/cutting/optimize/${saleOrderId}`, {
     method: 'POST',
-    body: { lines },
+    body,
   })
 }

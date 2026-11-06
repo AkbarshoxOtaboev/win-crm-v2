@@ -9,7 +9,8 @@ public enum Type {
 
     PRODUCT("Tovar"),
     SERVICE("Xizmat"),
-    WINDOW("Oyna");
+    WINDOW("Oyna"),
+    FINISHED_PRODUCT("Tayyor mahsulot");
 
     private final String label;
 }

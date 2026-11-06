@@ -18,6 +18,8 @@ export interface SaleOrderItem {
   weightKg?: number | null
   cutKerfMm?: number | null
   cutAllowRotate?: boolean | null
+  cutCandidateGoodsIds?: string | null
+  cutCategoryId?: number | null
   arrivalDate?: string
   status?: string
 }

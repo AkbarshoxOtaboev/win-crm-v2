@@ -43,4 +43,6 @@ public enum Resource {
     TRANSPORT_SALARY,
     KPI,
     CASH_HANDOVER,
+    MATERIAL_ISSUE,
+    FINISHED_GOODS_RECEIPT,
 }

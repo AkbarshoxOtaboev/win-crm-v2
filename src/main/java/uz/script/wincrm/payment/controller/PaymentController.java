@@ -270,6 +270,25 @@ public class PaymentController {
         );
     }
 
+    @PostMapping("/{id}/refund")
+    @PreAuthorize("hasAnyAuthority('PAYMENT_CREATE', 'PAYMENT_EDIT')")
+    @Operation(
+            summary = "To'lovni mijozga qaytarish",
+            description = "Kassadan shu summa chiqadi va mijoz akt sverkasida «To'lovni qaytarish» yozuvi paydo bo'ladi."
+    )
+    @ApiResponse(responseCode = "200")
+    public ResponseEntity<?> refund(
+            @Parameter(description = "Payment ID", example = "1")
+            @PathVariable Long id
+    ) {
+        return ResponseEntity.ok(
+                RestApiResponse.<PaymentResponse>builder()
+                        .message("Payment successfully refunded")
+                        .data(service.refund(id))
+                        .build()
+        );
+    }
+
     @DeleteMapping("/delete/{id}")
     @PreAuthorize("hasAuthority('PAYMENT_DELETE')")
     @Operation(

@@ -12,6 +12,7 @@ import uz.script.wincrm.audit.AuditAction;
 import uz.script.wincrm.audit.Auditable;
 import uz.script.wincrm.clients.Client;
 import uz.script.wincrm.clients.repository.ClientRepository;
+import uz.script.wincrm.cash.service.CashAvailabilityService;
 import uz.script.wincrm.clients.service.ClientBalanceService;
 import uz.script.wincrm.currency.Currency;
 import uz.script.wincrm.currency.CurrencyMath;
@@ -32,6 +33,7 @@ import uz.script.wincrm.salary.service.SalaryCommissionService;
 import uz.script.wincrm.sale.SaleOrder;
 import uz.script.wincrm.sale.enums.SalesOrderStatus;
 import uz.script.wincrm.sale.repository.SaleOrderRepository;
+import uz.script.wincrm.security.CustomUserDetails;
 import uz.script.wincrm.users.User;
 import uz.script.wincrm.users.repository.UserRepository;
 import uz.script.wincrm.utils.Status;
@@ -63,6 +65,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final ClientBalanceService clientBalanceService;
     private final ExchangeRateService exchangeRateService;
     private final SalaryCommissionService salaryCommissionService;
+    private final CashAvailabilityService cashAvailabilityService;
 
     private static final Set<String> RECEIVER_OVERRIDE_ROLES = Set.of("SUPER_ADMIN", "ADMIN", "DIRECTOR");
 
@@ -236,6 +239,68 @@ public class PaymentServiceImpl implements PaymentService {
             clientBalanceService.recalculateClientBalance(entity.getClient().getId());
         }
         return mapper.toResponse(entity);
+    }
+
+    @Override
+    @Auditable(
+            action = AuditAction.CREATE,
+            entity = "Payment"
+    )
+    public PaymentResponse refund(Long id) {
+        log.info("Refund payment {}", id);
+
+        Payment source = repository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Payment not found with id: " + id));
+        if (source.getRefundOf() != null || source.getPaymentAmount() == null || source.getPaymentAmount().signum() <= 0) {
+            throw new BadRequestException("Bu yozuvni qaytarib bo'lmaydi");
+        }
+        if (repository.existsByRefundOf_Id(source.getId())) {
+            throw new BadRequestException("Bu to'lov allaqachon qaytarilgan");
+        }
+        if (source.getPaymentType() != null) {
+            cashAvailabilityService.requireEnough(
+                    source.getPaymentType(), source.getPaymentAmount(), null, "To'lovni qaytarish");
+        }
+
+        User cashier = currentUser();
+        if (cashier == null) {
+            cashier = source.getUser();
+        }
+        Payment refund = Payment.builder()
+                .paymentType(source.getPaymentType())
+                .user(cashier)
+                .paymentAmount(source.getPaymentAmount().negate())
+                .currency(source.getCurrency())
+                .debtCurrency(source.getDebtCurrency())
+                .exchangeRate(source.getExchangeRate())
+                .appliedAmount(source.appliedOrPaid().negate())
+                .paymentDate(LocalDateTime.now())
+                .comment("To'lov #" + source.getId() + " qaytarildi")
+                .saleOrder(source.getSaleOrder())
+                .client(source.getClient())
+                .refundOf(source)
+                .status(Status.ACTIVE)
+                .build();
+        if (source.getFilial() != null) {
+            refund.setFilial(source.getFilial());
+        }
+        refund = repository.saveAndFlush(refund);
+
+        if (source.getSaleOrder() != null) {
+            recalculateSaleOrderSums(source.getSaleOrder());
+        }
+        if (source.getClient() != null) {
+            clientBalanceService.recalculateClientBalance(source.getClient().getId());
+        }
+        return mapper.toResponse(refund);
+    }
+
+    private User currentUser() {
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof CustomUserDetails details) {
+            return details.getUser();
+        }
+        return null;
     }
 
     /** {@code applied} - qarz valyutasida; kassadagi qismi to'lovning o'z kursi bilan o'giriladi. */

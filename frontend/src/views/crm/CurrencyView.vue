@@ -212,7 +212,7 @@ import {
 import { formatApiError } from '@/api/http'
 import { useCompanyFxRates } from '@/composables/useCompanyFxRates'
 import { useAuthStore } from '@/stores/auth'
-import { amountToText, formatAmountInput, formatDmyTime } from '@/utils/format'
+import { amountToText, formatAmountInput, formatDateOnly, formatDmyTime } from '@/utils/format'
 
 const RANGES = [7, 14, 30] as const
 type Range = (typeof RANGES)[number]
@@ -268,9 +268,7 @@ function trendIcon(v?: number | null) {
 }
 
 function dmy(iso?: string | null) {
-  if (!iso) return '—'
-  const [y, m, d] = iso.slice(0, 10).split('-')
-  return `${d}.${m}.${y}`
+  return formatDateOnly(iso)
 }
 
 function localIso(d: Date) {

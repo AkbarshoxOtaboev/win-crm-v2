@@ -283,8 +283,23 @@
     <div v-show="tab === 'groups'" class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
       <div class="flex justify-between px-5 py-4">
         <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('clients.groups') }}</h3>
-        <button type="button" class="h-10 rounded-lg bg-brand-500 px-4 text-sm text-white disabled:cursor-not-allowed disabled:opacity-55" :disabled="writeBlocked" @click="openGroupCreate">{{ t('clients.addGroup') }}</button>
+        <button
+          type="button"
+          class="h-10 rounded-lg bg-brand-500 px-4 text-sm text-white disabled:cursor-not-allowed disabled:opacity-55"
+          :disabled="writeBlocked || !canManageGroups"
+          :title="writeBlocked ? writeBlockedMessage : undefined"
+          @click="openGroupCreate"
+        >
+          {{ t('clients.addGroup') }}
+        </button>
       </div>
+      <div
+        v-if="error"
+        class="mx-5 mb-4 rounded-lg border border-error-200 bg-error-50 px-4 py-3 text-sm text-error-600 dark:border-error-500/30 dark:bg-error-500/10 dark:text-error-400"
+      >
+        {{ error }}
+      </div>
+      <p v-else-if="writeBlocked" class="mx-5 mb-4 text-sm text-warning-600">{{ writeBlockedMessage }}</p>
       <table class="min-w-full">
         <thead>
           <tr class="border-b border-gray-100 dark:border-gray-800">
@@ -297,7 +312,14 @@
           <tr v-for="g in groups" :key="g.id" class="border-b border-gray-100 dark:border-gray-800">
             <td class="px-5 py-3 text-sm">{{ g.id }}</td>
             <td class="px-5 py-3 text-sm">{{ g.name }}</td>
-            <td class="px-5 py-3 text-right"><RowActions @edit="openGroupEdit(g)" @delete="onGroupDelete(g)" /></td>
+            <td class="px-5 py-3 text-right">
+              <RowActions
+                :edit="canManageGroups && !writeBlocked"
+                :remove="canManageGroups && !writeBlocked"
+                @edit="openGroupEdit(g)"
+                @delete="onGroupDelete(g)"
+              />
+            </td>
           </tr>
         </tbody>
       </table>
@@ -337,6 +359,12 @@
     <div v-if="groupModal" class="fixed inset-0 z-99999 flex items-center justify-center bg-black/40 p-4">
       <div class="w-full max-w-md rounded-2xl bg-white p-5 dark:bg-gray-900">
         <h3 class="mb-3 text-lg font-semibold">{{ t('clients.group') }}</h3>
+        <p
+          v-if="error"
+          class="mb-3 rounded-lg border border-error-200 bg-error-50 px-3 py-2 text-sm text-error-600 dark:border-error-500/30 dark:bg-error-500/10 dark:text-error-400"
+        >
+          {{ error }}
+        </p>
         <form class="space-y-3" @submit.prevent="onGroupSubmit">
           <input v-model="groupName" required class="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm" />
           <div class="flex justify-end gap-2">
@@ -384,6 +412,7 @@ import {
 import { fetchDebtors, sendDebtSmsToClient, sendDebtSmsToClients, type DebtorClient } from '@/api/debt'
 import { formatApiError } from '@/api/http'
 import { useFilialScope } from '@/composables/useFilialScope'
+import { useAuthStore } from '@/stores/auth'
 import { moneyIn } from '@/utils/currency'
 import {
   formatUzPhone,
@@ -495,7 +524,10 @@ async function load() {
   loading.value = true
   error.value = null
   try {
-    const [res, g] = await Promise.all([fetchClients(), fetchClientGroups()])
+    const [res, g] = await Promise.all([
+      fetchClients(),
+      fetchClientGroups().catch(() => ({ data: [] as ClientGroup[] })),
+    ])
     clients.value = res.data || []
     groups.value = g.data || []
   } catch (e) {
@@ -505,7 +537,11 @@ async function load() {
   }
 }
 
-const { writeBlocked } = useFilialScope()
+const { writeBlocked, writeBlockedMessage } = useFilialScope()
+const auth = useAuthStore()
+const canManageGroups = computed(
+  () => auth.can('CLIENT_GROUP_CREATE') || auth.can('CLIENT_GROUP_EDIT'),
+)
 
 function openCreate() {
   if (writeBlocked.value) return
@@ -623,13 +659,16 @@ async function onDelete(client: Client) {
 }
 
 function openGroupCreate() {
-  if (writeBlocked.value) return
+  if (writeBlocked.value || !canManageGroups.value) return
+  error.value = null
   groupEditingId.value = null
   groupName.value = ''
   groupModal.value = true
 }
 
 function openGroupEdit(g: ClientGroup) {
+  if (writeBlocked.value || !canManageGroups.value) return
+  error.value = null
   groupEditingId.value = g.id
   groupName.value = g.name
   groupModal.value = true
@@ -637,6 +676,7 @@ function openGroupEdit(g: ClientGroup) {
 
 async function onGroupSubmit() {
   try {
+    error.value = null
     if (groupEditingId.value) await updateClientGroup(groupEditingId.value, { name: groupName.value.trim() })
     else await createClientGroup({ name: groupName.value.trim() })
     groupModal.value = false
@@ -647,8 +687,10 @@ async function onGroupSubmit() {
 }
 
 async function onGroupDelete(g: ClientGroup) {
+  if (writeBlocked.value || !canManageGroups.value) return
   if (!confirm(t('common.deleteConfirmNamed', { name: g.name }))) return
   try {
+    error.value = null
     await deleteClientGroup(g.id)
     await load()
   } catch (e) {

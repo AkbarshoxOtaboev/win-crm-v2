@@ -34,6 +34,9 @@ public class PaymentResponse {
     @Schema(description = "Sale order ID", example = "1")
     private Long saleOrderId;
 
+    @Schema(description = "Qaytarilayotgan asl to'lov ID si")
+    private Long refundOfId;
+
     @Schema(description = "Payment type ID", example = "1")
     private Long paymentTypeId;
 

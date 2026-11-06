@@ -1,6 +1,7 @@
 package uz.script.wincrm.cutting;
 
 import uz.script.wincrm.cutting.response.CuttingResultResponse;
+import uz.script.wincrm.cutting.response.CuttingResultResponse.PlacedPiece;
 import uz.script.wincrm.cutting.response.CuttingResultResponse.Remnant;
 import uz.script.wincrm.cutting.response.CuttingResultResponse.SheetLayout;
 import uz.script.wincrm.exceptions.BadRequestException;
@@ -39,6 +40,7 @@ public final class CuttingCalculator {
         Plan best = plans.stream()
                 .filter(p -> p.perSheet > 0)
                 .min(Comparator.<Plan>comparingInt(p -> -p.perSheet)
+                        .thenComparing(p -> p.fullScrap)
                         .thenComparing(p -> p.usefulArea, Comparator.reverseOrder())
                         .thenComparing(p -> p.rotated))
                 .orElseThrow(() -> new BadRequestException(
@@ -63,23 +65,47 @@ public final class CuttingCalculator {
         if (in.minRemnantCm() == null || in.minRemnantCm().signum() < 0) {
             throw new BadRequestException("Foydali qoldiqning minimal o'lchami manfiy bo'lmasligi kerak");
         }
+        if (limit(in.minRemnantWidthCm(), in.minRemnantCm()).signum() < 0
+                || limit(in.minRemnantHeightCm(), in.minRemnantCm()).signum() < 0) {
+            throw new BadRequestException("Foydali qoldiqning minimal o'lchami manfiy bo'lmasligi kerak");
+        }
+    }
+
+    /** En va bo'y berilmasa, bitta chegara ikkala tomonga qo'llanadi. */
+    private static BigDecimal limit(BigDecimal side, BigDecimal fallback) {
+        return side != null ? side : fallback;
+    }
+
+    /** Qoldiq belgilangan en va bo'ydan katta (yoki teng): butun saqlanadi, ichiga kesilmaydi. */
+    private static boolean keepWhole(BigDecimal width, BigDecimal height, BigDecimal minWidth, BigDecimal minHeight) {
+        boolean direct = width.compareTo(minWidth) >= 0 && height.compareTo(minHeight) >= 0;
+        boolean turned = width.compareTo(minHeight) >= 0 && height.compareTo(minWidth) >= 0;
+        return direct || turned;
     }
 
     private static Plan plan(CuttingInput in, BigDecimal kerf, BigDecimal pw, BigDecimal ph, boolean rotated) {
         int cols = fit(in.sheetWidth(), pw, kerf);
         int rows = fit(in.sheetHeight(), ph, kerf);
         Plan p = new Plan(pw, ph, kerf, rotated, cols, rows);
-        if (p.perSheet == 0) {
+        if (p.grid == 0) {
             return p;
         }
+        // To'liq panjara qoldiqlariga (masalan 260×40) boshqa yo'nalishda sig'adigan bo'laklar ham shu listga kiradi.
+        int capacity = p.layout(in, 1, p.grid + MAX_QUANTITY).pieces;
+        p.perSheet = capacity;
+        if (capacity > 0) {
+            Group full = p.layout(in, 1, capacity);
+            BigDecimal placed = area(pw, ph).multiply(BigDecimal.valueOf(full.pieces));
+            p.fullScrap = area(in.sheetWidth(), in.sheetHeight()).subtract(placed).subtract(full.usefulArea).max(BigDecimal.ZERO);
+        }
         int q = in.quantity();
-        int sheets = (q + p.perSheet - 1) / p.perSheet;
-        int last = q - (sheets - 1) * p.perSheet;
-        if (last == p.perSheet) {
+        int sheets = (q + capacity - 1) / capacity;
+        int last = q - (sheets - 1) * capacity;
+        if (last == capacity) {
             p.groups.add(p.layout(in, sheets, last));
         } else {
             if (sheets > 1) {
-                p.groups.add(p.layout(in, sheets - 1, p.perSheet));
+                p.groups.add(p.layout(in, sheets - 1, capacity));
             }
             p.groups.add(p.layout(in, 1, last));
         }
@@ -129,10 +155,15 @@ public final class CuttingCalculator {
         final boolean rotated;
         final int cols;
         final int rows;
-        final int perSheet;
+        /** Asosiy panjara sig'imi. */
+        final int grid;
+        /** Panjara + foydali qoldiq ichiga joylashgan bo'laklar. */
+        int perSheet;
         final List<Group> groups = new ArrayList<>();
         int sheets;
         BigDecimal usefulArea = BigDecimal.ZERO;
+        /** To'liq listning haqiqiy chiqindisi. Bir xil sig'imda shu kichigi tanlanadi. */
+        BigDecimal fullScrap = BigDecimal.ZERO;
 
         Plan(BigDecimal pw, BigDecimal ph, BigDecimal kerf, boolean rotated, int cols, int rows) {
             this.pw = pw;
@@ -141,12 +172,14 @@ public final class CuttingCalculator {
             this.rotated = rotated;
             this.cols = cols;
             this.rows = rows;
-            this.perSheet = cols * rows;
+            this.grid = cols * rows;
+            this.perSheet = this.grid;
         }
 
         Group layout(CuttingInput in, int count, int pieces) {
-            int usedRows = (pieces + cols - 1) / cols;
-            int lastRow = pieces - (usedRows - 1) * cols;
+            int onGrid = Math.min(pieces, grid);
+            int usedRows = (onGrid + cols - 1) / cols;
+            int lastRow = onGrid - (usedRows - 1) * cols;
             int usedCols = usedRows == 1 ? lastRow : cols;
             BigDecimal usedW = span(usedCols, pw, kerf);
             BigDecimal usedH = span(usedRows, ph, kerf);
@@ -171,7 +204,105 @@ public final class CuttingCalculator {
                 BigDecimal gapY = span(usedRows - 1, ph, kerf).add(kerf);
                 add(remnants, in, gapX, gapY, usedW.subtract(gapX), ph);
             }
-            return new Group(count, pieces, usedCols, usedRows, lastRow, usedW, usedH, remnants);
+            List<PlacedPiece> placed = new ArrayList<>();
+            int extra = nest(in, remnants, placed, pieces - onGrid);
+            return new Group(count, onGrid + extra, usedCols, usedRows, lastRow, usedW, usedH, remnants, placed);
+        }
+
+        /**
+         * Foydali qoldiqqa asosiy panjara sig'magan bo'laklarni joylaydi.
+         * Qoldiqqa ko'proq sig'adigan yo'nalish olinadi — 260×40 ga 40×70 o'rniga 70×40.
+         */
+        int nest(CuttingInput in, List<Remnant> remnants, List<PlacedPiece> placed, int budget) {
+            if (budget <= 0) {
+                return 0;
+            }
+            int total = 0;
+            int guard = 0;
+            while (budget > 0 && guard++ < 32) {
+                int bestIndex = -1;
+                int bestFits = 0;
+                boolean bestSwap = false;
+                for (int i = 0; i < remnants.size(); i++) {
+                    Remnant remnant = remnants.get(i);
+                    if (remnant.isUseful() || remnant.getFitsPieces() < 1) {
+                        continue;
+                    }
+                    int straight = fit(remnant.getWidth(), pw, kerf) * fit(remnant.getHeight(), ph, kerf);
+                    int swapped = 0;
+                    if (in.allowRotate() && pw.compareTo(ph) != 0) {
+                        swapped = fit(remnant.getWidth(), ph, kerf) * fit(remnant.getHeight(), pw, kerf);
+                    }
+                    int fits = Math.max(straight, swapped);
+                    if (fits > bestFits) {
+                        bestFits = fits;
+                        bestIndex = i;
+                        bestSwap = swapped > straight;
+                    }
+                }
+                if (bestIndex < 0) {
+                    break;
+                }
+                Remnant host = remnants.remove(bestIndex);
+                BigDecimal pieceW = bestSwap ? ph : pw;
+                BigDecimal pieceH = bestSwap ? pw : ph;
+                int n = Math.min(budget, bestFits);
+                cutRemnant(in, host, n, pieceW, pieceH, remnants, placed);
+                budget -= n;
+                total += n;
+            }
+            return total;
+        }
+
+        void cutRemnant(
+                CuttingInput in,
+                Remnant host,
+                int n,
+                BigDecimal pieceW,
+                BigDecimal pieceH,
+                List<Remnant> remnants,
+                List<PlacedPiece> placed
+        ) {
+            int columns = fit(host.getWidth(), pieceW, kerf);
+            int usedRows = (n + columns - 1) / columns;
+            int lastRow = n - (usedRows - 1) * columns;
+            int usedCols = usedRows == 1 ? lastRow : columns;
+            BigDecimal stepX = pieceW.add(kerf);
+            BigDecimal stepY = pieceH.add(kerf);
+            for (int i = 0; i < n; i++) {
+                int column = i % columns;
+                int row = i / columns;
+                placed.add(PlacedPiece.builder()
+                        .x(host.getX().add(stepX.multiply(BigDecimal.valueOf(column))).setScale(LENGTH_SCALE, RoundingMode.HALF_UP))
+                        .y(host.getY().add(stepY.multiply(BigDecimal.valueOf(row))).setScale(LENGTH_SCALE, RoundingMode.HALF_UP))
+                        .width(pieceW)
+                        .height(pieceH)
+                        .build());
+            }
+            BigDecimal usedW = span(usedCols, pieceW, kerf);
+            BigDecimal usedH = span(usedRows, pieceH, kerf);
+            BigDecimal restW = host.getWidth().subtract(usedW).subtract(kerf);
+            BigDecimal restH = host.getHeight().subtract(usedH).subtract(kerf);
+            BigDecimal rightX = host.getX().add(usedW).add(kerf);
+            BigDecimal bottomY = host.getY().add(usedH).add(kerf);
+
+            List<Remnant> verticalFirst = new ArrayList<>();
+            add(verticalFirst, in, rightX, host.getY(), restW, host.getHeight());
+            add(verticalFirst, in, host.getX(), bottomY, usedW, restH);
+
+            List<Remnant> horizontalFirst = new ArrayList<>();
+            add(horizontalFirst, in, host.getX(), bottomY, host.getWidth(), restH);
+            add(horizontalFirst, in, rightX, host.getY(), restW, usedH);
+
+            List<Remnant> chosen = usefulArea(horizontalFirst).compareTo(usefulArea(verticalFirst)) > 0
+                    ? horizontalFirst
+                    : verticalFirst;
+            if (usedRows > 1 && lastRow < columns) {
+                BigDecimal gapX = host.getX().add(span(lastRow, pieceW, kerf)).add(kerf);
+                BigDecimal gapY = host.getY().add(span(usedRows - 1, pieceH, kerf)).add(kerf);
+                add(chosen, in, gapX, gapY, usedW.subtract(span(lastRow, pieceW, kerf)).subtract(kerf), pieceH);
+            }
+            remnants.addAll(chosen);
         }
 
         void add(List<Remnant> out, CuttingInput in, BigDecimal x, BigDecimal y, BigDecimal w, BigDecimal h) {
@@ -180,8 +311,9 @@ public final class CuttingCalculator {
             if (w.signum() <= 0 || h.signum() <= 0) {
                 return;
             }
-            BigDecimal min = in.minRemnantCm();
-            boolean useful = w.compareTo(min) >= 0 && h.compareTo(min) >= 0;
+            BigDecimal minW = limit(in.minRemnantWidthCm(), in.minRemnantCm());
+            BigDecimal minH = limit(in.minRemnantHeightCm(), in.minRemnantCm());
+            boolean useful = keepWhole(w, h, minW, minH);
             int fits = fit(w, in.pieceWidth(), kerf) * fit(h, in.pieceHeight(), kerf);
             if (in.allowRotate()) {
                 fits = Math.max(fits, fit(w, in.pieceHeight(), kerf) * fit(h, in.pieceWidth(), kerf));
@@ -216,6 +348,8 @@ public final class CuttingCalculator {
                     .quantity(in.quantity())
                     .kerfMm(in.kerfMm())
                     .minRemnantCm(in.minRemnantCm())
+                    .minRemnantWidthCm(limit(in.minRemnantWidthCm(), in.minRemnantCm()))
+                    .minRemnantHeightCm(limit(in.minRemnantHeightCm(), in.minRemnantCm()))
                     .rotated(rotated)
                     .layoutPieceWidth(pw)
                     .layoutPieceHeight(ph)
@@ -238,11 +372,12 @@ public final class CuttingCalculator {
     }
 
     private record Group(int count, int pieces, int cols, int rows, int lastRow,
-                         BigDecimal usedW, BigDecimal usedH, List<Remnant> remnants, BigDecimal usefulArea) {
+                         BigDecimal usedW, BigDecimal usedH, List<Remnant> remnants,
+                         List<PlacedPiece> placed, BigDecimal usefulArea) {
 
         Group(int count, int pieces, int cols, int rows, int lastRow,
-              BigDecimal usedW, BigDecimal usedH, List<Remnant> remnants) {
-            this(count, pieces, cols, rows, lastRow, usedW, usedH, remnants,
+              BigDecimal usedW, BigDecimal usedH, List<Remnant> remnants, List<PlacedPiece> placed) {
+            this(count, pieces, cols, rows, lastRow, usedW, usedH, remnants, placed,
                     remnants.stream().filter(Remnant::isUseful).map(Remnant::getArea).reduce(BigDecimal.ZERO, BigDecimal::add));
         }
 
@@ -256,6 +391,7 @@ public final class CuttingCalculator {
                     .usedWidth(usedW.setScale(LENGTH_SCALE, RoundingMode.HALF_UP))
                     .usedHeight(usedH.setScale(LENGTH_SCALE, RoundingMode.HALF_UP))
                     .remnants(remnants)
+                    .placed(placed)
                     .build();
         }
     }

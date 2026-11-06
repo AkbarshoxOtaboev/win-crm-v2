@@ -74,6 +74,11 @@ public class Payment extends FilialScopedEntity {
     @JoinColumn(name = "sale_order_id")
     private SaleOrder saleOrder;
 
+    /** Shu to'lov qaysi kirim to'lovning qaytarilishi. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "refund_of_id")
+    private Payment refundOf;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "client_id")
     private Client client;

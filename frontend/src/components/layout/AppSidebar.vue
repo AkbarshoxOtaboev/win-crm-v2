@@ -241,9 +241,11 @@ import {
   HandCoins,
   HardHat,
   History,
+  Scissors,
   LayoutGrid,
   List,
   Package,
+  PackageCheck,
   Percent,
   Plug,
   Send,
@@ -333,6 +335,34 @@ const rawMenuGroups = computed<MenuGroup[]>(() => {
     subItems: productionSubItems,
   }
 
+  const finishedGoodsItem: MenuItem = {
+    icon: PackageCheck,
+    name: t('nav.finishedGoodsMenu'),
+    subItems: [
+      {
+        name: t('nav.finishedGoodsCatalog'),
+        path: '/finished-goods',
+        icon: BoxIcon,
+        exact: true,
+        perm: ['GOODS_VIEW'],
+      },
+      {
+        name: t('nav.materialIssues'),
+        path: '/finished-goods/issues',
+        icon: ClipboardList,
+        exact: true,
+        perm: ['MATERIAL_ISSUE_VIEW'],
+      },
+      {
+        name: t('nav.finishedGoodsReceipts'),
+        path: '/finished-goods/receipts',
+        icon: Package,
+        exact: true,
+        perm: ['FINISHED_GOODS_RECEIPT_VIEW'],
+      },
+    ],
+  }
+
   const transportItem: MenuItem = {
     icon: Truck,
     name: t('nav.transportMenu'),
@@ -357,7 +387,7 @@ const rawMenuGroups = computed<MenuGroup[]>(() => {
     return [
       {
         title: t('nav.main'),
-        items: [productionItem],
+        items: [productionItem, finishedGoodsItem],
       },
     ]
   }
@@ -424,6 +454,7 @@ const rawMenuGroups = computed<MenuGroup[]>(() => {
         subItems: [
           { name: t('nav.warehouseDashboard'), path: '/warehouse', icon: LayoutGrid, exact: true, perm: ['STOCK_VIEW', 'GOODS_VIEW'] },
           { name: t('nav.stock'), path: '/stock', icon: Box, exact: true, perm: ['STOCK_VIEW'] },
+          { name: t('nav.glassRemnants'), path: '/stock/remnants', icon: Scissors, exact: true, perm: ['STOCK_VIEW', 'GOODS_VIEW'] },
           { name: t('nav.stockHistory'), path: '/stock/history', icon: History, perm: ['STOCK_HISTORIES_VIEW'] },
           { name: t('nav.inventory'), path: '/inventory', icon: Files, perm: ['INVENTORY_VIEW'] },
           { name: t('nav.transfers'), path: '/stock/transfers', icon: ArrowLeftRight, perm: ['STOCK_VIEW'] },
@@ -432,6 +463,7 @@ const rawMenuGroups = computed<MenuGroup[]>(() => {
         ],
       },
       productionItem,
+      finishedGoodsItem,
       ...(auth.canAccessTransport ? [transportItem] : []),
       paymentsItem,
       { icon: Wrench, name: t('nav.services'), path: '/services', perm: ['GOODS_VIEW'] },

@@ -109,7 +109,7 @@
                   <span class="status-knob" />
                 </button>
               </td>
-              <td class="td">{{ formatDateTime(s.createdAt) }}</td>
+              <td class="td">{{ formatDate(s.createdAt) }}</td>
               <td class="td text-right">
                 <RowActions @edit="openEdit(s)" @delete="onDelete(s)" />
               </td>
@@ -318,6 +318,7 @@ import {
   phoneDigits,
   phonesEqual,
 } from '@/utils/phone'
+import { formatDate } from '@/utils/format'
 
 const { t } = useI18n()
 const { writeBlocked } = useFilialScope()
@@ -345,14 +346,6 @@ const form = reactive({
   accountNumber: '',
   description: '',
 })
-
-function formatDateTime(v?: string | null) {
-  if (!v) return '—'
-  const d = new Date(v)
-  if (Number.isNaN(d.getTime())) return v.replace('T', ' ').slice(0, 19)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}, ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
-}
 
 const filtered = computed(() => {
   const name = filters.name.trim().toLowerCase()

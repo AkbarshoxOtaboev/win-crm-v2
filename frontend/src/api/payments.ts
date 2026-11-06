@@ -22,6 +22,8 @@ export interface Payment {
   paymentDate?: string
   comment?: string
   status?: string
+  /** Qaytarilgan asl to'lov. */
+  refundOfId?: number | null
 }
 
 export interface PaymentPayload {
@@ -52,6 +54,10 @@ export function allocatePayments(payload: PaymentAllocationPayload) {
 
 export function unallocatePayment(id: number) {
   return apiRequest<RestApiResponse<Payment>>(`/api/payments/${id}/unallocate`, { method: 'POST' })
+}
+
+export function refundPayment(id: number) {
+  return apiRequest<RestApiResponse<Payment>>(`/api/payments/${id}/refund`, { method: 'POST' })
 }
 
 export interface PaymentType {

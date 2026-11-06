@@ -7,6 +7,8 @@ export interface Goods {
   name: string
   goodsGroupId?: number
   goodsGroupName?: string
+  categoryId?: number | null
+  categoryName?: string | null
   unitTypeId?: number
   unitTypeName?: string
   type?: string
@@ -32,6 +34,12 @@ export interface Goods {
 }
 
 export interface GoodsGroup {
+  id: number
+  name: string
+  status?: string
+}
+
+export interface GoodsCategory {
   id: number
   name: string
   status?: string
@@ -89,6 +97,34 @@ export function deleteGoodsGroup(id: number) {
 
 export function changeGoodsGroupStatus(id: number) {
   return apiRequest<GoodsGroup>(`/api/goods-groups/${id}/change-status`, {
+    method: 'PUT',
+  })
+}
+
+export function fetchGoodsCategories() {
+  return apiRequest<GoodsCategory[]>('/api/goods-categories')
+}
+
+export function createGoodsCategory(name: string) {
+  return apiRequest<GoodsCategory>('/api/goods-categories', {
+    method: 'POST',
+    body: { name },
+  })
+}
+
+export function updateGoodsCategory(id: number, name: string) {
+  return apiRequest<GoodsCategory>(`/api/goods-categories/${id}`, {
+    method: 'PUT',
+    body: { name },
+  })
+}
+
+export function deleteGoodsCategory(id: number) {
+  return apiRequest<void>(`/api/goods-categories/${id}`, { method: 'DELETE' })
+}
+
+export function changeGoodsCategoryStatus(id: number) {
+  return apiRequest<GoodsCategory>(`/api/goods-categories/${id}/change-status`, {
     method: 'PUT',
   })
 }

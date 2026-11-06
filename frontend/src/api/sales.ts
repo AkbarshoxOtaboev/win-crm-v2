@@ -12,6 +12,9 @@ export interface SaleOrder {
   userFullName?: string
   comment?: string
   orderDate?: string
+  /** Tugatish (tayyor bo‘lish) muddati. */
+  plannedReadyDate?: string | null
+  plannedDeliveryDate?: string | null
   createdAt?: string
   totalWeightKg?: number | null
   originalTotalSum?: number
@@ -40,6 +43,9 @@ export interface SaleOrderPayload {
   warehouseId: number
   userId: number
   orderDate: string
+  /** Tugatish sanasi (ixtiyoriy). */
+  plannedReadyDate?: string | null
+  plannedDeliveryDate?: string | null
   totalSum: number
   clientId?: number | null
   comment?: string
@@ -60,6 +66,9 @@ export interface SaleOrderInitialItem {
   /** Oyna kesish qoidasi; berilmasa sozlamadagi qiymat. */
   cutKerfMm?: number
   cutAllowRotate?: boolean
+  /** Vergul bilan list mahsulotlari: optimizatsiya shulardan tanlaydi. */
+  cutCandidateGoodsIds?: string
+  cutCategoryId?: number
 }
 
 export interface SaleOrderCreatePayload extends SaleOrderPayload {

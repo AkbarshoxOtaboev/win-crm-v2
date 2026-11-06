@@ -32,6 +32,9 @@ public class GoodsDTO {
     )
     private Long goodsGroupId;
 
+    @Schema(description = "Mahsulot kategoriyasi (ixtiyoriy). Kesish shu kategoriya ichidan list tanlaydi.", example = "1")
+    private Long categoryId;
+
     @Schema(
             description = "Unit type identifier (SERVICE turida bo'sh bo'lsa — \"xizmat\" birligi)",
             example = "1"

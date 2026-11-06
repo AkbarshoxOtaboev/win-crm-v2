@@ -38,6 +38,11 @@ public class Goods extends FilialScopedEntity {
     @JoinColumn(name = "goods_group_id", nullable = false)
     private GoodsGroup goodsGroup;
 
+    /** Kesishda list o‘rniga shu kategoriya tanlanadi. Ixtiyoriy. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id")
+    private GoodsCategory category;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "unit_type_id", nullable = false)
     private UnitType unitType;

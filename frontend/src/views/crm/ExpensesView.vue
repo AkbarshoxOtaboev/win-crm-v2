@@ -267,7 +267,7 @@
                 {{ moneyIn(e.amount, e.currency, t('common.currency')) }}
                 <span class="cur-badge" :class="e.currency === 'USD' ? 'usd' : 'uzs'">{{ e.currency || 'UZS' }}</span>
               </td>
-              <td class="td whitespace-nowrap">{{ e.expenseDate }}</td>
+              <td class="td whitespace-nowrap">{{ formatDate(e.expenseDate) }}</td>
               <td class="td">
                 {{ e.description || '—' }}
                 <router-link
@@ -589,7 +589,7 @@ import { ApiError } from '@/api/http'
 import { useAuthStore } from '@/stores/auth'
 import { useFilialScope } from '@/composables/useFilialScope'
 import { CURRENCIES, moneyIn, type CurrencyCode } from '@/utils/currency'
-import { amountToText, formatAmountInput } from '@/utils/format'
+import { amountToText, formatAmountInput, formatDate } from '@/utils/format'
 
 const { t } = useI18n()
 const auth = useAuthStore()

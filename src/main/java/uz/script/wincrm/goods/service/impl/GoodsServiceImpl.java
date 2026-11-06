@@ -10,11 +10,13 @@ import uz.script.wincrm.exceptions.AlreadyExistsException;
 import uz.script.wincrm.exceptions.BadRequestException;
 import uz.script.wincrm.exceptions.ResourceNotFoundException;
 import uz.script.wincrm.goods.Goods;
+import uz.script.wincrm.goods.GoodsCategory;
 import uz.script.wincrm.goods.GoodsGroup;
 import uz.script.wincrm.goods.UnitType;
 import uz.script.wincrm.goods.dto.GoodsDTO;
 import uz.script.wincrm.goods.enums.Type;
 import uz.script.wincrm.goods.mapper.GoodsMapper;
+import uz.script.wincrm.goods.repository.GoodsCategoryRepository;
 import uz.script.wincrm.goods.repository.GoodsGroupRepository;
 import uz.script.wincrm.goods.repository.GoodsRepository;
 import uz.script.wincrm.goods.repository.UnitTypeRepository;
@@ -34,6 +36,7 @@ public class GoodsServiceImpl implements GoodsService {
 
     private final GoodsRepository repository;
     private final GoodsGroupRepository goodsGroupRepository;
+    private final GoodsCategoryRepository categoryRepository;
     private final UnitTypeRepository unitTypeRepository;
     private final GoodsMapper mapper;
     private final StorageService storageService;
@@ -60,6 +63,7 @@ public class GoodsServiceImpl implements GoodsService {
         }
 
         GoodsGroup goodsGroup = resolveGoodsGroup(dto);
+        GoodsCategory category = resolveCategory(dto);
         UnitType unitType = resolveUnitType(dto);
 
         String photoPath = null;
@@ -67,7 +71,7 @@ public class GoodsServiceImpl implements GoodsService {
             photoPath = "/api/files/" + storageService.uploadFile(dto.getPhoto());
         }
 
-        Goods goods = mapper.toEntity(dto, goodsGroup, unitType, photoPath);
+        Goods goods = mapper.toEntity(dto, goodsGroup, category, unitType, photoPath);
 
         goods = repository.save(goods);
 
@@ -117,6 +121,7 @@ public class GoodsServiceImpl implements GoodsService {
         }
 
         GoodsGroup goodsGroup = resolveGoodsGroup(dto);
+        GoodsCategory category = resolveCategory(dto);
         UnitType unitType = resolveUnitType(dto);
 
         // Photo is optional on update — only re-upload and replace if a new file was provided
@@ -126,6 +131,9 @@ public class GoodsServiceImpl implements GoodsService {
         }
 
         mapper.updateEntity(goods, dto, goodsGroup, unitType, photoPath);
+        if (dto.getCategoryId() != null) {
+            goods.setCategory(category);
+        }
 
         goods = repository.save(goods);
 
@@ -162,6 +170,14 @@ public class GoodsServiceImpl implements GoodsService {
         return goodsGroupRepository.findFirstByNameIgnoreCaseOrderByIdAsc(SERVICE_GROUP_NAME)
                 .orElseGet(() -> goodsGroupRepository.save(
                         GoodsGroup.builder().name(SERVICE_GROUP_NAME).status(Status.ACTIVE).build()));
+    }
+
+    private GoodsCategory resolveCategory(GoodsDTO dto) {
+        if (dto.getCategoryId() == null || dto.getCategoryId() <= 0) {
+            return null;
+        }
+        return categoryRepository.findById(dto.getCategoryId())
+                .orElseThrow(() -> new ResourceNotFoundException("Kategoriya topilmadi: " + dto.getCategoryId()));
     }
 
     private UnitType resolveUnitType(GoodsDTO dto) {

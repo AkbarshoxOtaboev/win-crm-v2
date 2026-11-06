@@ -119,7 +119,7 @@
               <td class="td">{{ fmt(b.totalPurchase, curOf(b)) }}</td>
               <td class="td amount-paid">{{ fmt(b.totalPaid, curOf(b)) }}</td>
               <td class="td amount-debt">{{ fmt(debtOf(b), curOf(b)) }}</td>
-              <td class="td">{{ formatDateTime(b.lastUpdated || b.updatedAt) }}</td>
+              <td class="td">{{ formatDate(b.lastUpdated || b.updatedAt) }}</td>
               <td class="td text-end">
                 <div class="inline-flex items-center gap-3">
                   <button
@@ -538,13 +538,6 @@ function formatRateInput(raw: string) {
   return { text, value: Number.isFinite(value) ? value : 0 }
 }
 
-function formatDateTime(v?: string | null) {
-  if (!v) return '—'
-  const d = new Date(v)
-  if (Number.isNaN(d.getTime())) return v.replace('T', ' ').slice(0, 19)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}, ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
-}
 
 const filtered = computed(() => {
   const q = search.value.trim().toLowerCase()

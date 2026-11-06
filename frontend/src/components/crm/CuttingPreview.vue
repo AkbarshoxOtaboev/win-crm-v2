@@ -1,5 +1,8 @@
 <template>
   <section class="cut">
+    <div v-if="pieceTip" class="piece-tip" :style="{ left: `${pieceTip.x}px`, top: `${pieceTip.y}px` }">
+      {{ pieceTip.text }}
+    </div>
     <header class="cut-head">
       <div class="cut-title">
         <Scissors class="h-4 w-4" />
@@ -66,6 +69,10 @@
               :height="result.sheetHeight"
               class="svg-sheet"
               vector-effect="non-scaling-stroke"
+              :data-cut-drop="movable ? 'sheet' : undefined"
+              :data-item-id="movable ? itemId : undefined"
+              :data-source="movable ? source : undefined"
+              :data-index="movable ? sourceIndex : undefined"
             />
             <rect
               v-for="r in sheet.remnants"
@@ -74,19 +81,41 @@
               :y="r.y"
               :width="r.width"
               :height="r.height"
-              :class="r.useful ? 'svg-useful' : 'svg-scrap'"
+              :class="remnantClass(r)"
               vector-effect="non-scaling-stroke"
+              :data-cut-drop="dropKind(sheet, r)"
+              :data-item-id="movable && r.useful ? itemId : undefined"
+              :data-source="movable && r.useful ? source : undefined"
+              :data-index="movable && r.useful ? sourceIndex : undefined"
+              :data-w="movable && r.useful ? r.width : undefined"
+              :data-h="movable && r.useful ? r.height : undefined"
+              :data-goods-id="movable && r.useful ? goodsId : undefined"
+              :data-fits="movable && r.useful ? r.fitsPieces : undefined"
+              :role="dropKind(sheet, r) ? 'button' : undefined"
+              :tabindex="dropKind(sheet, r) ? 0 : undefined"
+              :aria-label="dropKind(sheet, r) ? t('cuttingOptimize.dropRemnant') : undefined"
             />
             <rect
               v-for="(p, i) in piecesOf(sheet)"
               :key="`p-${i}`"
               :x="p.x"
               :y="p.y"
-              :width="result.layoutPieceWidth"
-              :height="result.layoutPieceHeight"
-              class="svg-piece"
+              :width="p.w"
+              :height="p.h"
+              :class="movable ? 'svg-piece can-drag' : 'svg-piece'"
               vector-effect="non-scaling-stroke"
-            />
+              :draggable="movable ? 'true' : undefined"
+              :role="movable ? 'button' : undefined"
+              :tabindex="movable ? 0 : undefined"
+              :aria-label="pieceSizeLabel(p)"
+              @pointerdown="onPiecePointerDown"
+              @pointerenter="showPieceTip($event, p)"
+              @pointermove="showPieceTip($event, p)"
+              @pointerleave="pieceTip = null"
+              @dragstart="onDragStart"
+            >
+              <title>{{ pieceSizeLabel(p) }}</title>
+            </rect>
             <template v-for="r in sheet.remnants" :key="`t-${r.x}-${r.y}`">
               <text
                 v-if="labelFits(r)"
@@ -114,7 +143,7 @@
       </div>
       <p class="cut-muted">
         {{ t('cutting.sheetSize', { w: num(result.sheetWidth), h: num(result.sheetHeight) }) }} ·
-        {{ t('cutting.minRemnant', { n: num(result.minRemnantCm) }) }}
+        {{ t('cutting.minRemnantSize', { w: num(result.minRemnantWidthCm ?? result.minRemnantCm), h: num(result.minRemnantHeightCm ?? result.minRemnantCm) }) }}
       </p>
     </template>
   </section>
@@ -126,6 +155,7 @@ import { useI18n } from 'vue-i18n'
 import { Scissors } from 'lucide-vue-next'
 import { calculateCutting, type CuttingRemnant, type CuttingResult, type CuttingSheetLayout } from '@/api/cutting'
 import { formatApiError } from '@/api/http'
+import { cutDrag } from '@/components/crm/cutDrag'
 
 const props = defineProps<{
   goodsId: number
@@ -138,6 +168,21 @@ const props = defineProps<{
   /** Saqlangan qoidalarni faqat ko'rsatish (ishlab chiqarish): sozlab bo'lmaydi. */
   readonly?: boolean
   title?: string
+  /** Foydali qoldiqning minimal tomoni, sm. En va bo'y berilmasa shu qiymat. */
+  minRemnantCm?: number | null
+  minRemnantWidthCm?: number | null
+  minRemnantHeightCm?: number | null
+  /** Bo'lakni sichqoncha bilan boshqa qoldiqqa olib o'tish. */
+  movable?: boolean
+  itemId?: number
+  source?: 'sheet' | 'pick'
+  sourceIndex?: number
+  /** Reja almashtirilganda eski hisobni tashlab yuborish. */
+  stamp?: number
+}>()
+
+const emit = defineEmits<{
+  layout: [stamp: number, result: CuttingResult]
 }>()
 
 const { t } = useI18n()
@@ -146,6 +191,7 @@ const kerf = defineModel<number | ''>('kerf', { default: '' })
 const allowRotate = defineModel<boolean>('allowRotate', { default: true })
 const defaultKerf = ref<number | null>(null)
 const result = ref<CuttingResult | null>(null)
+const pieceTip = ref<{ x: number; y: number; text: string } | null>(null)
 const loading = ref(false)
 const error = ref<string | null>(null)
 let timer: ReturnType<typeof setTimeout> | undefined
@@ -175,12 +221,78 @@ function sheetLabel(sheet: CuttingSheetLayout, idx: number) {
 function piecesOf(sheet: CuttingSheetLayout) {
   const r = result.value
   if (!r) return []
+  const extra = sheet.placed ?? []
+  const gridCount = Math.max(0, sheet.pieces - extra.length)
   const stepX = r.layoutPieceWidth + kerfCm.value
   const stepY = r.layoutPieceHeight + kerfCm.value
-  return Array.from({ length: sheet.pieces }, (_, i) => ({
-    x: (i % sheet.columns) * stepX,
-    y: Math.floor(i / sheet.columns) * stepY,
-  }))
+  return [
+    ...Array.from({ length: gridCount }, (_, i) => ({
+      x: (i % sheet.columns) * stepX,
+      y: Math.floor(i / sheet.columns) * stepY,
+      w: r.layoutPieceWidth,
+      h: r.layoutPieceHeight,
+    })),
+    ...extra.map((p) => ({ x: p.x, y: p.y, w: p.width, h: p.height })),
+  ]
+}
+
+function remnantClass(r: CuttingRemnant) {
+  const hot = r.useful && props.movable && cutDrag.piece && cutDrag.piece.itemId === props.itemId
+  return [r.useful ? 'svg-useful' : 'svg-scrap', hot ? 'drop-hot' : '']
+}
+
+function nextCell(sheet: CuttingSheetLayout, r: CuttingRemnant) {
+  const res = result.value
+  if (!res || sheet.pieces >= res.perSheet) return false
+  const i = sheet.pieces
+  const x = (i % sheet.columns) * (res.layoutPieceWidth + kerfCm.value)
+  const y = Math.floor(i / sheet.columns) * (res.layoutPieceHeight + kerfCm.value)
+  return x >= r.x - 0.05
+    && y >= r.y - 0.05
+    && x + res.layoutPieceWidth <= r.x + r.width + 0.05
+    && y + res.layoutPieceHeight <= r.y + r.height + 0.05
+}
+
+function dropKind(sheet: CuttingSheetLayout, r: CuttingRemnant) {
+  if (!props.movable || !r.useful) return undefined
+  if (nextCell(sheet, r)) return 'next'
+  return r.fitsPieces > 0 ? 'offcut' : undefined
+}
+
+function rememberPiece() {
+  if (!props.movable || props.itemId == null || !props.source) return false
+  cutDrag.piece = { itemId: props.itemId, source: props.source, index: props.sourceIndex ?? 0 }
+  return true
+}
+
+function pieceSizeLabel(p?: { w: number; h: number }) {
+  const drawn = result.value
+  if (!drawn) return ''
+  return `${num(p?.w ?? drawn.layoutPieceWidth)}×${num(p?.h ?? drawn.layoutPieceHeight)} ${t('cutting.cm')}`
+}
+
+function showPieceTip(e: PointerEvent, p: { w: number; h: number }) {
+  const host = (e.currentTarget as Element | null)?.closest('.cut') as HTMLElement | null
+  if (!host) return
+  const box = host.getBoundingClientRect()
+  pieceTip.value = {
+    x: Math.min(Math.max(e.clientX - box.left + 12, 8), host.clientWidth - 8),
+    y: Math.min(Math.max(e.clientY - box.top + 14, 8), host.clientHeight - 8),
+    text: pieceSizeLabel(p),
+  }
+}
+
+function onPiecePointerDown() {
+  rememberPiece()
+}
+
+function onDragStart(e: DragEvent) {
+  if (!rememberPiece()) {
+    e.preventDefault()
+    return
+  }
+  e.dataTransfer?.setData('text/plain', 'piece')
+  if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'
 }
 
 function labelFits(r: CuttingRemnant) {
@@ -201,11 +313,15 @@ async function run() {
       quantity: pieces.value,
       kerfMm: kerf.value === '' ? undefined : Number(kerf.value),
       allowRotate: allowRotate.value,
+      minRemnantCm: props.minRemnantCm != null && !Number.isNaN(Number(props.minRemnantCm)) ? Number(props.minRemnantCm) : undefined,
+      minRemnantWidthCm: props.minRemnantWidthCm != null && !Number.isNaN(Number(props.minRemnantWidthCm)) ? Number(props.minRemnantWidthCm) : undefined,
+      minRemnantHeightCm: props.minRemnantHeightCm != null && !Number.isNaN(Number(props.minRemnantHeightCm)) ? Number(props.minRemnantHeightCm) : undefined,
     })
     if (seq !== requestSeq) return
     result.value = res.data
     error.value = null
     if (kerf.value === '') defaultKerf.value = Number(res.data.kerfMm)
+    emit('layout', props.stamp ?? 0, res.data)
   } catch (e) {
     if (seq !== requestSeq) return
     result.value = null
@@ -216,7 +332,7 @@ async function run() {
 }
 
 watch(
-  () => [props.goodsId, props.sheetWidth, props.sheetHeight, props.pieceWidth, props.pieceHeight, pieces.value, kerf.value, allowRotate.value],
+  () => [props.goodsId, props.sheetWidth, props.sheetHeight, props.pieceWidth, props.pieceHeight, pieces.value, kerf.value, allowRotate.value, props.minRemnantCm, props.minRemnantWidthCm, props.minRemnantHeightCm, props.stamp],
   () => {
     clearTimeout(timer)
     timer = setTimeout(run, 350)
@@ -231,7 +347,20 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.cut { margin-top: 0.85rem; border: 1px solid #e4e7ec; border-radius: 0.75rem; background: #fcfcfd; padding: 0.85rem 1rem; }
+.cut { position: relative; margin-top: 0.85rem; border: 1px solid #e4e7ec; border-radius: 0.75rem; background: #fcfcfd; padding: 0.85rem 1rem; }
+.piece-tip {
+  position: absolute;
+  z-index: 4;
+  transform: translate(-50%, 0);
+  pointer-events: none;
+  border-radius: 0.4rem;
+  background: #101828;
+  color: #fff;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
 .cut-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.6rem; }
 .cut-title { display: flex; flex-wrap: wrap; align-items: center; gap: 0.45rem; font-size: 0.875rem; font-weight: 600; color: #344054; }
 .cut-hint { font-size: 0.75rem; font-weight: 400; color: #98a2b3; }
@@ -251,7 +380,9 @@ onBeforeUnmount(() => {
 .cut-svg { display: block; width: 100%; max-height: 14rem; }
 .svg-sheet { fill: #fff; stroke: #667085; stroke-width: 1.5; }
 .svg-piece { fill: #c7d7fe; stroke: #465fff; stroke-width: 1; }
+.svg-piece.can-drag { cursor: grab; touch-action: none; }
 .svg-useful { fill: #d1fadf; stroke: #12b76a; stroke-width: 1; stroke-dasharray: 4 3; }
+.svg-useful.drop-hot { fill: #a6f4c5; stroke: #067647; stroke-width: 2.5; }
 .svg-scrap { fill: #fee4e2; stroke: #f97066; stroke-width: 1; stroke-dasharray: 2 2; }
 .svg-label { fill: #344054; font-weight: 600; pointer-events: none; }
 .cut-remnants { margin: 0.45rem 0 0; padding: 0; list-style: none; font-size: 0.76rem; color: #475467; }

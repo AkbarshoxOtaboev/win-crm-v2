@@ -70,6 +70,16 @@ public class SaleOrderItemDTO {
     @Schema(description = "Oyna kesish: bo'lakni 90° burish mumkinmi; berilmasa - mumkin")
     private Boolean cutAllowRotate;
 
+    @Schema(description = "Foydali qoldiqning minimal tomoni, sm")
+    @DecimalMin("0")
+    private BigDecimal cutMinRemnantCm;
+
+    @Schema(description = "Kesishda tanlanishi mumkin bo'lgan list mahsulotlari, vergul bilan")
+    private String cutCandidateGoodsIds;
+
+    @Schema(description = "Kesish kategoriyasi. Optimizatsiya shu kategoriyadagi listlardan tanlaydi")
+    private Long cutCategoryId;
+
     @NotNull(message = "Arrival date is required")
     @Schema(description = "Product arrival date and time", required = true)
     private LocalDateTime arrivalDate;

@@ -6,6 +6,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -14,6 +15,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import uz.script.wincrm.cutting.dto.CuttingCalculateRequest;
 import uz.script.wincrm.cutting.dto.CuttingOptimizeRequest;
+import uz.script.wincrm.cutting.dto.CuttingSuggestRequest;
+import uz.script.wincrm.cutting.dto.RemnantDeleteRequest;
 import uz.script.wincrm.cutting.response.CuttingOptimizeResponse;
 import uz.script.wincrm.cutting.response.CuttingResultResponse;
 import uz.script.wincrm.cutting.service.CuttingOptimizeService;
@@ -28,6 +31,32 @@ public class CuttingController {
 
     private final CuttingService service;
     private final CuttingOptimizeService optimizeService;
+
+    @GetMapping("/remnants")
+    @PreAuthorize("hasAnyAuthority('STOCK_VIEW', 'SALE_ORDER_VIEW', 'GOODS_VIEW')")
+    @Operation(summary = "Ombordagi foydali qoldiqlar, o'lcham bo'yicha")
+    public ResponseEntity<?> remnants() {
+        return ResponseEntity.ok(RestApiResponse.<java.util.List<CuttingOptimizeResponse.RemnantStock>>builder()
+                .message("Glass remnants")
+                .data(optimizeService.listRemnants())
+                .build());
+    }
+
+    @DeleteMapping("/remnants/{id}")
+    @PreAuthorize("hasAnyAuthority('STOCK_DELETE', 'STOCK_EDIT', 'SALE_ORDER_EDIT')")
+    @Operation(summary = "Bitta foydali qoldiqni o'chirish")
+    public ResponseEntity<Void> deleteRemnant(@PathVariable Long id) {
+        optimizeService.deleteRemnants(java.util.List.of(id));
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/remnants/delete")
+    @PreAuthorize("hasAnyAuthority('STOCK_DELETE', 'STOCK_EDIT', 'SALE_ORDER_EDIT')")
+    @Operation(summary = "Tanlangan foydali qoldiqlarni o'chirish")
+    public ResponseEntity<Void> deleteRemnants(@Valid @RequestBody RemnantDeleteRequest request) {
+        optimizeService.deleteRemnants(request.getIds());
+        return ResponseEntity.noContent().build();
+    }
 
     @PostMapping("/calculate")
     @PreAuthorize("hasAnyAuthority('SALE_ORDER_VIEW', 'SALE_ORDER_CREATE', 'SALE_ORDER_EDIT', 'PRODUCTION_ORDER_VIEW')")
@@ -46,6 +75,19 @@ public class CuttingController {
         return ResponseEntity.ok(RestApiResponse.<CuttingOptimizeResponse>builder()
                 .message("Cutting optimization")
                 .data(optimizeService.load(saleOrderId))
+                .build());
+    }
+
+    @PostMapping("/optimize/{saleOrderId}/suggest")
+    @PreAuthorize("hasAnyAuthority('SALE_ORDER_VIEW', 'SALE_ORDER_CREATE', 'SALE_ORDER_EDIT')")
+    @Operation(summary = "Algoritm list va qoldiqni o'zi tanlaydi. Hech narsa saqlanmaydi.")
+    public ResponseEntity<?> suggest(
+            @PathVariable Long saleOrderId,
+            @RequestBody(required = false) CuttingSuggestRequest request
+    ) {
+        return ResponseEntity.ok(RestApiResponse.<CuttingOptimizeResponse>builder()
+                .message("Cutting suggestion")
+                .data(optimizeService.suggest(saleOrderId, request))
                 .build());
     }
 

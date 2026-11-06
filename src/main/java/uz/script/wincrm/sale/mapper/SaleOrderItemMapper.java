@@ -2,6 +2,7 @@ package uz.script.wincrm.sale.mapper;
 
 import org.springframework.stereotype.Component;
 import uz.script.wincrm.goods.Goods;
+import uz.script.wincrm.goods.GoodsCategory;
 import uz.script.wincrm.goods.enums.Type;
 import uz.script.wincrm.sale.SaleOrderItem;
 import uz.script.wincrm.sale.dto.SaleOrderItemDTO;
@@ -25,6 +26,9 @@ public class SaleOrderItemMapper {
                 .count(dto.getCount())
                 .cutKerfMm(dto.getCutKerfMm())
                 .cutAllowRotate(dto.getCutAllowRotate())
+                .cutMinRemnantCm(dto.getCutMinRemnantCm())
+                .cutCandidateGoodsIds(cleanCandidates(dto.getCutCandidateGoodsIds()))
+                .cutCategory(categoryRef(dto.getCutCategoryId()))
                 .arrivalDate(dto.getArrivalDate())
                 .build();
     }
@@ -54,6 +58,32 @@ public class SaleOrderItemMapper {
         if (dto.getCutAllowRotate() != null) {
             entity.setCutAllowRotate(dto.getCutAllowRotate());
         }
+        if (dto.getCutMinRemnantCm() != null) {
+            entity.setCutMinRemnantCm(dto.getCutMinRemnantCm());
+        }
+        if (dto.getCutCandidateGoodsIds() != null) {
+            entity.setCutCandidateGoodsIds(cleanCandidates(dto.getCutCandidateGoodsIds()));
+        }
+        if (dto.getCutCategoryId() != null) {
+            entity.setCutCategory(dto.getCutCategoryId() <= 0 ? null : categoryRef(dto.getCutCategoryId()));
+        }
+    }
+
+    private String cleanCandidates(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        String cleaned = raw.replaceAll("[^0-9,]", "");
+        return cleaned.isBlank() ? null : cleaned;
+    }
+
+    private GoodsCategory categoryRef(Long id) {
+        if (id == null || id <= 0) {
+            return null;
+        }
+        GoodsCategory category = new GoodsCategory();
+        category.setId(id);
+        return category;
     }
 
     public SaleOrderItemResponse toResponse(SaleOrderItem entity) {
@@ -77,6 +107,9 @@ public class SaleOrderItemMapper {
                 .weightKg(weightKg(entity))
                 .cutKerfMm(entity.getCutKerfMm())
                 .cutAllowRotate(entity.getCutAllowRotate())
+                .cutMinRemnantCm(entity.getCutMinRemnantCm())
+                .cutCandidateGoodsIds(entity.getCutCandidateGoodsIds())
+                .cutCategoryId(entity.getCutCategory() != null ? entity.getCutCategory().getId() : null)
                 .arrivalDate(entity.getArrivalDate())
                 .status(entity.getStatus())
                 .createdAt(entity.getCreatedAt())

@@ -17,6 +17,7 @@ public interface TableName {
     String SUPPLIER_BALANCE="supplier_BALANCE";
     String GOODS = "goods";
     String GOODS_GROUP = "goods_group";
+    String GOODS_CATEGORY = "goods_category";
     String UNIT_TYPES = "unit_types";
     String WAREHOUSE = "warehouse";
     String WAREHOUSE_ORDERS = "warehouse_order";
@@ -66,4 +67,8 @@ public interface TableName {
     String EXCHANGE_RATES = "exchange_rates";
     String COMPANY_FX_RATES = "company_fx_rates";
     String CASH_HANDOVERS = "cash_handovers";
+    String MATERIAL_ISSUES = "material_issues";
+    String MATERIAL_ISSUE_ITEMS = "material_issue_items";
+    String FINISHED_GOODS_RECEIPTS = "finished_goods_receipts";
+    String FINISHED_GOODS_RECEIPT_ITEMS = "finished_goods_receipt_items";
 }

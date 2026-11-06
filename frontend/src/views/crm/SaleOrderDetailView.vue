@@ -1,69 +1,125 @@
 <template>
   <AdminLayout>
-    <PageBreadcrumb :pageTitle="order ? t('saleOrderDetail.title', { id: order.id }) : t('saleOrderDetail.titleFallback')" />
-    <div class="mb-4 flex flex-wrap items-center gap-2">
-      <router-link to="/sales" class="ghost">{{ t('common.backToList') }}</router-link>
-      <router-link v-if="order" :to="`/sales/${order.id}/optimize`" class="ghost">
-        {{ t('cuttingOptimize.open') }}
-      </router-link>
-      <button
-        v-if="order"
-        type="button"
-        class="ghost btn-with-icon ms-auto"
-        :disabled="refreshing"
-        :title="t('common.refresh')"
-        @click="onRefresh"
-      >
-        <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': refreshing }" />
-        {{ t('common.refresh') }}
-      </button>
-      <button
-        v-if="order && auth.can('SALE_ORDER_EDIT')"
-        type="button"
-        class="btn btn-with-icon"
-        :disabled="writeBlocked || order.orderStatus === 'CANCELLED'"
-        :title="order.orderStatus === 'CANCELLED' ? t('saleOrderDetail.editBlockedCancelled') : undefined"
-        @click="openEdit"
-      >
-        <Pencil class="h-4 w-4" />
-        {{ t('saleOrderDetail.updateOrder') }}
-      </button>
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex min-w-0 flex-wrap items-center gap-2.5">
+        <h2 class="text-xl font-semibold text-gray-800 dark:text-white/90">
+          {{ order ? t('saleOrderDetail.title', { id: order.id }) : t('saleOrderDetail.titleFallback') }}
+        </h2>
+        <router-link
+          v-if="order?.clientFullName && order.clientId"
+          :to="{ path: `/clients/${order.clientId}`, query: { tab: 'act' } }"
+          class="meta-chip meta-chip-link"
+          :title="t('clientDetail.tabs.act')"
+        >
+          <UserRound class="h-3.5 w-3.5 shrink-0" />
+          {{ order.clientFullName }}
+        </router-link>
+        <span v-else-if="order?.clientFullName" class="meta-chip">
+          <UserRound class="h-3.5 w-3.5 shrink-0" />
+          {{ order.clientFullName }}
+        </span>
+      </div>
+      <div class="flex flex-wrap items-center gap-3">
+        <button
+          v-if="order"
+          type="button"
+          class="ghost btn-with-icon"
+          :disabled="refreshing"
+          :title="t('common.refresh')"
+          @click="onRefresh"
+        >
+          <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': refreshing }" />
+          {{ t('common.refresh') }}
+        </button>
+        <nav>
+          <ol class="flex flex-wrap items-center gap-1.5">
+            <li class="flex items-center gap-1.5">
+              <router-link class="text-sm text-gray-500 hover:text-brand-500 dark:text-gray-400" to="/">{{ t('nav.home') }}</router-link>
+              <span class="text-sm text-gray-400">/</span>
+            </li>
+            <li class="flex items-center gap-1.5">
+              <router-link class="text-sm text-gray-500 hover:text-brand-500 dark:text-gray-400" to="/sales">{{ t('nav.salesOrders') }}</router-link>
+              <span class="text-sm text-gray-400">/</span>
+            </li>
+            <li class="text-sm text-gray-800 dark:text-white/90">
+              {{ order ? t('saleOrderDetail.title', { id: order.id }) : t('saleOrderDetail.titleFallback') }}
+            </li>
+          </ol>
+        </nav>
+      </div>
     </div>
     <div v-if="error" class="err mb-4">{{ error }}</div>
+
+    <div v-if="order" class="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+      <article v-for="card in summaryCards" :key="card.key" class="info-card">
+        <span class="info-icon" :class="card.tone">
+          <component :is="card.icon" class="h-4 w-4" />
+        </span>
+        <div class="min-w-0">
+          <p class="info-lbl">{{ card.label }}</p>
+          <p class="info-val">{{ card.value }}</p>
+          <p v-if="card.hint" class="info-hint">{{ card.hint }}</p>
+        </div>
+      </article>
+    </div>
+    <p v-if="order?.comment" class="mb-4 text-sm text-gray-500 dark:text-gray-400">
+      <span class="font-medium text-gray-600 dark:text-gray-300">{{ t('common.comment') }}:</span>
+      <span class="whitespace-pre-line"> {{ order.comment }}</span>
+    </p>
+
     <div v-if="order" class="card mb-4 p-5">
-      <div class="grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
-        <div><span class="lbl">{{ t('common.client') }}</span>{{ order.clientFullName || '—' }}</div>
-        <div><span class="lbl">{{ t('common.warehouse') }}</span>{{ order.warehouseName || '—' }}</div>
+      <div class="status-head">
         <div>
-          <span class="lbl">{{ t('common.total') }}</span>{{ amt(order.totalSum) }}
-          <span v-if="isForeign && order.totalSumBase != null" class="base-eq">≈ {{ moneyIn(order.totalSumBase, 'UZS', t('common.currency')) }}</span>
+          <h3 class="title">{{ t('saleOrderDetail.changeStatus') }}</h3>
+          <p class="sub">{{ t('saleOrderDetail.currentStatus') }} <SaleStatusBadge :status="order.orderStatus" /></p>
+          <p class="status-click-hint">{{ t('saleOrderDetail.statusClickHint') }}</p>
         </div>
-        <div><span class="lbl">{{ t('saleOrderDetail.debt') }}</span>{{ amt(order.debtSum) }}</div>
-        <div><span class="lbl">{{ t('saleOrderDetail.paid') }}</span>{{ amt(order.paidSum) }}</div>
-        <div v-if="isForeign">
-          <span class="lbl">{{ t('saleOrderDetail.currencyRate') }}</span>
-          {{ t(`exchangeRates.currencies.${orderCurrency}`) }} · 1 {{ currencySymbol(orderCurrency) }} = {{ formatRate(order.exchangeRate) }} {{ t('common.currency') }}
-        </div>
-        <div><span class="lbl">{{ t('saleOrderDetail.discount') }}</span>{{ order.discountType ? discountTypeLabel(order.discountType) : '—' }} {{ order.discountValue || '' }}</div>
-        <div><span class="lbl">{{ t('common.status') }}</span><SaleStatusBadge :status="order.orderStatus" /></div>
-        <div><span class="lbl">{{ t('common.date') }}</span>{{ formatOrderDate(order.orderDate, order.createdAt) }}</div>
-        <div><span class="lbl">{{ t('saleOrderDetail.weight') }}</span>{{ formatKg(orderWeight) }}</div>
-        <div>
-          <span class="lbl">{{ t('saleOrderCreate.deliveryTitle') }}</span>
-          <span v-if="order.deliveryType" class="inline-flex items-center gap-1.5">
-            <Truck v-if="order.deliveryType === 'DELIVERY'" class="h-4 w-4 text-brand-500" />
-            <PackageCheck v-else class="h-4 w-4 text-success-500" />
-            {{ order.deliveryType === 'DELIVERY' ? t('saleOrderCreate.delivery') : t('saleOrderCreate.pickup') }}
-          </span>
-          <span v-else>—</span>
-        </div>
-        <div v-if="order.deliveryType === 'DELIVERY'">
-          <span class="lbl">{{ t('saleOrderCreate.deliveryFee') }}</span>{{ amt(order.deliveryFee || 0) }}
-        </div>
-        <div v-if="order.comment" class="col-span-2 md:col-span-4">
-          <span class="lbl">{{ t('common.comment') }}</span><span class="whitespace-pre-line">{{ order.comment }}</span>
+        <div v-if="deadlineBanner" class="deadline-banner" :class="deadlineBanner.tone">
+          <span class="deadline-banner-lbl">{{ t('saleOrderDetail.dueDate') }}</span>
+          <span class="deadline-banner-val">{{ deadlineBanner.text }}</span>
         </div>
       </div>
+      <div class="status-flow">
+        <template v-for="(st, i) in flowStatuses" :key="st">
+          <span v-if="i > 0" class="flow-sep" :class="{ done: doneIndex >= i || (st === 'CANCELLED' && order.orderStatus === 'CANCELLED') }" />
+          <button
+            type="button"
+            class="flow-step"
+            :class="{
+              done: doneIndex >= i,
+              current: flowIndex === i,
+              cancelled: st === 'CANCELLED',
+              clickable: canClickStatus(st),
+            }"
+            :disabled="!canClickStatus(st)"
+            :title="canClickStatus(st) ? statusButtonLabel(st) : undefined"
+            @click="onStatus(st)"
+          >
+            <span class="flow-step-label">{{ statusLabel(st) }}</span>
+            <span class="flow-step-date">{{ statusReachedAt(st) }}</span>
+            <span v-if="st === 'COMPLETED' && deadlineCompareText" class="flow-step-meta" :class="deadlineCompareTone">
+              {{ deadlineCompareText }}
+            </span>
+          </button>
+        </template>
+      </div>
+      <p v-if="isFinalOrder" class="mt-4 text-sm text-gray-500 dark:text-gray-400">{{ t('saleOrderDetail.noNextStatus') }}</p>
+      <p v-if="order.orderStatus === 'PROCESSING'" class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+        {{ t('saleOrderDetail.processingHint', { status: statusLabel('READY') }) }}
+      </p>
+      <p v-if="order.orderStatus === 'READY'" class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+        {{ t('saleOrderDetail.readyHint', { inDelivery: statusLabel('IN_DELIVERY'), delivered: statusLabel('DELIVERED') }) }}
+      </p>
+      <p v-if="order.orderStatus === 'IN_DELIVERY' && deliveryConfirmBlocked" class="mt-2 text-xs text-amber-600 dark:text-amber-400">
+        {{ t('saleOrderDetail.deliveryConfirmBlocked') }}
+      </p>
+      <p v-if="order.orderStatus === 'WORK_DONE'" class="mt-2 text-xs" :class="completeBlocked ? 'text-amber-600 dark:text-amber-400' : 'text-gray-500 dark:text-gray-400'">
+        {{
+          completeBlocked
+            ? t('saleOrderDetail.completeBlockedDebt', { debt: amt(order.debtSum) })
+            : t('saleOrderDetail.completeReady', { status: statusLabel('COMPLETED') })
+        }}
+      </p>
     </div>
 
     <div v-if="production && production.route && production.route.length" class="card mb-4 p-5">
@@ -83,58 +139,6 @@
           <span class="route-state">{{ t(`saleOrderDetail.routeState.${s.state}`) }}</span>
         </li>
       </ol>
-    </div>
-
-    <div v-if="order" class="card mb-4 p-5">
-      <div class="status-head">
-        <div>
-          <h3 class="title">{{ t('saleOrderDetail.changeStatus') }}</h3>
-          <p class="sub">{{ t('saleOrderDetail.currentStatus') }} <SaleStatusBadge :status="order.orderStatus" /></p>
-        </div>
-      </div>
-      <div class="status-flow">
-        <template v-for="(st, i) in flowStatuses" :key="st">
-          <span v-if="i > 0" class="flow-sep" :class="{ done: doneIndex >= i }" />
-          <span class="flow-step" :class="{ done: doneIndex >= i, current: flowIndex === i, cancelled: st === 'CANCELLED' }">
-            {{ statusLabel(st) }}
-          </span>
-        </template>
-      </div>
-      <div v-if="nextStatuses.length" class="mt-4 flex flex-wrap gap-2">
-        <button
-          v-for="st in nextStatuses"
-          :key="st"
-          type="button"
-          class="status-btn"
-          :class="st === 'CANCELLED' ? 'status-btn-danger' : 'status-btn-primary'"
-          :disabled="
-            statusSaving ||
-            writeBlocked ||
-            (st === 'DELIVERED' && deliveryConfirmBlocked) ||
-            (st === 'COMPLETED' && completeBlocked)
-          "
-          @click="onStatus(st)"
-        >
-          {{ statusButtonLabel(st) }}
-        </button>
-      </div>
-      <p v-else class="mt-4 text-sm text-gray-500 dark:text-gray-400">{{ t('saleOrderDetail.noNextStatus') }}</p>
-      <p v-if="order.orderStatus === 'PROCESSING'" class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-        {{ t('saleOrderDetail.processingHint', { status: statusLabel('READY') }) }}
-      </p>
-      <p v-if="order.orderStatus === 'READY'" class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-        {{ t('saleOrderDetail.readyHint', { inDelivery: statusLabel('IN_DELIVERY'), delivered: statusLabel('DELIVERED') }) }}
-      </p>
-      <p v-if="order.orderStatus === 'IN_DELIVERY' && deliveryConfirmBlocked" class="mt-2 text-xs text-amber-600 dark:text-amber-400">
-        {{ t('saleOrderDetail.deliveryConfirmBlocked') }}
-      </p>
-      <p v-if="order.orderStatus === 'WORK_DONE'" class="mt-2 text-xs" :class="completeBlocked ? 'text-amber-600 dark:text-amber-400' : 'text-gray-500 dark:text-gray-400'">
-        {{
-          completeBlocked
-            ? t('saleOrderDetail.completeBlockedDebt', { debt: amt(order.debtSum) })
-            : t('saleOrderDetail.completeReady', { status: statusLabel('COMPLETED') })
-        }}
-      </p>
     </div>
 
     <div v-if="delivery" class="card mb-4 p-5">
@@ -159,13 +163,60 @@
       </div>
     </div>
 
-    <div class="mb-4 flex flex-wrap gap-2">
-      <button v-for="tb in tabs" :key="tb.id" type="button" class="tab" :class="{ active: tab === tb.id }" @click="tab = tb.id">{{ tb.label }}</button>
+    <div class="mb-4 flex flex-wrap items-center gap-2">
+      <template v-for="tb in tabs" :key="tb.id">
+        <button type="button" class="tab" :class="{ active: tab === tb.id }" @click="tab = tb.id">{{ tb.label }}</button>
+        <router-link
+          v-if="tb.id === 'items' && order"
+          :to="`/sales/${order.id}/optimize`"
+          class="tab"
+        >
+          {{ t('cuttingOptimize.open') }}
+        </router-link>
+      </template>
+      <button
+        v-if="order && auth.can('SALE_ORDER_EDIT')"
+        type="button"
+        class="btn btn-with-icon ms-auto"
+        :disabled="writeBlocked || order.orderStatus === 'CANCELLED'"
+        :title="order.orderStatus === 'CANCELLED' ? t('saleOrderDetail.editBlockedCancelled') : undefined"
+        @click="openEdit"
+      >
+        <Pencil class="h-4 w-4" />
+        {{ t('saleOrderDetail.updateOrder') }}
+      </button>
     </div>
 
     <div v-show="tab === 'items'" class="card">
       <div class="head">
-        <h3 class="title">{{ t('saleOrderDetail.tabs.items') }}</h3>
+        <div class="flex min-w-0 flex-wrap items-center gap-2.5">
+          <h3 class="title">{{ t('saleOrderDetail.tabs.items') }}</h3>
+          <span v-if="order?.warehouseName" class="meta-chip">
+            <Warehouse class="h-3.5 w-3.5 shrink-0" />
+            {{ order.warehouseName }}
+          </span>
+        </div>
+      </div>
+      <div v-if="order" class="items-meta">
+        <span>
+          <Scale class="h-3.5 w-3.5" />
+          {{ t('saleOrderDetail.weight') }}: <b>{{ formatKg(orderWeight) }}</b>
+        </span>
+        <span>
+          <Truck v-if="order.deliveryType === 'DELIVERY'" class="h-3.5 w-3.5" />
+          <PackageCheck v-else class="h-3.5 w-3.5" />
+          {{ t('saleOrderCreate.deliveryTitle') }}:
+          <b>{{
+            order.deliveryType === 'DELIVERY'
+              ? t('saleOrderCreate.delivery')
+              : order.deliveryType === 'PICKUP'
+                ? t('saleOrderCreate.pickup')
+                : '—'
+          }}</b>
+        </span>
+        <span v-if="order.deliveryType === 'DELIVERY'">
+          {{ t('saleOrderCreate.deliveryFee') }}: <b>{{ amt(order.deliveryFee || 0) }}</b>
+        </span>
       </div>
       <table class="min-w-full">
         <thead>
@@ -184,12 +235,22 @@
             <td class="td">{{ formatDate(it.arrivalDate) }}</td>
           </tr>
         </tbody>
-        <tfoot v-if="items.length">
+        <tfoot v-if="items.length || order">
           <tr class="sum-row">
             <td class="td" colspan="2">{{ t('saleOrderDetail.itemsTotal') }}</td>
             <td class="td whitespace-nowrap">{{ formatKg(itemsWeight) }}</td>
             <td class="td"></td>
             <td class="td">{{ amt(itemsTotal) }}</td>
+            <td class="td"></td>
+          </tr>
+          <tr v-if="order?.deliveryType === 'DELIVERY'" class="sum-row soft">
+            <td class="td" colspan="4">{{ t('saleOrderCreate.deliveryFee') }}</td>
+            <td class="td">{{ amt(order.deliveryFee || 0) }}</td>
+            <td class="td"></td>
+          </tr>
+          <tr v-if="order" class="sum-row">
+            <td class="td" colspan="4">{{ t('common.total') }}</td>
+            <td class="td">{{ amt(order.totalSum) }}</td>
             <td class="td"></td>
           </tr>
         </tfoot>
@@ -482,25 +543,32 @@ import { useI18n } from 'vue-i18n'
 import {
   ArrowDown,
   ArrowUp,
+  BadgePercent,
+  CalendarDays,
   Check,
+  CircleDollarSign,
   Factory,
+  HandCoins,
   ImagePlus,
   PackageCheck,
   Pencil,
   Plus,
   RefreshCw,
+  Scale,
   Trash2,
   Truck,
+  UserRound,
+  Wallet,
+  Warehouse,
   X,
 } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
-import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import RowActions from '@/components/crm/RowActions.vue'
 import SaleStatusBadge from '@/components/crm/SaleStatusBadge.vue'
 import DeliveryStatusBadge from '@/components/crm/DeliveryStatusBadge.vue'
 import AuthImage from '@/components/crm/AuthImage.vue'
-import { nextSaleStatuses, type SaleStatus } from '@/utils/saleStatus'
+import { canChangeSaleStatus, SALE_MAIN_FLOW, type SaleStatus } from '@/utils/saleStatus'
 import { fetchProductionBySaleOrder, sendToProduction, type ProductionOrder } from '@/api/production'
 import { fetchDeliveryBySaleOrder, type Delivery } from '@/api/transport'
 import { fetchActiveWorkshops, type Workshop } from '@/api/workshops'
@@ -530,7 +598,7 @@ import { fetchGoods, type Goods } from '@/api/goods'
 import { fetchMyDiscountLimit } from '@/api/discountRules'
 import { formatApiError } from '@/api/http'
 import { useFilialScope } from '@/composables/useFilialScope'
-import { formatDate, formatKg, formatOrderDate, money } from '@/utils/format'
+import { formatDate, formatDateOnly, formatKg, formatOrderDate, money } from '@/utils/format'
 import { BASE_CURRENCY, currencySymbol, formatRate, moneyIn, type CurrencyCode } from '@/utils/currency'
 import { fetchCurrentRate } from '@/api/exchangeRates'
 
@@ -681,6 +749,62 @@ const itemsTotal = computed(() => items.value.reduce((sum, it) => sum + lineSum(
 const itemsWeight = computed(() => items.value.reduce((sum, it) => sum + Number(it.weightKg || 0), 0))
 const orderWeight = computed(() => (items.value.length ? itemsWeight.value : Number(order.value?.totalWeightKg || 0)))
 
+const summaryCards = computed(() => {
+  const o = order.value
+  if (!o) return []
+  const discount =
+    o.discountType
+      ? `${discountTypeLabel(o.discountType)}${o.discountValue != null ? ` ${o.discountValue}${o.discountType === 'PERCENTAGE' ? '%' : ''}` : ''}`
+      : '—'
+  return [
+    {
+      key: 'total',
+      label: t('common.total'),
+      value: amt(o.totalSum),
+      hint: isForeign.value && o.totalSumBase != null
+        ? `≈ ${moneyIn(o.totalSumBase, 'UZS', t('common.currency'))}`
+        : undefined,
+      icon: Wallet,
+      tone: 'tone-brand',
+    },
+    {
+      key: 'paid',
+      label: t('saleOrderDetail.paid'),
+      value: amt(o.paidSum),
+      icon: HandCoins,
+      tone: 'tone-ok',
+    },
+    {
+      key: 'discount',
+      label: t('saleOrderDetail.discount'),
+      value: discount,
+      icon: BadgePercent,
+      tone: 'tone-violet',
+    },
+    {
+      key: 'debt',
+      label: t('saleOrderDetail.debt'),
+      value: amt(o.debtSum),
+      icon: CircleDollarSign,
+      tone: 'tone-warn',
+    },
+    {
+      key: 'status',
+      label: t('common.status'),
+      value: statusLabel(o.orderStatus || ''),
+      icon: PackageCheck,
+      tone: 'tone-slate',
+    },
+    {
+      key: 'date',
+      label: t('common.date'),
+      value: formatOrderDate(o.orderDate, o.createdAt),
+      icon: CalendarDays,
+      tone: 'tone-slate',
+    },
+  ]
+})
+
 function itemQtyText(it: SaleOrderItem) {
   if (!isWindowGoodsId(it.goodsId)) return formatQty(it.count)
   const pieces = windowPieces(it)
@@ -733,22 +857,17 @@ const preview = ref<SaleOrderImage | null>(null)
 
 const delivery = ref<Delivery | null>(null)
 
-const MAIN_FLOW: SaleStatus[] = [
-  'NEW',
-  'CONFIRMED',
-  'PROCESSING',
-  'READY',
-  'IN_DELIVERY',
-  'DELIVERED',
-  'WORK_DONE',
-  'COMPLETED',
-]
 const flowStatuses = computed<SaleStatus[]>(() => {
   const status = order.value?.orderStatus
   const selfPickup =
-    !delivery.value && (status === 'DELIVERED' || status === 'WORK_DONE' || status === 'COMPLETED')
-  const base = selfPickup ? MAIN_FLOW.filter((s) => s !== 'IN_DELIVERY') : MAIN_FLOW
-  return status === 'CANCELLED' ? [...base, 'CANCELLED'] : base
+    !delivery.value &&
+    (status === 'DELIVERED' || status === 'WORK_DONE' || status === 'COMPLETED' || order.value?.deliveryType === 'PICKUP')
+  const base = selfPickup ? SALE_MAIN_FLOW.filter((s) => s !== 'IN_DELIVERY') : [...SALE_MAIN_FLOW]
+  // Bekor qilish har doim oxirida (yoki allaqachon bekor qilingan)
+  if (status === 'CANCELLED' || !isFinalSaleStatusLocal(status)) {
+    return [...base, 'CANCELLED']
+  }
+  return base
 })
 const deliveryConfirmBlocked = computed(
   () =>
@@ -761,11 +880,110 @@ const flowIndex = computed(() => flowStatuses.value.indexOf(order.value?.orderSt
 const isFinalOrder = computed(() => ['COMPLETED', 'CANCELLED'].includes(order.value?.orderStatus || ''))
 const canDiscountDebt = computed(() => !isFinalOrder.value && Number(order.value?.debtSum || 0) >= 0.01)
 const doneIndex = computed(() => (order.value?.orderStatus === 'CANCELLED' ? -1 : flowIndex.value))
-const nextStatuses = computed(() =>
-  nextSaleStatuses(order.value?.orderStatus).filter(
-    (st) => !(st === 'IN_DELIVERY' && order.value?.deliveryType === 'PICKUP'),
-  ),
-)
+
+const statusReachedMap = computed(() => {
+  const map = new Map<string, string>()
+  // NEW ("Yaratilgan") — buyurtma yaratilgan sana/vaqt (history bo‘lmasa ham)
+  if (order.value?.orderDate || order.value?.createdAt) {
+    map.set('NEW', order.value?.createdAt || order.value?.orderDate || '')
+  }
+  for (const h of history.value) {
+    if (!h.toStatus || !h.changedAt) continue
+    // Eng so‘nggi o‘tish vaqti (orqaga qaytganda ham yangilanadi)
+    map.set(h.toStatus, h.changedAt)
+  }
+  return map
+})
+
+function statusReachedAt(st: SaleStatus) {
+  if (st === 'NEW') {
+    return formatOrderDate(order.value?.orderDate, order.value?.createdAt)
+  }
+  const at = statusReachedMap.value.get(st)
+  return at ? formatDate(at) : '—'
+}
+
+function dayDiff(from?: string | null, to?: string | null) {
+  if (!from || !to) return null
+  const a = Date.parse(`${from.slice(0, 10)}T00:00:00`)
+  const b = Date.parse(`${to.slice(0, 10)}T00:00:00`)
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return null
+  return Math.round((b - a) / 86_400_000)
+}
+
+const dueDateRaw = computed(() => order.value?.plannedReadyDate || null)
+
+const completedAt = computed(() => {
+  if (order.value?.orderStatus !== 'COMPLETED') return null
+  return statusReachedMap.value.get('COMPLETED') || null
+})
+
+/** Yakunlanganda muddat bilan solishtirish; yakunlanmaganda — hozirgi kechikish. */
+const deadlineDiffDays = computed(() => {
+  const due = dueDateRaw.value
+  if (!due) return null
+  if (completedAt.value) return dayDiff(due, completedAt.value)
+  if (order.value?.orderStatus === 'CANCELLED') return null
+  const today = new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const now = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`
+  return dayDiff(due, now)
+})
+
+const deadlineCompareText = computed(() => {
+  const d = deadlineDiffDays.value
+  if (d == null || !dueDateRaw.value) return ''
+  if (!completedAt.value) return ''
+  if (d > 0) return t('saleOrderDetail.daysLate', { n: d })
+  if (d < 0) return t('saleOrderDetail.daysEarly', { n: Math.abs(d) })
+  return t('saleOrderDetail.onTime')
+})
+
+const deadlineCompareTone = computed(() => {
+  const d = deadlineDiffDays.value
+  if (d == null) return ''
+  if (d > 0) return 'is-late'
+  if (d < 0) return 'is-early'
+  return 'is-ontime'
+})
+
+const deadlineBanner = computed(() => {
+  const due = dueDateRaw.value
+  if (!due) return null
+  const dueLabel = formatDateOnly(due)
+  const d = deadlineDiffDays.value
+  if (completedAt.value) {
+    return {
+      tone: d != null && d > 0 ? 'danger' : d != null && d < 0 ? 'ok' : 'neutral',
+      text: `${dueLabel}${deadlineCompareText.value ? ` · ${deadlineCompareText.value}` : ''}`,
+    }
+  }
+  if (d != null && d > 0) {
+    return {
+      tone: 'danger',
+      text: `${dueLabel} · ${t('saleOrderDetail.overdueBy', { n: d })}`,
+    }
+  }
+  return {
+    tone: 'neutral',
+    text: dueLabel,
+  }
+})
+
+function isFinalSaleStatusLocal(status?: string | null) {
+  return status === 'COMPLETED' || status === 'CANCELLED'
+}
+
+function canClickStatus(st: SaleStatus) {
+  const current = order.value?.orderStatus
+  if (!current || statusSaving.value || writeBlocked.value) return false
+  if (st === current) return false
+  if (!canChangeSaleStatus(current, st)) return false
+  if (st === 'IN_DELIVERY' && order.value?.deliveryType === 'PICKUP') return false
+  if (st === 'DELIVERED' && deliveryConfirmBlocked.value) return false
+  if (st === 'COMPLETED' && completeBlocked.value) return false
+  return true
+}
 
 function statusLabel(status: string) {
   const key = `saleStatus.${status}`
@@ -1062,7 +1280,84 @@ watch(
 <style scoped>
 .card { border-radius: 1rem; border: 1px solid #e5e7eb; background: #fff; }
 .title { font-size: 1.125rem; font-weight: 600; color: #1f2937; }
-.head { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.25rem; border-bottom: 1px solid #f3f4f6; }
+.head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.75rem; padding: 1rem 1.25rem; border-bottom: 1px solid #f3f4f6; }
+.meta-chip {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 9999px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  padding: 0.25rem 0.7rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #374151;
+}
+.info-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  border-radius: 0.9rem;
+  border: 1px solid #eef0f3;
+  background: #fff;
+  padding: 0.85rem 0.95rem;
+}
+.info-icon {
+  display: inline-flex;
+  height: 2rem;
+  width: 2rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.55rem;
+}
+.tone-brand { background: #eef2ff; color: #465fff; }
+.tone-warn { background: #fff6ed; color: #ec4a0a; }
+.tone-ok { background: #ecfdf3; color: #039855; }
+.tone-violet { background: #f4f3ff; color: #6938ef; }
+.tone-slate { background: #f2f4f7; color: #475467; }
+.info-lbl { font-size: 0.72rem; font-weight: 500; color: #98a2b3; }
+.info-val { margin-top: 0.15rem; font-size: 0.95rem; font-weight: 650; color: #1f2937; line-height: 1.25; word-break: break-word; }
+.info-hint { margin-top: 0.15rem; font-size: 0.7rem; color: #98a2b3; }
+.items-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  border-bottom: 1px solid #f3f4f6;
+  padding: 0.7rem 1.25rem;
+  font-size: 0.8125rem;
+  color: #475467;
+}
+.items-meta span { display: inline-flex; align-items: center; gap: 0.35rem; }
+.items-meta b { font-weight: 600; color: #1f2937; }
+.sum-row.soft .td { font-weight: 500; color: #475467; }
+.meta-chip-link {
+  text-decoration: none;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+.meta-chip-link:hover {
+  border-color: #98a2b3;
+  color: #465fff;
+  background: #eef2ff;
+}
+.dark .meta-chip { border-color: #344054; background: rgb(255 255 255 / 4%); color: #d0d5dd; }
+.dark .meta-chip-link:hover {
+  border-color: #475467;
+  color: #8098f9;
+  background: rgb(70 95 255 / 12%);
+}
+.dark .info-card { border-color: #1f2937; background: rgb(255 255 255 / 3%); }
+.dark .info-lbl, .dark .info-hint { color: #667085; }
+.dark .info-val { color: rgba(255, 255, 255, 0.92); }
+.dark .tone-brand { background: rgb(70 95 255 / 18%); color: #8098f9; }
+.dark .tone-warn { background: rgb(236 74 10 / 16%); color: #fd853a; }
+.dark .tone-ok { background: rgb(3 152 85 / 16%); color: #32d583; }
+.dark .tone-violet { background: rgb(105 56 239 / 18%); color: #9b8afb; }
+.dark .tone-slate { background: rgb(255 255 255 / 6%); color: #98a2b3; }
+.dark .items-meta { border-color: #1f2937; color: #98a2b3; }
+.dark .items-meta b { color: rgba(255, 255, 255, 0.9); }
+.dark .sum-row.soft .td { color: #98a2b3; }
 .th { padding: 0.75rem 1.25rem; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; }
 .td { padding: 0.75rem 1.25rem; font-size: 0.875rem; color: #4b5563; }
 .empty { padding: 2rem 1.25rem; text-align: center; font-size: 0.875rem; color: #6b7280; }
@@ -1086,8 +1381,19 @@ watch(
 .dark .btn-revert { border-color: rgb(240 68 56 / 45%); color: #f97066; }
 .dark .btn-revert:hover:not(:disabled) { background: rgb(240 68 56 / 10%); }
 .lbl { display: block; margin-bottom: 0.25rem; font-size: 0.75rem; color: #6b7280; }
-.tab { height: 2.25rem; border-radius: 0.5rem; border: 1px solid #d1d5db; padding: 0 1rem; font-size: 0.875rem; }
+.tab {
+  display: inline-flex;
+  height: 2.25rem;
+  align-items: center;
+  border-radius: 0.5rem;
+  border: 1px solid #d1d5db;
+  padding: 0 1rem;
+  font-size: 0.875rem;
+  color: inherit;
+  text-decoration: none;
+}
 .tab.active { background: #465fff; border-color: #465fff; color: #fff; }
+.tab:hover:not(.active) { border-color: #98a2b3; }
 .overlay { position: fixed; inset: 0; z-index: 99999; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.4); padding: 1rem; }
 .modal { width: 100%; max-width: 28rem; border-radius: 1rem; background: #fff; padding: 1.25rem; }
 .modal-lbl { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.75rem; font-weight: 500; color: #6b7280; }
@@ -1096,13 +1402,65 @@ watch(
 .dark .base-eq { color: #9ca3af; }
 .dark .modal-lbl, .dark .modal-hint { color: #9ca3af; }
 .sub { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.25rem; font-size: 0.875rem; color: #6b7280; }
-.status-head { display: flex; justify-content: space-between; gap: 1rem; }
-.status-flow { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: 1rem; }
-.flow-step { border-radius: 9999px; border: 1px solid #e5e7eb; padding: 0.25rem 0.75rem; font-size: 0.75rem; color: #6b7280; background: #f9fafb; }
+.status-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 1rem; }
+.status-click-hint { margin-top: 0.2rem; font-size: 0.7rem; color: #98a2b3; }
+.deadline-banner {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.15rem;
+  border-radius: 0.65rem;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  padding: 0.45rem 0.75rem;
+  text-align: right;
+}
+.deadline-banner-lbl { font-size: 0.68rem; font-weight: 500; color: #98a2b3; }
+.deadline-banner-val { font-size: 0.8125rem; font-weight: 650; color: #344054; }
+.deadline-banner.danger {
+  border-color: #fda29b;
+  background: #fef3f2;
+}
+.deadline-banner.danger .deadline-banner-lbl,
+.deadline-banner.danger .deadline-banner-val { color: #d92d20; }
+.deadline-banner.ok {
+  border-color: #a6f4c5;
+  background: #ecfdf3;
+}
+.deadline-banner.ok .deadline-banner-lbl,
+.deadline-banner.ok .deadline-banner-val { color: #039855; }
+.status-flow { display: flex; flex-wrap: wrap; align-items: stretch; gap: 0.45rem; margin-top: 1rem; }
+.flow-step {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  border-radius: 0.7rem;
+  border: 1px solid #e5e7eb;
+  padding: 0.4rem 0.7rem;
+  font-size: 0.75rem;
+  color: #6b7280;
+  background: #f9fafb;
+  text-align: left;
+  line-height: 1.2;
+}
+.flow-step-label { font-weight: 600; }
+.flow-step-date { font-size: 0.68rem; opacity: 0.85; white-space: nowrap; }
+.flow-step-meta { font-size: 0.68rem; font-weight: 600; }
+.flow-step-meta.is-late { color: #d92d20; }
+.flow-step-meta.is-early { color: #039855; }
+.flow-step-meta.is-ontime { color: #465fff; }
 .flow-step.done { border-color: #c7d2fe; background: #eef2ff; color: #4338ca; }
 .flow-step.current { border-color: #465fff; background: #465fff; color: #fff; font-weight: 600; }
+.flow-step.current .flow-step-meta.is-late { color: #fecaca; }
+.flow-step.current .flow-step-meta.is-early,
+.flow-step.current .flow-step-meta.is-ontime { color: #d1fadf; }
 .flow-step.current.cancelled { border-color: #dc2626; background: #dc2626; }
-.flow-sep { height: 2px; width: 1.25rem; background: #e5e7eb; }
+.flow-step.clickable { cursor: pointer; }
+.flow-step.clickable:hover:not(:disabled) { border-color: #465fff; box-shadow: 0 0 0 2px rgb(70 95 255 / 15%); }
+.flow-step.cancelled:not(.current) { border-color: #fda29b; color: #d92d20; background: #fef3f2; }
+.flow-step:disabled:not(.current):not(.done) { opacity: 0.7; cursor: default; }
+.flow-sep { align-self: center; height: 2px; width: 0.85rem; background: #e5e7eb; flex-shrink: 0; }
 .flow-sep.done { background: #465fff; }
 .status-btn { display: inline-flex; height: 2.5rem; align-items: center; border-radius: 0.5rem; padding: 0 1rem; font-size: 0.875rem; font-weight: 500; }
 .status-btn:disabled { opacity: 0.55; cursor: not-allowed; }
@@ -1123,10 +1481,18 @@ watch(
 .preview-name { margin-top: 0.5rem; text-align: center; font-size: 0.8125rem; color: #d1d5db; }
 .preview-close { position: absolute; top: -0.75rem; right: -0.75rem; display: inline-flex; height: 2rem; width: 2rem; align-items: center; justify-content: center; border-radius: 9999px; background: #fff; color: #111827; box-shadow: 0 2px 8px rgb(0 0 0 / 25%); }
 .dark .sub { color: #9ca3af; }
+.dark .status-click-hint { color: #667085; }
+.dark .deadline-banner { border-color: #344054; background: rgb(255 255 255 / 4%); }
+.dark .deadline-banner-val { color: rgba(255, 255, 255, 0.9); }
+.dark .deadline-banner.danger { border-color: rgb(240 68 56 / 45%); background: rgb(240 68 56 / 12%); }
+.dark .deadline-banner.ok { border-color: rgb(3 152 85 / 35%); background: rgb(3 152 85 / 12%); }
 .dark .flow-step { border-color: #374151; background: #1f2937; color: #9ca3af; }
 .dark .flow-step.done { border-color: rgb(70 95 255 / 45%); background: rgb(70 95 255 / 15%); color: #a5b4fc; }
 .dark .flow-step.current { border-color: #465fff; background: #465fff; color: #fff; }
 .dark .flow-step.current.cancelled { border-color: #dc2626; background: #dc2626; }
+.dark .flow-step.cancelled:not(.current) { border-color: rgb(240 68 56 / 45%); background: rgb(240 68 56 / 12%); color: #f97066; }
+.dark .flow-step-meta.is-late { color: #f97066; }
+.dark .flow-step-meta.is-early { color: #32d583; }
 .dark .flow-sep { background: #374151; }
 .dark .flow-sep.done { background: #465fff; }
 .dark .status-btn-danger { border-color: rgb(248 113 113 / 40%); background: rgb(127 29 29 / 30%); color: #fca5a5; }

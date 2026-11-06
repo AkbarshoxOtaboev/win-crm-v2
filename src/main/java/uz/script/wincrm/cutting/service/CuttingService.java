@@ -56,7 +56,9 @@ public class CuttingService {
                 request.getQuantity(),
                 request.getKerfMm() != null ? request.getKerfMm() : defaultKerfMm,
                 request.getAllowRotate() == null || request.getAllowRotate(),
-                request.getMinRemnantCm() != null ? request.getMinRemnantCm() : defaultMinRemnantCm
+                request.getMinRemnantCm() != null ? request.getMinRemnantCm() : defaultMinRemnantCm,
+                request.getMinRemnantWidthCm(),
+                request.getMinRemnantHeightCm()
         ));
     }
 }

@@ -41,6 +41,12 @@ public class GoodsResponse {
     )
     private String goodsGroupName;
 
+    @Schema(description = "Kategoriya identifikatori", example = "1")
+    private Long categoryId;
+
+    @Schema(description = "Kategoriya nomi", example = "3 mm oq")
+    private String categoryName;
+
     @Schema(
             description = "Unit type identifier",
             example = "1"

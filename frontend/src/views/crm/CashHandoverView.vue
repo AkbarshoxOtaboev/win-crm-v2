@@ -221,7 +221,7 @@ import { fetchUserOptions, type UserItem } from '@/api/users'
 import { formatApiError } from '@/api/http'
 import { useAuthStore } from '@/stores/auth'
 import { BASE_CURRENCY, CURRENCIES, moneyIn, type CurrencyCode } from '@/utils/currency'
-import { formatDmyTime, money } from '@/utils/format'
+import { formatDateOnly, formatDmyTime, money } from '@/utils/format'
 
 const STATUSES: CashHandoverStatus[] = ['PENDING', 'ACCEPTED', 'REJECTED']
 
@@ -274,7 +274,7 @@ function amt(v: number | null | undefined, currency?: CurrencyCode) {
 }
 
 function formatDmy(v?: string | null) {
-  return v ? formatDmyTime(v).slice(0, 10) : '—'
+  return formatDateOnly(v)
 }
 
 function diffText(v: number, currency: CurrencyCode) {

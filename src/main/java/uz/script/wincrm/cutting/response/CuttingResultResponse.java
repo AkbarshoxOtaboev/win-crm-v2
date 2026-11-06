@@ -19,6 +19,8 @@ public class CuttingResultResponse {
     private Integer quantity;
     private BigDecimal kerfMm;
     private BigDecimal minRemnantCm;
+    private BigDecimal minRemnantWidthCm;
+    private BigDecimal minRemnantHeightCm;
 
     @Schema(description = "Bo'lak listga 90° burilgan holda joylashtirilgan")
     private boolean rotated;
@@ -67,6 +69,17 @@ public class CuttingResultResponse {
         private BigDecimal usedWidth;
         private BigDecimal usedHeight;
         private List<Remnant> remnants;
+        @Schema(description = "Asosiy panjaradan boshqacha joylashgan bo'laklar (qoldiq ichida)")
+        private List<PlacedPiece> placed;
+    }
+
+    @Getter
+    @Builder
+    public static class PlacedPiece {
+        private BigDecimal x;
+        private BigDecimal y;
+        private BigDecimal width;
+        private BigDecimal height;
     }
 
     @Getter

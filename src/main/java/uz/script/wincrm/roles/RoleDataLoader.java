@@ -28,17 +28,19 @@ public class RoleDataLoader implements CommandLineRunner {
     /** Sotuvchi — CRM + ishlab chiqarishga yuborish */
     private static final Set<String> SELLER_PERMISSIONS = Set.of(
             "CLIENT_VIEW", "CLIENT_CREATE", "CLIENT_EDIT",
-            "CLIENT_GROUP_VIEW",
+            "CLIENT_GROUP_VIEW", "CLIENT_GROUP_CREATE", "CLIENT_GROUP_EDIT", "CLIENT_GROUP_DELETE",
             "CLIENT_BALANCE_VIEW",
             "CLIENT_NOTE_VIEW", "CLIENT_NOTE_CREATE", "CLIENT_NOTE_EDIT",
             "SALE_ORDER_VIEW", "SALE_ORDER_CREATE", "SALE_ORDER_EDIT",
             "SALE_ORDER_ITEM_VIEW", "SALE_ORDER_ITEM_CREATE", "SALE_ORDER_ITEM_EDIT", "SALE_ORDER_ITEM_DELETE",
             "SALE_ORDER_WASTE_VIEW", "SALE_ORDER_WASTE_CREATE",
             "WAREHOUSE_VIEW", "STOCK_VIEW",
-            "GOODS_VIEW", "GOODS_GROUP_VIEW", "UNIT_TYPE_VIEW",
+            "GOODS_VIEW", "GOODS_CREATE", "GOODS_EDIT", "GOODS_GROUP_VIEW", "UNIT_TYPE_VIEW",
             "PAYMENT_VIEW", "PAYMENT_CREATE", "PAYMENT_TYPE_VIEW",
             "WORKSHOP_VIEW",
             "PRODUCTION_ORDER_VIEW", "PRODUCTION_ORDER_CREATE",
+            "MATERIAL_ISSUE_VIEW", "MATERIAL_ISSUE_CREATE", "MATERIAL_ISSUE_EDIT",
+            "FINISHED_GOODS_RECEIPT_VIEW", "FINISHED_GOODS_RECEIPT_CREATE", "FINISHED_GOODS_RECEIPT_EDIT",
             "TRANSPORT_DELIVERY_VIEW",
             "CASH_HANDOVER_VIEW", "CASH_HANDOVER_CREATE",
             "DEBT_NOTIFICATION_VIEW",
@@ -55,11 +57,13 @@ public class RoleDataLoader implements CommandLineRunner {
             "CLIENT_VIEW"
     );
 
-    /** Kassir — to'lovlar, kassa topshirish va operatsion kassadan xarajat yozish */
+    /** Kassir — to'lovlar, akt sverka, taqsimlash, kassa topshirish va operatsion kassadan xarajat */
     private static final Set<String> CASHIER_PERMISSIONS = Set.of(
             "PAYMENT_VIEW", "PAYMENT_CREATE", "PAYMENT_TYPE_VIEW",
-            "CLIENT_VIEW", "CLIENT_BALANCE_VIEW",
-            "SALE_ORDER_VIEW",
+            "CLIENT_VIEW", "CLIENT_GROUP_VIEW", "CLIENT_GROUP_CREATE", "CLIENT_GROUP_EDIT", "CLIENT_GROUP_DELETE",
+            "CLIENT_BALANCE_VIEW",
+            "CLIENT_NOTE_VIEW",
+            "SALE_ORDER_VIEW", "SALE_ORDER_ITEM_VIEW",
             "CASH_HANDOVER_VIEW", "CASH_HANDOVER_CREATE",
             "EXPENSE_VIEW", "EXPENSE_CREATE",
             "EXPENSE_CATEGORY_VIEW"
@@ -72,8 +76,10 @@ public class RoleDataLoader implements CommandLineRunner {
             "SALE_ORDER_VIEW",
             "SALE_ORDER_ITEM_VIEW",
             "SALE_ORDER_WASTE_VIEW", "SALE_ORDER_WASTE_CREATE", "SALE_ORDER_WASTE_EDIT",
-            "GOODS_VIEW", "GOODS_GROUP_VIEW",
+            "GOODS_VIEW", "GOODS_CREATE", "GOODS_EDIT", "GOODS_GROUP_VIEW", "UNIT_TYPE_VIEW",
             "WAREHOUSE_VIEW", "STOCK_VIEW",
+            "MATERIAL_ISSUE_VIEW", "MATERIAL_ISSUE_CREATE", "MATERIAL_ISSUE_EDIT",
+            "FINISHED_GOODS_RECEIPT_VIEW", "FINISHED_GOODS_RECEIPT_CREATE", "FINISHED_GOODS_RECEIPT_EDIT",
             "CLIENT_VIEW",
             "DASHBOARD_VIEW"
     );

@@ -357,7 +357,7 @@ import { ApiError } from '@/api/http'
 import { useAuthStore } from '@/stores/auth'
 import { useFilialScope } from '@/composables/useFilialScope'
 import { CURRENCIES, moneyIn, type CurrencyCode } from '@/utils/currency'
-import { amountToText, formatAmountInput } from '@/utils/format'
+import { amountToText, formatAmountInput, formatDateOnly } from '@/utils/format'
 
 const emit = defineEmits<{ changed: [] }>()
 
@@ -415,9 +415,8 @@ function monthStart() {
 }
 function formatDay(iso?: string | null) {
   if (!iso) return ''
-  const [y, m, d] = iso.slice(0, 10).split('-')
-  if (!y || !m || !d) return iso
-  return `${d}.${m}.${y}`
+  const v = formatDateOnly(iso)
+  return v === '—' ? '' : v
 }
 function trimNum(v: number | null | undefined) {
   if (v == null || !Number.isFinite(Number(v))) return ''

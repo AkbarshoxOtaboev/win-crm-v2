@@ -38,4 +38,7 @@ public interface PaymentService {
 
     /** To'lovni buyurtmadan ajratib, yana taqsimlanmagan holatga qaytaradi. */
     PaymentResponse unallocate(Long id);
+
+    /** Kassir to'lovni mijozga qaytaradi: kassadan chiqadi va akt sverkada alohida yozuv bo'ladi. */
+    PaymentResponse refund(Long id);
 }

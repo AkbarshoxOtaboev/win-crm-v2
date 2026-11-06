@@ -4,6 +4,7 @@
     <div class="mb-4 flex gap-2">
       <button type="button" class="tab" :class="{ active: tab === 'goods' }" @click="tab = 'goods'">{{ t('goods.tabGoods') }}</button>
       <button type="button" class="tab" :class="{ active: tab === 'groups' }" @click="tab = 'groups'">{{ t('goods.tabGroups') }}</button>
+      <button type="button" class="tab" :class="{ active: tab === 'categories' }" @click="tab = 'categories'">{{ t('goods.tabCategories') }}</button>
       <button type="button" class="tab" :class="{ active: tab === 'units' }" @click="tab = 'units'">{{ t('goods.tabUnits') }}</button>
     </div>
 
@@ -23,6 +24,7 @@
             <tr class="border-b border-gray-100 dark:border-gray-800">
               <th class="th">#</th>
               <th class="th">{{ t('common.name') }}</th>
+              <th class="th">{{ t('goods.category') }}</th>
               <th class="th">{{ t('goods.group') }}</th>
               <th class="th">{{ t('goods.unit') }}</th>
               <th class="th">{{ t('goods.type') }}</th>
@@ -33,11 +35,12 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-if="loading"><td colspan="9" class="empty">{{ t('common.loading') }}</td></tr>
-            <tr v-else-if="filtered.length === 0"><td colspan="9" class="empty">{{ t('goods.noGoods') }}</td></tr>
+            <tr v-if="loading"><td colspan="10" class="empty">{{ t('common.loading') }}</td></tr>
+            <tr v-else-if="filtered.length === 0"><td colspan="10" class="empty">{{ t('goods.noGoods') }}</td></tr>
             <tr v-for="g in filtered" :key="g.id" class="border-b border-gray-100 dark:border-gray-800">
               <td class="td">{{ g.id }}</td>
               <td class="td font-medium text-gray-800 dark:text-white/90">{{ g.name }}</td>
+              <td class="td">{{ g.categoryName || '—' }}</td>
               <td class="td">{{ g.goodsGroupName || '—' }}</td>
               <td class="td">{{ g.unitTypeName || '—' }}</td>
               <td class="td">{{ g.typeLabel || g.type || '—' }}</td>
@@ -118,6 +121,55 @@
       </table>
     </div>
 
+    <div v-show="tab === 'categories'" class="card">
+      <div class="head">
+        <div>
+          <h3 class="title">{{ t('goods.tabCategories') }}</h3>
+          <p class="sub">{{ t('goods.categoryHint') }}</p>
+        </div>
+        <button type="button" class="btn" :disabled="writeBlocked" @click="openCategoryCreate">{{ t('goods.newCategory') }}</button>
+      </div>
+      <table class="min-w-full">
+        <thead>
+          <tr class="border-b border-gray-100 dark:border-gray-800">
+            <th class="th">#</th>
+            <th class="th">{{ t('common.name') }}</th>
+            <th class="th">{{ t('goods.status') }}</th>
+            <th class="th">{{ t('goods.toggle') }}</th>
+            <th class="th text-right">{{ t('common.actions') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-if="categories.length === 0"><td colspan="5" class="empty">{{ t('goods.noCategories') }}</td></tr>
+          <tr v-for="c in categories" :key="c.id" class="border-b border-gray-100 dark:border-gray-800">
+            <td class="td">{{ c.id }}</td>
+            <td class="td font-medium text-gray-800 dark:text-white/90">{{ c.name }}</td>
+            <td class="td">
+              <span
+                class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium"
+                :class="isActiveStatus(c.status) ? 'bg-success-50 text-success-600' : 'bg-gray-100 text-gray-500'"
+              >
+                {{ isActiveStatus(c.status) ? t('goods.statusActive') : t('goods.statusInactive') }}
+              </span>
+            </td>
+            <td class="td">
+              <button
+                type="button"
+                class="status-toggle"
+                :class="isActiveStatus(c.status) ? 'on' : 'off'"
+                :aria-pressed="isActiveStatus(c.status)"
+                :title="isActiveStatus(c.status) ? t('goods.turnOff') : t('goods.turnOn')"
+                @click="onCategoryStatus(c)"
+              >
+                <span class="status-knob" />
+              </button>
+            </td>
+            <td class="td text-right"><RowActions @edit="openCategoryEdit(c)" @delete="onCategoryDelete(c)" /></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
     <div v-show="tab === 'units'" class="card">
       <div class="head">
         <h3 class="title">{{ t('goods.tabUnits') }}</h3>
@@ -179,6 +231,13 @@
               <select v-model.number="form.goodsGroupId" required class="field">
                 <option :value="0" disabled>{{ t('common.select') }}</option>
                 <option v-for="gr in groups" :key="gr.id" :value="gr.id">{{ gr.name }}</option>
+              </select>
+            </div>
+            <div>
+              <label class="lbl">{{ t('goods.category') }}</label>
+              <select v-model.number="form.categoryId" class="field">
+                <option :value="0">{{ t('common.select') }}</option>
+                <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
               </select>
             </div>
             <div>
@@ -291,7 +350,7 @@
 
     <div v-if="nameModal" class="overlay">
       <div class="modal max-w-md">
-        <h3 class="title mb-4">{{ nameKind === 'group' ? t('goods.group') : t('goods.unit') }}</h3>
+        <h3 class="title mb-4">{{ nameKind === 'group' ? t('goods.group') : nameKind === 'category' ? t('goods.category') : t('goods.unit') }}</h3>
         <div v-if="formError" class="err mb-3">{{ formError }}</div>
         <form class="space-y-3" @submit.prevent="onNameSubmit">
           <div>
@@ -315,21 +374,27 @@ import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import RowActions from '@/components/crm/RowActions.vue'
 import {
+  changeGoodsCategoryStatus,
   changeGoodsGroupStatus,
   changeUnitTypeStatus,
   createGoods,
+  createGoodsCategory,
   createGoodsGroup,
   createUnitType,
   deleteGoods,
+  deleteGoodsCategory,
   deleteGoodsGroup,
   deleteUnitType,
   fetchGoods,
+  fetchGoodsCategories,
   fetchGoodsGroups,
   fetchUnitTypes,
   updateGoods,
+  updateGoodsCategory,
   updateGoodsGroup,
   updateUnitType,
   type Goods,
+  type GoodsCategory,
   type GoodsGroup,
   type UnitType,
 } from '@/api/goods'
@@ -341,9 +406,10 @@ import { BASE_CURRENCY, moneyIn } from '@/utils/currency'
 const { t } = useI18n()
 const { writeBlocked } = useFilialScope()
 
-const tab = ref<'goods' | 'groups' | 'units'>('goods')
+const tab = ref<'goods' | 'groups' | 'categories' | 'units'>('goods')
 const items = ref<Goods[]>([])
 const groups = ref<GoodsGroup[]>([])
+const categories = ref<GoodsCategory[]>([])
 const units = ref<UnitType[]>([])
 const loading = ref(false)
 const saving = ref(false)
@@ -358,13 +424,14 @@ const fileInputKey = ref(0)
 const previewUrl = computed(() => localPreview.value)
 let photoToken = 0
 const nameModal = ref(false)
-const nameKind = ref<'group' | 'unit'>('group')
+const nameKind = ref<'group' | 'category' | 'unit'>('group')
 const nameEditingId = ref<number | null>(null)
 const nameValue = ref('')
 
 const form = reactive({
   name: '',
   goodsGroupId: 0,
+  categoryId: 0,
   unitTypeId: 0,
   type: 'PRODUCT',
   barcode: '',
@@ -434,7 +501,7 @@ const filtered = computed(() => {
   const list = !q
     ? items.value
     : items.value.filter((g) =>
-        [g.name, g.goodsGroupName, g.barcode, g.type]
+        [g.name, g.goodsGroupName, g.categoryName, g.barcode, g.type]
           .filter(Boolean)
           .some((v) => String(v).toLowerCase().includes(q)),
       )
@@ -487,13 +554,20 @@ async function load() {
   loading.value = true
   error.value = null
   try {
-    const [goodsRes, groupRes, unitRes] = await Promise.all([
+    const [goodsRes, groupRes, categoryRes, unitRes] = await Promise.all([
       fetchGoods(),
       fetchGoodsGroups(),
+      fetchGoodsCategories(),
       fetchUnitTypes(),
     ])
-    items.value = byIdAsc((goodsRes.data || []).filter((g) => (g.type || '').toUpperCase() !== 'SERVICE'))
+    items.value = byIdAsc(
+      (goodsRes.data || []).filter((g) => {
+        const t = (g.type || '').toUpperCase()
+        return t !== 'SERVICE' && t !== 'FINISHED_PRODUCT'
+      }),
+    )
     groups.value = byIdAsc(groupRes || [])
+    categories.value = byIdAsc(categoryRes || [])
     units.value = byIdAsc(unitRes || [])
   } catch (e) {
     error.value = formatApiError(e, t('common.loadError'))
@@ -508,6 +582,7 @@ function openCreate() {
   Object.assign(form, {
     name: '',
     goodsGroupId: groups.value[0]?.id || 0,
+    categoryId: 0,
     unitTypeId: units.value[0]?.id || 0,
     type: 'PRODUCT',
     barcode: '',
@@ -535,6 +610,7 @@ function openEdit(g: Goods) {
   Object.assign(form, {
     name: g.name || '',
     goodsGroupId: g.goodsGroupId || 0,
+    categoryId: g.categoryId || 0,
     unitTypeId: g.unitTypeId || 0,
     type: g.type || 'PRODUCT',
     barcode: g.barcode || '',
@@ -556,6 +632,7 @@ function buildFormData() {
   const fd = new FormData()
   fd.append('name', form.name.trim())
   fd.append('goodsGroupId', String(form.goodsGroupId))
+  fd.append('categoryId', String(form.categoryId || 0))
   fd.append('unitTypeId', String(form.unitTypeId))
   fd.append('type', form.type)
   if (form.barcode.trim()) fd.append('barcode', form.barcode.trim())
@@ -635,6 +712,42 @@ function openGroupEdit(gr: GoodsGroup) {
   nameModal.value = true
 }
 
+function openCategoryCreate() {
+  if (writeBlocked.value) return
+  nameKind.value = 'category'
+  nameEditingId.value = null
+  nameValue.value = ''
+  formError.value = null
+  nameModal.value = true
+}
+
+function openCategoryEdit(c: GoodsCategory) {
+  nameKind.value = 'category'
+  nameEditingId.value = c.id
+  nameValue.value = c.name
+  formError.value = null
+  nameModal.value = true
+}
+
+async function onCategoryDelete(c: GoodsCategory) {
+  if (!confirm(t('common.deleteConfirmNamed', { name: c.name }))) return
+  try {
+    await deleteGoodsCategory(c.id)
+    await load()
+  } catch (e) {
+    error.value = formatApiError(e, t('common.deleteError'))
+  }
+}
+
+async function onCategoryStatus(c: GoodsCategory) {
+  try {
+    await changeGoodsCategoryStatus(c.id)
+    await load()
+  } catch (e) {
+    error.value = formatApiError(e, t('goods.statusError'))
+  }
+}
+
 function openUnitCreate() {
   if (writeBlocked.value) return
   nameKind.value = 'unit'
@@ -660,6 +773,9 @@ async function onNameSubmit() {
     if (nameKind.value === 'group') {
       if (nameEditingId.value) await updateGoodsGroup(nameEditingId.value, name)
       else await createGoodsGroup(name)
+    } else if (nameKind.value === 'category') {
+      if (nameEditingId.value) await updateGoodsCategory(nameEditingId.value, name)
+      else await createGoodsCategory(name)
     } else {
       if (nameEditingId.value) await updateUnitType(nameEditingId.value, name)
       else await createUnitType(name)

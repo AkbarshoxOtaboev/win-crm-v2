@@ -52,6 +52,8 @@ import uz.script.wincrm.transport.service.TransportDeliveryService;
 import uz.script.wincrm.users.User;
 import uz.script.wincrm.users.repository.UserRepository;
 import uz.script.wincrm.utils.Status;
+import uz.script.wincrm.cutting.repository.CuttingAllocationRepository;
+import uz.script.wincrm.production.enums.ProductionOrderStatus;
 import uz.script.wincrm.warehouse.Warehouse;
 import uz.script.wincrm.warehouse.WarehouseAccess;
 import uz.script.wincrm.warehouse.repository.WarehouseRepository;
@@ -75,6 +77,7 @@ public class SaleOrderServiceImpl implements SaleOrderService {
 
     private final SaleOrderRepository repository;
     private final ProductionOrderRepository productionOrderRepository;
+    private final CuttingAllocationRepository cuttingAllocationRepository;
     private final PaymentRepository paymentRepository;
     private final SaleOrderMapper mapper;
     private final ClientRepository clientRepository;
@@ -454,57 +457,65 @@ public class SaleOrderServiceImpl implements SaleOrderService {
                     "Cannot change order status from " + currentStatus + " to " + salesOrderStatus);
         }
 
+        boolean reverse = currentStatus.isReverseTo(salesOrderStatus);
+
         String trimmedComment = comment != null ? comment.trim() : null;
         if (salesOrderStatus == SalesOrderStatus.CANCELLED
                 && (trimmedComment == null || trimmedComment.isEmpty())) {
             throw new BadRequestException("Buyurtmani bekor qilish sababini (izoh) kiriting");
         }
 
-        if (salesOrderStatus == SalesOrderStatus.COMPLETED) {
-            BigDecimal paid = paymentRepository.findBySaleOrderId(id).stream()
-                    .map(Payment::appliedOrPaid)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-            BigDecimal debt = entity.getTotalSum().subtract(paid);
-            if (debt.compareTo(CurrencyMath.TOLERANCE) >= 0) {
-                throw new BadRequestException(
-                        "Buyurtma bo'yicha " + CurrencyMath.format(debt, entity.currencyOrBase())
-                                + " qarz bor. Yakunlash uchun avval qarz to'liq to'lanishi kerak.");
-            }
-        }
-
-        if (salesOrderStatus == SalesOrderStatus.PROCESSING
-                && !productionOrderRepository.existsBySaleOrder_Id(id)) {
-            throw new BadRequestException(
-                    "Ishlab chiqarishga yuborish uchun sex tanlang (send-to-production)");
-        }
-
-        if (salesOrderStatus == SalesOrderStatus.READY
-                || salesOrderStatus == SalesOrderStatus.IN_DELIVERY
-                || salesOrderStatus == SalesOrderStatus.DELIVERED) {
-            productionOrderRepository.findBySaleOrder_Id(id).ifPresent(po -> {
-                if (po.getProductionStatus() != uz.script.wincrm.production.enums.ProductionOrderStatus.DONE) {
+        if (!reverse) {
+            if (salesOrderStatus == SalesOrderStatus.COMPLETED) {
+                BigDecimal paid = paymentRepository.findBySaleOrderId(id).stream()
+                        .map(Payment::appliedOrPaid)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+                BigDecimal debt = entity.getTotalSum().subtract(paid);
+                if (debt.compareTo(CurrencyMath.TOLERANCE) >= 0) {
                     throw new BadRequestException(
-                            "Ishlab chiqarish yakunlanmagan. Avval sexda complete qiling.");
+                            "Buyurtma bo'yicha " + CurrencyMath.format(debt, entity.currencyOrBase())
+                                    + " qarz bor. Yakunlash uchun avval qarz to'liq to'lanishi kerak.");
                 }
-            });
-        }
-
-        if (salesOrderStatus == SalesOrderStatus.IN_DELIVERY) {
-            if (entity.getDeliveryType() == DeliveryType.PICKUP) {
-                throw new BadRequestException(
-                        "Mijoz buyurtmani o'zi olib ketadi - transportga yuborib bo'lmaydi. Buyurtmani tahrirlab yetkazib berish xizmatini tanlang.");
             }
-            transportDeliveryService.createForSaleOrder(entity);
-        }
 
-        if (currentStatus == SalesOrderStatus.IN_DELIVERY && salesOrderStatus == SalesOrderStatus.DELIVERED) {
-            transportDeliveryService.confirmForSaleOrder(entity);
-        }
+            if (salesOrderStatus == SalesOrderStatus.PROCESSING
+                    && !productionOrderRepository.existsBySaleOrder_Id(id)) {
+                throw new BadRequestException(
+                        "Ishlab chiqarishga yuborish uchun sex tanlang (send-to-production)");
+            }
 
-        if (salesOrderStatus == SalesOrderStatus.CANCELLED) {
-            saleOrderItemService.returnItemsToStock(id);
-            productionOrderService.cancelForSaleOrder(id);
-            transportDeliveryService.cancelForSaleOrder(id);
+            if (salesOrderStatus == SalesOrderStatus.READY
+                    || salesOrderStatus == SalesOrderStatus.IN_DELIVERY
+                    || salesOrderStatus == SalesOrderStatus.DELIVERED) {
+                productionOrderRepository.findBySaleOrder_Id(id).ifPresent(po -> {
+                    if (po.getProductionStatus() != uz.script.wincrm.production.enums.ProductionOrderStatus.DONE) {
+                        throw new BadRequestException(
+                                "Ishlab chiqarish yakunlanmagan. Avval sexda complete qiling.");
+                    }
+                });
+            }
+
+            if (salesOrderStatus == SalesOrderStatus.IN_DELIVERY) {
+                if (entity.getDeliveryType() == DeliveryType.PICKUP) {
+                    throw new BadRequestException(
+                            "Mijoz buyurtmani o'zi olib ketadi - transportga yuborib bo'lmaydi. Buyurtmani tahrirlab yetkazib berish xizmatini tanlang.");
+                }
+                transportDeliveryService.createForSaleOrder(entity);
+            }
+
+            if (currentStatus == SalesOrderStatus.IN_DELIVERY && salesOrderStatus == SalesOrderStatus.DELIVERED) {
+                transportDeliveryService.confirmForSaleOrder(entity);
+            }
+
+            if (salesOrderStatus == SalesOrderStatus.CANCELLED) {
+                // Kesilmagan (yangi/tasdiqlangan yoki hali kesish bo'lmagan) — omborga qaytariladi.
+                // Kesilgan / tayyor / yetkazishdagi — butun list qilib qaytarmaymiz.
+                if (shouldReturnStockOnCancel(id, currentStatus)) {
+                    saleOrderItemService.returnItemsToStock(id);
+                }
+                productionOrderService.cancelForSaleOrder(id);
+                transportDeliveryService.cancelForSaleOrder(id);
+            }
         }
 
         entity.setSalesOrderStatus(salesOrderStatus);
@@ -518,7 +529,9 @@ public class SaleOrderServiceImpl implements SaleOrderService {
                         .saleOrderId(entity.getId())
                         .fromStatus(currentStatus)
                         .toStatus(salesOrderStatus)
-                        .comment(trimmedComment != null && !trimmedComment.isEmpty() ? trimmedComment : null)
+                        .comment(trimmedComment != null && !trimmedComment.isEmpty()
+                                ? trimmedComment
+                                : (reverse ? "Holat orqaga qaytarildi" : null))
                         .build()
         );
 
@@ -526,13 +539,13 @@ public class SaleOrderServiceImpl implements SaleOrderService {
             clientBalanceService.recalculateClientBalance(entity.getClient().getId());
         }
 
-        if (salesOrderStatus == SalesOrderStatus.COMPLETED) {
+        if (!reverse && salesOrderStatus == SalesOrderStatus.COMPLETED) {
             kpiService.accrueForSaleOrder(entity);
         }
-        if (salesOrderStatus == SalesOrderStatus.DELIVERED
+        if (!reverse && (salesOrderStatus == SalesOrderStatus.DELIVERED
                 || salesOrderStatus == SalesOrderStatus.WORK_DONE
                 || salesOrderStatus == SalesOrderStatus.COMPLETED
-                || salesOrderStatus == SalesOrderStatus.CANCELLED) {
+                || salesOrderStatus == SalesOrderStatus.CANCELLED)) {
             salaryCommissionService.recalculateCommissionForSaleOrder(entity);
         }
     }
@@ -660,6 +673,26 @@ public class SaleOrderServiceImpl implements SaleOrderService {
                         .comment(comment)
                         .build()
         );
+    }
+
+    /**
+     * Bekor qilishda omborga qaytarish: listlar hali butun bo'lsa.
+     * Yangi/tasdiqlangan yoki jarayonda, lekin kesish optimizatsiyasi yo'q va sex tugamagan.
+     * Tayyor / yetkazish / yetkazilgan / ish bajarilgan yoki kesilgan — qaytarmaydi.
+     */
+    private boolean shouldReturnStockOnCancel(Long saleOrderId, SalesOrderStatus from) {
+        if (from == SalesOrderStatus.READY
+                || from == SalesOrderStatus.IN_DELIVERY
+                || from == SalesOrderStatus.DELIVERED
+                || from == SalesOrderStatus.WORK_DONE) {
+            return false;
+        }
+        if (cuttingAllocationRepository.existsBySaleOrder_Id(saleOrderId)) {
+            return false;
+        }
+        return productionOrderRepository.findBySaleOrder_Id(saleOrderId)
+                .map(po -> po.getProductionStatus() != ProductionOrderStatus.DONE)
+                .orElse(true);
     }
 
     /**

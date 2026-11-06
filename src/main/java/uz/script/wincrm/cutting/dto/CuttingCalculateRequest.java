@@ -46,7 +46,15 @@ public class CuttingCalculateRequest {
     @Schema(description = "Bo'lakni 90° burish mumkinmi; berilmasa - mumkin")
     private Boolean allowRotate;
 
-    @Schema(description = "Foydali qoldiqning minimal tomoni, sm; berilmasa sozlamadagi qiymat")
+    @Schema(description = "Foydali qoldiqning minimal tomoni, sm; en va bo'y berilmasa shu qiymat ikkala tomonga qo'llanadi")
     @DecimalMin("0")
     private BigDecimal minRemnantCm;
+
+    @Schema(description = "Qoldiq shu enidan katta bo'lsa butun saqlanadi va qolgan bo'lak boshqa listdan olinadi, sm")
+    @DecimalMin("0")
+    private BigDecimal minRemnantWidthCm;
+
+    @Schema(description = "Qoldiq shu bo'yidan katta bo'lsa butun saqlanadi va qolgan bo'lak boshqa listdan olinadi, sm")
+    @DecimalMin("0")
+    private BigDecimal minRemnantHeightCm;
 }

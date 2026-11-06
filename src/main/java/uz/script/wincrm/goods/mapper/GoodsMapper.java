@@ -3,6 +3,7 @@ package uz.script.wincrm.goods.mapper;
 import org.springframework.stereotype.Component;
 import uz.script.wincrm.currency.Currency;
 import uz.script.wincrm.goods.Goods;
+import uz.script.wincrm.goods.GoodsCategory;
 import uz.script.wincrm.goods.GoodsGroup;
 import uz.script.wincrm.goods.UnitType;
 import uz.script.wincrm.goods.dto.GoodsDTO;
@@ -15,10 +16,11 @@ import java.math.BigDecimal;
 @Component
 public class GoodsMapper {
 
-    public Goods toEntity(GoodsDTO dto, GoodsGroup goodsGroup, UnitType unitType, String photoPath) {
+    public Goods toEntity(GoodsDTO dto, GoodsGroup goodsGroup, GoodsCategory category, UnitType unitType, String photoPath) {
         return Goods.builder()
                 .name(dto.getName())
                 .goodsGroup(goodsGroup)
+                .category(category)
                 .unitType(unitType)
                 .type(dto.getType())
                 .priceCost(dto.getPriceCost() != null ? dto.getPriceCost() : BigDecimal.ZERO)
@@ -82,6 +84,8 @@ public class GoodsMapper {
                 .name(goods.getName())
                 .goodsGroupId(goods.getGoodsGroup() != null ? goods.getGoodsGroup().getId() : null)
                 .goodsGroupName(goods.getGoodsGroup() != null ? goods.getGoodsGroup().getName() : null)
+                .categoryId(goods.getCategory() != null ? goods.getCategory().getId() : null)
+                .categoryName(goods.getCategory() != null ? goods.getCategory().getName() : null)
                 .unitTypeId(goods.getUnitType() != null ? goods.getUnitType().getId() : null)
                 .unitTypeName(goods.getUnitType() != null ? goods.getUnitType().getName() : null)
                 .type(goods.getType())

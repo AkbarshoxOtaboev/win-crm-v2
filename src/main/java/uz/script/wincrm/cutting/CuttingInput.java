@@ -13,6 +13,8 @@ public record CuttingInput(
         int quantity,
         BigDecimal kerfMm,
         boolean allowRotate,
-        BigDecimal minRemnantCm
+        BigDecimal minRemnantCm,
+        BigDecimal minRemnantWidthCm,
+        BigDecimal minRemnantHeightCm
 ) {
 }

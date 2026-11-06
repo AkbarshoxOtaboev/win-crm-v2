@@ -20,9 +20,36 @@ export function amountToText(v?: number | null): string {
   return formatAmountInput(String(v)).text
 }
 
+const pad2 = (n: number) => String(n).padStart(2, '0')
+
+/**
+ * ISO/local datetime → "11.04.2026 10:43"
+ * Vaqt bo‘lmasa → "11.04.2026"
+ */
 export function formatDate(v?: string | null) {
   if (!v) return '—'
-  return v.replace('T', ' ').slice(0, 16)
+  const s = String(v).trim()
+  const m = s.match(
+    /^(\d{4})-(\d{2})-(\d{2})(?:[T\s](\d{2}):(\d{2})(?::\d{2}(?:\.\d+)?)?)?/,
+  )
+  if (m) {
+    const [, y, mo, d, hh, mm] = m
+    if (hh != null && mm != null) return `${d}.${mo}.${y} ${hh}:${mm}`
+    return `${d}.${mo}.${y}`
+  }
+  const dt = new Date(s)
+  if (!Number.isNaN(dt.getTime())) {
+    return `${pad2(dt.getDate())}.${pad2(dt.getMonth() + 1)}.${dt.getFullYear()} ${pad2(dt.getHours())}:${pad2(dt.getMinutes())}`
+  }
+  return s
+}
+
+/** Faqat sana: "11.04.2026" */
+export function formatDateOnly(v?: string | null) {
+  if (!v) return '—'
+  const full = formatDate(v)
+  if (full === '—') return full
+  return full.slice(0, 10)
 }
 
 /** Buyurtma sanasi yaralganda 00:00 bo‘lib saqlangan bo‘lsa, haqiqiy soatni ko‘rsatadi. */
@@ -32,7 +59,7 @@ export function formatOrderDate(orderDate?: string | null, createdAt?: string | 
   const clock = normalized.length >= 16 ? normalized.slice(11, 16) : ''
   const created = createdAt?.replace('T', ' ')
   if ((!clock || clock === '00:00') && created && created.length >= 16) {
-    return `${normalized.slice(0, 10)} ${created.slice(11, 16)}`
+    return formatDate(`${normalized.slice(0, 10)}T${created.slice(11, 16)}:00`)
   }
   return formatDate(orderDate)
 }
@@ -43,12 +70,9 @@ export function formatKg(v?: number | null) {
   return `${new Intl.NumberFormat('uz-UZ', { maximumFractionDigits: 2 }).format(n)} kg`
 }
 
-/** "2026-10-05T10:16:00" -> "05.10.2026 10:16" */
+/** @deprecated formatDate bilan bir xil — "11.04.2026 10:43" */
 export function formatDmyTime(v?: string | null) {
-  if (!v) return '—'
-  const [y, m, d] = v.slice(0, 10).split('-')
-  const time = v.slice(11, 16)
-  return `${d}.${m}.${y}${time ? ` ${time}` : ''}`
+  return formatDate(v)
 }
 
 export function toApiDate(local: string) {
@@ -58,10 +82,10 @@ export function toApiDate(local: string) {
 
 export function nowLocal() {
   const now = new Date()
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`
+  return `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}T${pad2(now.getHours())}:${pad2(now.getMinutes())}`
 }
 
 export function today() {
-  return new Date().toISOString().slice(0, 10)
+  const now = new Date()
+  return `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`
 }

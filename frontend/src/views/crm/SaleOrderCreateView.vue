@@ -10,14 +10,14 @@
       <div v-if="orderFinal" class="warn mx-5 mt-5 mb-4">{{ t('saleOrderCreate.finalOrderHint') }}</div>
 
       <div class="p-5">
-        <div class="step-head">
-          <span class="step-num" :class="{ done: !!form.saleType }">
-            <Check v-if="form.saleType" class="h-3.5 w-3.5" />
-            <template v-else>1</template>
-          </span>
-          <span class="step-title">{{ t('saleOrderCreate.saleTypeTitle') }}</span>
-        </div>
-        <div class="type-row">
+        <div class="type-row type-row-main">
+          <div class="step-head">
+            <span class="step-num" :class="{ done: !!form.saleType }">
+              <Check v-if="form.saleType" class="h-3.5 w-3.5" />
+              <template v-else>1</template>
+            </span>
+            <span class="step-title">{{ t('saleOrderCreate.saleTypeTitle') }}</span>
+          </div>
           <div
             class="type-toggle"
             role="radiogroup"
@@ -69,9 +69,28 @@
               {{ t(`exchangeRates.currencies.${c}`) }}
             </button>
           </div>
-          <label class="seller-inline">
-            <span>{{ t('saleOrderCreate.seller') }}</span>
-            <select v-model.number="form.userId" required class="field" :disabled="!auth.isElevated && sellerOptions.length === 1">
+          <label class="warehouse-compact">
+            <select
+              v-model.number="form.warehouseId"
+              required
+              class="field"
+              :style="{ width: warehouseSelectWidth }"
+              :aria-label="t('common.warehouse')"
+              :disabled="!form.saleType || draftItems.length > 0"
+              :title="draftItems.length > 0 ? t('saleOrderCreate.warehouseLocked') : undefined"
+            >
+              <option :value="0" disabled>{{ t('saleOrderCreate.selectWarehouse') }}</option>
+              <option v-for="w in activeWarehouses" :key="w.id" :value="w.id">{{ w.name }}</option>
+            </select>
+          </label>
+          <label class="seller-inline seller-compact">
+            <select
+              v-model.number="form.userId"
+              required
+              class="field"
+              :aria-label="t('saleOrderCreate.seller')"
+              :disabled="!auth.isElevated && sellerOptions.length === 1"
+            >
               <option :value="0" disabled>{{ t('saleOrderCreate.selectSeller') }}</option>
               <option v-for="u in sellerOptions" :key="u.id" :value="u.id">{{ u.fullName || u.username }}</option>
             </select>
@@ -116,17 +135,14 @@
           </label>
 
           <label class="lbl">
-            {{ t('common.warehouse') }}
-            <select
-              v-model.number="form.warehouseId"
+            {{ t('saleOrderCreate.dueDate') }}
+            <input
+              v-model="form.plannedReadyDate"
+              type="date"
               required
               class="field"
-              :disabled="draftItems.length > 0"
-              :title="draftItems.length > 0 ? t('saleOrderCreate.warehouseLocked') : undefined"
-            >
-              <option :value="0" disabled>{{ t('saleOrderCreate.selectWarehouse') }}</option>
-              <option v-for="w in activeWarehouses" :key="w.id" :value="w.id">{{ w.name }}</option>
-            </select>
+              :min="form.orderDate || undefined"
+            />
           </label>
         </div>
         </div>
@@ -135,9 +151,9 @@
 
       <template v-if="form.saleType">
       <p v-if="orderFinal" class="items-locked">{{ t('saleOrderCreate.itemsLocked') }}</p>
-      <div v-else class="p-5 border-b border-gray-100">
+      <div v-else class="item-form-block border-b border-gray-100">
         <div class="form-row">
-          <div class="lbl min-w-0 w-full sm:w-auto sm:flex-none">
+          <div class="lbl kind-inline">
             {{ t('saleOrderCreate.itemType') }}
             <div class="kind-toggle" role="group">
               <button
@@ -162,8 +178,8 @@
               </button>
             </div>
           </div>
-
-          <label class="lbl min-w-0 flex-[1.4]">
+          <template v-if="!showCutComposer">
+          <label class="lbl product-pick">
             {{ itemKind === 'SERVICE' ? t('saleOrderCreate.service') : t('common.product') }}
             <SearchableSelect
               :key="itemKind"
@@ -175,31 +191,31 @@
           </label>
 
           <template v-if="isWindowGoods">
-            <label class="lbl min-w-0 w-28 sm:flex-none">
+            <label class="lbl field-sm">
               {{ t('saleOrderCreate.width') }}
               <input v-model.number="itemForm.width" type="number" min="0.1" step="0.1" class="field" :disabled="measuresLocked" />
             </label>
-            <label class="lbl min-w-0 w-28 sm:flex-none">
+            <label class="lbl field-sm">
               {{ t('saleOrderCreate.height') }}
               <input v-model.number="itemForm.height" type="number" min="0.1" step="0.1" class="field" :disabled="measuresLocked" />
             </label>
-            <label class="lbl min-w-0 w-24 sm:flex-none">
+            <label class="lbl field-xs">
               {{ t('common.count') }}
               <input v-model.number="itemForm.count" type="number" min="1" step="1" class="field" />
             </label>
-            <label class="lbl min-w-0 w-28 sm:flex-none">
+            <label class="lbl field-sm">
               {{ t('saleOrderCreate.kvm') }}
               <input :value="formatNum(computedKvm)" class="field" readonly />
             </label>
-            <label class="lbl min-w-0 w-28 sm:flex-none">
+            <label class="lbl field-sm">
               {{ t('saleOrderCreate.weight') }}
               <input :value="computedWeight != null ? formatNum(computedWeight) : '—'" class="field" readonly />
             </label>
-            <label class="lbl min-w-0 w-36 sm:flex-none">
+            <label class="lbl field-md">
               {{ t('saleOrderCreate.sellingPrice') }} ({{ curLabel }})
               <input v-model.number="itemForm.priceSelling" type="number" min="0.01" step="0.01" class="field" />
             </label>
-            <label class="lbl min-w-0 w-40 sm:flex-none">
+            <label class="lbl field-md">
               {{ t('saleOrderCreate.totalSum') }}
               <input :value="amt(computedSum)" class="field" readonly />
             </label>
@@ -207,27 +223,83 @@
 
           <template v-else>
             <template v-if="itemKind !== 'SERVICE'">
-              <label class="lbl min-w-0 w-28 sm:flex-none">
+              <label class="lbl field-xs">
                 {{ t('common.count') }}
                 <input v-model.number="itemForm.count" type="number" min="1" step="1" class="field" />
               </label>
-              <label class="lbl min-w-0 w-36 sm:flex-none">
+              <label class="lbl field-md">
                 {{ t('saleOrderCreate.selling') }} ({{ curLabel }})
                 <input v-model.number="itemForm.priceSelling" type="number" min="0.01" step="0.01" class="field" />
               </label>
             </template>
-            <label class="lbl min-w-0 w-40 sm:flex-none">
+            <label class="lbl field-md">
               {{ t('saleOrderCreate.totalSum') }} ({{ curLabel }})
               <input :value="amt(computedSum)" class="field" readonly />
             </label>
           </template>
 
-          <div class="flex items-end">
+          <div class="form-add">
             <button type="button" class="btn" :disabled="saving || !canAddItem" @click="onAddItem">
               {{ t('saleOrderCreate.addItem') }}
             </button>
           </div>
+          </template>
         </div>
+        <div v-if="showCutComposer" class="cut-compose">
+          <p class="cut-note">
+            {{ t('saleOrderCreate.cutModeHint') }}
+            <button type="button" class="ghost cut-plain" @click="plainProduct = true">
+              {{ t('saleOrderCreate.cutPlain') }}
+            </button>
+          </p>
+          <p class="cut-step">1. {{ t('saleOrderCreate.cutPickProducts') }}</p>
+          <div class="cut-picks">
+            <label v-for="c in cutCategories" :key="c.id" class="cut-pick">
+              <input type="checkbox" :checked="cutSelected.includes(c.id)" @change="toggleCutCategory(c.id)" />
+              <span>{{ c.label }}</span>
+              <em>{{ categoryStockText(c.id) }}</em>
+            </label>
+            <p v-if="cutCategories.length === 0" class="cut-empty">{{ t('saleOrderCreate.cutNoSheets') }}</p>
+          </div>
+          <p class="cut-step">2. {{ t('saleOrderCreate.cutSizes') }}</p>
+          <template v-for="category in selectedCutCategories" :key="category.id">
+            <p v-if="selectedCutCategories.length > 1" class="cut-part-title">{{ category.label }}</p>
+            <div v-for="part in partsOf(category.id)" :key="part.id" class="cut-part">
+            <label class="lbl field-sm">
+              {{ t('saleOrderCreate.width') }}
+              <input v-model.number="part.width" type="number" min="0.1" step="0.1" class="field" />
+            </label>
+            <label class="lbl field-sm">
+              {{ t('saleOrderCreate.height') }}
+              <input v-model.number="part.height" type="number" min="0.1" step="0.1" class="field" />
+            </label>
+            <label class="lbl field-xs">
+              {{ t('common.count') }}
+              <input v-model.number="part.count" type="number" min="1" step="1" class="field" />
+            </label>
+            <label class="lbl field-sm">
+              {{ t('saleOrderCreate.kvm') }}
+              <input :value="formatNum(partKvm(part))" class="field" readonly />
+            </label>
+            <label class="lbl field-md">
+              {{ t('saleOrderCreate.sellingPrice') }} ({{ curLabel }})
+              <input v-model.number="part.priceSelling" type="number" min="0.01" step="0.01" class="field" />
+            </label>
+            <button v-if="partsOf(category.id).length > 1" type="button" class="ghost" @click="removeCutPart(part.id)">×</button>
+            </div>
+          </template>
+          <div class="cut-actions">
+            <button type="button" class="ghost" @click="addCutPart">{{ t('saleOrderCreate.cutAddPart') }}</button>
+            <button type="button" class="btn" :disabled="saving || !canAddCut" @click="onAddCutParts">
+              {{ t('saleOrderCreate.addItem') }}
+            </button>
+          </div>
+        </div>
+        <p v-else-if="cuttingMode && itemKind === 'PRODUCT'" class="cut-note">
+          <button type="button" class="ghost cut-plain" @click="plainProduct = false">
+            {{ t('saleOrderCreate.cutBack') }}
+          </button>
+        </p>
         <!-- Kesish optimizatsiyasi yangi sotuvda emas — buyurtma saqlangach /sales/:id/optimize.
         <CuttingPreview
           v-if="showCuttingPreview"
@@ -243,7 +315,7 @@
           {{ t('saleOrderCreate.headerRequired') }}
         </p>
         <p
-          v-else-if="selectedGoods && !isServiceGoods"
+          v-else-if="selectedGoods && !isServiceGoods && !showCutComposer"
           class="stock-chip"
           :class="{ empty: remainingStock(selectedGoods.id) <= 1e-9 }"
         >
@@ -672,6 +744,8 @@ interface DraftItem {
   priceSelling: number
   cutKerfMm: number | null
   cutAllowRotate: boolean | null
+  cutCandidateGoodsIds?: string | null
+  cutCategoryId?: number | null
 }
 
 const draftItems = ref<DraftItem[]>([])
@@ -696,6 +770,7 @@ const form = reactive({
   warehouseId: 0,
   userId: 0,
   orderDate: todayLocal(),
+  plannedReadyDate: '',
   comment: '',
   totalSum: 0,
   deliveryType: 'PICKUP' as DeliveryType,
@@ -850,6 +925,10 @@ function isService(g?: Goods | null) {
   return (g?.type || '').toUpperCase() === 'SERVICE'
 }
 
+function isFinishedProduct(g?: Goods | null) {
+  return (g?.type || '').toUpperCase() === 'FINISHED_PRODUCT'
+}
+
 const selectedGoods = computed(() => goods.value.find((g) => g.id === itemForm.goodsId) || null)
 const isWindowGoods = computed(() => isWindow(selectedGoods.value))
 const measuresLocked = computed(() => form.saleType === 'WHOLESALE')
@@ -889,6 +968,14 @@ const activeWarehouses = computed(() => {
   if (auth.warehouseIds == null) return active
   const allowed = new Set(auth.warehouseIds)
   return active.filter((w) => allowed.has(w.id))
+})
+
+/** Select kengligi tanlangan ombor nomi uzunligiga mos. */
+const warehouseSelectWidth = computed(() => {
+  const selected = activeWarehouses.value.find((w) => w.id === form.warehouseId)?.name
+  const label = selected || t('saleOrderCreate.selectWarehouse')
+  const chars = Array.from(label).length
+  return `${Math.min(42, Math.max(14, chars + 3))}ch`
 })
 
 const clientOptions = computed(() =>
@@ -958,12 +1045,181 @@ const sellerOptions = computed(() =>
 )
 
 const itemKind = ref<'PRODUCT' | 'SERVICE'>('PRODUCT')
+const plainProduct = ref(false)
+const cutSelected = ref<number[]>([])
+
+interface CutPart {
+  id: number
+  categoryId: number
+  width: number
+  height: number
+  count: number
+  priceSelling: number
+}
+
+let cutPartSeq = 0
+const cutParts = ref<CutPart[]>([])
+
+function categorySheets(categoryId: number) {
+  return goods.value.filter(
+    (g) =>
+      isWindow(g) &&
+      g.categoryId === categoryId &&
+      (!g.status || g.status === 'ACTIVE') &&
+      Number(g.width) > 0 &&
+      Number(g.height) > 0,
+  )
+}
+
+const cutCategories = computed(() => {
+  const map = new Map<number, string>()
+  for (const g of goods.value) {
+    if (!isWindow(g) || !g.categoryId) continue
+    if (g.status && g.status !== 'ACTIVE') continue
+    if (!map.has(g.categoryId)) map.set(g.categoryId, g.categoryName || `#${g.categoryId}`)
+  }
+  return [...map.entries()]
+    .map(([id, label]) => ({ id, label }))
+    .sort((a, b) => a.label.localeCompare(b.label, 'uz'))
+})
+
+const selectedCutCategories = computed(() => cutCategories.value.filter((c) => cutSelected.value.includes(c.id)))
+
+function toggleCutCategory(id: number) {
+  cutSelected.value = cutSelected.value.includes(id)
+    ? cutSelected.value.filter((x) => x !== id)
+    : [...cutSelected.value, id]
+}
+
+function categoryStockText(categoryId: number) {
+  const list = categorySheets(categoryId)
+  const kvm = list.reduce((acc, g) => acc + Math.max(remainingStock(g.id), 0), 0)
+  return `${list.length} list · ${qtyWithUnit(kvm, true)}`
+}
+
+/** Chakana oynani kesish: avval listlar, keyin o‘lcham. Oddiy tovar uchun alohida tugma bor. */
+const cuttingMode = computed(() => form.saleType === 'RETAIL')
+
+const showCutComposer = computed(() => cuttingMode.value && itemKind.value === 'PRODUCT' && !plainProduct.value)
+
+function sheetsOf(categoryId: number) {
+  return categorySheets(categoryId)
+}
+
+function partKvm(part: CutPart) {
+  return (Number(part.width || 0) * Number(part.height || 0) * Number(part.count || 0)) / 10000
+}
+
+function onCutCategory(part: CutPart) {
+  const list = sheetsOf(part.categoryId)
+  const primary = list.slice().sort((a, b) => remainingStock(b.id) - remainingStock(a.id))[0]
+  if (primary) part.priceSelling = goodsPriceIn(primary)
+}
+
+function blankCutPart(categoryId: number): CutPart {
+  const part: CutPart = { id: ++cutPartSeq, categoryId, width: 0, height: 0, count: 1, priceSelling: 0 }
+  if (categoryId) onCutCategory(part)
+  return part
+}
+
+function partsOf(categoryId: number) {
+  return cutParts.value.filter((part) => part.categoryId === categoryId)
+}
+
+function removeCutPart(id: number) {
+  cutParts.value = cutParts.value.filter((part) => part.id !== id)
+}
+
+/** Belgilangan oyna turlari o‘lcham qatorini o‘zi ochadi — alohida tanlov yo‘q. */
+watch(
+  () => selectedCutCategories.value.map((c) => c.id).join(','),
+  (signature) => {
+    const ids = signature ? signature.split(',').map(Number) : []
+    const keep = new Set(ids)
+    cutParts.value = cutParts.value.filter((part) => keep.has(part.categoryId))
+    for (const id of ids) {
+      if (!cutParts.value.some((part) => part.categoryId === id)) cutParts.value.push(blankCutPart(id))
+    }
+  },
+)
+
+function addCutPart() {
+  const categoryId = selectedCutCategories.value[selectedCutCategories.value.length - 1]?.id
+  if (!categoryId) return
+  cutParts.value.push(blankCutPart(categoryId))
+}
+
+const canAddCut = computed(() => {
+  if (!headerReady.value || cutParts.value.length === 0) return false
+  return cutParts.value.every((part) => {
+    const list = sheetsOf(part.categoryId)
+    return (
+      list.length > 0 &&
+      Number(part.width) > 0 &&
+      Number(part.height) > 0 &&
+      Number(part.count) > 0 &&
+      Number(part.priceSelling) > 0
+    )
+  })
+})
+
+function onAddCutParts() {
+  if (!canAddCut.value) return
+  itemError.value = null
+  const pending: DraftItem[] = []
+  for (const part of cutParts.value) {
+    const list = sheetsOf(part.categoryId)
+    const kvm = partKvm(part)
+    const enough = list.filter((g) => remainingStock(g.id) + 1e-9 >= kvm)
+    const pool = enough.length ? enough : list
+    const primary = pool.slice().sort((a, b) => remainingStock(b.id) - remainingStock(a.id))[0]
+    if (!primary) {
+      itemError.value = t('saleOrderCreate.cutPickFirst')
+      return
+    }
+    const left = remainingStock(primary.id)
+    if (kvm > left + 1e-9) {
+      itemError.value = t('saleOrderCreate.notEnoughStock', {
+        left: qtyWithUnit(Math.max(left, 0), true),
+        requested: qtyWithUnit(kvm, true),
+      })
+      return
+    }
+    pending.push({
+      key: 0,
+      goodsId: primary.id,
+      goodsName: primary.name,
+      isWindow: true,
+      isService: false,
+      width: Number(part.width),
+      height: Number(part.height),
+      pieces: Number(part.count),
+      count: kvm,
+      priceCost: Number(primary.priceCost || 0),
+      priceSelling: Number(part.priceSelling),
+      cutKerfMm: null,
+      cutAllowRotate: true,
+      cutCandidateGoodsIds: list.map((g) => g.id).join(','),
+      cutCategoryId: part.categoryId,
+    })
+  }
+  for (const row of pending) {
+    row.key = ++draftSeq
+    draftItems.value.push(row)
+  }
+  cutParts.value = selectedCutCategories.value.map((c) => blankCutPart(c.id))
+}
 
 const goodsOptions = computed(() =>
   goods.value
     .filter((g) => (!g.status || g.status === 'ACTIVE') && (hasWarehouseStock(g) || g.id === itemForm.goodsId))
     .filter((g) => (itemKind.value === 'SERVICE') === isService(g))
-    .map((g) => ({ value: g.id, label: g.name })),
+    .map((g) => ({
+      value: g.id,
+      label: isFinishedProduct(g)
+        ? `${g.name} · ${t('goods.types.FINISHED_PRODUCT')}`
+        : g.name,
+    })),
 )
 
 watch(itemKind, () => {
@@ -977,6 +1233,7 @@ const headerReady = computed(
     form.warehouseId > 0 &&
     form.userId > 0 &&
     !!form.orderDate &&
+    !!form.plannedReadyDate &&
     !!form.currency,
 )
 
@@ -1029,10 +1286,11 @@ function pullItemsTotal() {
 const saveBlockReason = computed(() => {
   if (!form.saleType) return t('saleOrderCreate.chooseSaleTypeFirst')
   if (!form.currency) return t('saleOrderCreate.currencyRequired')
+  if (!form.orderDate) return t('saleOrderCreate.orderDateRequired')
+  if (!form.plannedReadyDate) return t('saleOrderCreate.dueDateRequired')
   if (!headerReady.value) return t('saleOrderCreate.selectHeader')
   if (!(form.totalSum > 0)) return t('saleOrderCreate.enterSum')
   if (isForeign.value && !(form.exchangeRate > 0)) return t('saleOrderCreate.rateMissing')
-  if (!isEdit && draftItems.value.length === 0) return t('saleOrderCreate.addAtLeastOne')
   return null
 })
 
@@ -1352,6 +1610,8 @@ function copySelectedItems() {
       priceSelling: row.priceSelling,
       cutKerfMm: row.cutKerfMm,
       cutAllowRotate: row.cutAllowRotate,
+      cutCandidateGoodsIds: row.cutCandidateGoodsIds,
+      cutCategoryId: row.cutCategoryId,
     })
   }
   refreshStockError()
@@ -1391,6 +1651,8 @@ function toDraft(it: SaleOrderItem): DraftItem {
     priceSelling: Number(it.priceSelling || 0),
     cutKerfMm: it.cutKerfMm != null ? Number(it.cutKerfMm) : null,
     cutAllowRotate: it.cutAllowRotate ?? null,
+    cutCandidateGoodsIds: it.cutCandidateGoodsIds || null,
+    cutCategoryId: it.cutCategoryId ?? null,
   }
 }
 
@@ -1404,6 +1666,7 @@ async function fillFromOrder() {
   form.warehouseId = order.warehouseId || 0
   form.userId = order.userId || 0
   form.orderDate = originalOrderDate.slice(0, 10) || todayLocal()
+  form.plannedReadyDate = order.plannedReadyDate?.slice(0, 10) || ''
   form.comment = order.comment || ''
   form.totalSum = Number(order.originalTotalSum ?? order.totalSum ?? 0)
   totalSumText.value = form.totalSum > 0 ? amountToText(form.totalSum) : ''
@@ -1421,6 +1684,9 @@ async function fillFromOrder() {
 watch(
   () => form.orderDate,
   (date) => {
+    if (form.plannedReadyDate && date && form.plannedReadyDate < date) {
+      form.plannedReadyDate = date
+    }
     if (!isEdit || !editOrder.value || date === originalOrderDate.slice(0, 10)) return
     if (manualRate.value === Number(editOrder.value.exchangeRate)) manualRate.value = null
   },
@@ -1436,6 +1702,8 @@ function itemPayload(d: DraftItem): SaleOrderInitialItem {
     height: d.height ?? undefined,
     cutKerfMm: d.cutKerfMm ?? undefined,
     cutAllowRotate: d.cutAllowRotate ?? undefined,
+    cutCandidateGoodsIds: d.cutCandidateGoodsIds || undefined,
+    cutCategoryId: d.cutCategoryId || undefined,
   }
 }
 
@@ -1452,6 +1720,7 @@ async function saveEdit() {
       warehouseId: form.warehouseId,
       userId: form.userId,
       orderDate: sameDay ? originalOrderDate : dateToApi(form.orderDate),
+      plannedReadyDate: form.plannedReadyDate ? `${form.plannedReadyDate}T00:00:00` : null,
       totalSum: form.totalSum,
       clientId: form.clientId,
       comment: form.comment.trim(),
@@ -1503,6 +1772,7 @@ async function onSave() {
       warehouseId: form.warehouseId,
       userId: form.userId,
       orderDate: dateToApi(form.orderDate),
+      plannedReadyDate: form.plannedReadyDate ? `${form.plannedReadyDate}T00:00:00` : null,
       totalSum: form.totalSum,
       clientId: form.clientId,
       comment: form.comment.trim() || undefined,
@@ -1603,8 +1873,23 @@ async function onCreateClient() {
 .title { font-size: 1.125rem; font-weight: 600; color: #1f2937; }
 .sub { margin-top: 0.25rem; font-size: 0.875rem; color: #6b7280; }
 .head { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; padding: 1.25rem 1.25rem 1rem; border-bottom: 1px solid #f3f4f6; }
-.form-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.75rem; }
-.lbl { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.75rem; font-weight: 500; color: #6b7280; }
+.item-form-block { padding: 0.85rem 1.25rem 1rem; }
+.form-row { display: flex; flex-wrap: nowrap; align-items: flex-end; gap: 0.45rem 0.5rem; width: 100%; }
+.lbl { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.75rem; font-weight: 500; color: #6b7280; }
+.kind-inline { flex: 0 0 auto; min-width: 0; }
+.product-pick { flex: 1 1 0; min-width: 12rem; }
+.field-xs { flex: 0 1 5rem; width: 5rem; min-width: 4.25rem; }
+.field-sm { flex: 0 1 6rem; width: 6rem; min-width: 5rem; }
+.field-md { flex: 0 1 8rem; width: 8rem; min-width: 6.5rem; }
+.form-add { flex: 0 0 auto; display: flex; align-items: flex-end; margin-left: auto; }
+.field-xs .field,
+.field-sm .field,
+.field-md .field { padding: 0 0.45rem; font-size: 0.8125rem; }
+/* SearchableSelect (2.75rem) → form .field (2.5rem) bilan teng */
+.form-row :deep(.field-btn) { height: 2.5rem; }
+.form-row .kind-toggle { height: 2.5rem; }
+.form-row .btn { height: 2.5rem; }
+.form-row .field { height: 2.5rem; }
 .client-row { display: flex; align-items: stretch; gap: 0.5rem; }
 .client-row > :first-child { flex: 1; min-width: 0; }
 .client-add { flex-shrink: 0; white-space: nowrap; }
@@ -1612,6 +1897,17 @@ async function onCreateClient() {
 .field:disabled, .field[readonly] { background: #f9fafb; color: #374151; }
 .btn { display: inline-flex; height: 2.5rem; align-items: center; border-radius: 0.5rem; background: #465fff; padding: 0 1.25rem; font-size: 0.875rem; font-weight: 500; color: #fff; white-space: nowrap; }
 .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.cut-compose { margin-top: 0.75rem; border: 1px solid #e4e7ec; border-radius: 0.75rem; padding: 0.85rem 1rem; background: #f8fafc; }
+.cut-note { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; margin: 0 0 0.75rem; font-size: 0.8rem; color: #475467; }
+.cut-step { margin: 0.65rem 0 0.4rem; font-size: 0.8rem; font-weight: 600; color: #344054; }
+.cut-picks { display: flex; flex-direction: column; gap: 0.35rem; max-height: 14rem; overflow: auto; }
+.cut-pick { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: #344054; }
+.cut-pick em { margin-inline-start: auto; font-style: normal; font-size: 0.75rem; color: #667085; }
+.cut-empty { font-size: 0.8rem; color: #667085; }
+.cut-part { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.45rem; margin-bottom: 0.5rem; }
+.cut-part-title { margin: 0.35rem 0 0.2rem; font-size: 0.75rem; font-weight: 600; color: #3538cd; }
+.cut-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.35rem; }
+.cut-plain { height: 2rem; font-size: 0.75rem; }
 .ghost { display: inline-flex; height: 2.5rem; align-items: center; border-radius: 0.5rem; border: 1px solid #d1d5db; padding: 0 0.75rem; font-size: 0.875rem; color: #374151; background: #fff; }
 .ghost:disabled { opacity: 0.55; cursor: not-allowed; }
 .danger { font-size: 0.8125rem; font-weight: 500; color: #dc2626; }
@@ -1649,6 +1945,12 @@ async function onCreateClient() {
 .kind-badge { display: inline-flex; border-radius: 9999px; padding: 0.125rem 0.6rem; font-size: 0.75rem; font-weight: 500; white-space: nowrap; }
 .kind-badge.product { background: #eef2ff; color: #465fff; }
 .kind-badge.service { background: #fff7ed; color: #c2410c; }
+:global(html.dark .cut-compose) { border-color: #374151; background: rgb(255 255 255 / 3%); }
+:global(html.dark .cut-note),
+:global(html.dark .cut-pick),
+:global(html.dark .cut-step) { color: #d0d5dd; }
+:global(html.dark .cut-pick em),
+:global(html.dark .cut-empty) { color: #98a2b3; }
 :global(html.dark .kind-toggle) { border-color: #374151; background: #111827; }
 :global(html.dark .kind-btn.active) { background: #1f2937; color: #a5b4fc; }
 :global(html.dark .kind-badge.product) { background: rgba(70, 95, 255, 0.15); color: #a5b4fc; }
@@ -1661,17 +1963,47 @@ async function onCreateClient() {
 :global(html.dark .pull-total-btn) { border-color: rgba(70, 95, 255, 0.4); background: rgba(70, 95, 255, 0.15); color: #a5b4fc; }
 .total-hint { font-size: 0.75rem; color: #6b7280; }
 .textarea-field { height: auto; min-height: 4rem; padding: 0.6rem 0.75rem; resize: vertical; line-height: 1.4; }
-.delivery-toggle { width: 100%; min-width: 0; }
-.delivery-toggle .type-btn { height: auto; min-height: 2.5rem; padding: 0.35rem 0.6rem; font-size: 0.75rem; line-height: 1.2; white-space: normal; text-align: center; }
-.step-head { display: flex; align-items: center; gap: 0.625rem; margin-bottom: 0.75rem; }
+.delivery-toggle { width: 100%; min-width: 0; height: 2.5rem; box-sizing: border-box; padding: 0.2rem; align-items: stretch; }
+.delivery-toggle .type-btn {
+  height: 100%;
+  min-height: 0;
+  padding: 0 0.5rem;
+  font-size: 0.75rem;
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+}
+.details-grid .total-field { height: 2.5rem; font-size: 0.875rem; }
+.details-grid .pull-total-btn { height: 2.5rem; width: 2.5rem; }
+.details-grid .total-row { align-items: center; }
+.step-head { display: flex; align-items: center; gap: 0.625rem; margin: 0; flex-shrink: 0; }
 .step-num { display: inline-flex; height: 1.5rem; width: 1.5rem; flex-shrink: 0; align-items: center; justify-content: center; border-radius: 9999px; background: #eff4ff; font-size: 0.75rem; font-weight: 700; color: #465fff; }
 .step-num.done { background: #465fff; color: #fff; }
-.step-title { font-size: 0.9375rem; font-weight: 600; color: #1f2937; }
+.step-title { font-size: 0.9375rem; font-weight: 600; color: #1f2937; white-space: nowrap; }
 .dark .step-num { background: rgb(70 95 255 / 15%); color: #9cb0ff; }
 .dark .step-num.done { background: #465fff; color: #fff; }
 .dark .step-title { color: rgba(255, 255, 255, 0.9); }
 .type-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1rem; }
-.type-toggle { display: inline-grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.25rem; border-radius: 0.75rem; background: #f2f4f7; padding: 0.25rem; min-width: min(100%, 20rem); }
+.type-row-main {
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 0.5rem 0.65rem;
+}
+.type-row-main .type-toggle {
+  flex: 0 1 auto;
+  min-width: 0;
+  width: auto;
+}
+.type-row-main .cur-toggle { min-width: 0; }
+.type-row-main .type-btn {
+  padding: 0 0.7rem;
+  font-size: 0.8125rem;
+  gap: 0.35rem;
+}
+.type-toggle { display: inline-grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.25rem; border-radius: 0.75rem; background: #f2f4f7; padding: 0.25rem; min-width: min(100%, 16rem); }
 .type-btn { display: inline-flex; height: 2.5rem; align-items: center; justify-content: center; gap: 0.5rem; border-radius: 0.5rem; padding: 0 1.25rem; font-size: 0.875rem; font-weight: 600; color: #667085; white-space: nowrap; transition: background-color 0.15s, color 0.15s, box-shadow 0.15s; }
 .type-btn:hover:not(:disabled):not(.active) { color: #344054; background: rgb(255 255 255 / 60%); }
 .type-btn.active { background: #fff; color: #465fff; box-shadow: 0 1px 3px rgba(16, 24, 40, 0.12); }
@@ -1681,6 +2013,13 @@ async function onCreateClient() {
 .cur-toggle { min-width: min(100%, 16rem); }
 .seller-inline { display: flex; align-items: center; gap: 0.5rem; flex: 1 1 18rem; min-width: min(100%, 16rem); margin: 0; font-size: 0.8125rem; font-weight: 600; color: #344054; }
 .seller-inline .field { flex: 1; min-width: 0; }
+.seller-compact {
+  flex: 0 0 14rem !important;
+  width: 14rem;
+  min-width: 14rem;
+  max-width: 14rem;
+  margin-left: auto;
+}
 .type-empty { margin-top: 1.25rem; display: flex; align-items: center; gap: 0.75rem; border-radius: 0.75rem; border: 1px dashed #d0d5dd; background: #f9fafb; padding: 1rem 1.25rem; font-size: 0.875rem; color: #667085; }
 .type-empty-icon { display: flex; height: 2.25rem; width: 2.25rem; flex-shrink: 0; align-items: center; justify-content: center; border-radius: 9999px; background: #fff; color: #98a2b3; box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06); }
 .dark .type-toggle { background: rgb(255 255 255 / 5%); }
@@ -1694,6 +2033,29 @@ async function onCreateClient() {
 .details-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; }
 .details-grid > * { min-width: 0; }
 .details-grid .span-2 { grid-column: span 2 / span 2; }
+.details-grid .field { height: 2.5rem; }
+.details-grid :deep(.field-btn) { height: 2.5rem; }
+.details-grid .client-add { height: 2.5rem; }
+.warehouse-compact { flex: 0 0 auto; width: auto; max-width: min(100%, 28rem); margin: 0; }
+.warehouse-compact .field {
+  max-width: 100%;
+  min-width: 0;
+  height: 2.5rem;
+  padding-inline: 0.65rem 1.75rem;
+}
+.type-row-main .seller-compact {
+  margin-left: auto;
+  order: 99; /* doim o‘ng chetda */
+}
+.type-row-main .seller-compact .field { height: 2.5rem; width: 100%; }
+@media (max-width: 1100px) {
+  .type-row-main { flex-wrap: wrap; }
+  .type-row-main .seller-compact {
+    order: 99;
+    margin-left: auto;
+    flex: 0 0 14rem !important;
+  }
+}
 .details-notes { margin-top: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.25rem 1.5rem; }
 .reveal-enter-active { transition: opacity 0.2s ease, transform 0.2s ease; }
 .reveal-enter-from { opacity: 0; transform: translateY(-0.375rem); }
@@ -1703,7 +2065,14 @@ async function onCreateClient() {
 @media (max-width: 640px) {
   .details-grid { grid-template-columns: 1fr; }
   .details-grid .span-2 { grid-column: auto; }
-  .type-toggle, .seller-inline { width: 100%; }
+  .type-toggle, .warehouse-compact { width: 100%; max-width: none; }
+  .type-row-main .seller-compact {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    flex: 1 1 100% !important;
+    margin-left: 0;
+  }
 }
 .btn.wholesale-btn { background: #12b76a; }
 .btn.wholesale-btn:hover:not(:disabled) { background: #039855; }
@@ -1729,8 +2098,13 @@ async function onCreateClient() {
 .dark .save-warn { color: #fbbf24; }
 .overlay { position: fixed; inset: 0; z-index: 99999; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.4); padding: 1rem; }
 .modal { width: 100%; max-width: 28rem; border-radius: 1rem; background: #fff; padding: 1.25rem; }
+@media (max-width: 1024px) {
+  .form-row { flex-wrap: wrap; }
+  .product-pick { flex: 1 1 100%; min-width: 0; }
+  .form-add { margin-left: 0; }
+}
 @media (max-width: 640px) {
-  .form-row > * { flex: 1 1 100%; }
+  .form-row > * { flex: 1 1 100%; width: auto; }
   .client-row { flex-direction: column; }
 }
 </style>

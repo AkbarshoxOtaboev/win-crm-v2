@@ -63,6 +63,15 @@ public class SaleOrderItemResponse {
     @Schema(description = "Oyna kesish: 90° burish mumkinmi; null - mumkin")
     private Boolean cutAllowRotate;
 
+    @Schema(description = "Foydali qoldiqning minimal tomoni, sm")
+    private BigDecimal cutMinRemnantCm;
+
+    @Schema(description = "Kesishda tanlanishi mumkin bo'lgan listlar")
+    private String cutCandidateGoodsIds;
+
+    @Schema(description = "Kesish kategoriyasi")
+    private Long cutCategoryId;
+
     @Schema(description = "Product arrival date and time")
     private LocalDateTime arrivalDate;
 

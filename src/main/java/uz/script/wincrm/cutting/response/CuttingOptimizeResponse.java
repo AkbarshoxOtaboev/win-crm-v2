@@ -13,6 +13,12 @@ public class CuttingOptimizeResponse {
     private Long warehouseId;
     private String warehouseName;
     private boolean optimized;
+    private BigDecimal kerfMm;
+    private BigDecimal minRemnantCm;
+    private BigDecimal minRemnantWidthCm;
+    private BigDecimal minRemnantHeightCm;
+    /** REMNANT yoki SHEET. */
+    private String source;
     private List<Line> lines;
     private List<RemnantStock> remnants;
 
@@ -26,18 +32,44 @@ public class CuttingOptimizeResponse {
         private BigDecimal height;
         private Integer count;
         private BigDecimal kerfMm;
+        private BigDecimal minRemnantCm;
         private Boolean allowRotate;
         private Integer sheetQuantity;
+        private List<Long> candidateGoodsIds;
+        private List<SheetOption> candidates;
+        private List<SheetUse> sheetUses;
         private List<SavedPick> picks;
+    }
+
+    @Getter
+    @Builder
+    public static class SheetOption {
+        private Long goodsId;
+        private String goodsName;
+        private BigDecimal width;
+        private BigDecimal height;
+    }
+
+    @Getter
+    @Builder
+    public static class SheetUse {
+        private Long goodsId;
+        private String goodsName;
+        private BigDecimal width;
+        private BigDecimal height;
+        private Integer quantity;
     }
 
     @Getter
     @Builder
     public static class SavedPick {
         private Long remnantId;
+        private Long goodsId;
         private Integer quantity;
         private BigDecimal width;
         private BigDecimal height;
+        /** Omborda hali yo'q: shu buyurtma kesishidan chiqadigan qoldiq. */
+        private boolean planned;
     }
 
     @Getter
@@ -49,5 +81,7 @@ public class CuttingOptimizeResponse {
         private BigDecimal width;
         private BigDecimal height;
         private Integer pieceCount;
+        private String warehouseName;
+        private Long sourceSaleOrderId;
     }
 }

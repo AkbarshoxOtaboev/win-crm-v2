@@ -15,6 +15,7 @@ import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.SQLRestriction;
 import uz.script.wincrm.filial.FilialScopedEntity;
+import uz.script.wincrm.goods.Goods;
 import uz.script.wincrm.sale.SaleOrder;
 import uz.script.wincrm.sale.SaleOrderItem;
 import uz.script.wincrm.utils.TableName;
@@ -50,6 +51,11 @@ public class CuttingAllocation extends FilialScopedEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "remnant_id")
     private GlassRemnant remnant;
+
+    /** Butun list qaysi oyna mahsulotidan kesilgani. Bo'sh bo'lsa — qatorning o'zi. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "sheet_goods_id")
+    private Goods sheetGoods;
 
     /** Shu manbadan olinadigan buyurtma donalari. */
     @Column(nullable = false)
