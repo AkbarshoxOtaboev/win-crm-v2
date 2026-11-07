@@ -1,6 +1,6 @@
 export default {
   uz: {
-    title: 'Savdo #{id}',
+    title: 'Savdo {no}',
     titleFallback: 'Savdo',
     debt: 'Qarz',
     paid: 'To‘langan',
@@ -132,7 +132,7 @@ export default {
     deleteWasteConfirm: 'Chiqindi o‘chirilsinmi?',
   },
   ru: {
-    title: 'Заказ #{id}',
+    title: 'Заказ {no}',
     titleFallback: 'Заказ',
     debt: 'Долг',
     paid: 'Оплачено',
@@ -264,7 +264,7 @@ export default {
     deleteWasteConfirm: 'Удалить отходы?',
   },
   en: {
-    title: 'Order #{id}',
+    title: 'Order {no}',
     titleFallback: 'Order',
     debt: 'Debt',
     paid: 'Paid',

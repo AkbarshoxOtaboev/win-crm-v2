@@ -1,5 +1,6 @@
 export default {
   uz: {
+    orderNo: 'Ish nomer',
     newSale: '+ Yangi savdo',
     allStatuses: 'Barcha holatlar',
     wholesale: 'Optom',
@@ -17,6 +18,7 @@ export default {
     cancelNotAllowed: 'Bu holatdagi buyurtmani bekor qilib bo‘lmaydi',
   },
   ru: {
+    orderNo: 'Заказ',
     newSale: '+ Новый заказ',
     allStatuses: 'Все статусы',
     wholesale: 'Опт',
@@ -34,6 +36,7 @@ export default {
     cancelNotAllowed: 'Заказ в этом статусе нельзя отменить',
   },
   en: {
+    orderNo: 'Order',
     newSale: '+ New sale',
     allStatuses: 'All statuses',
     wholesale: 'Wholesale',

@@ -75,6 +75,9 @@ export interface CuttingPayload {
   minRemnantCm?: number
   minRemnantWidthCm?: number
   minRemnantHeightCm?: number
+  maxScrapPercent?: number
+  wasteWidthCm?: number
+  wasteHeightCm?: number
 }
 
 export function calculateCutting(body: CuttingPayload) {
@@ -161,6 +164,9 @@ export function suggestCuttingOptimize(
     minRemnantHeightCm?: number
     source?: 'REMNANT' | 'SHEET'
     allowRotate?: boolean
+    maxScrapPercent?: number
+    wasteWidthCm?: number
+    wasteHeightCm?: number
   },
 ) {
   return apiRequest<RestApiResponse<OptimizePlan>>(`/api/cutting/optimize/${saleOrderId}/suggest`, {
@@ -181,6 +187,29 @@ export function deleteGlassRemnants(ids: number[]) {
   return apiRequest<void>('/api/cutting/remnants/delete', {
     method: 'POST',
     body: { ids },
+  })
+}
+
+export interface ManualLayout {
+  layout: string | null
+  savedAt?: string | null
+  hasPrevious: boolean
+}
+
+export function fetchManualLayout(saleOrderId: number) {
+  return apiRequest<RestApiResponse<ManualLayout>>(`/api/cutting/optimize/${saleOrderId}/manual`)
+}
+
+export function saveManualLayout(saleOrderId: number, layout: string) {
+  return apiRequest<RestApiResponse<ManualLayout>>(`/api/cutting/optimize/${saleOrderId}/manual`, {
+    method: 'PUT',
+    body: { layout },
+  })
+}
+
+export function restoreManualLayout(saleOrderId: number) {
+  return apiRequest<RestApiResponse<ManualLayout>>(`/api/cutting/optimize/${saleOrderId}/manual/restore`, {
+    method: 'POST',
   })
 }
 

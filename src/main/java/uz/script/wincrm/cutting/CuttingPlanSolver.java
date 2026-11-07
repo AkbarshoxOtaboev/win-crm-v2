@@ -68,7 +68,7 @@ public final class CuttingPlanSolver {
             BigDecimal edgeCm,
             boolean allowRotate
     ) {
-        return plan(demands, sheets, remnants, kerfMm, edgeCm, edgeCm, allowRotate, true);
+        return plan(demands, sheets, remnants, kerfMm, edgeCm, edgeCm, allowRotate, true, Limits.none());
     }
 
     /**
@@ -85,6 +85,42 @@ public final class CuttingPlanSolver {
             BigDecimal edgeHeightCm,
             boolean allowRotate,
             boolean fromRemnant
+    ) {
+        return plan(demands, sheets, remnants, kerfMm, edgeWidthCm, edgeHeightCm, allowRotate, fromRemnant, Limits.none());
+    }
+
+    /**
+     * @param maxScrapPercent to'liq listdagi chiqindi shu foizdan oshmasin; bo'sh bo'lsa cheklov yo'q
+     * @param wasteWidthCm    yaroqsiz tasma eni, sm
+     * @param wasteHeightCm   yaroqsiz tasma bo'yi, sm. Ingichka tomoni shundan oshmasa, boshqa list yoki burilish olinadi
+     */
+    public static List<Assignment> plan(
+            List<Demand> demands,
+            List<SheetChoice> sheets,
+            List<StockRemnant> remnants,
+            BigDecimal kerfMm,
+            BigDecimal edgeWidthCm,
+            BigDecimal edgeHeightCm,
+            boolean allowRotate,
+            boolean fromRemnant,
+            BigDecimal maxScrapPercent,
+            BigDecimal wasteWidthCm,
+            BigDecimal wasteHeightCm
+    ) {
+        return plan(demands, sheets, remnants, kerfMm, edgeWidthCm, edgeHeightCm, allowRotate, fromRemnant,
+                new Limits(maxScrapPercent, wasteWidthCm, wasteHeightCm));
+    }
+
+    private static List<Assignment> plan(
+            List<Demand> demands,
+            List<SheetChoice> sheets,
+            List<StockRemnant> remnants,
+            BigDecimal kerfMm,
+            BigDecimal edgeWidthCm,
+            BigDecimal edgeHeightCm,
+            boolean allowRotate,
+            boolean fromRemnant,
+            Limits limits
     ) {
         if (sheets == null || sheets.isEmpty()) {
             throw new BadRequestException("Kesish uchun list o'lchami yo'q");
@@ -106,56 +142,63 @@ public final class CuttingPlanSolver {
             }
         }
         List<Event> events = new ArrayList<>();
-        int guard = 0;
-        while (remaining(states) > 0) {
-            if (++guard > 10_000) {
-                throw new BadRequestException("Kesish rejasi juda katta");
-            }
-            if (fromRemnant && fillFromPool(states, sheets, pool, events, kerfMm, edgeWidthCm, edgeHeightCm, allowRotate)) {
-                continue;
-            }
-            if (!openSheet(states, sheets, pool, events, kerfMm, edgeWidthCm, edgeHeightCm, allowRotate)) {
-                DemandState stuck = states.values().stream().filter(s -> s.left > 0).findFirst().orElseThrow();
-                throw new BadRequestException("Bo'lak " + fmt(stuck.pw) + "×" + fmt(stuck.ph) + " sm tanlangan listlarga sig'maydi");
+        // Har bir o'lcham ketma-ket: avval oldingi foydali qoldiqlar, keyin yangi list.
+        for (DemandState demand : states.values()) {
+            int guard = 0;
+            while (demand.left > 0) {
+                if (++guard > 10_000) {
+                    throw new BadRequestException("Kesish rejasi juda katta");
+                }
+                if (fromRemnant && fillDemandFromPool(demand, sheets, pool, events, kerfMm, edgeWidthCm, edgeHeightCm, allowRotate, limits)) {
+                    continue;
+                }
+                if (!openSheetFor(demand, states, sheets, pool, events, kerfMm, edgeWidthCm, edgeHeightCm, allowRotate, limits)) {
+                    throw new BadRequestException("Bo'lak " + fmt(demand.pw) + "×" + fmt(demand.ph) + " sm tanlangan listlarga sig'maydi");
+                }
             }
         }
         return toAssignments(states, events);
     }
 
-    /** Qoldiqdan olishda kichikroq o'lcham birinchi — katta bo'lak yangi listda qoladi. */
-    private static boolean fillFromPool(
-            Map<Long, DemandState> states,
+    /**
+     * Shu o'lchamni mavjud foydali qoldiqlardan to'ldiradi.
+     * Buyurtma ichida chiqqan qoldiq (remnantId=null) har doim ishlatiladi.
+     * Ombordagi qoldiqdan olinganda katta chiqindi qolsa va toza list bo'lsa, o'tkazib yuboriladi.
+     */
+    private static boolean fillDemandFromPool(
+            DemandState demand,
             List<SheetChoice> sheets,
             List<Rect> pool,
             List<Event> events,
             BigDecimal kerfMm,
             BigDecimal edgeWidthCm,
             BigDecimal edgeHeightCm,
-            boolean allowRotate
+            boolean allowRotate,
+            Limits limits
     ) {
+        if (demand.left < 1) {
+            return false;
+        }
         Choice best = null;
         for (Rect rect : pool) {
-            if (rect.available < 1) {
+            if (rect.available < 1 || samePiece(rect.blockW, rect.blockH, demand.pw, demand.ph)) {
                 continue;
             }
-            for (DemandState demand : states.values()) {
-                if (demand.left < 1 || samePiece(rect.blockW, rect.blockH, demand.pw, demand.ph)) {
-                    continue;
-                }
-                int per = perSheet(rect.w, rect.h, demand, kerfMm, edgeWidthCm, edgeHeightCm, allowRotate);
-                if (per < 1) {
-                    continue;
-                }
-                int place = Math.min(demand.left, per);
-                CuttingResultResponse laid = cut(rect.w, rect.h, demand, place, kerfMm, edgeWidthCm, edgeHeightCm, allowRotate);
-                if (oversizedArea(laid).signum() > 0
-                        && hasCleanSheet(sheets, demand, kerfMm, edgeWidthCm, edgeHeightCm, allowRotate)) {
-                    continue;
-                }
-                Choice choice = new Choice(rect, demand, place, demand.pw.multiply(demand.ph), rect.w.multiply(rect.h));
-                if (best == null || betterRemnant(choice, best)) {
-                    best = choice;
-                }
+            int per = perSheet(rect.w, rect.h, demand, kerfMm, edgeWidthCm, edgeHeightCm, allowRotate, limits);
+            if (per < 1) {
+                continue;
+            }
+            int place = Math.min(demand.left, per);
+            CuttingResultResponse laid = cut(rect.w, rect.h, demand, place, kerfMm, edgeWidthCm, edgeHeightCm, allowRotate, limits);
+            // Faqat ombor qoldig'ida: katta chiqindi + toza list bo'lsa o'tkaz.
+            if (rect.remnantId != null
+                    && oversizedArea(laid).signum() > 0
+                    && hasCleanSheet(sheets, demand, kerfMm, edgeWidthCm, edgeHeightCm, allowRotate, limits)) {
+                continue;
+            }
+            Choice choice = new Choice(rect, demand, place, demand.pw.multiply(demand.ph), rect.w.multiply(rect.h));
+            if (best == null || betterRemnant(choice, best)) {
+                best = choice;
             }
         }
         if (best == null) {
@@ -168,7 +211,7 @@ public final class CuttingPlanSolver {
                 best.demand.id, null, best.rect.remnantId, best.rect.goodsId,
                 best.rect.w, best.rect.h, best.place, planned
         ));
-        addUseful(pool, best.rect.goodsId, best.demand, cut(best.rect.w, best.rect.h, best.demand, best.place, kerfMm, edgeWidthCm, edgeHeightCm, allowRotate));
+        addUseful(pool, best.rect.goodsId, best.demand, cut(best.rect.w, best.rect.h, best.demand, best.place, kerfMm, edgeWidthCm, edgeHeightCm, allowRotate, limits));
         return true;
     }
 
@@ -183,7 +226,8 @@ public final class CuttingPlanSolver {
         return choice.rectArea.compareTo(best.rectArea) < 0;
     }
 
-    private static boolean openSheet(
+    private static boolean openSheetFor(
+            DemandState demand,
             Map<Long, DemandState> states,
             List<SheetChoice> sheets,
             List<Rect> pool,
@@ -191,30 +235,32 @@ public final class CuttingPlanSolver {
             BigDecimal kerfMm,
             BigDecimal edgeWidthCm,
             BigDecimal edgeHeightCm,
-            boolean allowRotate
+            boolean allowRotate,
+            Limits limits
     ) {
+        if (demand.left < 1) {
+            return false;
+        }
         Open best = null;
         for (SheetChoice sheet : sheets) {
             if (!positive(sheet.width()) || !positive(sheet.height())) {
                 continue;
             }
-            for (DemandState demand : states.values()) {
-                if (demand.left < 1) {
-                    continue;
-                }
-                int per = perSheet(sheet.width(), sheet.height(), demand, kerfMm, edgeWidthCm, edgeHeightCm, allowRotate);
-                if (per < 1) {
-                    continue;
-                }
-                int place = Math.min(demand.left, per);
-                CuttingResultResponse laid = cut(sheet.width(), sheet.height(), demand, place, kerfMm, edgeWidthCm, edgeHeightCm, allowRotate);
-                BigDecimal primary = demand.pw.multiply(demand.ph).multiply(BigDecimal.valueOf(place));
-                BigDecimal bonus = bonusArea(sheet, demand, place, states, kerfMm, edgeWidthCm, edgeHeightCm, allowRotate);
-                BigDecimal sheetArea = sheet.width().multiply(sheet.height());
-                Open open = new Open(sheet, demand, place, primary, bonus, sheetArea, oversizedArea(laid));
-                if (best == null || betterSheet(open, best)) {
-                    best = open;
-                }
+            int per = perSheet(sheet.width(), sheet.height(), demand, kerfMm, edgeWidthCm, edgeHeightCm, allowRotate, limits);
+            if (per < 1) {
+                continue;
+            }
+            int place = Math.min(demand.left, per);
+            CuttingResultResponse laid = cut(sheet.width(), sheet.height(), demand, place, kerfMm, edgeWidthCm, edgeHeightCm, allowRotate, limits);
+            CuttingResultResponse scored = place == per
+                    ? laid
+                    : cut(sheet.width(), sheet.height(), demand, per, kerfMm, edgeWidthCm, edgeHeightCm, allowRotate, limits);
+            BigDecimal primary = demand.pw.multiply(demand.ph).multiply(BigDecimal.valueOf(place));
+            BigDecimal bonus = bonusArea(sheet, demand, place, states, kerfMm, edgeWidthCm, edgeHeightCm, allowRotate, limits);
+            BigDecimal sheetArea = sheet.width().multiply(sheet.height());
+            Open open = new Open(sheet, demand, place, primary, bonus, sheetArea, oversizedArea(laid), accepts(scored, limits));
+            if (best == null || betterSheet(open, best)) {
+                best = open;
             }
         }
         if (best == null) {
@@ -225,22 +271,26 @@ public final class CuttingPlanSolver {
                 best.demand.id, best.sheet.goodsId(), null, best.sheet.goodsId(),
                 best.sheet.width(), best.sheet.height(), best.place, false
         ));
-        addUseful(pool, best.sheet.goodsId(), best.demand, cut(best.sheet.width(), best.sheet.height(), best.demand, best.place, kerfMm, edgeWidthCm, edgeHeightCm, allowRotate));
+        addUseful(pool, best.sheet.goodsId(), best.demand, cut(best.sheet.width(), best.sheet.height(), best.demand, best.place, kerfMm, edgeWidthCm, edgeHeightCm, allowRotate, limits));
         return true;
     }
 
     private static boolean betterSheet(Open open, Open best) {
-        int oversized = open.oversized.compareTo(best.oversized);
-        if (oversized != 0) {
-            return oversized < 0;
+        if (open.acceptable != best.acceptable) {
+            return open.acceptable;
         }
         int primary = open.primary.compareTo(best.primary);
         if (primary != 0) {
             return primary > 0;
         }
+        // Keyingi o'lchamlarga foydali qoldiq qoldiradigan list ustun.
         int bonus = open.bonus.compareTo(best.bonus);
         if (bonus != 0) {
             return bonus > 0;
+        }
+        int oversized = open.oversized.compareTo(best.oversized);
+        if (oversized != 0) {
+            return oversized < 0;
         }
         return open.sheetArea.compareTo(best.sheetArea) < 0;
     }
@@ -254,9 +304,10 @@ public final class CuttingPlanSolver {
             BigDecimal kerfMm,
             BigDecimal edgeWidthCm,
             BigDecimal edgeHeightCm,
-            boolean allowRotate
+            boolean allowRotate,
+            Limits limits
     ) {
-        CuttingResultResponse result = cut(sheet.width(), sheet.height(), primary, place, kerfMm, edgeWidthCm, edgeHeightCm, allowRotate);
+        CuttingResultResponse result = cut(sheet.width(), sheet.height(), primary, place, kerfMm, edgeWidthCm, edgeHeightCm, allowRotate, limits);
         List<Rect> temp = new ArrayList<>();
         addUseful(temp, sheet.goodsId(), primary, result);
         Map<Long, Integer> left = new LinkedHashMap<>();
@@ -283,7 +334,7 @@ public final class CuttingPlanSolver {
                     if (qty < 1 || samePiece(rect.blockW, rect.blockH, demand.pw, demand.ph)) {
                         continue;
                     }
-                    int per = perSheet(rect.w, rect.h, demand, kerfMm, edgeWidthCm, edgeHeightCm, allowRotate);
+                    int per = perSheet(rect.w, rect.h, demand, kerfMm, edgeWidthCm, edgeHeightCm, allowRotate, limits);
                     if (per < 1) {
                         continue;
                     }
@@ -329,7 +380,8 @@ public final class CuttingPlanSolver {
             BigDecimal kerfMm,
             BigDecimal edgeWidthCm,
             BigDecimal edgeHeightCm,
-            boolean allowRotate
+            boolean allowRotate,
+            Limits limits
     ) {
         if (sheets == null) {
             return false;
@@ -338,12 +390,12 @@ public final class CuttingPlanSolver {
             if (!positive(sheet.width()) || !positive(sheet.height())) {
                 continue;
             }
-            int per = perSheet(sheet.width(), sheet.height(), demand, kerfMm, edgeWidthCm, edgeHeightCm, allowRotate);
+            int per = perSheet(sheet.width(), sheet.height(), demand, kerfMm, edgeWidthCm, edgeHeightCm, allowRotate, limits);
             if (per < 1) {
                 continue;
             }
             int place = Math.min(demand.left, per);
-            CuttingResultResponse laid = cut(sheet.width(), sheet.height(), demand, place, kerfMm, edgeWidthCm, edgeHeightCm, allowRotate);
+            CuttingResultResponse laid = cut(sheet.width(), sheet.height(), demand, place, kerfMm, edgeWidthCm, edgeHeightCm, allowRotate, limits);
             if (oversizedArea(laid).signum() == 0) {
                 return true;
             }
@@ -358,10 +410,11 @@ public final class CuttingPlanSolver {
             BigDecimal kerfMm,
             BigDecimal edgeWidthCm,
             BigDecimal edgeHeightCm,
-            boolean allowRotate
+            boolean allowRotate,
+            Limits limits
     ) {
         try {
-            return cut(sheetWidth, sheetHeight, demand, 1, kerfMm, edgeWidthCm, edgeHeightCm, allowRotate).getPerSheet();
+            return cut(sheetWidth, sheetHeight, demand, 1, kerfMm, edgeWidthCm, edgeHeightCm, allowRotate, limits).getPerSheet();
         } catch (BadRequestException ex) {
             return 0;
         }
@@ -375,7 +428,8 @@ public final class CuttingPlanSolver {
             BigDecimal kerfMm,
             BigDecimal edgeWidthCm,
             BigDecimal edgeHeightCm,
-            boolean allowRotate
+            boolean allowRotate,
+            Limits limits
     ) {
         return CuttingCalculator.calculate(new CuttingInput(
                 sheetWidth,
@@ -387,8 +441,26 @@ public final class CuttingPlanSolver {
                 allowRotate,
                 edgeWidthCm,
                 edgeWidthCm,
-                edgeHeightCm
+                edgeHeightCm,
+                limits.maxScrap,
+                limits.wasteW,
+                limits.wasteH
         ));
+    }
+
+    private static boolean accepts(CuttingResultResponse laid, Limits limits) {
+        if (!limits.active()) {
+            return true;
+        }
+        List<Remnant> remnants = new ArrayList<>();
+        if (laid.getSheets() != null) {
+            for (SheetLayout layout : laid.getSheets()) {
+                if (layout.getRemnants() != null) {
+                    remnants.addAll(layout.getRemnants());
+                }
+            }
+        }
+        return WasteLimit.accepts(laid.getScrapPercent(), remnants, limits.maxScrap, limits.wasteW, limits.wasteH);
     }
 
     private static void addUseful(List<Rect> pool, long goodsId, DemandState source, CuttingResultResponse result) {
@@ -497,7 +569,17 @@ public final class CuttingPlanSolver {
     private record Choice(Rect rect, DemandState demand, int place, BigDecimal pieceArea, BigDecimal rectArea) {
     }
 
-    private record Open(SheetChoice sheet, DemandState demand, int place, BigDecimal primary, BigDecimal bonus, BigDecimal sheetArea, BigDecimal oversized) {
+    private record Open(SheetChoice sheet, DemandState demand, int place, BigDecimal primary, BigDecimal bonus, BigDecimal sheetArea, BigDecimal oversized, boolean acceptable) {
+    }
+
+    private record Limits(BigDecimal maxScrap, BigDecimal wasteW, BigDecimal wasteH) {
+        static Limits none() {
+            return new Limits(null, null, null);
+        }
+
+        boolean active() {
+            return WasteLimit.active(maxScrap, wasteW, wasteH);
+        }
     }
 
     private record Event(

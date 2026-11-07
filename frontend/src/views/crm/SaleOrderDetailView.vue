@@ -3,7 +3,7 @@
     <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
       <div class="flex min-w-0 flex-wrap items-center gap-2.5">
         <h2 class="text-xl font-semibold text-gray-800 dark:text-white/90">
-          {{ order ? t('saleOrderDetail.title', { id: order.id }) : t('saleOrderDetail.titleFallback') }}
+          {{ order ? t('saleOrderDetail.title', { no: order.orderNumber || order.id }) : t('saleOrderDetail.titleFallback') }}
         </h2>
         <router-link
           v-if="order?.clientFullName && order.clientId"
@@ -42,7 +42,7 @@
               <span class="text-sm text-gray-400">/</span>
             </li>
             <li class="text-sm text-gray-800 dark:text-white/90">
-              {{ order ? t('saleOrderDetail.title', { id: order.id }) : t('saleOrderDetail.titleFallback') }}
+              {{ order ? t('saleOrderDetail.title', { no: order.orderNumber || order.id }) : t('saleOrderDetail.titleFallback') }}
             </li>
           </ol>
         </nav>
@@ -218,43 +218,63 @@
           {{ t('saleOrderCreate.deliveryFee') }}: <b>{{ amt(order.deliveryFee || 0) }}</b>
         </span>
       </div>
+      <div class="overflow-x-auto">
       <table class="min-w-full">
         <thead>
           <tr class="border-b border-gray-100 dark:border-gray-800">
-            <th class="th">{{ t('common.product') }}</th><th class="th">{{ t('common.count') }}</th><th class="th">{{ t('saleOrderDetail.weight') }}</th><th class="th">{{ t('saleOrderDetail.selling') }}</th><th class="th">{{ t('saleOrderDetail.lineSum') }}</th><th class="th">{{ t('common.date') }}</th>
+            <th class="th">#</th>
+            <th class="th">{{ t('common.product') }}</th>
+            <th class="th">{{ t('saleOrderCreate.itemType') }}</th>
+            <th class="th">{{ t('saleOrderCreate.width') }}</th>
+            <th class="th">{{ t('saleOrderCreate.height') }}</th>
+            <th class="th">{{ t('common.count') }}</th>
+            <th class="th">{{ t('saleOrderCreate.kvm') }}</th>
+            <th class="th">{{ t('saleOrderDetail.selling') }}</th>
+            <th class="th">{{ t('saleOrderDetail.lineSum') }}</th>
+            <th class="th">{{ t('saleOrderCreate.weight') }}</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-if="items.length === 0"><td colspan="6" class="empty">{{ t('saleOrderDetail.noItems') }}</td></tr>
-          <tr v-for="it in items" :key="it.id" class="border-b border-gray-100 dark:border-gray-800">
-            <td class="td">{{ it.goodsName || it.goodsId }}</td>
-            <td class="td">{{ itemQtyText(it) }}</td>
-            <td class="td whitespace-nowrap">{{ formatKg(it.weightKg) }}</td>
+          <tr v-if="items.length === 0"><td colspan="10" class="empty">{{ t('saleOrderDetail.noItems') }}</td></tr>
+          <tr v-for="(it, idx) in items" :key="it.id" class="border-b border-gray-100 dark:border-gray-800">
+            <td class="td">{{ idx + 1 }}</td>
+            <td class="td">{{ itemProductLabel(it) }}</td>
+            <td class="td">
+              <span class="kind-badge" :class="isServiceGoodsId(it.goodsId) ? 'service' : 'product'">
+                {{ isServiceGoodsId(it.goodsId) ? t('saleOrderCreate.kindService') : t('saleOrderCreate.kindProduct') }}
+              </span>
+            </td>
+            <td class="td">{{ isWindowGoodsId(it.goodsId) ? formatQty(it.width) : '—' }}</td>
+            <td class="td">{{ isWindowGoodsId(it.goodsId) ? formatQty(it.height) : '—' }}</td>
+            <td class="td">{{ formatInt(itemPieces(it)) }}</td>
+            <td class="td">{{ isWindowGoodsId(it.goodsId) ? formatQty(it.count) : '—' }}</td>
             <td class="td">{{ amt(it.priceSelling) }}</td>
             <td class="td font-medium text-gray-800 dark:text-white/90">{{ amt(lineSum(it)) }}</td>
-            <td class="td">{{ formatDate(it.arrivalDate) }}</td>
+            <td class="td whitespace-nowrap">{{ formatKg(it.weightKg) }}</td>
           </tr>
         </tbody>
         <tfoot v-if="items.length || order">
           <tr class="sum-row">
-            <td class="td" colspan="2">{{ t('saleOrderDetail.itemsTotal') }}</td>
-            <td class="td whitespace-nowrap">{{ formatKg(itemsWeight) }}</td>
+            <td class="td" colspan="5">{{ t('saleOrderCreate.itemsTotal') }}</td>
+            <td class="td">{{ formatInt(itemsPieces) }}</td>
+            <td class="td">{{ formatQty(itemsKvm) }}</td>
             <td class="td"></td>
             <td class="td">{{ amt(itemsTotal) }}</td>
-            <td class="td"></td>
+            <td class="td whitespace-nowrap">{{ formatKg(itemsWeight) }}</td>
           </tr>
           <tr v-if="order?.deliveryType === 'DELIVERY'" class="sum-row soft">
-            <td class="td" colspan="4">{{ t('saleOrderCreate.deliveryFee') }}</td>
+            <td class="td" colspan="8">{{ t('saleOrderCreate.deliveryFee') }}</td>
             <td class="td">{{ amt(order.deliveryFee || 0) }}</td>
             <td class="td"></td>
           </tr>
           <tr v-if="order" class="sum-row">
-            <td class="td" colspan="4">{{ t('common.total') }}</td>
+            <td class="td" colspan="8">{{ t('common.total') }}</td>
             <td class="td">{{ amt(order.totalSum) }}</td>
             <td class="td"></td>
           </tr>
         </tfoot>
       </table>
+      </div>
     </div>
 
     <div v-show="tab === 'discount'" class="card p-5 space-y-4">
@@ -724,9 +744,25 @@ function formatPercent(fraction: number) {
   return `${Math.round(fraction * 10000) / 100}%`
 }
 
+function goodsOf(goodsId?: number | null) {
+  return goods.value.find((x) => x.id === goodsId)
+}
+
 function isWindowGoodsId(goodsId?: number | null) {
-  const g = goods.value.find((x) => x.id === goodsId)
-  return (g?.type || '').toUpperCase() === 'WINDOW'
+  return (goodsOf(goodsId)?.type || '').toUpperCase() === 'WINDOW'
+}
+
+function isServiceGoodsId(goodsId?: number | null) {
+  return (goodsOf(goodsId)?.type || '').toUpperCase() === 'SERVICE'
+}
+
+/** Kesish qatori kategoriya bilan yozilgan: mahsulot nomi emas, kategoriya chiqadi. */
+function itemProductLabel(it: SaleOrderItem) {
+  if (it.cutCategoryId) {
+    const named = goods.value.find((g) => g.categoryId === it.cutCategoryId && g.categoryName)
+    if (named?.categoryName) return named.categoryName
+  }
+  return it.goodsName || String(it.goodsId ?? '')
 }
 
 function formatQty(v?: number | null) {
@@ -734,11 +770,16 @@ function formatQty(v?: number | null) {
   return new Intl.NumberFormat('uz-UZ', { maximumFractionDigits: 4 }).format(Number(v))
 }
 
-function windowPieces(it: SaleOrderItem) {
+function itemPieces(it: SaleOrderItem) {
+  if (!isWindowGoodsId(it.goodsId)) return Number(it.count || 0)
   const w = Number(it.width || 0)
   const h = Number(it.height || 0)
-  if (!(w > 0 && h > 0)) return null
-  return (Number(it.count || 0) * 10000) / (w * h)
+  if (!(w > 0 && h > 0)) return Math.round(Number(it.count || 0))
+  return Math.max(1, Math.round((Number(it.count || 0) * 10000) / (w * h)))
+}
+
+function formatInt(v: number) {
+  return new Intl.NumberFormat('uz-UZ', { maximumFractionDigits: 0 }).format(Math.round(v || 0))
 }
 
 function lineSum(it: SaleOrderItem) {
@@ -746,6 +787,10 @@ function lineSum(it: SaleOrderItem) {
 }
 
 const itemsTotal = computed(() => items.value.reduce((sum, it) => sum + lineSum(it), 0))
+const itemsPieces = computed(() => items.value.reduce((sum, it) => sum + itemPieces(it), 0))
+const itemsKvm = computed(() =>
+  items.value.reduce((sum, it) => sum + (isWindowGoodsId(it.goodsId) ? Number(it.count || 0) : 0), 0),
+)
 const itemsWeight = computed(() => items.value.reduce((sum, it) => sum + Number(it.weightKg || 0), 0))
 const orderWeight = computed(() => (items.value.length ? itemsWeight.value : Number(order.value?.totalWeightKg || 0)))
 
@@ -804,13 +849,6 @@ const summaryCards = computed(() => {
     },
   ]
 })
-
-function itemQtyText(it: SaleOrderItem) {
-  if (!isWindowGoodsId(it.goodsId)) return formatQty(it.count)
-  const pieces = windowPieces(it)
-  const kvm = `${formatQty(it.count)} ${t('saleOrderDetail.kvm')}`
-  return pieces == null ? kvm : `${kvm} (${formatQty(it.width)}×${formatQty(it.height)}, ${formatQty(pieces)} ${t('saleOrderDetail.pcs')})`
-}
 
 const wasteModal = ref(false)
 const wasteForm = reactive({ goodsId: 0, quantity: 1, comment: '' })
@@ -1358,7 +1396,10 @@ watch(
 .dark .items-meta { border-color: #1f2937; color: #98a2b3; }
 .dark .items-meta b { color: rgba(255, 255, 255, 0.9); }
 .dark .sum-row.soft .td { color: #98a2b3; }
-.th { padding: 0.75rem 1.25rem; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; }
+.kind-badge { display: inline-flex; border-radius: 9999px; padding: 0.125rem 0.6rem; font-size: 0.75rem; font-weight: 500; white-space: nowrap; }
+.kind-badge.product { background: #eef2ff; color: #465fff; }
+.kind-badge.service { background: #fff7ed; color: #c2410c; }
+.th { padding: 0.75rem 1rem; text-align: left; font-size: 0.75rem; font-weight: 500; color: #6b7280; white-space: nowrap; }
 .td { padding: 0.75rem 1.25rem; font-size: 0.875rem; color: #4b5563; }
 .empty { padding: 2rem 1.25rem; text-align: center; font-size: 0.875rem; color: #6b7280; }
 .field { height: 2.5rem; width: 100%; border-radius: 0.5rem; border: 1px solid #d1d5db; background: transparent; padding: 0 0.75rem; font-size: 0.875rem; }

@@ -32,7 +32,10 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 @SuperBuilder
-@Table(name = TableName.SALE_ORDERS)
+@Table(
+        name = TableName.SALE_ORDERS,
+        uniqueConstraints = @UniqueConstraint(name = "uk_sale_order_year_seq", columnNames = {"order_year", "order_seq"})
+)
 @SQLRestriction("status <> 'DELETED'")
 public class SaleOrder extends FilialScopedEntity {
 
@@ -52,6 +55,12 @@ public class SaleOrder extends FilialScopedEntity {
 
     @Column(nullable = false)
     private LocalDateTime orderDate;
+
+    /** Buyurtma raqami yili. Har yili 1 dan boshlanadi: 2026 → 1/26, 2027 → 1/27. */
+    private Integer orderYear;
+
+    /** Shu yildagi tartib raqami. */
+    private Integer orderSeq;
 
     /**
      * Buyurtmani yaratgan xodim tomonidan (odatda create paytida) qo'lda belgilanadigan,
@@ -144,6 +153,16 @@ public class SaleOrder extends FilialScopedEntity {
     @Column(length = 20)
     private SaleType saleType;
 
+    /** Kesish kartasi qo'lda tahrirlangan joylashuv (JSON, uzunliklar sm da). */
+    @Column(columnDefinition = "text")
+    private String cutManualLayout;
+
+    /** Oldingi saqlangan joylashuv: qaytarib olish uchun. */
+    @Column(columnDefinition = "text")
+    private String cutManualLayoutPrevious;
+
+    private LocalDateTime cutManualSavedAt;
+
     @OneToMany(mappedBy = "saleOrder")
     private List<SaleOrderItem> saleOrderItems;
 
@@ -166,6 +185,11 @@ public class SaleOrder extends FilialScopedEntity {
     }
 
     /** Buyurtma kursida so'm ekvivalenti (hisobotlar uchun). */
+    /** Ko‘rinadigan raqam: 1/26. */
+    public String orderNumber() {
+        return SaleOrderNumbers.format(orderSeq, orderYear);
+    }
+
     public BigDecimal toBase(BigDecimal amount) {
         if (amount == null) {
             return null;

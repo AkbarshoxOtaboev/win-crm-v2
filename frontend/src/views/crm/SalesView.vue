@@ -47,7 +47,7 @@
         <table class="min-w-full">
           <thead>
             <tr class="border-b border-gray-100 dark:border-gray-800">
-              <th class="th">#</th>
+              <th class="th">{{ t('sales.orderNo') }}</th>
               <th class="th">{{ t('common.client') }}</th>
               <th class="th">{{ t('common.date') }}</th>
               <th class="th">{{ t('sales.weight') }}</th>
@@ -63,7 +63,7 @@
             <tr v-else-if="filtered.length === 0"><td colspan="9" class="empty">{{ t('sales.noSales') }}</td></tr>
             <tr v-for="o in filtered" :key="o.id" class="border-b border-gray-100 dark:border-gray-800">
               <td class="td">
-                <router-link :to="`/sales/${o.id}`" class="text-brand-500 hover:underline">#{{ o.id }}</router-link>
+                <router-link :to="`/sales/${o.id}`" class="text-brand-500 hover:underline">{{ o.orderNumber || o.id }}</router-link>
               </td>
               <td class="td font-medium text-gray-800 dark:text-white/90">{{ o.clientFullName || '—' }}</td>
               <td class="td whitespace-nowrap">{{ formatOrderDate(o.orderDate, o.createdAt) }}</td>

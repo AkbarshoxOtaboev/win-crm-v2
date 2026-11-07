@@ -343,9 +343,9 @@
               <th class="th">{{ t('saleOrderCreate.height') }}</th>
               <th class="th">{{ t('common.count') }}</th>
               <th class="th">{{ t('saleOrderCreate.kvm') }}</th>
-              <th class="th">{{ t('saleOrderCreate.weight') }}</th>
               <th class="th">{{ t('saleOrderCreate.selling') }}</th>
               <th class="th">{{ t('common.sum') }}</th>
+              <th class="th">{{ t('saleOrderCreate.weight') }}</th>
               <th class="th text-right">{{ t('common.actions') }}</th>
             </tr>
           </thead>
@@ -366,19 +366,27 @@
               </td>
               <td class="td">{{ idx + 1 }}</td>
               <td class="td">
-                <div class="product-cell">
-                  <select
-                    class="product-select"
-                    :class="{ short: stockIsShort(row) }"
-                    :value="row.goodsId"
+                <div class="product-cell" :class="{ short: stockIsShort(row) }">
+                  <SearchableSelect
+                    v-if="usesCategory(row)"
+                    floating
+                    :model-value="Number(row.cutCategoryId)"
+                    :options="categoryOptionsFor(row)"
                     :disabled="saving || orderFinal"
-                    :aria-label="row.goodsName"
-                    @change="onRowGoodsChange(row.key, $event)"
-                  >
-                    <option v-for="opt in rowGoodsOptions(row)" :key="opt.value" :value="opt.value">
-                      {{ opt.label }}
-                    </option>
-                  </select>
+                    :placeholder="categoryLabel(row.cutCategoryId)"
+                    :search-placeholder="t('saleOrderCreate.categorySearch')"
+                    @update:model-value="(v) => onRowCategory(row.key, v)"
+                  />
+                  <SearchableSelect
+                    v-else
+                    floating
+                    :model-value="row.goodsId"
+                    :options="rowGoodsOptions(row)"
+                    :disabled="saving || orderFinal"
+                    :placeholder="row.goodsName"
+                    :search-placeholder="t('saleOrderCreate.productSearch')"
+                    @update:model-value="(v) => changeRowGoods(row.key, v)"
+                  />
                   <span v-if="isEdit && !row.itemId" class="new-badge">{{ t('saleOrderCreate.newBadge') }}</span>
                 </div>
               </td>
@@ -422,7 +430,7 @@
                   type="number"
                   min="1"
                   step="1"
-                  :value="row.pieces != null ? row.pieces : row.count"
+                  :value="rowCountInput(row)"
                   :disabled="saving || orderFinal"
                   :aria-label="t('common.count')"
                   @change="onRowCount(row.key, $event)"
@@ -430,22 +438,33 @@
                 <span v-else>{{ formatNum(row.count) }}</span>
               </td>
               <td class="td">{{ row.isWindow ? formatNum(row.count) : '—' }}</td>
-              <td class="td">{{ formatRowWeight(row) }}</td>
               <td class="td">{{ amt(row.priceSelling) }}</td>
               <td class="td">{{ amt(row.sum) }}</td>
+              <td class="td">{{ formatRowWeight(row) }}</td>
               <td class="td text-right">
-                <button type="button" class="danger" :disabled="saving || orderFinal" @click="onRemoveItem(row.key)">{{ t('common.delete') }}</button>
+                <button
+                  type="button"
+                  class="icon-btn"
+                  :disabled="saving || orderFinal"
+                  :aria-label="t('common.delete')"
+                  :title="t('common.delete')"
+                  @click="onRemoveItem(row.key)"
+                >
+                  <Trash2 class="h-4 w-4" />
+                </button>
               </td>
             </tr>
           </tbody>
           <tfoot v-if="displayItems.length">
             <tr class="border-t border-gray-200 bg-gray-50">
-              <td class="td font-semibold" colspan="8">{{ t('saleOrderCreate.itemsTotal') }}</td>
+              <td class="td font-semibold" colspan="6">{{ t('saleOrderCreate.itemsTotal') }}</td>
+              <td class="td font-semibold">{{ formatInt(itemsTotalPieces) }}</td>
+              <td class="td font-semibold">{{ formatNum(itemsTotalKvm) }}</td>
+              <td class="td" />
+              <td class="td font-semibold">{{ amt(itemsTotalSum) }}</td>
               <td class="td font-semibold">
                 {{ itemsTotalWeight > 0 ? `${formatNum(itemsTotalWeight)} ${t('saleOrderCreate.kg')}` : '—' }}
               </td>
-              <td class="td" />
-              <td class="td font-semibold">{{ amt(itemsTotalSum) }}</td>
               <td class="td" />
             </tr>
           </tfoot>
@@ -681,6 +700,7 @@ import {
   Package,
   ShoppingBag,
   UserRound,
+  Trash2,
   Warehouse as WarehouseIcon,
   Wrench,
 } from 'lucide-vue-next'
@@ -1254,6 +1274,23 @@ const displayItems = computed(() =>
 )
 
 const itemsTotalSum = computed(() => displayItems.value.reduce((acc, r) => acc + r.sum, 0))
+const itemsTotalPieces = computed(() => displayItems.value.reduce((acc, r) => acc + rowPieceCount(r), 0))
+const itemsTotalKvm = computed(() =>
+  displayItems.value.reduce((acc, r) => acc + (r.isWindow ? Number(r.count) || 0 : 0), 0),
+)
+
+function formatInt(v: number) {
+  return new Intl.NumberFormat('uz-UZ', { maximumFractionDigits: 0 }).format(Math.round(v || 0))
+}
+
+function rowPieceCount(row: { isWindow: boolean; pieces: number | null; count: number }) {
+  if (row.isWindow) return Math.max(0, Math.round(Number(row.pieces) || 0))
+  return Number(row.count) || 0
+}
+
+function rowCountInput(row: { isWindow: boolean; pieces: number | null; count: number }) {
+  return row.isWindow ? rowPieceCount(row) : row.count
+}
 
 function goodsWeightPerSqm(goodsId: number): number {
   return Number(goods.value.find((g) => g.id === goodsId)?.weightPerSqm || 0)
@@ -1488,6 +1525,41 @@ function sameKind(g: Goods, row: { isWindow: boolean; isService: boolean }) {
   return !isService(g) && !isWindow(g)
 }
 
+function usesCategory(row: DraftItem) {
+  return row.isWindow && row.cutCategoryId != null
+}
+
+function categoryLabel(id?: number | null) {
+  if (id == null) return ''
+  return cutCategories.value.find((c) => c.id === id)?.label
+    || goods.value.find((g) => g.categoryId === id)?.categoryName
+    || `#${id}`
+}
+
+function categoryOptionsFor(row: DraftItem) {
+  const options = cutCategories.value.map((c) => ({ value: c.id, label: c.label }))
+  const id = row.cutCategoryId
+  if (id != null && !options.some((o) => o.value === id)) {
+    options.unshift({ value: id, label: categoryLabel(id) })
+  }
+  return options
+}
+
+function onRowCategory(key: number, categoryId: number) {
+  const row = draftItems.value.find((d) => d.key === key)
+  if (!row || orderFinal.value || row.cutCategoryId === categoryId) return
+  const list = sheetsOf(categoryId)
+  if (!list.length) return
+  const primary = list.slice().sort((a, b) => remainingStock(b.id) - remainingStock(a.id))[0]
+  if (!primary) return
+  detachSaved(row)
+  row.cutCategoryId = categoryId
+  row.goodsId = primary.id
+  row.goodsName = primary.name
+  row.cutCandidateGoodsIds = list.map((g) => g.id).join(',')
+  refreshStockError()
+}
+
 function rowGoodsOptions(row: DraftItem) {
   return goods.value
     .filter((g) => (!g.status || g.status === 'ACTIVE') && sameKind(g, row))
@@ -1502,10 +1574,6 @@ function stockIsShort(row: { goodsId: number; isService: boolean; itemId?: numbe
 
 function refreshStockError() {
   itemError.value = draftItems.value.some((d) => stockIsShort(d)) ? t('saleOrderCreate.copyStockShort') : null
-}
-
-function onRowGoodsChange(key: number, e: Event) {
-  changeRowGoods(key, Number((e.target as HTMLSelectElement).value))
 }
 
 function detachSaved(row: DraftItem) {
@@ -1550,7 +1618,7 @@ function onRowCount(key: number, e: Event) {
   if (current === value) return
   detachSaved(row)
   if (row.isWindow) {
-    row.pieces = value
+    row.pieces = Math.max(1, Math.round(value))
     const width = Number(row.width || 0)
     const height = Number(row.height || 0)
     if (width > 0 && height > 0) row.count = windowKvm(width, height, value)
@@ -1645,7 +1713,7 @@ function toDraft(it: SaleOrderItem): DraftItem {
     isService: isService(g),
     width: windowMode ? width : null,
     height: windowMode ? height : null,
-    pieces: windowMode && width > 0 && height > 0 ? Math.round(((count * 10000) / (width * height)) * 10000) / 10000 : null,
+    pieces: windowMode && width > 0 && height > 0 ? Math.max(1, Math.round((count * 10000) / (width * height))) : null,
     count,
     priceCost: Number(it.priceCost || 0),
     priceSelling: Number(it.priceSelling || 0),
@@ -1922,16 +1990,28 @@ async function onCreateClient() {
 .new-badge { margin-inline-start: 0.375rem; border-radius: 9999px; background: #ecfdf3; padding: 0.0625rem 0.5rem; font-size: 0.6875rem; font-weight: 600; color: #027a48; }
 .dark .new-badge { background: rgba(18, 183, 106, 0.15); color: #6ce9a6; }
 .row-check { width: 1rem; height: 1rem; accent-color: #465fff; }
-.product-cell { display: flex; align-items: center; gap: 0.375rem; min-width: 12rem; }
-.product-select { height: 2.25rem; width: 100%; min-width: 11rem; border-radius: 0.5rem; border: 1px solid #d1d5db; background: #fff; padding: 0 0.5rem; font-size: 0.8125rem; color: #374151; }
-.product-select:disabled { background: #f9fafb; cursor: not-allowed; }
-.product-select.short { border-color: #dc2626; }
+.product-cell { display: flex; align-items: center; gap: 0.375rem; min-width: 14rem; }
+.product-cell :deep(.field-btn) { height: 2.25rem; padding: 0 0.5rem; font-size: 0.8125rem; }
+.product-cell.short :deep(.field-btn) { border-color: #dc2626; }
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.5rem;
+  border: 1px solid #fecaca;
+  background: #fff;
+  color: #dc2626;
+}
+.icon-btn:hover:not(:disabled) { background: #fef2f2; }
+.icon-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .cell-input { height: 2.25rem; width: 4.75rem; border-radius: 0.5rem; border: 1px solid #d1d5db; background: #fff; padding: 0 0.45rem; font-size: 0.8125rem; color: #374151; }
 .cell-input:disabled { background: #f3f4f6; color: #6b7280; }
 .cell-input:disabled { background: #f9fafb; cursor: not-allowed; }
 .dark .cell-input { border-color: #374151; background: #111827; color: #e5e7eb; }
-.dark .product-select { border-color: #374151; background: #111827; color: #e5e7eb; }
-.dark .product-select.short { border-color: #f87171; }
+:global(html.dark) .icon-btn { background: #111827; border-color: #7f1d1d; }
+:global(html.dark) .product-cell.short :deep(.field-btn) { border-color: #f87171; }
 .row-picked { background: #f5f8ff; }
 .dark .row-picked { background: rgb(70 95 255 / 8%); }
 .copy-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0.75rem; padding: 0.75rem 1.25rem; border-top: 1px solid #f3f4f6; }

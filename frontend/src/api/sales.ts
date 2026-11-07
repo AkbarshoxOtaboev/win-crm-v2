@@ -4,6 +4,8 @@ import type { CurrencyCode } from '@/utils/currency'
 
 export interface SaleOrder {
   id: number
+  /** Yil bo‘yicha raqam, masalan 1/26. */
+  orderNumber?: string | null
   clientId?: number
   clientFullName?: string
   warehouseId?: number
@@ -116,6 +118,12 @@ export function changeSaleOrderStatus(id: number, salesOrderStatus: string, comm
 
 export function fetchSaleOrder(id: number) {
   return apiRequest<RestApiResponse<SaleOrder>>(`/api/sale-orders/${id}`)
+}
+
+export function fetchSaleOrdersByNumber(q: string) {
+  return apiRequest<RestApiResponse<SaleOrder[]>>(
+    `/api/sale-orders/by-number?q=${encodeURIComponent(q)}`,
+  )
 }
 
 export function fetchSaleOrdersByDateRange(startDate: string, endDate: string) {

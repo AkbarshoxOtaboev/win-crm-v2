@@ -57,4 +57,17 @@ public class CuttingCalculateRequest {
     @Schema(description = "Qoldiq shu bo'yidan katta bo'lsa butun saqlanadi va qolgan bo'lak boshqa listdan olinadi, sm")
     @DecimalMin("0")
     private BigDecimal minRemnantHeightCm;
+
+    @Schema(description = "To'liq listdagi chiqindi shu foizdan oshmasin")
+    @DecimalMin("0")
+    @DecimalMax("100")
+    private BigDecimal maxScrapPercent;
+
+    @Schema(description = "Yaroqsiz tasma eni, sm")
+    @DecimalMin("0")
+    private BigDecimal wasteWidthCm;
+
+    @Schema(description = "Yaroqsiz tasma bo'yi, sm")
+    @DecimalMin("0")
+    private BigDecimal wasteHeightCm;
 }

@@ -23,6 +23,9 @@ public class SaleOrderResponse {
     @Schema(description = "Unique sale order identifier", example = "1")
     private Long id;
 
+    @Schema(description = "Yil bo'yicha buyurtma raqami", example = "1/26")
+    private String orderNumber;
+
     @Schema(description = "Client ID", example = "1")
     private Long clientId;
 

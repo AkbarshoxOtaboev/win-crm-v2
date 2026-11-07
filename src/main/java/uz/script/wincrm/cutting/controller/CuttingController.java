@@ -10,15 +10,18 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import uz.script.wincrm.cutting.dto.CuttingCalculateRequest;
 import uz.script.wincrm.cutting.dto.CuttingOptimizeRequest;
 import uz.script.wincrm.cutting.dto.CuttingSuggestRequest;
+import uz.script.wincrm.cutting.dto.ManualLayoutRequest;
 import uz.script.wincrm.cutting.dto.RemnantDeleteRequest;
 import uz.script.wincrm.cutting.response.CuttingOptimizeResponse;
 import uz.script.wincrm.cutting.response.CuttingResultResponse;
+import uz.script.wincrm.cutting.response.ManualLayoutResponse;
 import uz.script.wincrm.cutting.service.CuttingOptimizeService;
 import uz.script.wincrm.cutting.service.CuttingService;
 import uz.script.wincrm.utils.RestApiResponse;
@@ -88,6 +91,39 @@ public class CuttingController {
         return ResponseEntity.ok(RestApiResponse.<CuttingOptimizeResponse>builder()
                 .message("Cutting suggestion")
                 .data(optimizeService.suggest(saleOrderId, request))
+                .build());
+    }
+
+    @GetMapping("/optimize/{saleOrderId}/manual")
+    @PreAuthorize("hasAnyAuthority('SALE_ORDER_VIEW', 'SALE_ORDER_CREATE', 'SALE_ORDER_EDIT', 'PRODUCTION_ORDER_VIEW')")
+    @Operation(summary = "Qo'lda tahrirlangan kesish kartasi")
+    public ResponseEntity<?> manualLayout(@PathVariable Long saleOrderId) {
+        return ResponseEntity.ok(RestApiResponse.<ManualLayoutResponse>builder()
+                .message("Manual cutting layout")
+                .data(optimizeService.manualLayout(saleOrderId))
+                .build());
+    }
+
+    @PutMapping("/optimize/{saleOrderId}/manual")
+    @PreAuthorize("hasAnyAuthority('SALE_ORDER_CREATE', 'SALE_ORDER_EDIT')")
+    @Operation(summary = "Qo'lda tahrirlangan kesish kartasini saqlash (oldingisi tarixda qoladi)")
+    public ResponseEntity<?> saveManualLayout(
+            @PathVariable Long saleOrderId,
+            @Valid @RequestBody ManualLayoutRequest request
+    ) {
+        return ResponseEntity.ok(RestApiResponse.<ManualLayoutResponse>builder()
+                .message("Manual cutting layout saved")
+                .data(optimizeService.saveManualLayout(saleOrderId, request.getLayout()))
+                .build());
+    }
+
+    @PostMapping("/optimize/{saleOrderId}/manual/restore")
+    @PreAuthorize("hasAnyAuthority('SALE_ORDER_CREATE', 'SALE_ORDER_EDIT')")
+    @Operation(summary = "Oldingi saqlangan kesish kartasini qaytarish")
+    public ResponseEntity<?> restoreManualLayout(@PathVariable Long saleOrderId) {
+        return ResponseEntity.ok(RestApiResponse.<ManualLayoutResponse>builder()
+                .message("Manual cutting layout restored")
+                .data(optimizeService.restoreManualLayout(saleOrderId))
                 .build());
     }
 

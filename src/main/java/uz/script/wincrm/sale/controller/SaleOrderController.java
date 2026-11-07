@@ -228,6 +228,18 @@ public class SaleOrderController {
         );
     }
 
+    @GetMapping("/by-number")
+    @PreAuthorize("hasAuthority('SALE_ORDER_VIEW')")
+    @Operation(summary = "Search sale orders by work number, for example 2/26")
+    public ResponseEntity<?> searchByNumber(@RequestParam String q) {
+        return ResponseEntity.ok(
+                RestApiResponse.<List<SaleOrderResponse>>builder()
+                        .message("Sale orders found")
+                        .data(service.searchByNumber(q))
+                        .build()
+        );
+    }
+
     @GetMapping("/date-range")
     @PreAuthorize("hasAuthority('SALE_ORDER_VIEW')")
     @Operation(

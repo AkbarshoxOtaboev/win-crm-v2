@@ -150,6 +150,31 @@ class CuttingCalculatorTest {
     }
 
     @Test
+    void thinScrapStripLosesToRotatedLayout() {
+        CuttingResultResponse plain = CuttingCalculator.calculate(new CuttingInput(
+                BigDecimal.valueOf(260), BigDecimal.valueOf(180),
+                BigDecimal.valueOf(53), BigDecimal.valueOf(165),
+                4, BigDecimal.ZERO, true, BigDecimal.valueOf(20), null, null));
+        assertFalse(plain.isRotated());
+        assertEquals(4, plain.getPerSheet());
+
+        CuttingResultResponse turned = CuttingCalculator.calculate(new CuttingInput(
+                BigDecimal.valueOf(260), BigDecimal.valueOf(180),
+                BigDecimal.valueOf(53), BigDecimal.valueOf(165),
+                4, BigDecimal.ZERO, true,
+                BigDecimal.valueOf(20), BigDecimal.valueOf(20), BigDecimal.valueOf(20),
+                BigDecimal.valueOf(8), BigDecimal.valueOf(212), BigDecimal.valueOf(15)));
+        assertTrue(turned.isRotated());
+        assertEquals(3, turned.getPerSheet());
+        assertEquals(2, turned.getSheetsNeeded());
+        SheetLayout full = turned.getSheets().getFirst();
+        assertEquals(3, full.getPieces());
+        assertTrue(full.getRemnants().stream()
+                .filter(remnant -> !remnant.isUseful())
+                .noneMatch(remnant -> remnant.getWidth().min(remnant.getHeight()).compareTo(BigDecimal.valueOf(15)) <= 0));
+    }
+
+    @Test
     void offcutLargerThanLimitGoesToAnotherSheet() {
         CuttingResultResponse r = CuttingCalculator.calculate(new CuttingInput(
                 BigDecimal.valueOf(260), BigDecimal.valueOf(180),

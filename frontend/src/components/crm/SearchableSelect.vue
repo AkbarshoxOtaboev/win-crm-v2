@@ -1,6 +1,7 @@
 <template>
   <div ref="root" class="relative w-full min-w-0">
     <button
+      ref="buttonEl"
       type="button"
       class="field-btn"
       :class="{ open: open, disabled }"
@@ -22,7 +23,8 @@
       </svg>
     </button>
 
-    <div v-if="open" class="dropdown">
+    <Teleport to="body" :disabled="!floating">
+    <div v-if="open" ref="menu" class="dropdown" :class="{ floating }" :style="floating ? menuStyle : undefined">
       <input
         ref="searchInput"
         v-model="query"
@@ -46,6 +48,7 @@
         <li v-if="hiddenCount > 0" class="more">{{ t('shared.moreResults', { count: hiddenCount }) }}</li>
       </ul>
     </div>
+    </Teleport>
   </div>
 </template>
 
@@ -69,12 +72,15 @@ const props = withDefaults(
     disabled?: boolean
     /** Max options shown while the search is empty; 0 = show all. */
     limit?: number
+    /** Ro‘yxatni body ga chiqaradi: jadval ichida kesilib qolmaydi. */
+    floating?: boolean
   }>(),
   {
     placeholder: '',
     searchPlaceholder: '',
     disabled: false,
     limit: 0,
+    floating: false,
   },
 )
 
@@ -87,7 +93,10 @@ const { t } = useI18n()
 const open = ref(false)
 const query = ref('')
 const root = ref<HTMLElement | null>(null)
+const buttonEl = ref<HTMLElement | null>(null)
+const menu = ref<HTMLElement | null>(null)
 const searchInput = ref<HTMLInputElement | null>(null)
+const menuStyle = ref<Record<string, string>>({})
 
 const selectedLabel = computed(() => {
   const found = props.options.find((o) => Number(o.value) === Number(props.modelValue))
@@ -114,11 +123,26 @@ const visible = computed(() =>
 )
 const hiddenCount = computed(() => filtered.value.length - visible.value.length)
 
+function placeMenu() {
+  const btn = buttonEl.value
+  if (!props.floating || !btn) return
+  const r = btn.getBoundingClientRect()
+  const below = window.innerHeight - r.bottom
+  const upward = below < 240 && r.top > below
+  menuStyle.value = {
+    top: upward ? 'auto' : `${r.bottom + 4}px`,
+    bottom: upward ? `${window.innerHeight - r.top + 4}px` : 'auto',
+    left: `${r.left}px`,
+    width: `${Math.max(r.width, 220)}px`,
+  }
+}
+
 function toggle() {
   if (props.disabled) return
   open.value = !open.value
   if (open.value) {
     query.value = ''
+    placeMenu()
     nextTick(() => searchInput.value?.focus())
   }
 }
@@ -139,15 +163,32 @@ function pickFirst() {
 }
 
 function onDocClick(e: MouseEvent) {
-  if (!root.value?.contains(e.target as Node)) close()
+  const target = e.target as Node
+  if (root.value?.contains(target) || menu.value?.contains(target)) return
+  close()
+}
+
+function onMove() {
+  if (open.value) placeMenu()
 }
 
 watch(open, (v) => {
-  if (v) document.addEventListener('mousedown', onDocClick)
-  else document.removeEventListener('mousedown', onDocClick)
+  if (v) {
+    document.addEventListener('mousedown', onDocClick)
+    window.addEventListener('scroll', onMove, true)
+    window.addEventListener('resize', onMove)
+  } else {
+    document.removeEventListener('mousedown', onDocClick)
+    window.removeEventListener('scroll', onMove, true)
+    window.removeEventListener('resize', onMove)
+  }
 })
 
-onBeforeUnmount(() => document.removeEventListener('mousedown', onDocClick))
+onBeforeUnmount(() => {
+  document.removeEventListener('mousedown', onDocClick)
+  window.removeEventListener('scroll', onMove, true)
+  window.removeEventListener('resize', onMove)
+})
 onMounted(() => {})
 </script>
 
@@ -175,6 +216,11 @@ onMounted(() => {})
   background: #f9fafb;
   color: #6b7280;
   cursor: not-allowed;
+}
+.dropdown.floating {
+  position: fixed;
+  z-index: 100000;
+  margin-top: 0;
 }
 .dropdown {
   position: absolute;

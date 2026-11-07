@@ -235,7 +235,6 @@ import {
   Building2,
   ClipboardList,
   DollarSign,
-  FileText,
   Files,
   Factory,
   HandCoins,
@@ -435,8 +434,6 @@ const rawMenuGroups = computed<MenuGroup[]>(() => {
           },
           { name: t('nav.salesReport'), path: '/sales/report', icon: List, exact: true, perm: ['SALE_ORDER_VIEW'] },
           { name: t('nav.sellerDebts'), path: '/sales/debts', icon: HandCoins, exact: true, perm: ['SALE_ORDER_VIEW'] },
-          { name: t('nav.fxDifference'), path: '/sales/fx-difference', icon: DollarSign, exact: true, perm: ['DASHBOARD_VIEW'] },
-          { name: t('nav.salesWaste'), path: '/sales/wastes', icon: FileText, exact: true, perm: ['SALE_ORDER_WASTE_VIEW'] },
         ],
       },
       {
@@ -478,6 +475,7 @@ const rawMenuGroups = computed<MenuGroup[]>(() => {
     items: [
       ...(auth.isElevated ? [{ icon: ChartLine, name: t('nav.profitDashboard'), path: '/finance/profit' }] : []),
       ...(auth.isElevated ? [{ icon: Landmark, name: t('nav.managerCash'), path: '/finance/cash' }] : []),
+      { icon: DollarSign, name: t('nav.fxDifference'), path: '/sales/fx-difference', perm: ['DASHBOARD_VIEW'] },
       { icon: Banknote, name: t('nav.currency'), path: '/currency' },
       { icon: HandCoins, name: t('nav.cashHandover'), path: '/cash-handovers', perm: ['CASH_HANDOVER_VIEW'] },
       { icon: TaskIcon, name: t('nav.expenses'), path: '/expenses', perm: ['EXPENSE_VIEW'] },

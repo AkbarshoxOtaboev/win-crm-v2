@@ -44,6 +44,7 @@ public class SaleOrderMapper {
         }
         return SaleOrderResponse.builder()
                 .id(entity.getId())
+                .orderNumber(entity.orderNumber())
                 .clientId(entity.getClient() != null ? entity.getClient().getId() : null)
                 .clientFullName(entity.getClient() != null ? entity.getClient().getFullName() : null)
                 .warehouseId(entity.getWarehouse() != null ? entity.getWarehouse().getId() : null)

@@ -27,6 +27,9 @@ public interface SaleOrderService {
 
     List<SaleOrderResponse> fetchByDateRange(LocalDateTime startDate, LocalDateTime endDate);
 
+    /** Ish nomeri bo'yicha qidiruv: 2/26, 2/2, 26. */
+    List<SaleOrderResponse> searchByNumber(String query);
+
     SaleOrderResponse update(Long id, SaleOrderDTO dto);
 
     void delete(Long id);

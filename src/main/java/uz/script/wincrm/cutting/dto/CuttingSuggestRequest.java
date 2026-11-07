@@ -28,4 +28,16 @@ public class CuttingSuggestRequest {
     private String source;
 
     private Boolean allowRotate;
+
+    /** To'liq listdagi chiqindi shu foizdan oshmasin. Bo'sh bo'lsa cheklov yo'q. */
+    @DecimalMin("0")
+    private BigDecimal maxScrapPercent;
+
+    /** Yaroqsiz tasma eni, sm. Ingichka tomoni shundan oshmasa, boshqa joylashuv olinadi. */
+    @DecimalMin("0")
+    private BigDecimal wasteWidthCm;
+
+    /** Yaroqsiz tasma bo'yi, sm. */
+    @DecimalMin("0")
+    private BigDecimal wasteHeightCm;
 }

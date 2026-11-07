@@ -37,15 +37,32 @@ public final class CuttingCalculator {
         if (in.allowRotate() && in.pieceWidth().compareTo(in.pieceHeight()) != 0) {
             plans.add(plan(in, kerf, in.pieceHeight(), in.pieceWidth(), true));
         }
-        Plan best = plans.stream()
-                .filter(p -> p.perSheet > 0)
+        List<Plan> usable = plans.stream().filter(p -> p.perSheet > 0).toList();
+        if (usable.isEmpty()) {
+            throw new BadRequestException(
+                    "Bo'lak (" + fmt(in.pieceWidth()) + "×" + fmt(in.pieceHeight()) + " sm) listga ("
+                            + fmt(in.sheetWidth()) + "×" + fmt(in.sheetHeight()) + " sm) sig'maydi");
+        }
+        // Chiqindi foizi yoki yaroqsiz tasma berilsa, avval shu cheklovga sig'adigan joylashuv.
+        // Sig'masa, list soni ko'paysa ham chiqindisi kichigi olinadi.
+        List<Plan> pool = usable;
+        if (WasteLimit.active(in.maxScrapPercent(), in.wasteWidthCm(), in.wasteHeightCm())) {
+            List<Plan> accepted = usable.stream().filter(p -> accepts(in, p)).toList();
+            if (!accepted.isEmpty()) {
+                pool = accepted;
+            } else {
+                pool = usable.stream()
+                        .sorted(Comparator.comparing((Plan p) -> scrapPercent(in, p)).thenComparingInt(p -> -p.perSheet))
+                        .limit(1)
+                        .toList();
+            }
+        }
+        Plan best = pool.stream()
                 .min(Comparator.<Plan>comparingInt(p -> -p.perSheet)
                         .thenComparing(p -> p.fullScrap)
                         .thenComparing(p -> p.usefulArea, Comparator.reverseOrder())
                         .thenComparing(p -> p.rotated))
-                .orElseThrow(() -> new BadRequestException(
-                        "Bo'lak (" + fmt(in.pieceWidth()) + "×" + fmt(in.pieceHeight()) + " sm) listga ("
-                                + fmt(in.sheetWidth()) + "×" + fmt(in.sheetHeight()) + " sm) sig'maydi"));
+                .orElseThrow();
         return best.toResponse(in);
     }
 
@@ -97,6 +114,7 @@ public final class CuttingCalculator {
             Group full = p.layout(in, 1, capacity);
             BigDecimal placed = area(pw, ph).multiply(BigDecimal.valueOf(full.pieces));
             p.fullScrap = area(in.sheetWidth(), in.sheetHeight()).subtract(placed).subtract(full.usefulArea).max(BigDecimal.ZERO);
+            p.fullRemnants = full.remnants;
         }
         int q = in.quantity();
         int sheets = (q + capacity - 1) / capacity;
@@ -137,6 +155,15 @@ public final class CuttingCalculator {
         return w.multiply(h).divide(CM2_PER_M2, AREA_SCALE, RoundingMode.HALF_UP);
     }
 
+    /** To'liq listdagi chiqindi foizi va yaroqsiz tasma chekloviga sig'adimi. */
+    private static boolean accepts(CuttingInput in, Plan plan) {
+        return WasteLimit.accepts(scrapPercent(in, plan), plan.fullRemnants, in.maxScrapPercent(), in.wasteWidthCm(), in.wasteHeightCm());
+    }
+
+    private static BigDecimal scrapPercent(CuttingInput in, Plan plan) {
+        return percent(plan.fullScrap, area(in.sheetWidth(), in.sheetHeight()));
+    }
+
     private static BigDecimal percent(BigDecimal part, BigDecimal whole) {
         if (whole.signum() == 0) {
             return BigDecimal.ZERO;
@@ -164,6 +191,8 @@ public final class CuttingCalculator {
         BigDecimal usefulArea = BigDecimal.ZERO;
         /** To'liq listning haqiqiy chiqindisi. Bir xil sig'imda shu kichigi tanlanadi. */
         BigDecimal fullScrap = BigDecimal.ZERO;
+        /** To'liq listning qoldiqlari: yaroqsiz tasma shu yerda tekshiriladi. */
+        List<Remnant> fullRemnants = List.of();
 
         Plan(BigDecimal pw, BigDecimal ph, BigDecimal kerf, boolean rotated, int cols, int rows) {
             this.pw = pw;

@@ -11,135 +11,175 @@
     </p>
     <p class="mb-4 text-sm text-gray-500">{{ t('cuttingOptimize.subtitle') }}</p>
 
-    <div v-if="plan && rows.length" class="card mb-4 p-5">
-      <div class="flex flex-wrap items-end gap-4">
-        <label class="text-sm text-gray-600">
-          {{ t('cuttingOptimize.kerfChoice') }} (mm)
-          <input v-model.number="kerfMm" type="number" min="0" max="50" step="0.5" class="field w-28" :disabled="locked" />
-        </label>
-        <label class="text-sm text-gray-600">
-          {{ t('cuttingOptimize.edgeWidth') }}
-          <input v-model.number="edgeWidthCm" type="number" min="0" step="1" class="field w-28" :disabled="locked" />
-        </label>
-        <label class="text-sm text-gray-600">
-          {{ t('cuttingOptimize.edgeHeight') }}
-          <input v-model.number="edgeHeightCm" type="number" min="0" step="1" class="field w-28" :disabled="locked" />
-        </label>
-        <label class="text-sm text-gray-600">
-          {{ t('cuttingOptimize.cutSource') }}
-          <select v-model="cutSource" class="field" :disabled="locked">
-            <option value="remnant">{{ t('cuttingOptimize.sourceRemnant') }}</option>
-            <option value="sheet">{{ t('cuttingOptimize.sourceSheet') }}</option>
-          </select>
-        </label>
-        <button v-if="!locked" type="button" class="ghost" :disabled="saving" @click="recalc">
-          {{ t('cuttingOptimize.recalc') }}
-        </button>
+    <section v-if="rows.length" class="summary mb-4">
+      <div class="summary-head">
+        <div>
+          <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">{{ t('cuttingOptimize.summaryTitle') }}</h3>
+          <p v-if="manualSaved" class="summary-note">
+            ✓ {{ t('cutEditor.savedInfo', { date: fmtDate(manual?.savedAt), pct: manualSaved.pct }) }}
+          </p>
+          <p v-else-if="!editorSources.ready" class="summary-note muted">{{ t('cutEditor.notReady') }}</p>
+        </div>
+        <div class="summary-actions">
+          <button v-if="manual?.hasPrevious" type="button" class="ghost" @click="restorePrevious">
+            ↺ {{ t('cutEditor.restorePrevious') }}
+          </button>
+          <button
+            type="button"
+            class="btn"
+            :disabled="!editorSources.ready"
+            :title="t('cutEditor.openHint')"
+            @click="openEditor"
+          >
+            ✎ {{ t('cutEditor.open') }}
+          </button>
+        </div>
       </div>
-      <p class="mt-2 text-xs text-gray-400">{{ t('cuttingOptimize.edgeKeepHint') }}</p>
-      <p class="mt-1 text-xs text-gray-400">{{ t('cuttingOptimize.manualHint') }}</p>
-    </div>
+      <div class="stat-grid">
+        <div class="stat">
+          <span class="stat-label">{{ t('cuttingOptimize.statSheets') }}</span>
+          <strong class="stat-value">{{ stats.sheets }}</strong>
+          <span v-if="stats.remnantBoards" class="stat-sub">{{ t('cuttingOptimize.statSheetsSub', { n: stats.remnantBoards }) }}</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">{{ t('cuttingOptimize.statFromSheets') }}</span>
+          <strong class="stat-value">{{ totals.sheetPieces }} <small>{{ t('cuttingOptimize.pcs') }}</small></strong>
+          <span class="stat-sub">{{ fmtArea(totals.sheetArea) }} m²</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">{{ t('cuttingOptimize.statFromRemnants') }}</span>
+          <strong class="stat-value">{{ totals.remnantPieces }} <small>{{ t('cuttingOptimize.pcs') }}</small></strong>
+          <span class="stat-sub">{{ fmtArea(totals.remnantArea) }} m²</span>
+        </div>
+        <div class="stat" :class="stats.usage >= 75 ? 'good' : stats.usage >= 50 ? 'warn' : 'bad'">
+          <span class="stat-label">{{ t('cuttingOptimize.statUsage') }}</span>
+          <strong class="stat-value">{{ stats.usage.toFixed(1) }}%</strong>
+          <span class="stat-bar"><i :style="{ width: `${Math.min(stats.usage, 100)}%` }" /></span>
+        </div>
+        <div class="stat good">
+          <span class="stat-label">{{ t('cuttingOptimize.statUseful') }}</span>
+          <strong class="stat-value">{{ fmtArea(stats.useful) }} <small>m²</small></strong>
+          <span class="stat-sub">{{ t('cuttingOptimize.statUsefulSub', { n: stats.usefulCount }) }}</span>
+        </div>
+        <div class="stat bad">
+          <span class="stat-label">{{ t('cuttingOptimize.statScrap') }}</span>
+          <strong class="stat-value">{{ fmtArea(stats.scrap) }} <small>m² · {{ stats.scrapPct.toFixed(1) }}%</small></strong>
+          <span class="stat-sub">{{ t('cuttingOptimize.statScrapSub') }}</span>
+        </div>
+      </div>
+    </section>
+
+    <ManualCutEditor
+      v-if="editor"
+      :order-id="orderId"
+      :initial="editor.initial"
+      :plan-layout="editor.plan"
+      :expected="editor.expected"
+      :allowed-goods="editor.allowedGoods"
+      :sheet-options="editor.sheetOptions"
+      :min-remnant-width-cm="Number(edgeWidthCm) || 0"
+      :min-remnant-height-cm="Number(edgeHeightCm) || 0"
+      :plan-revision="editor.planRevision"
+      @saved="(v) => (manual = v)"
+      @close="editor = null"
+      @replan="onReplan"
+    />
+
 
     <div v-if="plan && rows.length === 0" class="card p-5 text-sm text-gray-500">
       {{ t('cuttingOptimize.noWindows') }}
     </div>
 
-    <div v-for="row in rows" :key="row.itemId" class="card mb-4 p-5">
+    <div v-if="rows.length" class="card mb-4 p-5">
       <div class="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-        <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">{{ row.goodsName }}</h3>
-        <span class="text-sm text-gray-500">
-          {{ t('cuttingOptimize.size') }} {{ row.width }}×{{ row.height }} · {{ t('cuttingOptimize.pieces') }} {{ row.count }}
-        </span>
+        <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">{{ t('cutEditor.boardsTitle') }}</h3>
+        <span class="text-xs text-gray-400">{{ t('cutEditor.boardsHint') }}</span>
       </div>
+      <CutBoardsView
+        v-if="viewLayout"
+        :layout="viewLayout"
+        :item-order="rows.map((r) => r.itemId)"
+        :item-labels="itemLabels"
+        :min-remnant-width-cm="Number(edgeWidthCm) || 0"
+        :min-remnant-height-cm="Number(edgeHeightCm) || 0"
+      />
+      <p v-else class="text-sm text-gray-400">{{ t('cutEditor.notReady') }}</p>
+    </div>
 
-      <div v-for="(use, idx) in row.sheets" :key="`s-${idx}`" class="mb-2 flex flex-wrap items-end gap-3">
-        <label class="text-sm text-gray-600">
-          {{ t('cuttingOptimize.sheetSource') }}
-          <select v-model.number="use.goodsId" class="field" :disabled="locked" @change="syncSheetSize(row, use)">
-            <option v-for="c in row.candidates" :key="c.goodsId" :value="c.goodsId">
-              {{ c.goodsName }} · {{ c.width }}×{{ c.height }}
-            </option>
-          </select>
-        </label>
-        <label class="text-sm text-gray-600">
-          {{ t('cuttingOptimize.fromSheet') }}
-          <input v-model.number="use.quantity" type="number" min="0" class="field w-24" :disabled="locked" @input="absorbArmed = false" />
-        </label>
-        <button v-if="!locked && row.sheets.length > 1" type="button" class="ghost" @click="row.sheets.splice(idx, 1)">×</button>
-      </div>
-      <button v-if="!locked" type="button" class="ghost mb-3" @click="addSheet(row)">{{ t('cuttingOptimize.addSheet') }}</button>
-
-      <div class="mb-2">
-        <button v-if="!locked" type="button" class="ghost" @click="addPick(row)">{{ t('cuttingOptimize.addRemnant') }}</button>
-      </div>
-
-      <div v-for="(pick, idx) in row.picks" :key="`p-${idx}`" class="mb-2 flex flex-wrap items-end gap-2">
-        <label class="text-sm text-gray-600">
-          {{ t('cuttingOptimize.remnant') }}
-          <select v-model="pick.key" class="field" :disabled="locked" @change="applyPickKey(row, pick)">
-            <option value="" disabled>{{ t('cuttingOptimize.remnant') }}</option>
-            <option v-for="opt in pickOptions(row)" :key="opt.key" :value="opt.key">{{ opt.label }}</option>
-          </select>
-        </label>
-        <label class="text-sm text-gray-600">
-          {{ t('cuttingOptimize.pieces') }}
-          <input v-model.number="pick.quantity" type="number" min="1" class="field w-24" :disabled="locked" @input="absorbArmed = false" />
-        </label>
-        <button v-if="!locked" type="button" class="ghost" @click="row.picks.splice(idx, 1)">×</button>
-      </div>
-      <p v-if="pickOptions(row).length === 0" class="text-xs text-gray-400">{{ t('cuttingOptimize.noRemnants') }}</p>
-      <p class="mt-2 text-sm" :class="left(row) === 0 ? 'text-emerald-600' : 'text-amber-600'">
-        {{ left(row) === 0 ? t('cuttingOptimize.ready') : t('cuttingOptimize.left', { n: left(row) }) }}
-      </p>
-
+    <div class="calc-previews" aria-hidden="true">
+    <div v-for="row in rows" :key="row.itemId">
       <div class="cut-sequence">
       <template v-for="(use, idx) in row.sheets" :key="`plan-${row.itemId}-${idx}`">
         <CuttingPreview
-          v-if="Number(use.quantity) > 0 && use.width && use.height"
+          v-if="use.width && use.height && (Number(use.quantity) > 0 || !locked)"
           :goods-id="use.goodsId"
           :sheet-width="use.width"
           :sheet-height="use.height"
-          :piece-width="row.width"
-          :piece-height="row.height"
+          :piece-width="previewWidth(row)"
+          :piece-height="previewHeight(row)"
           :quantity="Number(use.quantity)"
           :min-remnant-width-cm="edgeWidthCm"
           :min-remnant-height-cm="edgeHeightCm"
+          :max-scrap-percent="maxScrapPercent"
+          :waste-width-cm="wasteWidthCm"
+          :waste-height-cm="wasteHeightCm"
           :movable="!locked"
+          :editable="!locked"
           :item-id="row.itemId"
           source="sheet"
           :source-index="idx"
           :stamp="planStamp"
-          readonly
+          :force-flip="row.forceFlip"
+          :can-remove="!locked && row.sheets.length > 1"
+          :sheet-options="sheetOptionsOf(row)"
           :title="t('cuttingOptimize.sheetPlanNamed', { name: use.name || use.goodsId, w: use.width, h: use.height })"
           v-model:kerf="kerfMm"
-          v-model:allow-rotate="row.allowRotate"
+          :allow-rotate="row.forceFlip ? false : row.allowRotate"
+          @update:allow-rotate="(v) => { if (!row.forceFlip) row.allowRotate = v }"
+          @update:quantity="(v) => { use.quantity = v; absorbArmed = false }"
+          @update:goods-id="(v) => { use.goodsId = v; syncSheetSize(row, use); absorbArmed = false }"
+          @remove="row.sheets.splice(idx, 1)"
           @layout="(stamp, result) => onLayout(stamp, row, 'sheet', idx, result)"
+          @flip="flipRow(row)"
         />
       </template>
       <template v-for="(pick, idx) in row.picks" :key="`rp-${row.itemId}-${idx}`">
         <CuttingPreview
-          v-if="pick.width && pick.height && Number(pick.quantity) > 0"
+          v-if="pick.width && pick.height && (Number(pick.quantity) > 0 || !locked)"
           :goods-id="pick.goodsId || row.goodsId"
           :sheet-width="pick.width"
           :sheet-height="pick.height"
-          :piece-width="row.width"
-          :piece-height="row.height"
+          :piece-width="previewWidth(row)"
+          :piece-height="previewHeight(row)"
           :quantity="Number(pick.quantity)"
           :min-remnant-width-cm="edgeWidthCm"
           :min-remnant-height-cm="edgeHeightCm"
+          :max-scrap-percent="maxScrapPercent"
+          :waste-width-cm="wasteWidthCm"
+          :waste-height-cm="wasteHeightCm"
           :movable="!locked"
+          :editable="!locked"
           :item-id="row.itemId"
           source="pick"
           :source-index="idx"
           :stamp="planStamp"
-          readonly
+          :force-flip="row.forceFlip"
+          :can-remove="!locked"
+          :remnant-options="pickOptions(row)"
+          :remnant-key="pick.key"
           :title="t('cuttingOptimize.remnantPlan', { w: pick.width, h: pick.height })"
           v-model:kerf="kerfMm"
-          v-model:allow-rotate="row.allowRotate"
+          :allow-rotate="row.forceFlip ? false : row.allowRotate"
+          @update:allow-rotate="(v) => { if (!row.forceFlip) row.allowRotate = v }"
+          @update:quantity="(v) => { pick.quantity = v; absorbArmed = false }"
+          @update:remnant-key="(v) => { pick.key = v; applyPickKey(row, pick); absorbArmed = false }"
+          @remove="row.picks.splice(idx, 1)"
           @layout="(stamp, result) => onLayout(stamp, row, 'pick', idx, result)"
+          @flip="flipRow(row)"
         />
       </template>
       </div>
+    </div>
     </div>
 
     <button
@@ -162,11 +202,26 @@ import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import CuttingPreview from '@/components/crm/CuttingPreview.vue'
+import ManualCutEditor from '@/components/crm/ManualCutEditor.vue'
+import CutBoardsView from '@/components/crm/CutBoardsView.vue'
+import {
+  buildBoards,
+  freeRects,
+  matchesOrder,
+  parseLayout,
+  totalUsage,
+  type EdLayout,
+  type EditorSheetOption,
+  type PlanSource,
+} from '@/components/crm/manualCut'
 import {
   confirmCuttingOptimize,
   fetchCuttingOptimize,
+  fetchManualLayout,
+  restoreManualLayout,
   suggestCuttingOptimize,
   type CuttingResult,
+  type ManualLayout,
   type OptimizePlan,
   type OptimizeRemnant,
   type SheetOption,
@@ -202,6 +257,8 @@ interface Row {
   candidates: SheetOption[]
   plannedPool: { goodsId: number; width: number; height: number }[]
   allowRotate: boolean
+  /** Previewda bo‘laklarni 90° burib joylashtirish. */
+  forceFlip: boolean
 }
 
 const { t } = useI18n()
@@ -216,13 +273,67 @@ const error = ref<string | null>(null)
 const kerfMm = ref(0)
 const edgeWidthCm = ref(20)
 const edgeHeightCm = ref(20)
+const maxScrapPercent = ref<number | null>(null)
+const wasteWidthCm = ref<number | null>(null)
+const wasteHeightCm = ref<number | null>(null)
 const cutSource = ref<'remnant' | 'sheet'>('remnant')
 const planStamp = ref(0)
 const absorbArmed = ref(true)
 const caps = ref(new Map<string, number>())
+const layouts = ref(new Map<string, CuttingResult>())
 
 function num(v: unknown) {
   return Number(v || 0)
+}
+
+function fmtArea(v: number) {
+  return new Intl.NumberFormat('uz-UZ', { maximumFractionDigits: 2 }).format(v || 0)
+}
+
+const totals = computed(() => {
+  let sheetPieces = 0
+  let remnantPieces = 0
+  let sheetArea = 0
+  let remnantArea = 0
+  let usefulArea = 0
+  let scrapArea = 0
+  for (const row of rows.value) {
+    const pieceArea = (num(row.width) * num(row.height)) / 10_000
+    for (const use of row.sheets) {
+      const qty = num(use.quantity)
+      sheetPieces += qty
+      sheetArea += pieceArea * qty
+    }
+    for (const pick of row.picks) {
+      const qty = num(pick.quantity)
+      remnantPieces += qty
+      remnantArea += pieceArea * qty
+    }
+  }
+  for (const result of layouts.value.values()) {
+    usefulArea += num(result.usefulArea)
+    scrapArea += num(result.scrapArea)
+  }
+  return { sheetPieces, remnantPieces, sheetArea, remnantArea, usefulArea, scrapArea }
+})
+
+function flipRow(row: Row) {
+  if (locked.value) return
+  const w = num(row.width)
+  const h = num(row.height)
+  if (!w || !h || w === h) return
+  row.forceFlip = !row.forceFlip
+  row.allowRotate = true
+  absorbArmed.value = false
+  planStamp.value += 1
+}
+
+function previewWidth(row: Row) {
+  return row.forceFlip ? num(row.height) : num(row.width)
+}
+
+function previewHeight(row: Row) {
+  return row.forceFlip ? num(row.width) : num(row.height)
 }
 
 function planKey(goodsId: number, width: number, height: number) {
@@ -291,8 +402,10 @@ function applyPlan(data: OptimizePlan | null) {
       candidates,
       plannedPool,
       allowRotate: line.allowRotate !== false,
+      forceFlip: false,
     }
   })
+  layouts.value = new Map()
 }
 
 function remnantsFor(row: Row) {
@@ -318,6 +431,13 @@ function pickOptions(row: Row) {
     })
   }
   return options
+}
+
+function sheetOptionsOf(row: Row) {
+  return row.candidates.map((c) => ({
+    goodsId: c.goodsId,
+    label: `${c.goodsName || c.goodsId} · ${c.width}×${c.height}`,
+  }))
 }
 
 function applyPickKey(row: Row, pick: PickRow) {
@@ -370,7 +490,9 @@ function pieceFits(row: Row, width: number, height: number) {
 }
 
 function onLayout(stamp: number, row: Row, source: CutSource, index: number, result: CuttingResult) {
-  if (stamp !== planStamp.value || locked.value) return
+  if (stamp !== planStamp.value) return
+  layouts.value.set(capKey(row.itemId, source, index), result)
+  if (locked.value) return
   const qty = source === 'sheet' ? num(row.sheets[index]?.quantity) : num(row.picks[index]?.quantity)
   if (Number(result.quantity) !== qty) return
   if (Number(result.kerfMm) !== Number(kerfMm.value)) return
@@ -420,32 +542,35 @@ function onPointerUp(e: { clientX: number; clientY: number; target?: EventTarget
   const itemId = Number(target.dataset.itemId)
   const source = target.dataset.source as CutSource | undefined
   const index = Number(target.dataset.index)
-  if (!source || itemId !== drag.itemId || Number.isNaN(index)) return
-  if (source === drag.source && index === drag.index) return
-  const row = rows.value.find((r) => r.itemId === drag.itemId)
-  if (!row) return
+  if (!source || Number.isNaN(index)) return
+  const fromRow = rows.value.find((r) => r.itemId === drag.itemId)
+  const toRow = rows.value.find((r) => r.itemId === itemId)
+  if (!fromRow || !toRow) return
   absorbArmed.value = false
   const kind = target.dataset.cutDrop
-  if (kind === 'next' || kind === 'sheet') {
-    if (!shiftPiece(row, drag.source, drag.index, source, index)) return
+  // Bir xil o‘lcham ichida list/qoldiq o‘rtasida ko‘chirish.
+  if (itemId === drag.itemId && (kind === 'next' || kind === 'sheet')) {
+    if (source === drag.source && index === drag.index) return
+    shiftPiece(fromRow, drag.source, drag.index, source, index)
     return
   }
-  if (kind !== 'offcut' || Number(target.dataset.fits) < 1) return
+  // Boshqa o‘lchamning yashil qoldig‘iga tashlash — shu qoldiqdan kesiladi.
+  if (kind !== 'offcut') return
   const width = num(target.dataset.w)
   const height = num(target.dataset.h)
-  const goodsId = Number(target.dataset.goodsId) || row.goodsId
-  if (!width || !height || !pieceFits(row, width, height)) return
-  if (!takePiece(row, drag.source, drag.index)) return
+  const goodsId = Number(target.dataset.goodsId) || toRow.goodsId
+  if (!width || !height || !pieceFits(fromRow, width, height)) return
+  if (!takePiece(fromRow, drag.source, drag.index)) return
   const key = planKey(goodsId, width, height)
-  const existing = row.picks.find((p) => p.planned && p.key === key)
+  const existing = fromRow.picks.find((p) => p.planned && p.key === key)
   if (existing) {
     existing.quantity = num(existing.quantity) + 1
     return
   }
-  if (!row.plannedPool.some((p) => planKey(p.goodsId, p.width, p.height) === key)) {
-    row.plannedPool.push({ goodsId, width, height })
+  if (!fromRow.plannedPool.some((p) => planKey(p.goodsId, p.width, p.height) === key)) {
+    fromRow.plannedPool.push({ goodsId, width, height })
   }
-  row.picks.push({
+  fromRow.picks.push({
     key,
     remnantId: 0,
     goodsId,
@@ -480,22 +605,222 @@ function takePiece(row: Row, source: CutSource, index: number) {
 
 const complete = computed(() => rows.value.length > 0 && rows.value.every((row) => left(row) === 0 && used(row) === row.count))
 
-function addSheet(row: Row) {
-  const first = row.candidates[0]
-  row.sheets.push({
-    goodsId: first?.goodsId || row.goodsId,
-    name: first?.goodsName || '',
-    width: num(first?.width),
-    height: num(first?.height),
-    quantity: 0,
+const manual = ref<ManualLayout | null>(null)
+const editor = ref<{
+  initial: EdLayout
+  plan: EdLayout
+  expected: Map<number, number>
+  allowedGoods: Record<number, number[]>
+  sheetOptions: EditorSheetOption[]
+  planRevision: number
+} | null>(null)
+
+const manualSaved = computed(() => {
+  const layout = parseLayout(manual.value?.layout)
+  if (!layout) return null
+  return { layout, pct: (Math.round(totalUsage(layout.boards) * 10) / 10).toFixed(1) }
+})
+
+/** Har bir chizma hisoblangach, qo‘lda tahrirlash uchun manbalar. */
+const editorSources = computed(() => {
+  const list: PlanSource[] = []
+  let ready = rows.value.length > 0
+  for (const row of rows.value) {
+    const rotatable = row.allowRotate !== false
+    row.sheets.forEach((use, idx) => {
+      const qty = num(use.quantity)
+      if (qty < 1) return
+      const result = layouts.value.get(capKey(row.itemId, 'sheet', idx))
+      if (!result || Number(result.quantity) !== qty) {
+        ready = false
+        return
+      }
+      list.push({ itemId: row.itemId, kind: 'sheet', goodsId: use.goodsId, name: use.name, rotatable, result })
+    })
+    row.picks.forEach((pick, idx) => {
+      const qty = num(pick.quantity)
+      if (qty < 1) return
+      const result = layouts.value.get(capKey(row.itemId, 'pick', idx))
+      if (!result || Number(result.quantity) !== qty) {
+        ready = false
+        return
+      }
+      const name = row.candidates.find((c) => c.goodsId === pick.goodsId)?.goodsName || ''
+      list.push({
+        itemId: row.itemId,
+        kind: pick.planned ? 'planned' : 'stock',
+        goodsId: pick.goodsId || row.goodsId,
+        name: pick.planned ? name : `${name} #${pick.remnantId}`,
+        rotatable,
+        result,
+      })
+    })
+  }
+  return { list, ready }
+})
+
+function expectedCounts() {
+  const expected = new Map<number, number>()
+  for (const row of rows.value) expected.set(row.itemId, row.count)
+  return expected
+}
+
+const planLayout = computed(() => {
+  if (!editorSources.value.ready) return null
+  return buildBoards(editorSources.value.list, Number(kerfMm.value || 0) / 10)
+})
+
+/** Sahifada ko‘rsatiladigan karta: saqlangan qo‘lda tahrir, bo‘lmasa avtomatik reja. */
+const viewLayout = computed(() => {
+  const saved = manualSaved.value?.layout ?? null
+  if (saved && matchesOrder(saved, expectedCounts())) return saved
+  return planLayout.value
+})
+
+/** Jami ko‘rsatkichlar sahifadagi kesish kartasidan: qoldiqlar ikki marta sanalmaydi. */
+const stats = computed(() => {
+  const layout = viewLayout.value
+  const out = { sheets: 0, remnantBoards: 0, usage: 0, useful: 0, scrap: 0, scrapPct: 0, usefulCount: 0, area: 0 }
+  if (!layout) return out
+  const minW = Number(edgeWidthCm.value) || 0
+  const minH = Number(edgeHeightCm.value) || 0
+  for (const board of layout.boards) {
+    if (!board.parts.length) continue
+    if (board.kind === 'sheet') out.sheets += 1
+    else out.remnantBoards += 1
+    out.area += (board.w * board.h) / 10_000
+    for (const free of freeRects(board, minW, minH)) {
+      const area = (free.w * free.h) / 10_000
+      if (free.useful) {
+        out.useful += area
+        out.usefulCount += 1
+      } else {
+        out.scrap += area
+      }
+    }
+  }
+  out.usage = totalUsage(layout.boards)
+  out.scrapPct = out.area > 0 ? (out.scrap / out.area) * 100 : 0
+  return out
+})
+
+const itemLabels = computed(() => {
+  const labels: Record<number, string> = {}
+  for (const row of rows.value) {
+    labels[row.itemId] = t('cutEditor.itemLabel', { name: row.goodsName, w: row.width, h: row.height, n: row.count })
+  }
+  return labels
+})
+
+function openEditor() {
+  if (!editorSources.value.ready) return
+  const expected = new Map<number, number>()
+  const allowedGoods: Record<number, number[]> = {}
+  const sheetOptions: EditorSheetOption[] = []
+  for (const row of rows.value) {
+    expected.set(row.itemId, row.count)
+    allowedGoods[row.itemId] = row.candidates.map((c) => c.goodsId)
+    for (const c of row.candidates) {
+      if (!c.width || !c.height || sheetOptions.some((o) => o.goodsId === c.goodsId)) continue
+      sheetOptions.push({ goodsId: c.goodsId, name: c.goodsName || String(c.goodsId), w: num(c.width), h: num(c.height) })
+    }
+  }
+  const plan = planLayout.value ?? buildBoards(editorSources.value.list, Number(kerfMm.value || 0) / 10)
+  const saved = manualSaved.value?.layout ?? null
+  editor.value = {
+    initial: matchesOrder(saved, expected) ? saved! : plan,
+    plan,
+    expected,
+    allowedGoods,
+    sheetOptions,
+    planRevision: 0,
+  }
+}
+
+let replanSeq = 0
+
+function waitForPlan() {
+  return new Promise<void>((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      stop()
+      reject(new Error('timeout'))
+    }, 20000)
+    const stop = watch(editorSources, (value) => {
+      if (!value.ready) return
+      window.clearTimeout(timer)
+      stop()
+      resolve()
+    })
   })
 }
 
-function addPick(row: Row) {
-  const opt = pickOptions(row)[0]
-  const pick: PickRow = { key: opt?.key || '', remnantId: 0, goodsId: row.goodsId, quantity: 1, planned: false }
-  if (opt) applyPickKey(row, pick)
-  row.picks.push(pick)
+async function onReplan(payload: { maxScrapPercent: number; wasteWidthCm: number | null; wasteHeightCm: number | null }) {
+  const seq = ++replanSeq
+  maxScrapPercent.value = payload.maxScrapPercent
+  wasteWidthCm.value = payload.wasteWidthCm
+  wasteHeightCm.value = payload.wasteHeightCm
+  if (!locked.value) {
+    try {
+      const res = await suggestCuttingOptimize(orderId, {
+        kerfMm: Number(kerfMm.value) || 0,
+        minRemnantCm: Number(edgeWidthCm.value) || 0,
+        minRemnantWidthCm: Number(edgeWidthCm.value) || 0,
+        minRemnantHeightCm: Number(edgeHeightCm.value) || 0,
+        source: cutSource.value === 'sheet' ? 'SHEET' : 'REMNANT',
+        allowRotate: true,
+        maxScrapPercent: payload.maxScrapPercent,
+        wasteWidthCm: payload.wasteWidthCm ?? undefined,
+        wasteHeightCm: payload.wasteHeightCm ?? undefined,
+      })
+      if (seq !== replanSeq) return
+      applyPlan(res.data || null)
+      absorbArmed.value = false
+    } catch (e) {
+      if (seq !== replanSeq) return
+      error.value = formatApiError(e)
+      layouts.value = new Map()
+      planStamp.value += 1
+    }
+  } else {
+    layouts.value = new Map()
+    planStamp.value += 1
+  }
+  try {
+    await waitForPlan()
+  } catch {
+    return
+  }
+  if (seq !== replanSeq || !editor.value || !planLayout.value) return
+  editor.value = {
+    ...editor.value,
+    plan: planLayout.value,
+    planRevision: editor.value.planRevision + 1,
+  }
+}
+
+function fmtDate(value?: string | null) {
+  if (!value) return ''
+  const d = new Date(value)
+  return Number.isNaN(d.getTime()) ? value : d.toLocaleString('uz-UZ', { dateStyle: 'short', timeStyle: 'short' })
+}
+
+async function loadManual() {
+  try {
+    const res = await fetchManualLayout(orderId)
+    manual.value = res.data || null
+  } catch {
+    manual.value = null
+  }
+}
+
+async function restorePrevious() {
+  error.value = null
+  try {
+    const res = await restoreManualLayout(orderId)
+    manual.value = res.data || null
+  } catch (e) {
+    error.value = formatApiError(e)
+  }
 }
 
 async function load() {
@@ -506,25 +831,7 @@ async function load() {
   } catch (e) {
     error.value = formatApiError(e)
   }
-}
-
-async function recalc() {
-  saving.value = true
-  error.value = null
-  try {
-    const res = await suggestCuttingOptimize(orderId, {
-      kerfMm: Number(kerfMm.value) >= 0 ? Number(kerfMm.value) : 0,
-      minRemnantWidthCm: Number(edgeWidthCm.value) >= 0 ? Number(edgeWidthCm.value) : 0,
-      minRemnantHeightCm: Number(edgeHeightCm.value) >= 0 ? Number(edgeHeightCm.value) : 0,
-      source: cutSource.value === 'sheet' ? 'SHEET' : 'REMNANT',
-      allowRotate: true,
-    })
-    applyPlan(res.data || null)
-  } catch (e) {
-    error.value = formatApiError(e)
-  } finally {
-    saving.value = false
-  }
+  loadManual()
 }
 
 async function onSave() {
@@ -599,22 +906,71 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.field {
-  display: block;
-  margin-top: 0.25rem;
-  height: 2.5rem;
-  min-width: 8rem;
-  border-radius: 0.5rem;
-  border: 1px solid #d1d5db;
-  background: transparent;
-  padding: 0 0.75rem;
-  font-size: 0.875rem;
-}
 .btn { height: 2.75rem; border-radius: 0.5rem; background: #465fff; padding: 0 1.25rem; color: #fff; font-weight: 500; }
 .btn:disabled { opacity: 0.6; }
 .ghost { height: 2.5rem; border-radius: 0.5rem; border: 1px solid #d1d5db; padding: 0 0.9rem; color: #374151; }
 .err { border-radius: 0.5rem; border: 1px solid #fecaca; background: #fef2f2; padding: 0.75rem; color: #dc2626; font-size: 0.875rem; }
 .card { border-radius: 1rem; border: 1px solid #e5e7eb; background: #fff; }
+.summary {
+  border-radius: 1rem;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  padding: 1.25rem;
+}
+.summary-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+.summary-note { margin-top: 0.25rem; font-size: 0.8125rem; color: #067647; }
+.summary-note.muted { color: #98a2b3; }
+.summary-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.summary-actions .btn { height: 2.5rem; }
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+@media (max-width: 1280px) {
+  .stat-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+  border-radius: 0.75rem;
+  border: 1px solid #eaecf0;
+  border-top: 3px solid #465fff;
+  background: #f9fafb;
+  padding: 0.75rem 0.9rem;
+}
+.stat.good { border-top-color: #12b76a; background: #f6fef9; }
+.stat.warn { border-top-color: #f79009; background: #fffcf5; }
+.stat.bad { border-top-color: #f04438; background: #fffbfa; }
+.stat-label { font-size: 0.75rem; font-weight: 500; color: #667085; }
+.stat-value { font-size: 1.375rem; line-height: 1.2; font-weight: 700; color: #101828; }
+.stat-value small { font-size: 0.8125rem; font-weight: 500; color: #667085; }
+.stat-sub { font-size: 0.75rem; color: #98a2b3; }
+.stat.good .stat-value { color: #067647; }
+.stat.warn .stat-value { color: #b54708; }
+.stat.bad .stat-value { color: #b42318; }
+.stat-bar { display: block; height: 0.35rem; border-radius: 999px; background: #eaecf0; overflow: hidden; margin-top: 0.2rem; }
+.stat-bar i { display: block; height: 100%; border-radius: inherit; background: currentColor; }
+.stat.good .stat-bar i { background: #12b76a; }
+.stat.warn .stat-bar i { background: #f79009; }
+.stat.bad .stat-bar i { background: #f04438; }
+:global(html.dark) .summary { background: #161b26; border-color: #1f242f; }
+:global(html.dark) .stat { background: rgb(255 255 255 / 3%); border-color: #1f242f; }
+:global(html.dark) .stat-value { color: rgba(255, 255, 255, 0.92); }
+:global(html.dark) .stat-bar { background: rgb(255 255 255 / 8%); }
+.calc-previews { display: none; }
 .cut-sequence {
   display: flex;
   gap: 0.75rem;

@@ -53,8 +53,8 @@
           {{ t('header.searchHint') }}
         </p>
         <p v-if="loading" class="px-3 py-6 text-center text-sm text-gray-500">{{ t('common.loading') }}</p>
-        <ul v-else-if="filtered.length" class="max-h-72 overflow-y-auto py-1" role="listbox">
-          <li v-for="(c, i) in filtered" :key="c.id">
+        <ul v-else-if="hits.length" class="max-h-72 overflow-y-auto py-1" role="listbox">
+          <li v-for="(hit, i) in hits" :key="hit.key">
             <button
               type="button"
               role="option"
@@ -65,13 +65,11 @@
                   ? 'bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400'
                   : 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/5'
               "
-              @mousedown.prevent="goTo(c.id)"
+              @mousedown.prevent="goTo(hit)"
               @mouseenter="activeIndex = i"
             >
-              <span class="font-medium">{{ c.fullName }}</span>
-              <span class="text-xs text-gray-500 dark:text-gray-400">
-                {{ c.phone }}{{ c.additionalPhone ? ` · ${c.additionalPhone}` : '' }}
-              </span>
+              <span class="font-medium">{{ hit.title }}</span>
+              <span v-if="hit.subtitle" class="text-xs text-gray-500 dark:text-gray-400">{{ hit.subtitle }}</span>
             </button>
           </li>
         </ul>
@@ -102,8 +100,8 @@
         />
       </div>
       <p v-if="loading" class="px-4 py-8 text-center text-sm text-gray-500">{{ t('common.loading') }}</p>
-      <ul v-else-if="filtered.length" class="max-h-80 overflow-y-auto py-1" role="listbox">
-        <li v-for="(c, i) in filtered" :key="c.id">
+      <ul v-else-if="hits.length" class="max-h-80 overflow-y-auto py-1" role="listbox">
+        <li v-for="(hit, i) in hits" :key="hit.key">
           <button
             type="button"
             role="option"
@@ -114,12 +112,10 @@
                 ? 'bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400'
                 : 'text-gray-700 dark:text-gray-300'
             "
-            @click="goTo(c.id)"
+            @click="goTo(hit)"
           >
-            <span class="font-medium">{{ c.fullName }}</span>
-            <span class="text-xs text-gray-500">
-              {{ c.phone }}{{ c.additionalPhone ? ` · ${c.additionalPhone}` : '' }}
-            </span>
+            <span class="font-medium">{{ hit.title }}</span>
+            <span v-if="hit.subtitle" class="text-xs text-gray-500">{{ hit.subtitle }}</span>
           </button>
         </li>
       </ul>
@@ -135,7 +131,15 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { fetchClients, type Client } from '@/api/clients'
+import { fetchSaleOrdersByNumber, type SaleOrder } from '@/api/sales'
 import { matchesClientQuery } from '@/utils/phone'
+
+interface SearchHit {
+  key: string
+  title: string
+  subtitle: string
+  to: string
+}
 
 const { t } = useI18n()
 const router = useRouter()
@@ -145,6 +149,7 @@ const open = ref(false)
 const overlayOpen = ref(false)
 const loading = ref(false)
 const clients = ref<Client[]>([])
+const orders = ref<SaleOrder[]>([])
 const activeIndex = ref(0)
 const inputEl = ref<HTMLInputElement | null>(null)
 const overlayInput = ref<HTMLInputElement | null>(null)
@@ -152,7 +157,7 @@ const root = ref<HTMLElement | null>(null)
 let loaded = false
 let loadPromise: Promise<void> | null = null
 
-const filtered = computed(() => {
+const clientHits = computed(() => {
   const q = query.value.trim()
   if (!q) return []
   return clients.value
@@ -166,9 +171,55 @@ const filtered = computed(() => {
     .slice(0, 12)
 })
 
-watch(filtered, () => {
+const hits = computed<SearchHit[]>(() => {
+  const orderHits: SearchHit[] = orders.value.map((o) => ({
+    key: `order-${o.id}`,
+    title: o.orderNumber || String(o.id),
+    subtitle: [t('sales.orderNo'), o.clientFullName].filter(Boolean).join(' · '),
+    to: `/sales/${o.id}`,
+  }))
+  const people: SearchHit[] = clientHits.value.map((c) => ({
+    key: `client-${c.id}`,
+    title: c.fullName,
+    subtitle: `${c.phone || ''}${c.additionalPhone ? ` · ${c.additionalPhone}` : ''}`,
+    to: `/clients/${c.id}`,
+  }))
+  return [...orderHits, ...people].slice(0, 12)
+})
+
+watch(hits, () => {
   activeIndex.value = 0
 })
+
+let orderTimer: ReturnType<typeof setTimeout> | undefined
+let orderGen = 0
+
+function looksLikeOrderNumber(value: string) {
+  const q = value.trim().replace(/\s/g, '')
+  return /\d/.test(q) && /^\d{0,6}\/?\d{0,4}$/.test(q) && q !== '/'
+}
+
+function scheduleOrderSearch() {
+  if (orderTimer) clearTimeout(orderTimer)
+  const q = query.value.trim()
+  if (!looksLikeOrderNumber(q)) {
+    orderGen += 1
+    orders.value = []
+    return
+  }
+  orderTimer = setTimeout(() => void searchOrders(q), 250)
+}
+
+async function searchOrders(q: string) {
+  const gen = ++orderGen
+  try {
+    const res = await fetchSaleOrdersByNumber(q)
+    if (gen !== orderGen) return
+    orders.value = res.data || []
+  } catch {
+    if (gen === orderGen) orders.value = []
+  }
+}
 
 async function ensureClients() {
   if (loaded) return
@@ -196,6 +247,7 @@ function onFocus() {
 function onInput() {
   open.value = true
   void ensureClients()
+  scheduleOrderSearch()
 }
 
 function focusInput() {
@@ -219,21 +271,22 @@ function closeOverlay() {
 }
 
 function move(delta: number) {
-  const len = filtered.value.length
+  const len = hits.value.length
   if (!len) return
   activeIndex.value = (activeIndex.value + delta + len) % len
 }
 
 function selectActive() {
-  const c = filtered.value[activeIndex.value]
-  if (c) goTo(c.id)
+  const hit = hits.value[activeIndex.value]
+  if (hit) goTo(hit)
 }
 
-function goTo(id: number) {
+function goTo(hit: SearchHit) {
   query.value = ''
+  orders.value = []
   open.value = false
   overlayOpen.value = false
-  router.push(`/clients/${id}`)
+  router.push(hit.to)
 }
 
 function onKeydown(e: KeyboardEvent) {
@@ -253,6 +306,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  if (orderTimer) clearTimeout(orderTimer)
   window.removeEventListener('keydown', onKeydown)
   document.removeEventListener('click', onDocClick)
 })

@@ -94,7 +94,8 @@ class CuttingPlanSolverTest {
                 .mapToInt(Pick::quantity)
                 .sum();
         assertEquals(10, onRemnant);
-        assertEquals(37, line.sheets().stream().mapToInt(SheetUse::pieces).sum());
+        // Kerf 3 mm: ombor qoldig'idan 10, qolgani list + shu kesishdan chiqqan qoldiq.
+        assertEquals(39, line.sheets().stream().mapToInt(SheetUse::pieces).sum());
         assertEquals(50, sheetPieces(line) + picked(line));
     }
 
@@ -138,5 +139,40 @@ class CuttingPlanSolverTest {
                 CuttingPlanSolver.familyKey("3 mm Ok 260*180", bd(3)),
                 CuttingPlanSolver.familyKey("Ok 3 mm 260*160.5", bd(3))
         );
+    }
+
+    @Test
+    void wasteStripKeepsPiecesOnTheCleanSheet() {
+        List<Assignment> plan = CuttingPlanSolver.plan(
+                List.of(new Demand(1, bd(53), bd(165), 6)),
+                List.of(new SheetChoice(9, bd(260), bd(180)), new SheetChoice(11, bd(260), bd(160.5))),
+                List.of(),
+                bd(0), bd(20), bd(20), true, true,
+                bd(8), bd(212), bd(15)
+        );
+        Assignment line = plan.getFirst();
+        assertEquals(6, sheetPieces(line));
+        assertEquals(1, line.sheets().size());
+        assertEquals(9L, line.sheets().getFirst().goodsId());
+    }
+
+    /** 1-o'lchamdan qolgan foydali qoldiq 2-o'lchamga ketadi, har o'lcham alohida listga chiqmaydi. */
+    @Test
+    void firstSizeRemnantFeedsSecondWithoutOwnFullSheet() {
+        List<Assignment> plan = CuttingPlanSolver.plan(
+                List.of(
+                        new Demand(1, bd(10), bd(125), 4),
+                        new Demand(2, bd(15), bd(101.4), 16)
+                ),
+                List.of(new SheetChoice(8, bd(260), bd(180)), new SheetChoice(10, bd(260), bd(160.5))),
+                List.of(),
+                bd(0), bd(10), bd(10), true, true
+        );
+        Assignment first = plan.stream().filter(a -> a.itemId() == 1).findFirst().orElseThrow();
+        Assignment second = plan.stream().filter(a -> a.itemId() == 2).findFirst().orElseThrow();
+        assertEquals(4, sheetPieces(first) + picked(first));
+        assertEquals(16, sheetPieces(second) + picked(second));
+        assertTrue(picked(second) > 0, "2-o'lcham 1-listdan qolgan foydali qoldiqdan olishi kerak");
+        assertTrue(sheetPieces(second) < 16, "2-o'lcham to'liq yangi listga yozilmasligi kerak");
     }
 }

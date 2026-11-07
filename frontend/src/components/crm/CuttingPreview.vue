@@ -7,29 +7,72 @@
       <div class="cut-title">
         <Scissors class="h-4 w-4" />
         <span>{{ title || t('cutting.title') }}</span>
-        <span class="cut-hint">{{ readonly ? t('cutting.savedHint') : t('cutting.hint') }}</span>
+        <span class="cut-hint">{{ editable ? t('cutting.hint') : t('cutting.savedHint') }}</span>
       </div>
-      <div v-if="readonly" class="cut-controls">
-        <span class="chip">{{ t('cutting.kerf') }}: <b class="ms-1">{{ result ? num(result.kerfMm) : kerf === '' ? '—' : kerf }}</b></span>
-        <span class="chip">{{ allowRotate ? t('cutting.rotateOn') : t('cutting.rotateOff') }}</span>
-      </div>
-      <div v-else class="cut-controls">
-        <label class="cut-kerf">
-          {{ t('cutting.kerf') }}
-          <input
-            v-model.number="kerf"
-            type="number"
-            min="0"
-            max="50"
-            step="0.5"
-            class="cut-input"
-            :placeholder="defaultKerf != null ? String(defaultKerf) : ''"
-          />
-        </label>
-        <label class="cut-check">
-          <input v-model="allowRotate" type="checkbox" />
-          {{ t('cutting.rotate') }}
-        </label>
+      <div class="cut-controls">
+        <template v-if="editable">
+          <label v-if="sheetOptions?.length" class="cut-field">
+            {{ t('cuttingOptimize.sheetSource') }}
+            <select class="cut-input cut-select" :value="goodsId" @change="onSheetChange">
+              <option v-for="opt in sheetOptions" :key="opt.goodsId" :value="opt.goodsId">
+                {{ opt.label }}
+              </option>
+            </select>
+          </label>
+          <label v-if="remnantOptions?.length" class="cut-field">
+            {{ t('cuttingOptimize.remnant') }}
+            <select class="cut-input cut-select" :value="remnantKey" @change="onRemnantChange">
+              <option v-for="opt in remnantOptions" :key="opt.key" :value="opt.key">{{ opt.label }}</option>
+            </select>
+          </label>
+          <label class="cut-field">
+            {{ t('cuttingOptimize.pieces') }}
+            <input
+              :value="quantity"
+              type="number"
+              min="0"
+              class="cut-input"
+              @input="onQtyInput"
+            />
+          </label>
+          <label class="cut-kerf">
+            {{ t('cutting.kerf') }}
+            <input
+              v-model.number="kerf"
+              type="number"
+              min="0"
+              max="50"
+              step="0.5"
+              class="cut-input"
+              :placeholder="defaultKerf != null ? String(defaultKerf) : ''"
+            />
+          </label>
+          <label class="cut-check">
+            <input v-model="allowRotate" type="checkbox" :disabled="forceFlip" />
+            {{ t('cutting.rotate') }}
+          </label>
+          <button
+            v-if="Number(pieceWidth) !== Number(pieceHeight)"
+            type="button"
+            class="chip flip"
+            @click="emit('flip')"
+          >
+            {{ t('cuttingOptimize.flipLayout') }}
+          </button>
+          <button v-if="canRemove" type="button" class="chip remove" @click="emit('remove')">×</button>
+        </template>
+        <template v-else>
+          <span class="chip">{{ t('cutting.kerf') }}: <b class="ms-1">{{ result ? num(result.kerfMm) : kerf === '' ? '—' : kerf }}</b></span>
+          <span class="chip">{{ allowRotate ? t('cutting.rotateOn') : t('cutting.rotateOff') }}</span>
+          <button
+            v-if="movable && Number(pieceWidth) !== Number(pieceHeight)"
+            type="button"
+            class="chip flip"
+            @click="emit('flip')"
+          >
+            {{ t('cuttingOptimize.flipLayout') }}
+          </button>
+        </template>
       </div>
     </header>
 
@@ -90,10 +133,13 @@
               :data-w="movable && r.useful ? r.width : undefined"
               :data-h="movable && r.useful ? r.height : undefined"
               :data-goods-id="movable && r.useful ? goodsId : undefined"
-              :data-fits="movable && r.useful ? r.fitsPieces : undefined"
+              :data-fits="movable && r.useful ? Math.max(1, Number(r.fitsPieces) || 0) : undefined"
               :role="dropKind(sheet, r) ? 'button' : undefined"
               :tabindex="dropKind(sheet, r) ? 0 : undefined"
-              :aria-label="dropKind(sheet, r) ? t('cuttingOptimize.dropRemnant') : undefined"
+              :aria-label="`${num(r.width)}×${num(r.height)} ${t('cutting.cm')}`"
+              @pointerenter="showRemnantTip($event, r)"
+              @pointermove="showRemnantTip($event, r)"
+              @pointerleave="pieceTip = null"
             />
             <rect
               v-for="(p, i) in piecesOf(sheet)"
@@ -118,11 +164,10 @@
             </rect>
             <template v-for="r in sheet.remnants" :key="`t-${r.x}-${r.y}`">
               <text
-                v-if="labelFits(r)"
-                :x="r.x + r.width / 2"
-                :y="r.y + r.height / 2"
-                :font-size="fontSize"
-                class="svg-label"
+                :x="labelX(r)"
+                :y="labelY(r)"
+                :font-size="labelFont(r)"
+                :class="r.useful ? 'svg-label' : 'svg-label scrap'"
                 text-anchor="middle"
                 dominant-baseline="middle"
               >
@@ -162,31 +207,41 @@ const props = defineProps<{
   pieceWidth: number
   pieceHeight: number
   quantity: number
-  /** Berilsa list o‘lchami shu (foydali qoldiq). Bo‘lmasa mahsulotning butun listi. */
   sheetWidth?: number
   sheetHeight?: number
-  /** Saqlangan qoidalarni faqat ko'rsatish (ishlab chiqarish): sozlab bo'lmaydi. */
+  /** Faqat ko‘rsatish (ishlab chiqarish). */
   readonly?: boolean
+  /** Optimizatsiyada section ichida tahrirlash. */
+  editable?: boolean
   title?: string
-  /** Foydali qoldiqning minimal tomoni, sm. En va bo'y berilmasa shu qiymat. */
   minRemnantCm?: number | null
   minRemnantWidthCm?: number | null
   minRemnantHeightCm?: number | null
-  /** Bo'lakni sichqoncha bilan boshqa qoldiqqa olib o'tish. */
+  maxScrapPercent?: number | null
+  wasteWidthCm?: number | null
+  wasteHeightCm?: number | null
   movable?: boolean
   itemId?: number
   source?: 'sheet' | 'pick'
   sourceIndex?: number
-  /** Reja almashtirilganda eski hisobni tashlab yuborish. */
   stamp?: number
+  forceFlip?: boolean
+  canRemove?: boolean
+  sheetOptions?: { goodsId: number; label: string }[]
+  remnantOptions?: { key: string; label: string }[]
+  remnantKey?: string
 }>()
 
 const emit = defineEmits<{
   layout: [stamp: number, result: CuttingResult]
+  flip: []
+  remove: []
+  'update:quantity': [value: number]
+  'update:goodsId': [value: number]
+  'update:remnantKey': [value: string]
 }>()
 
 const { t } = useI18n()
-/** '' - sozlamadagi standart qiymat. */
 const kerf = defineModel<number | ''>('kerf', { default: '' })
 const allowRotate = defineModel<boolean>('allowRotate', { default: true })
 const defaultKerf = ref<number | null>(null)
@@ -197,6 +252,7 @@ const error = ref<string | null>(null)
 let timer: ReturnType<typeof setTimeout> | undefined
 let requestSeq = 0
 
+const editable = computed(() => Boolean(props.editable) && !props.readonly)
 const pieces = computed(() => Math.ceil(Number(props.quantity) || 0))
 const roundedQty = computed(() => (pieces.value !== Number(props.quantity) ? pieces.value : 0))
 const kerfCm = computed(() => Number(result.value?.kerfMm || 0) / 10)
@@ -237,7 +293,8 @@ function piecesOf(sheet: CuttingSheetLayout) {
 }
 
 function remnantClass(r: CuttingRemnant) {
-  const hot = r.useful && props.movable && cutDrag.piece && cutDrag.piece.itemId === props.itemId
+  const drag = cutDrag.piece
+  const hot = Boolean(r.useful && props.movable && drag && (Number(r.fitsPieces) > 0 || drag.itemId === props.itemId))
   return [r.useful ? 'svg-useful' : 'svg-scrap', hot ? 'drop-hot' : '']
 }
 
@@ -256,7 +313,7 @@ function nextCell(sheet: CuttingSheetLayout, r: CuttingRemnant) {
 function dropKind(sheet: CuttingSheetLayout, r: CuttingRemnant) {
   if (!props.movable || !r.useful) return undefined
   if (nextCell(sheet, r)) return 'next'
-  return r.fitsPieces > 0 ? 'offcut' : undefined
+  return 'offcut'
 }
 
 function rememberPiece() {
@@ -295,9 +352,44 @@ function onDragStart(e: DragEvent) {
   if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'
 }
 
-function labelFits(r: CuttingRemnant) {
-  const size = fontSize.value
-  return r.height >= size * 1.4 && r.width >= size * 4
+function labelFont(r: CuttingRemnant) {
+  const base = fontSize.value
+  const byBox = Math.min(r.width, r.height) * 0.55
+  return Math.max(Math.min(base, byBox || base), 3.2)
+}
+
+function labelX(r: CuttingRemnant) {
+  return r.x + r.width / 2
+}
+
+function labelY(r: CuttingRemnant) {
+  if (r.height < labelFont(r) * 1.2) return r.y + Math.max(r.height / 2, 2)
+  return r.y + r.height / 2
+}
+
+function showRemnantTip(e: PointerEvent, r: CuttingRemnant) {
+  const host = (e.currentTarget as Element | null)?.closest('.cut') as HTMLElement | null
+  if (!host) return
+  const box = host.getBoundingClientRect()
+  const kind = r.useful ? t('cutting.usefulRemnant') : t('cutting.scrapRemnant')
+  pieceTip.value = {
+    x: Math.min(Math.max(e.clientX - box.left + 12, 8), host.clientWidth - 8),
+    y: Math.min(Math.max(e.clientY - box.top + 14, 8), host.clientHeight - 8),
+    text: `${num(r.width)}×${num(r.height)} ${t('cutting.cm')} · ${kind}`,
+  }
+}
+
+function onQtyInput(e: Event) {
+  const value = Number((e.target as HTMLInputElement).value)
+  emit('update:quantity', Number.isFinite(value) ? value : 0)
+}
+
+function onSheetChange(e: Event) {
+  emit('update:goodsId', Number((e.target as HTMLSelectElement).value))
+}
+
+function onRemnantChange(e: Event) {
+  emit('update:remnantKey', (e.target as HTMLSelectElement).value)
 }
 
 async function run() {
@@ -316,6 +408,9 @@ async function run() {
       minRemnantCm: props.minRemnantCm != null && !Number.isNaN(Number(props.minRemnantCm)) ? Number(props.minRemnantCm) : undefined,
       minRemnantWidthCm: props.minRemnantWidthCm != null && !Number.isNaN(Number(props.minRemnantWidthCm)) ? Number(props.minRemnantWidthCm) : undefined,
       minRemnantHeightCm: props.minRemnantHeightCm != null && !Number.isNaN(Number(props.minRemnantHeightCm)) ? Number(props.minRemnantHeightCm) : undefined,
+      maxScrapPercent: props.maxScrapPercent != null && !Number.isNaN(Number(props.maxScrapPercent)) ? Number(props.maxScrapPercent) : undefined,
+      wasteWidthCm: props.wasteWidthCm != null && Number(props.wasteWidthCm) > 0 ? Number(props.wasteWidthCm) : undefined,
+      wasteHeightCm: props.wasteHeightCm != null && Number(props.wasteHeightCm) > 0 ? Number(props.wasteHeightCm) : undefined,
     })
     if (seq !== requestSeq) return
     result.value = res.data
@@ -332,7 +427,7 @@ async function run() {
 }
 
 watch(
-  () => [props.goodsId, props.sheetWidth, props.sheetHeight, props.pieceWidth, props.pieceHeight, pieces.value, kerf.value, allowRotate.value, props.minRemnantCm, props.minRemnantWidthCm, props.minRemnantHeightCm, props.stamp],
+  () => [props.goodsId, props.sheetWidth, props.sheetHeight, props.pieceWidth, props.pieceHeight, pieces.value, kerf.value, allowRotate.value, props.minRemnantCm, props.minRemnantWidthCm, props.minRemnantHeightCm, props.maxScrapPercent, props.wasteWidthCm, props.wasteHeightCm, props.stamp],
   () => {
     clearTimeout(timer)
     timer = setTimeout(run, 350)
@@ -361,19 +456,23 @@ onBeforeUnmount(() => {
   font-weight: 600;
   white-space: nowrap;
 }
-.cut-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.6rem; }
+.cut-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 0.6rem; }
 .cut-title { display: flex; flex-wrap: wrap; align-items: center; gap: 0.45rem; font-size: 0.875rem; font-weight: 600; color: #344054; }
 .cut-hint { font-size: 0.75rem; font-weight: 400; color: #98a2b3; }
-.cut-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 0.9rem; font-size: 0.8rem; color: #475467; }
+.cut-controls { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.65rem; font-size: 0.8rem; color: #475467; }
+.cut-field { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.75rem; color: #667085; }
 .cut-kerf { display: inline-flex; align-items: center; gap: 0.4rem; }
 .cut-input { width: 4.5rem; height: 2rem; border: 1px solid #d0d5dd; border-radius: 0.45rem; background: #fff; padding: 0 0.5rem; font-size: 0.8rem; }
-.cut-check { display: inline-flex; align-items: center; gap: 0.35rem; cursor: pointer; }
+.cut-select { width: auto; min-width: 11rem; max-width: 16rem; }
+.cut-check { display: inline-flex; align-items: center; gap: 0.35rem; cursor: pointer; padding-bottom: 0.35rem; }
 .cut-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.7rem; transition: opacity 0.15s; }
 .cut-chips.stale { opacity: 0.55; }
-.chip { display: inline-flex; align-items: center; border-radius: 9999px; background: #f2f4f7; padding: 0.2rem 0.65rem; font-size: 0.78rem; color: #344054; }
+.chip { display: inline-flex; align-items: center; border-radius: 9999px; background: #f2f4f7; padding: 0.2rem 0.65rem; font-size: 0.78rem; color: #344054; border: 1px solid transparent; }
 .chip.strong { background: #eef2ff; color: #3538cd; font-weight: 600; }
 .chip.good { background: #ecfdf3; color: #067647; }
 .chip.bad { background: #fef3f2; color: #b42318; }
+.chip.flip { cursor: pointer; border-color: #465fff; color: #465fff; background: #eef2ff; }
+.chip.remove { cursor: pointer; border-color: #f97066; color: #b42318; background: #fef3f2; font-weight: 700; }
 .cut-sheets { display: grid; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); gap: 0.85rem; margin-top: 0.75rem; }
 .cut-sheet { margin: 0; }
 .cut-caption { display: flex; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.35rem; font-size: 0.78rem; color: #475467; }
@@ -385,6 +484,7 @@ onBeforeUnmount(() => {
 .svg-useful.drop-hot { fill: #a6f4c5; stroke: #067647; stroke-width: 2.5; }
 .svg-scrap { fill: #fee4e2; stroke: #f97066; stroke-width: 1; stroke-dasharray: 2 2; }
 .svg-label { fill: #344054; font-weight: 600; pointer-events: none; }
+.svg-label.scrap { fill: #b42318; }
 .cut-remnants { margin: 0.45rem 0 0; padding: 0; list-style: none; font-size: 0.76rem; color: #475467; }
 .cut-remnants li { display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; padding: 0.1rem 0; }
 .cut-remnants .dot { display: inline-block; width: 0.55rem; height: 0.55rem; border-radius: 0.15rem; }
@@ -398,11 +498,14 @@ onBeforeUnmount(() => {
 .dark .cut-controls,
 .dark .cut-caption,
 .dark .cut-remnants,
-.dark .cut-muted { color: #98a2b3; }
+.dark .cut-muted,
+.dark .cut-field { color: #98a2b3; }
 .dark .cut-input { border-color: #344054; background: transparent; color: rgba(255, 255, 255, 0.9); }
 .dark .chip { background: rgb(255 255 255 / 6%); color: #d0d5dd; }
 .dark .chip.strong { background: rgb(70 95 255 / 15%); color: #9cb0ff; }
 .dark .chip.good { background: rgb(18 183 106 / 12%); color: #6ce9a6; }
 .dark .chip.bad { background: rgb(240 68 56 / 12%); color: #fda29b; }
 .dark .svg-sheet { fill: #1d2939; stroke: #98a2b3; }
+.dark .svg-label { fill: #d0d5dd; }
+.dark .svg-label.scrap { fill: #fda29b; }
 </style>

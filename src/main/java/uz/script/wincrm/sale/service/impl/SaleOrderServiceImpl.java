@@ -4,6 +4,7 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -25,6 +26,7 @@ import uz.script.wincrm.payment.Payment;
 import uz.script.wincrm.payment.repository.PaymentRepository;
 import uz.script.wincrm.production.repository.ProductionOrderRepository;
 import uz.script.wincrm.sale.SaleOrder;
+import uz.script.wincrm.sale.SaleOrderNumbers;
 import uz.script.wincrm.sale.SaleOrderItem;
 import uz.script.wincrm.sale.dto.ApplyDiscountDTO;
 import uz.script.wincrm.sale.dto.SaleOrderDTO;
@@ -64,6 +66,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -153,7 +156,10 @@ public class SaleOrderServiceImpl implements SaleOrderService {
         entity.setDiscountAmount(BigDecimal.ZERO);
         recalculateTotals(entity);
 
-        entity = repository.save(entity);
+        synchronized (orderNumberLock) {
+            assignOrderNumber(entity);
+            entity = repository.saveAndFlush(entity);
+        }
 
         saleOrderHistoryService.recordHistory(
                 SaleOrderHistoryDTO.builder()
@@ -189,6 +195,17 @@ public class SaleOrderServiceImpl implements SaleOrderService {
         }
 
         return mapper.toResponse(entity);
+    }
+
+    private final Object orderNumberLock = new Object();
+
+    /** Shu yildagi oxirgi raqamdan keyingisi. 2027 boshlanganda 1/27. */
+    private void assignOrderNumber(SaleOrder order) {
+        int year = SaleOrderNumbers.yearOf(order.getOrderDate(), order.getCreatedAt());
+        Number max = repository.maxOrderSeq(year);
+        int seq = (max == null ? 0 : max.intValue()) + 1;
+        order.setOrderYear(year);
+        order.setOrderSeq(seq);
     }
 
     /** SUPER_ADMIN/ADMIN/DIRECTOR istalgan sotuvchi nomidan, qolganlar faqat o'z nomidan sotuv yaratadi. */
@@ -307,6 +324,36 @@ public class SaleOrderServiceImpl implements SaleOrderService {
                 .toList();
         attachWeights(orders);
         return orders;
+    }
+
+    @Override
+    public List<SaleOrderResponse> searchByNumber(String raw) {
+        String q = raw == null ? "" : raw.trim().replace(" ", "");
+        if (!q.matches("\\d{0,6}/?\\d{0,4}") || q.isEmpty() || "/".equals(q)) {
+            return List.of();
+        }
+        int slash = q.indexOf('/');
+        List<SaleOrder> found = slash >= 0
+                ? repository.searchByNumberParts(q.substring(0, slash), q.substring(slash + 1), PageRequest.of(0, 12))
+                : repository.searchByNumberDigits(q, PageRequest.of(0, 12));
+        String needle = q.toLowerCase();
+        return found.stream()
+                .sorted(Comparator.comparingInt((SaleOrder order) -> numberRank(order.orderNumber(), needle))
+                        .thenComparing(SaleOrder::getOrderYear, Comparator.nullsLast(Comparator.reverseOrder()))
+                        .thenComparing(SaleOrder::getOrderSeq, Comparator.nullsLast(Comparator.naturalOrder())))
+                .map(mapper::toResponse)
+                .toList();
+    }
+
+    private static int numberRank(String number, String needle) {
+        if (number == null) {
+            return 2;
+        }
+        String value = number.toLowerCase();
+        if (value.equals(needle)) {
+            return 0;
+        }
+        return value.startsWith(needle) ? 1 : 2;
     }
 
     private void attachWeights(List<SaleOrderResponse> orders) {

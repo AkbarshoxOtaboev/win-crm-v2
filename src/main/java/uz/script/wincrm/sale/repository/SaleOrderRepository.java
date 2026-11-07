@@ -20,11 +20,42 @@ public interface SaleOrderRepository extends JpaRepository<SaleOrder, Long> {
 
     Page<SaleOrder> findByClientId(Long clientId, Pageable pageable);
 
+    List<SaleOrder> findByOrderSeqIsNull();
+
+    @Query(value = "SELECT COALESCE(MAX(order_seq), 0) FROM sale_orders WHERE order_year = :year", nativeQuery = true)
+    Number maxOrderSeq(@Param("year") int year);
+
     Page<SaleOrder> findByWarehouseId(Long warehouseId, Pageable pageable);
 
     Page<SaleOrder> findByUserId(Long userId, Pageable pageable);
 
     List<SaleOrder> findByOrderDateBetween(LocalDateTime startDate, LocalDateTime endDate);
+
+    /** Ish nomeri: ketma-ketlik va yil qismi prefiksi, masalan 2/26. */
+    @Query("""
+            SELECT so FROM SaleOrder so
+            WHERE so.orderSeq IS NOT NULL AND so.orderYear IS NOT NULL
+              AND (:seqPrefix = '' OR CAST(so.orderSeq AS string) LIKE CONCAT(:seqPrefix, '%'))
+              AND (:yearPrefix = '' OR CAST(MOD(so.orderYear, 100) AS string) LIKE CONCAT(:yearPrefix, '%')
+                   OR CONCAT('0', CAST(MOD(so.orderYear, 100) AS string)) LIKE CONCAT(:yearPrefix, '%'))
+            ORDER BY so.orderYear DESC, so.orderSeq ASC
+            """)
+    List<SaleOrder> searchByNumberParts(
+            @Param("seqPrefix") String seqPrefix,
+            @Param("yearPrefix") String yearPrefix,
+            Pageable pageable
+    );
+
+    /** Faqat raqam: ketma-ketlik yoki yil qismi shu raqamdan boshlanadi. */
+    @Query("""
+            SELECT so FROM SaleOrder so
+            WHERE so.orderSeq IS NOT NULL AND so.orderYear IS NOT NULL
+              AND (CAST(so.orderSeq AS string) LIKE CONCAT(:q, '%')
+                   OR CAST(MOD(so.orderYear, 100) AS string) LIKE CONCAT(:q, '%')
+                   OR CONCAT('0', CAST(MOD(so.orderYear, 100) AS string)) LIKE CONCAT(:q, '%'))
+            ORDER BY so.orderYear DESC, so.orderSeq ASC
+            """)
+    List<SaleOrder> searchByNumberDigits(@Param("q") String q, Pageable pageable);
 
     /** Foyda hisoboti: bekor qilinmagan buyurtmalar pozitsiyalari, tovari va sotuvchisi bilan. */
     @Query("""

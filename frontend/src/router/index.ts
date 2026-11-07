@@ -246,12 +246,6 @@ const router = createRouter({
       meta: { title: 'Qarzdorlar', requiresAuth: true },
     },
     {
-      path: '/sales/wastes',
-      name: 'SalesWastes',
-      component: () => import('../views/crm/SalesWastesView.vue'),
-      meta: { title: 'Ortiqcha material', requiresAuth: true },
-    },
-    {
       path: '/sales/create',
       name: 'SaleOrderCreate',
       component: () => import('../views/crm/SaleOrderCreateView.vue'),

@@ -3,6 +3,9 @@ package uz.script.wincrm.cutting.service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import uz.script.wincrm.cutting.CuttingAllocation;
 import uz.script.wincrm.cutting.CuttingPlanSolver;
 import uz.script.wincrm.cutting.CuttingPlanSolver.Assignment;
@@ -18,6 +21,7 @@ import uz.script.wincrm.cutting.repository.CuttingAllocationRepository;
 import uz.script.wincrm.cutting.repository.GlassRemnantRepository;
 import uz.script.wincrm.cutting.response.CuttingOptimizeResponse;
 import uz.script.wincrm.cutting.response.CuttingResultResponse;
+import uz.script.wincrm.cutting.response.ManualLayoutResponse;
 import uz.script.wincrm.exceptions.BadRequestException;
 import uz.script.wincrm.exceptions.ResourceNotFoundException;
 import uz.script.wincrm.goods.Goods;
@@ -36,6 +40,7 @@ import uz.script.wincrm.warehouse.Warehouse;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -91,12 +96,78 @@ public class CuttingOptimizeService {
     }
 
     @Transactional(readOnly = true)
+    public ManualLayoutResponse manualLayout(Long saleOrderId) {
+        SaleOrder order = order(saleOrderId);
+        return new ManualLayoutResponse(order.getCutManualLayout(), order.getCutManualSavedAt(),
+                order.getCutManualLayoutPrevious() != null);
+    }
+
+    /** Qo'lda tahrirlangan kartani saqlaydi; oldingisi bitta qadam tarixda qoladi. */
+    @Transactional
+    public ManualLayoutResponse saveManualLayout(Long saleOrderId, String layout) {
+        SaleOrder order = order(saleOrderId);
+        checkManualLayout(layout, windowItems(saleOrderId));
+        order.setCutManualLayoutPrevious(order.getCutManualLayout());
+        order.setCutManualLayout(layout);
+        order.setCutManualSavedAt(LocalDateTime.now());
+        saleOrderRepository.save(order);
+        return manualLayout(saleOrderId);
+    }
+
+    @Transactional
+    public ManualLayoutResponse restoreManualLayout(Long saleOrderId) {
+        SaleOrder order = order(saleOrderId);
+        if (order.getCutManualLayoutPrevious() == null) {
+            throw new BadRequestException("Oldingi kesish kartasi yo'q");
+        }
+        String current = order.getCutManualLayout();
+        order.setCutManualLayout(order.getCutManualLayoutPrevious());
+        order.setCutManualLayoutPrevious(current);
+        order.setCutManualSavedAt(LocalDateTime.now());
+        saleOrderRepository.save(order);
+        return manualLayout(saleOrderId);
+    }
+
+    /** Detallar soni buyurtmadagidan farq qilmasligi kerak: varaqdagi + joylanmagan = buyurtma jami. */
+    private void checkManualLayout(String layout, List<SaleOrderItem> windows) {
+        JsonNode root;
+        try {
+            root = new ObjectMapper().readTree(layout);
+        } catch (JacksonException e) {
+            throw new BadRequestException("Kesish kartasi noto'g'ri formatda");
+        }
+        if (root == null || !root.path("boards").isArray()) {
+            throw new BadRequestException("Kesish kartasi noto'g'ri formatda");
+        }
+        Map<Long, Integer> counted = new HashMap<>();
+        for (JsonNode board : root.path("boards")) {
+            for (JsonNode part : board.path("parts")) {
+                counted.merge(part.path("itemId").asLong(), 1, Integer::sum);
+            }
+        }
+        for (JsonNode part : root.path("unplaced")) {
+            counted.merge(part.path("itemId").asLong(), 1, Integer::sum);
+        }
+        for (SaleOrderItem item : windows) {
+            int have = counted.getOrDefault(item.getId(), 0);
+            if (have != pieces(item)) {
+                throw new BadRequestException(item.getWidth() + "×" + item.getHeight()
+                        + ": kartada " + have + " ta, buyurtmada " + pieces(item) + " ta detal");
+            }
+            counted.remove(item.getId());
+        }
+        if (!counted.isEmpty()) {
+            throw new BadRequestException("Kartada buyurtmaga tegishli bo'lmagan detal bor");
+        }
+    }
+
+    @Transactional(readOnly = true)
     public CuttingOptimizeResponse load(Long saleOrderId) {
         SaleOrder order = order(saleOrderId);
         List<SaleOrderItem> windows = windowItems(saleOrderId);
         List<CuttingAllocation> saved = allocationRepository.findBySaleOrder_Id(saleOrderId);
         if (saved.isEmpty()) {
-            return suggestUnlocked(order, windows, DEFAULT_KERF, DEFAULT_EDGE, DEFAULT_EDGE, true, true);
+            return suggestUnlocked(order, windows, DEFAULT_KERF, DEFAULT_EDGE, DEFAULT_EDGE, true, true, null, null, null);
         }
         return savedView(order, windows, saved);
     }
@@ -113,11 +184,17 @@ public class CuttingOptimizeService {
         BigDecimal edgeHeight = request == null || request.getMinRemnantHeightCm() == null ? edge : request.getMinRemnantHeightCm();
         boolean rotate = request == null || request.getAllowRotate() == null || request.getAllowRotate();
         boolean fromRemnant = request == null || request.getSource() == null || !"SHEET".equalsIgnoreCase(request.getSource());
+        BigDecimal maxScrap = request == null ? null : request.getMaxScrapPercent();
+        BigDecimal wasteWidth = request == null ? null : request.getWasteWidthCm();
+        BigDecimal wasteHeight = request == null ? null : request.getWasteHeightCm();
         checkKerf(kerf);
         if (edgeWidth.signum() < 0 || edgeHeight.signum() < 0) {
             throw new BadRequestException("Chegara qoldig'i manfiy bo'lishi mumkin emas");
         }
-        return suggestUnlocked(order, windowItems(saleOrderId), kerf, edgeWidth, edgeHeight, rotate, fromRemnant);
+        if (maxScrap != null && (maxScrap.signum() < 0 || maxScrap.compareTo(BigDecimal.valueOf(100)) > 0)) {
+            throw new BadRequestException("Chiqindi foizi 0 dan 100 gacha bo'lishi kerak");
+        }
+        return suggestUnlocked(order, windowItems(saleOrderId), kerf, edgeWidth, edgeHeight, rotate, fromRemnant, maxScrap, wasteWidth, wasteHeight);
     }
 
     @Transactional
@@ -282,7 +359,10 @@ public class CuttingOptimizeService {
             BigDecimal edgeWidth,
             BigDecimal edgeHeight,
             boolean rotate,
-            boolean fromRemnant
+            boolean fromRemnant,
+            BigDecimal maxScrapPercent,
+            BigDecimal wasteWidthCm,
+            BigDecimal wasteHeightCm
     ) {
         List<Goods> catalog = windowCatalog();
         List<GlassRemnant> stock = stockRemnants(order, windows, catalog);
@@ -317,7 +397,8 @@ public class CuttingOptimizeService {
                     .toList();
             try {
                 for (Assignment assignment : CuttingPlanSolver.plan(
-                        demands, choices, rems, kerf, edgeWidth, edgeHeight, rotate, fromRemnant)) {
+                        demands, choices, rems, kerf, edgeWidth, edgeHeight, rotate, fromRemnant,
+                        maxScrapPercent, wasteWidthCm, wasteHeightCm)) {
                     planned.put(assignment.itemId(), assignment);
                 }
             } catch (BadRequestException ignored) {

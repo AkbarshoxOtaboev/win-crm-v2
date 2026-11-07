@@ -33,6 +33,7 @@ export default {
       CASHIER: 'Kassir (to‘lov qabul qiluvchi)',
       PRODUCTION_MANAGER: 'Ishlab chiqarish boshlig‘i',
       TRANSPORT_MANAGER: 'Transport menejeri',
+      WAREHOUSE_MANAGER: 'Ombor mudiri',
     },
   },
   ru: {
@@ -69,6 +70,7 @@ export default {
       CASHIER: 'Кассир (приём оплат)',
       PRODUCTION_MANAGER: 'Начальник производства',
       TRANSPORT_MANAGER: 'Менеджер транспорта',
+      WAREHOUSE_MANAGER: 'Заведующий складом',
     },
   },
   en: {
@@ -105,6 +107,7 @@ export default {
       CASHIER: 'Cashier (payment entry)',
       PRODUCTION_MANAGER: 'Production manager',
       TRANSPORT_MANAGER: 'Transport manager',
+      WAREHOUSE_MANAGER: 'Warehouse manager',
     },
   },
 }

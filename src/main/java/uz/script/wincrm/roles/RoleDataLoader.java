@@ -84,6 +84,16 @@ public class RoleDataLoader implements CommandLineRunner {
             "DASHBOARD_VIEW"
     );
 
+    /** Ombor mudiri — kirim buyurtma yaratish, uni omborga o'tkazish va omborlar orasida transfer */
+    private static final Set<String> WAREHOUSE_MANAGER_PERMISSIONS = Set.of(
+            "WAREHOUSE_ORDER_VIEW", "WAREHOUSE_ORDER_CREATE", "WAREHOUSE_ORDER_EDIT",
+            "WAREHOUSE_ORDER_ITEM_VIEW", "WAREHOUSE_ORDER_ITEM_CREATE", "WAREHOUSE_ORDER_ITEM_EDIT", "WAREHOUSE_ORDER_ITEM_DELETE",
+            "WAREHOUSE_VIEW",
+            "STOCK_VIEW", "STOCK_EDIT", "STOCK_HISTORIES_VIEW",
+            "SUPPLIER_VIEW",
+            "GOODS_VIEW", "GOODS_GROUP_VIEW", "UNIT_TYPE_VIEW"
+    );
+
     @Override
     @Transactional
     public void run(String @NonNull ... args) {
@@ -134,6 +144,7 @@ public class RoleDataLoader implements CommandLineRunner {
         ensureRoleWithPermissions("PRODUCTION_MANAGER", PRODUCTION_MANAGER_PERMISSIONS, byName);
         ensureRoleWithPermissions("TRANSPORT_MANAGER", TRANSPORT_MANAGER_PERMISSIONS, byName);
         ensureRoleWithPermissions("CASHIER", CASHIER_PERMISSIONS, byName);
+        ensureRoleWithPermissions("WAREHOUSE_MANAGER", WAREHOUSE_MANAGER_PERMISSIONS, byName);
         retireRole("WORKSHOP_MANAGER");
     }
 
